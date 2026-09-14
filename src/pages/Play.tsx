@@ -806,7 +806,7 @@ function NewPlay({
               </strong>{' '}
               esta noite — {totalPartidas} no total, em {effCourts}{' '}
               {effCourts === 1 ? 'quadra' : 'quadras'}: uns{' '}
-              <strong>{duracaoEstimada(totalPartidas, effCourts)}</strong> a 15 min por partida.
+              <strong>{duracaoEstimada(totalPartidas, effCourts)}</strong> a {MINUTOS_POR_PARTIDA} min por partida.
             </div>
           )}
           <p className="tiny muted" style={{ margin: '2px 2px 0' }}>
@@ -1010,9 +1010,12 @@ function NewPlay({
   )
 }
 
-/** "2h15" para a noite: rodadas de quadra cheia, a 15 min cada -- e so uma estimativa. */
+/** "2h15" para a noite: rodadas de quadra cheia, a 20 min cada (a media medida em quadra). */
+/** Uma partida ate 4 pontos dura isso, em media, na V3. */
+const MINUTOS_POR_PARTIDA = 20
+
 function duracaoEstimada(partidas: number, quadras: number): string {
-  const min = Math.ceil(partidas / Math.max(1, quadras)) * 15
+  const min = Math.ceil(partidas / Math.max(1, quadras)) * MINUTOS_POR_PARTIDA
   const h = Math.floor(min / 60)
   const m = min % 60
   return h === 0 ? `${m} min` : m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
