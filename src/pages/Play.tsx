@@ -26,6 +26,7 @@ import {
   proximasDasQuadras,
   refazerFila,
 } from '../lib/pairing'
+import { normalizar } from '../lib/roster'
 import { dayRankingText, scheduleText } from '../lib/share'
 import { isPlayed, matchPoints } from '../lib/scoring'
 import { loadFins, loadInicios, saveFins, saveInicios, type Horarios } from '../lib/emQuadra'
@@ -36,6 +37,7 @@ import {
   computeStats,
   type DuplaDoDia,
   DUPLAS_NO_PODIO,
+  FORCA_PADRAO,
   pairKey,
   playedMatches,
   type PlayerStat,
@@ -1059,6 +1061,7 @@ function PlayDetail({
   const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, replaceSessionMatches } =
     useStore()
   const [showRank, setShowRank] = useState(false)
+  const [substituindo, setSubstituindo] = useState(false)
   const [arte, setArte] = useState<{ url: string; blob: Blob } | null>(null)
   const [gerando, setGerando] = useState(false)
   /** Partida escolhida na mao para uma quadra, no lugar da sugestao. */
@@ -1630,15 +1633,15 @@ function PlayDetail({
    * Refaz so o que ainda nao aconteceu: junta as duplas que ainda faltam
    * formar e monta as partidas em cima do que ja foi jogado hoje.
    */
-  async function regenerarPendentes() {
+  async function regenerarPendentes(sessao: PlaySession = session, silencioso = false) {
     const naFila = matches.filter((m) => !isPlayed(m) && !iniciada(m))
-    if (naFila.length === 0) {
+    if (naFila.length === 0 && !silencioso) {
       onToast('Não há partidas na fila para refazer')
       return
     }
     const fila = refazerFila({
-      playerIds: session.player_ids,
-      groups: session.groups ?? undefined,
+      playerIds: sessao.player_ids,
+      groups: sessao.groups ?? undefined,
       jogadas,
       ratings: ratings(data, session.date),
       entrosamento: ajusteDeEntrosamento(data),
@@ -1654,8 +1657,128 @@ function PlayDetail({
       round: ultima + i + 1,
     }))
     await replaceSessionMatches(session.id, [...preservadas, ...novas])
-    await saveSession({ ...session, rounds: preservadas.length + novas.length })
-    onToast(`${novas.length === 1 ? 'uma partida refeita' : `${novas.length} partidas refeitas`} 🔄`)
+    await saveSession({ ...sessao, rounds: preservadas.length + novas.length })
+    if (!silencioso) {
+      onToast(`${novas.length === 1 ? 'uma partida refeita' : `${novas.length} partidas refeitas`} 🔄`)
+    }
+  }
+
+  /**
+   * ENTRA / SAI NO MEIO DO PLAY
+   *
+   * O caso tipico: o play esta cheio, alguem faltou e outra pessoa quer a
+   * vaga -- inclusive alguem de fora, que e cadastrada na hora. Tres jeitos
+   * de encaixar quem entra:
+   *
+   *  - "no lugar": herda exatamente as partidas que quem saiu ainda nao jogou
+   *    (e a vaga na dupla fixa, no grupos+duplas). Nada mais muda.
+   *  - "grupo escolhido" / "deixar o app encaixar": entra no grupo escolhido
+   *    (ou no de forca media mais proxima da sua) e a fila que ainda nao
+   *    aconteceu e refeita em cima do que ja foi jogado.
+   *
+   * Quem esta em quadra agora nao sai: a partida iniciada precisa terminar.
+   */
+  async function substituir(p: {
+    sai: string | null
+    entra: { id: string } | { nome: string } | null
+    onde: 'lugar' | 'auto' | 'grupo'
+    grupo: number
+  }) {
+    const { sai, onde, grupo } = p
+    if (!sai && !p.entra) return
+    if (sai && matches.some((m) => iniciada(m) && jogadorasDaPartida(m).includes(sai))) {
+      onToast(`${nameOf(sai)} está em quadra agora — lance o placar antes de tirá-la`)
+      return
+    }
+
+    // quem entra: cadastrada, ou criada agora (reaproveitando se o nome ja existe)
+    let entra: string | null = null
+    // o nome de quem entra: quem e criada agora ainda nao esta no `data`
+    // quando o toast sai, entao o nome vem do que foi digitado
+    let nomeDeQuemEntra = ''
+    if (p.entra && 'id' in p.entra) {
+      entra = p.entra.id
+      nomeDeQuemEntra = nameOf(entra)
+    }
+    if (p.entra && 'nome' in p.entra) {
+      const nome = p.entra.nome.trim()
+      if (!nome) return
+      nomeDeQuemEntra = nome
+      const existente = data.players.find((x) => normalizar(x.name) === normalizar(nome))
+      if (existente) {
+        entra = existente.id
+      } else {
+        const nova: Player = {
+          id: uid(),
+          name: nome,
+          photo_url: null,
+          active: true,
+          created_at: new Date().toISOString(),
+          categoria: 'isenta',
+          pago_mes: null,
+          pago_avulso: false,
+        }
+        await savePlayer(nova)
+        entra = nova.id
+      }
+    }
+    if (entra && session.player_ids.includes(entra)) {
+      onToast(`${nomeDeQuemEntra} já está neste play`)
+      return
+    }
+
+    const player_ids = session.player_ids.filter((id) => id !== sai)
+    if (entra) player_ids.push(entra)
+
+    // os grupos: tira quem saiu e poe quem entrou onde foi pedido
+    let groups = session.groups ? session.groups.map((g) => g.filter((id) => id !== sai)) : null
+    if (groups && entra) {
+      let alvo: number
+      if (onde === 'lugar' && sai) {
+        alvo = Math.max(0, (session.groups as string[][]).findIndex((g) => g.includes(sai)))
+      } else if (onde === 'grupo') {
+        alvo = grupo
+      } else if (groups.some((g) => g.length < 4)) {
+        // quem saiu deixou um grupo sem os quatro do rodizio: o buraco vem
+        // antes da forca, senao a troca seria recusada logo abaixo
+        alvo = groups.findIndex((g) => g.length < 4)
+      } else {
+        // o grupo cuja forca media fica mais perto da dela
+        const forcas = ratings(data, session.date)
+        const minha = forcas.get(entra) ?? FORCA_PADRAO
+        const media = (g: string[]) =>
+          g.reduce((t, id) => t + (forcas.get(id) ?? FORCA_PADRAO), 0) / Math.max(1, g.length)
+        alvo = groups.reduce(
+          (melhor, g, i, todos) =>
+            Math.abs(media(g) - minha) < Math.abs(media(todos[melhor]) - minha) ? i : melhor,
+          0,
+        )
+      }
+      groups = groups.map((g, i) => (i === alvo ? [...g, entra as string] : g))
+    }
+    if (groups && groups.some((g) => g.length < 4)) {
+      onToast('Um grupo ficaria com menos de 4 — coloque alguém no lugar')
+      return
+    }
+
+    const duos = session.duos
+      ? session.duos.map((d) => d.map((id) => (id === sai && entra ? entra : id)) as [string, string])
+      : session.duos
+    const nova: PlaySession = { ...session, player_ids, groups, duos }
+
+    if (onde === 'lugar' && sai && entra) {
+      const trocadas = matches
+        .filter((m) => !isPlayed(m) && jogadorasDaPartida(m).includes(sai))
+        .map((m) => trocarNaPartida(m, sai, entra as string))
+      if (trocadas.length) await saveMatches(trocadas)
+      await saveSession(nova)
+      onToast(`${nomeDeQuemEntra} entrou no lugar de ${nameOf(sai)} 🔁`)
+      return
+    }
+
+    await saveSession(nova)
+    await regenerarPendentes(nova, true)
+    onToast(entra ? `${nomeDeQuemEntra} entrou no play 🔁` : `${nameOf(sai as string)} saiu do play`)
   }
 
   async function regenerate() {
@@ -1796,6 +1919,11 @@ function PlayDetail({
         </div>
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 19, fontWeight: 800 }}>{session.title}</div>
+          <div className="small" style={{ fontWeight: 700, marginTop: 2 }}>
+            {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o campeonato'}
+            {' · '}
+            {FORMATOS.find((f) => f.valor === (session.format ?? 'todas'))?.rotulo ?? session.format}
+          </div>
           <div className="small muted">
             {dateLabel(session.date)} · {session.player_ids.length} jogadoras · {session.courts} quadras
             {grupos && grupos.length > 1 && ` · ${grupos.length} grupos`} · até {session.target} games
@@ -1819,6 +1947,11 @@ function PlayDetail({
           <button className="btn ghost sm" onClick={() => setShowRank(true)}>🏆 Ranking do dia</button>
           {editable && (
             <>
+              {!finished && (
+                <button className="btn ghost sm" onClick={() => setSubstituindo(true)}>
+                  🔁 Entra / sai
+                </button>
+              )}
               <button className="btn ghost sm" onClick={() => void regenerarPendentes()}>
                 🔄 Refazer a fila
               </button>
@@ -2009,6 +2142,17 @@ function PlayDetail({
         >
           ➡️ Gerar as duplas do próximo play
         </button>
+      )}
+
+      {substituindo && (
+        <SubstituirJogadora
+          session={session}
+          onClose={() => setSubstituindo(false)}
+          onAplicar={async (p) => {
+            setSubstituindo(false)
+            await substituir(p)
+          }}
+        />
       )}
 
       {corrigindo && (
@@ -3252,5 +3396,180 @@ function PlacarManual({
         </button>
       </div>
     </div>
+  )
+}
+
+
+/** O modal do entra/sai: quem sai, quem entra e onde entra. */
+function SubstituirJogadora({
+  session,
+  onClose,
+  onAplicar,
+}: {
+  session: PlaySession
+  onClose: () => void
+  onAplicar: (p: {
+    sai: string | null
+    entra: { id: string } | { nome: string } | null
+    onde: 'lugar' | 'auto' | 'grupo'
+    grupo: number
+  }) => void
+}) {
+  const { data, nameOf } = useStore()
+  const [sai, setSai] = useState<string>('')
+  const [modo, setModo] = useState<'ninguem' | 'cadastrada' | 'nova'>('cadastrada')
+  const [entraId, setEntraId] = useState<string>('')
+  const [nome, setNome] = useState('')
+  const [onde, setOnde] = useState<'lugar' | 'auto' | 'grupo'>('lugar')
+  const [grupo, setGrupo] = useState(0)
+
+  const grupos = session.groups ?? []
+  const emFase2 = Boolean(session.duos?.length)
+  const noPlay = new Set(session.player_ids)
+  const fora = [...data.players]
+    .filter((p) => p.active && !noPlay.has(p.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+  const entra = modo === 'ninguem' ? null : modo === 'nova' ? nome.trim() : entraId
+  const temEntra = Boolean(entra)
+  const temSai = Boolean(sai)
+
+  // "no lugar" precisa de alguem saindo E alguem entrando; na fase 2 (duplas
+  // fixas) e o unico jeito, porque a fila nao e mais um rodizio
+  const podeLugar = temSai && temEntra
+  const podeRefazer = !emFase2 && (temSai || temEntra)
+  const ondeValido =
+    onde === 'lugar' ? podeLugar : onde === 'grupo' ? podeRefazer && grupos.length > 1 && temEntra : podeRefazer
+  const pronto = (temSai || temEntra) && (temEntra ? ondeValido : podeRefazer)
+
+  return (
+    <Modal title="🔁 Entra / sai" onClose={onClose}>
+      <div className="field">
+        <span>Quem sai</span>
+        <select className="select" value={sai} onChange={(e) => setSai(e.target.value)}>
+          <option value="">ninguém sai — só entra alguém</option>
+          {session.player_ids.map((id) => (
+            <option key={id} value={id}>{nameOf(id)}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field" style={{ marginTop: 12 }}>
+        <span>Quem entra</span>
+        <div className="chips-scroll">
+          {(
+            [
+              ['cadastrada', '👤 Já cadastrada'],
+              ['nova', '➕ Alguém de fora'],
+              ['ninguem', '🚪 Ninguém — só sai'],
+            ] as const
+          ).map(([v, r]) => (
+            <button
+              key={v}
+              type="button"
+              className={`chip ${modo === v ? 'on' : 'off'}`}
+              style={{ flex: 'none' }}
+              onClick={() => setModo(v)}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        {modo === 'cadastrada' && (
+          <select className="select" style={{ marginTop: 8 }} value={entraId} onChange={(e) => setEntraId(e.target.value)}>
+            <option value="">escolha…</option>
+            {fora.map((p) => (
+              <option key={p.id} value={p.id}>{p.nickname?.trim() || p.name}</option>
+            ))}
+          </select>
+        )}
+        {modo === 'nova' && (
+          <>
+            <input
+              className="input"
+              style={{ marginTop: 8 }}
+              placeholder="Nome de quem entra"
+              value={nome}
+              autoFocus
+              onChange={(e) => setNome(e.target.value)}
+            />
+            <em className="hint" style={{ marginTop: 6 }}>
+              Entra no cadastro agora, como isenta e com a força inicial padrão — dá para ajustar
+              depois no perfil.
+            </em>
+          </>
+        )}
+      </div>
+
+      {temEntra && (
+        <div className="field" style={{ marginTop: 12 }}>
+          <span>Onde ela entra</span>
+          <div className="stack" style={{ gap: 6 }}>
+            <label className={`fase-box${!podeLugar ? ' off' : ''}`} style={{ gap: 8 }}>
+              <input type="radio" checked={onde === 'lugar'} disabled={!podeLugar} onChange={() => setOnde('lugar')} />
+              <span>
+                <strong>No lugar de quem saiu</strong>
+                <br />
+                <span className="tiny muted">herda as partidas que ainda não foram jogadas; nada mais muda</span>
+              </span>
+            </label>
+            <label className={`fase-box${!podeRefazer ? ' off' : ''}`} style={{ gap: 8 }}>
+              <input type="radio" checked={onde === 'auto'} disabled={!podeRefazer} onChange={() => setOnde('auto')} />
+              <span>
+                <strong>Deixar o app encaixar</strong>
+                <br />
+                <span className="tiny muted">
+                  {grupos.length > 1 ? 'vai para o grupo de força mais parecida, e ' : ''}a fila que ainda
+                  não aconteceu é refeita com ela
+                </span>
+              </span>
+            </label>
+            {grupos.length > 1 && (
+              <label className={`fase-box${!podeRefazer ? ' off' : ''}`} style={{ gap: 8 }}>
+                <input type="radio" checked={onde === 'grupo'} disabled={!podeRefazer} onChange={() => setOnde('grupo')} />
+                <span className="grow">
+                  <strong>Escolher o grupo</strong>
+                  {onde === 'grupo' && (
+                    <select className="select" style={{ marginTop: 6 }} value={grupo} onChange={(e) => setGrupo(Number(e.target.value))}>
+                      {grupos.map((g, i) => (
+                        <option key={i} value={i}>Grupo {i + 1} · {g.length} jogadoras</option>
+                      ))}
+                    </select>
+                  )}
+                </span>
+              </label>
+            )}
+          </div>
+          {emFase2 && (
+            <em className="hint" style={{ marginTop: 6 }}>
+              As duplas fixas já estão formadas: aqui só dá para entrar no lugar de quem sai.
+            </em>
+          )}
+        </div>
+      )}
+
+      {!temEntra && temSai && emFase2 && (
+        <div className="banner warn" style={{ marginTop: 8 }}>
+          Com as duplas fixas formadas, alguém precisa entrar no lugar dela — senão a dupla fica sem par.
+        </div>
+      )}
+
+      <div className="row" style={{ gap: 8, marginTop: 14 }}>
+        <button className="btn ghost grow" onClick={onClose}>Cancelar</button>
+        <button
+          className="btn pink grow"
+          disabled={!pronto}
+          onClick={() =>
+            onAplicar({
+              sai: sai || null,
+              entra: modo === 'ninguem' ? null : modo === 'nova' ? { nome } : { id: entraId },
+              onde,
+              grupo,
+            })
+          }
+        >
+          Aplicar
+        </button>
+      </div>
+    </Modal>
   )
 }

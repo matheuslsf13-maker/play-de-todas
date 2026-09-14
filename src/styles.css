@@ -1127,6 +1127,11 @@ textarea.input { line-height: 1.45; }
    `.row` ele cobria o vizinho -- aqui ele fica sozinho na linha */
 .fase-box .stepper { width: 100%; }
 
+/* opcao do entra/sai: radio + texto lado a lado; apagada quando nao se aplica */
+label.fase-box { display: flex; align-items: flex-start; cursor: pointer; }
+label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
+.fase-box.off { opacity: .45; cursor: default; }
+
 
 /* ---- uma cor por grupo ----
    Nao saem da paleta da marca de proposito: precisam ser distinguiveis ENTRE
