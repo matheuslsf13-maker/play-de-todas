@@ -415,6 +415,9 @@ function NewPlay({
   const parceirasMax = Math.max(...tamanhos.map(parceirasDoRodizio))
   // jogos e parceiras nao sao a mesma coisa: num grupo de 6 cada uma joga com
   // as outras 5 e ainda repete uma, entao sao 6 jogos para 5 parceiras
+  /** A regra e o alvo que a fase de grupos vai usar: e dela que sai a estimativa de tempo. */
+  const regraDaNoite = emDuplas ? lerRegra(desempates[0] ?? 'nenhum') : regra
+  const minutosDaNoite = minutosDaPartida(emDuplas ? alvos[0] : target, regraDaNoite)
   const jogosMin = Math.min(...tamanhos.map(jogosDoRodizio))
   const jogosMax = Math.max(...tamanhos.map(jogosDoRodizio))
   const repetem = Math.max(...tamanhos.map(repeticoesPorJogadora))
@@ -806,8 +809,9 @@ function NewPlay({
               </strong>{' '}
               esta noite — {totalPartidas} no total, em {effCourts}{' '}
               {effCourts === 1 ? 'quadra' : 'quadras'}: uns{' '}
-              <strong>{duracaoEstimada(totalPartidas, effCourts, emDuplas ? alvos[0] : target)}</strong>{' '}
-              a {(emDuplas ? alvos[0] : target) * MINUTOS_POR_PONTO} min por partida.
+              <strong>{duracaoEstimada(totalPartidas, effCourts, minutosDaNoite)}</strong>{' '}
+              a uns {Math.round(minutosDaNoite)} min por partida, contando os games de quem perde
+              {regraDaNoite.modo === 'alvo' ? '' : ' e o desempate'}.
             </div>
           )}
           <p className="tiny muted" style={{ margin: '2px 2px 0' }}>
@@ -1012,18 +1016,32 @@ function NewPlay({
 }
 
 /**
- * Quanto dura cada ponto do alvo, em media: uma partida ate 4 leva uns 20 min
- * em quadra, entao ate 6 leva uns 30. E a media medida na V3, so estimativa.
+ * Quanto dura um GAME, em media, em quadra. E a calibragem: uma partida ate
+ * 4 leva uns 20 min, e ela tem em media 5,5 games (os 4 de quem ganha mais
+ * uns 1,5 de quem perde) -- 20 / 5,5.
  */
-const MINUTOS_POR_PONTO = 5
+const MINUTOS_POR_GAME = 3.6
 
 /**
- * "2h15" para a noite: rodadas de quadra cheia, cada uma durando o alvo da
- * partida vezes os minutos por ponto. Mais quadras, menos rodadas; alvo
- * maior, rodada mais longa.
+ * Quanto dura uma partida, em media, contando os games dos DOIS lados: quem
+ * perde tambem joga, e um 6x5 e bem mais longo que um 6x0. Quem perde faz,
+ * na media, metade do que podia (alvo - 1) / 2. O modo de desempate estica:
+ * "so vai a 2" costuma render um game a mais, e o tie vale uns 1,5 (de 7) ou
+ * 2 (de 10) games de tempo quando acontece.
  */
-function duracaoEstimada(partidas: number, quadras: number, alvo = 4): string {
-  const min = Math.ceil(partidas / Math.max(1, quadras)) * Math.round(alvo * MINUTOS_POR_PONTO)
+function minutosDaPartida(alvo: number, r: Regra): number {
+  const doDesempate = r.modo === 'alvo' ? 0 : r.modo === 'vantagem' ? 1 : r.tie === 10 ? 2 : 1.5
+  const games = alvo + (alvo - 1) / 2 + doDesempate
+  return games * MINUTOS_POR_GAME
+}
+
+/**
+ * "2h15" para a noite: rodadas de quadra cheia, cada uma durando o que uma
+ * partida daquelas dura. Mais quadras, menos rodadas; alvo maior ou desempate
+ * mais longo, rodada mais longa.
+ */
+function duracaoEstimada(partidas: number, quadras: number, minutosPorPartida: number): string {
+  const min = Math.ceil(partidas / Math.max(1, quadras)) * Math.round(minutosPorPartida)
   const h = Math.floor(min / 60)
   const m = min % 60
   return h === 0 ? `${m} min` : m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
@@ -1302,9 +1320,11 @@ function PlayDetail({
   }, [matches, soFase2, session.duos, session.player_ids, session.status, vivas])
 
   const doneCount = matches.filter(isPlayed).length
-  /** O alvo medio de um conjunto de partidas: no grupos+duplas cada fase tem o seu. */
-  const alvoMedio = (ms: Match[]) =>
-    ms.length === 0 ? session.target : ms.reduce((t, m) => t + alvoDe(m), 0) / ms.length
+  /** Quanto dura, em media, uma partida deste conjunto: no grupos+duplas cada fase tem alvo e regra proprios. */
+  const minutosMedios = (ms: Match[]) =>
+    ms.length === 0
+      ? minutosDaPartida(session.target, regraDoPlay)
+      : ms.reduce((t, m) => t + minutosDaPartida(alvoDe(m), regraDe(m)), 0) / ms.length
 
   /** "8 partidas", ou "7 a 9" quando um entra/sai deixou desigual. */
   const jogosPorPessoa = useMemo(() => {
@@ -1980,16 +2000,16 @@ function PlayDetail({
               🎾 Cada menina joga <strong>{jogosPorPessoa}</strong>
               {' · '}
               {finished
-                ? `noite de ${duracaoEstimada(matches.length, session.courts, alvoMedio(matches))}`
+                ? `noite de ${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`
                 : doneCount === 0
-                  ? `noite de uns ${duracaoEstimada(matches.length, session.courts, alvoMedio(matches))}`
+                  ? `noite de uns ${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`
                   : `faltam ${matches.length - doneCount} partidas, uns ${duracaoEstimada(
                       matches.length - doneCount,
                       session.courts,
-                      alvoMedio(matches.filter((m) => !isPlayed(m))),
+                      minutosMedios(matches.filter((m) => !isPlayed(m))),
                     )}`}
               <span className="muted" style={{ fontWeight: 500 }}>
-                {' '}(a {MINUTOS_POR_PONTO} min por ponto do alvo)
+                {' '}(uns {Math.round(minutosMedios(matches))} min por partida, com os games de quem perde e o desempate)
               </span>
             </div>
           )}
