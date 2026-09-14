@@ -798,6 +798,17 @@ function NewPlay({
             </div>
           )}
 
+          {selected.length >= 4 && (
+            <div className="banner info" style={{ marginTop: 8, marginBottom: 8 }}>
+              🎾 Cada menina joga{' '}
+              <strong>
+                {jogosMin === jogosMax ? `${jogosMin} partidas` : `${jogosMin} a ${jogosMax} partidas`}
+              </strong>{' '}
+              esta noite — {totalPartidas} no total, em {effCourts}{' '}
+              {effCourts === 1 ? 'quadra' : 'quadras'}: uns{' '}
+              <strong>{duracaoEstimada(totalPartidas, effCourts)}</strong> a 15 min por partida.
+            </div>
+          )}
           <p className="tiny muted" style={{ margin: '2px 2px 0' }}>
             {selected.length < 4 ? (
               'Escolha as jogadoras abaixo para o app calcular as partidas.'
@@ -997,6 +1008,14 @@ function NewPlay({
       </button>
     </>
   )
+}
+
+/** "2h15" para a noite: rodadas de quadra cheia, a 15 min cada -- e so uma estimativa. */
+function duracaoEstimada(partidas: number, quadras: number): string {
+  const min = Math.ceil(partidas / Math.max(1, quadras)) * 15
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return h === 0 ? `${m} min` : m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
 }
 
 /** "2 grupos de 8" quando dao certo, "3 grupos: 7, 7 e 6" quando nao. */

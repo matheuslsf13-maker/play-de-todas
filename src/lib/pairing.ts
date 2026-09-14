@@ -47,10 +47,30 @@ const W_OPP_DIA = 50 // por vez que essas duas ja se enfrentaram HOJE
 const W_OPP_HIST = 12 // por vez que ja se enfrentaram em plays anteriores
 const W_REPETIDA = 400 // dupla que precisou jogar duas vezes
 
+/*
+ * O sorteio interno do rodizio tem SEMENTE quando `rodizioDoGrupo` compara as
+ * possibilidades: cada tentativa embaralha do mesmo jeito toda vez, entao
+ * mesmas pessoas e mesmas forcas dao sempre o mesmo resultado -- "com quem eu
+ * repito" vira uma resposta, nao um sorteio. Fora dessa comparacao (ordem da
+ * fila, refazer a fila) o sorteio continua livre.
+ */
+let sorteio: () => number = Math.random
+
+function comSemente(semente: number): () => number {
+  let x = semente >>> 0
+  return () => {
+    x = (x + 0x6d2b79f5) >>> 0
+    let t = x
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice()
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(sorteio() * (i + 1))
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
@@ -621,7 +641,7 @@ function circleMethod(ids: string[]): Duo[][] {
   return out
 }
 
-function umRodizio(ids: string[], ctx: Contexto): Partida[] {
+function umRodizio(ids: string[], ctx: Contexto, repetidas: Duo[]): Partida[] {
   const partidas: Partida[] = []
   const sobras: Duo[] = []
 
@@ -641,8 +661,9 @@ function umRodizio(ids: string[], ctx: Contexto): Partida[] {
 
   // As duplas que repetem entram AQUI, junto das sobras, e nao como remendo no
   // fim: escolhidas assim, cada jogadora repete a mesma quantidade de vezes e
-  // o grupo inteiro termina com o mesmo numero de jogos.
-  sobras.push(...duplasQueRepetem(ids, repeticoesPorJogadora(ids.length)))
+  // o grupo inteiro termina com o mesmo numero de jogos. QUAIS sao elas e
+  // decidido em `rodizioDoGrupo`, que compara as possibilidades.
+  sobras.push(...repetidas)
 
   // as sobras vem de rondas diferentes, entao podem dividir jogadora
   const { partidas: extras, orfas } = emparelhar(sobras, ctx)
@@ -651,15 +672,81 @@ function umRodizio(ids: string[], ctx: Contexto): Partida[] {
   // Sobrou dupla sem adversaria (o total de combinacoes do grupo e impar):
   // uma dupla ja formada joga uma segunda vez, so para ela ter contra quem
   // jogar. O app marca a partida como repetida em vez de esconder isso.
+  // quem ja repete parceira (pelo ciclo) nao deve ser a que joga de novo aqui:
+  // a repeticao extra cai em quem ainda nao repetiu, para nao pesar duas vezes
+  // na mesma pessoa
+  const repeticoes = new Map<string, number>()
+  for (const d of repetidas) for (const id of d) repeticoes.set(id, (repeticoes.get(id) ?? 0) + 1)
   for (const orfa of orfas) {
-    const rival = escolherRival(partidas, orfa, ctx)
+    const rival = escolherRival(partidas, orfa, ctx, repeticoes)
     if (!rival) continue
     partidas.push({ team_a: orfa, team_b: rival, repetida: true })
     marcarConfronto(orfa, rival, ctx.dia)
+    for (const id of rival) repeticoes.set(id, (repeticoes.get(id) ?? 0) + 1)
   }
 
   melhorarConfrontos(partidas, ctx)
   return partidas
+}
+
+/** Ate quantos jeitos de repetir o app compara um por um. */
+const LIMITE_EXAUSTIVO = 1000
+/** Acima do limite, quantos jeitos sorteados ele compara. */
+const AMOSTRA_DE_REPETIDAS = 300
+
+/**
+ * TODOS os jeitos de escolher quem repete com quem, respeitando a regra de
+ * cada pessoa repetir o mesmo tanto:
+ *
+ *  - grupo com resto 2 (6, 10, 14...): cada uma repete 1 -> um pareamento
+ *    perfeito do grupo; 6 pessoas dao 15, 10 dao 945.
+ *  - grupo com resto 3 (7, 11, 15...): cada uma repete 2 -> um ciclo por
+ *    todas; 7 pessoas dao 360, 11 dao 1,8 milhao (ai vai por amostra).
+ *
+ * Devolve vazio quando o grupo nao repete. Para de contar quando passa do
+ * limite: nao adianta listar o que nao vai ser comparado.
+ */
+function conjuntosDeRepetidas(ids: string[]): Duo[][] {
+  const k = repeticoesPorJogadora(ids.length)
+  if (k === 0 || ids.length < 4) return []
+  const out: Duo[][] = []
+  if (k === 1) {
+    const pareamentos = (restantes: string[], atual: Duo[]) => {
+      if (out.length > LIMITE_EXAUSTIVO) return
+      if (restantes.length === 0) {
+        out.push(atual.slice())
+        return
+      }
+      const [a, ...resto] = restantes
+      for (let i = 0; i < resto.length; i++) {
+        atual.push([a, resto[i]])
+        pareamentos([...resto.slice(0, i), ...resto.slice(i + 1)], atual)
+        atual.pop()
+      }
+    }
+    pareamentos(ids, [])
+    return out
+  }
+  // ciclos: fixa a primeira pessoa e permuta as outras; cada ciclo aparece
+  // duas vezes (ida e volta), entao so vale a permutacao em que a segunda
+  // pessoa vem antes da ultima
+  const [primeira, ...outras] = ids
+  const permuta = (restantes: string[], atual: string[]) => {
+    if (out.length > LIMITE_EXAUSTIVO) return
+    if (restantes.length === 0) {
+      if (atual[0] > atual[atual.length - 1]) return
+      const ciclo = [primeira, ...atual]
+      out.push(ciclo.map((id, i) => [id, ciclo[(i + 1) % ciclo.length]] as Duo))
+      return
+    }
+    for (let i = 0; i < restantes.length; i++) {
+      atual.push(restantes[i])
+      permuta([...restantes.slice(0, i), ...restantes.slice(i + 1)], atual)
+      atual.pop()
+    }
+  }
+  permuta(outras, [])
+  return out
 }
 
 /**
@@ -668,7 +755,8 @@ function umRodizio(ids: string[], ctx: Contexto): Partida[] {
  *
  * `k = 1` (grupo par): pares soltos -- cada uma aparece exatamente uma vez.
  * `k = 2` (grupo impar): um ciclo passando por todas -- cada uma aparece duas.
- * A ordem e sorteada, entao nao e sempre a mesma dupla que repete.
+ * A ordem e sorteada: e o gerador da AMOSTRA, para os grupos grandes demais
+ * para `conjuntosDeRepetidas` listar tudo.
  */
 function duplasQueRepetem(ids: string[], k: number): Duo[] {
   if (k <= 0 || ids.length < 4) return []
@@ -698,13 +786,20 @@ function menosRepetida(pares: Duo[], sobras: Duo[]): number {
 }
 
 /** Dupla ja formada, que nao divide jogadora com a orfa e menos a enfrentou. */
-function escolherRival(partidas: Partida[], orfa: Duo, ctx: Contexto): Duo | null {
+function escolherRival(
+  partidas: Partida[],
+  orfa: Duo,
+  ctx: Contexto,
+  /** Quantas vezes cada pessoa ja repete parceira; quem mais repete pesa mais. */
+  repeticoes?: Map<string, number>,
+): Duo | null {
   let melhor: Duo | null = null
   let melhorCusto = Infinity
   for (const p of partidas) {
     for (const d of [p.team_a, p.team_b]) {
       if (!disjuntas(d, orfa)) continue
-      const c = custoDoConfronto(d, orfa, ctx)
+      const jaRepete = (repeticoes?.get(d[0]) ?? 0) + (repeticoes?.get(d[1]) ?? 0)
+      const c = custoDoConfronto(d, orfa, ctx) + W_REPETIDA * jaRepete
       if (c < melhorCusto) {
         melhorCusto = c
         melhor = d
@@ -746,10 +841,35 @@ function rodizioDoGrupo(
   if (ids.length < 4) return []
   let melhor: Partida[] = []
   let melhorCusto = Infinity
-  for (let t = 0; t < 24; t++) {
+  /*
+   * QUEM REPETE COM QUEM E ESCOLHIDO, NAO SORTEADO
+   *
+   * Ate 1000 jeitos de montar as repetidas (grupos de 6, 7 e 10), o app olha
+   * TODOS e fica com o que deixa a noite mais equilibrada -- as partidas mais
+   * parelhas em forca e os mesmos pares se enfrentando o menos possivel.
+   * Acima disso (11 ou mais) nao cabe no celular, e vale uma amostra grande.
+   * Sem repetida (4, 5, 8, 9) sobra so o sorteio de sempre.
+   */
+  const conjuntos = conjuntosDeRepetidas(ids)
+  const tentativas: Duo[][] =
+    conjuntos.length === 0
+      ? Array.from({ length: 24 }, () => [])
+      : conjuntos.length <= LIMITE_EXAUSTIVO
+        ? conjuntos.flatMap((c) => Array.from({ length: Math.max(1, Math.floor(600 / conjuntos.length)) }, () => c))
+        : Array.from({ length: AMOSTRA_DE_REPETIDAS }, (_, i) => {
+            sorteio = comSemente(1000003 + i)
+            const c = duplasQueRepetem(ids, repeticoesPorJogadora(ids.length))
+            sorteio = Math.random
+            return c
+          })
+  // a semente sai das pessoas do grupo: o mesmo grupo compara sempre as mesmas
+  // tentativas, e quem esta em outro grupo nao muda o resultado deste
+  const base = [...ids].sort().join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+  tentativas.forEach((repetidas, t) => {
+    sorteio = comSemente(base + t * 7919)
     // cada tentativa comeca do mesmo ponto: os confrontos ja marcados fora
     const ctx: Contexto = { ratings, entrosamento, antes, dia: new Map(diaAteAgora) }
-    const cand = umRodizio(ids, ctx)
+    const cand = umRodizio(ids, ctx, repetidas)
     // ninguem jogar a mais que a outra vale mais que qualquer ajuste fino de
     // confronto: uma partida a mais para duas meninas e injustica visivel
     const custo =
@@ -759,7 +879,8 @@ function rodizioDoGrupo(
       melhorCusto = custo
       melhor = cand
     }
-  }
+  })
+  sorteio = Math.random
   return melhor
 }
 
