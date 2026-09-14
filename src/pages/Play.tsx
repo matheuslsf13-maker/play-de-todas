@@ -806,7 +806,8 @@ function NewPlay({
               </strong>{' '}
               esta noite — {totalPartidas} no total, em {effCourts}{' '}
               {effCourts === 1 ? 'quadra' : 'quadras'}: uns{' '}
-              <strong>{duracaoEstimada(totalPartidas, effCourts)}</strong> a {MINUTOS_POR_PARTIDA} min por partida.
+              <strong>{duracaoEstimada(totalPartidas, effCourts, emDuplas ? alvos[0] : target)}</strong>{' '}
+              a {(emDuplas ? alvos[0] : target) * MINUTOS_POR_PONTO} min por partida.
             </div>
           )}
           <p className="tiny muted" style={{ margin: '2px 2px 0' }}>
@@ -1010,12 +1011,19 @@ function NewPlay({
   )
 }
 
-/** "2h15" para a noite: rodadas de quadra cheia, a 20 min cada (a media medida em quadra). */
-/** Uma partida ate 4 pontos dura isso, em media, na V3. */
-const MINUTOS_POR_PARTIDA = 20
+/**
+ * Quanto dura cada ponto do alvo, em media: uma partida ate 4 leva uns 20 min
+ * em quadra, entao ate 6 leva uns 30. E a media medida na V3, so estimativa.
+ */
+const MINUTOS_POR_PONTO = 5
 
-function duracaoEstimada(partidas: number, quadras: number): string {
-  const min = Math.ceil(partidas / Math.max(1, quadras)) * MINUTOS_POR_PARTIDA
+/**
+ * "2h15" para a noite: rodadas de quadra cheia, cada uma durando o alvo da
+ * partida vezes os minutos por ponto. Mais quadras, menos rodadas; alvo
+ * maior, rodada mais longa.
+ */
+function duracaoEstimada(partidas: number, quadras: number, alvo = 4): string {
+  const min = Math.ceil(partidas / Math.max(1, quadras)) * Math.round(alvo * MINUTOS_POR_PONTO)
   const h = Math.floor(min / 60)
   const m = min % 60
   return h === 0 ? `${m} min` : m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
@@ -1294,6 +1302,20 @@ function PlayDetail({
   }, [matches, soFase2, session.duos, session.player_ids, session.status, vivas])
 
   const doneCount = matches.filter(isPlayed).length
+  /** O alvo medio de um conjunto de partidas: no grupos+duplas cada fase tem o seu. */
+  const alvoMedio = (ms: Match[]) =>
+    ms.length === 0 ? session.target : ms.reduce((t, m) => t + alvoDe(m), 0) / ms.length
+
+  /** "8 partidas", ou "7 a 9" quando um entra/sai deixou desigual. */
+  const jogosPorPessoa = useMemo(() => {
+    const n = new Map(session.player_ids.map((id) => [id, 0]))
+    for (const m of matches) for (const id of jogadorasDaPartida(m)) if (n.has(id)) n.set(id, (n.get(id) ?? 0) + 1)
+    const v = [...n.values()]
+    if (v.length === 0) return '—'
+    const min = Math.min(...v)
+    const max = Math.max(...v)
+    return min === max ? `${min} partidas` : `${min} a ${max} partidas`
+  }, [matches, session.player_ids])
   const finished = session.status === 'finished'
   const grupos = session.groups ?? null
   /** A forca de cada pessoa na data do play, como ela estava ao montar os grupos. */
@@ -1953,6 +1975,24 @@ function PlayDetail({
           <div className="tiny muted" style={{ marginTop: 2 }}>
             {explicarRegra(session.target, regraDoPlay)}
           </div>
+          {matches.length > 0 && (
+            <div className="tiny" style={{ marginTop: 6, fontWeight: 700 }}>
+              🎾 Cada menina joga <strong>{jogosPorPessoa}</strong>
+              {' · '}
+              {finished
+                ? `noite de ${duracaoEstimada(matches.length, session.courts, alvoMedio(matches))}`
+                : doneCount === 0
+                  ? `noite de uns ${duracaoEstimada(matches.length, session.courts, alvoMedio(matches))}`
+                  : `faltam ${matches.length - doneCount} partidas, uns ${duracaoEstimada(
+                      matches.length - doneCount,
+                      session.courts,
+                      alvoMedio(matches.filter((m) => !isPlayed(m))),
+                    )}`}
+              <span className="muted" style={{ fontWeight: 500 }}>
+                {' '}(a {MINUTOS_POR_PONTO} min por ponto do alvo)
+              </span>
+            </div>
+          )}
         </div>
         <div className="grid3" style={{ marginTop: 12 }}>
           <StatBox k="Partidas" v={`${doneCount}/${matches.length}`} />
