@@ -1017,10 +1017,10 @@ function NewPlay({
 
 /**
  * Quanto dura um GAME, em media, em quadra. E a calibragem: uma partida ate
- * 4 leva uns 20 min, e ela tem em media 5,5 games (os 4 de quem ganha mais
- * uns 1,5 de quem perde) -- 20 / 5,5.
+ * 4 leva uns 15 min, e ela tem em media 5,5 games (os 4 de quem ganha mais
+ * uns 1,5 de quem perde) -- 15 / 5,5.
  */
-const MINUTOS_POR_GAME = 3.6
+const MINUTOS_POR_GAME = 15 / 5.5
 
 /**
  * Quanto dura uma partida, em media, contando os games dos DOIS lados: quem
