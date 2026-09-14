@@ -69,26 +69,48 @@ export function Stepper({
   )
 }
 
+/** Quantas vezes a logo tenta carregar antes de ficar no desenho. */
+const TENTATIVAS_DA_LOGO = 4
+
 /**
- * Logo do campeonato.
- *
- * PROVISORIO: o logo antigo trazia "PLAY da Sexta" desenhado na arte e o
- * campeonato virou "Play de Todas", entao o arquivo foi tirado do ar em vez de
- * ficar mostrando o nome errado. Enquanto `public/logo.png` nao existir, este
- * selo desenhado assume. Basta soltar o logo novo nesse caminho -- nada mais
- * precisa mudar, nem aqui nem nas artes de fechamento.
+ * Logo do campeonato: `public/logo.png`, com o selo desenhado de reserva
+ * para quando a imagem nao carrega.
  */
 export function Logo({ size = 64 }: { size?: number }) {
-  const [ok, setOk] = React.useState(true)
-  if (ok) {
+  /*
+   * Falhou? Mostra o desenho e tenta de novo dali a pouco, com espera
+   * crescente. Antes o componente desistia na primeira falha e ficava no
+   * desenho generico ate fechar o app -- e na beira da quadra a primeira
+   * falha e comum: sinal fraco no momento de abrir. O `key` na tentativa
+   * remonta o <img>, que pede a imagem de novo.
+   */
+  const [tentativa, setTentativa] = React.useState(0)
+  const [falhou, setFalhou] = React.useState(false)
+  const timer = React.useRef<number | null>(null)
+  React.useEffect(
+    () => () => {
+      if (timer.current !== null) window.clearTimeout(timer.current)
+    },
+    [],
+  )
+  const aoFalhar = () => {
+    setFalhou(true)
+    if (tentativa >= TENTATIVAS_DA_LOGO) return
+    timer.current = window.setTimeout(() => {
+      setTentativa(tentativa + 1)
+      setFalhou(false)
+    }, 1500 * (tentativa + 1))
+  }
+  if (!falhou) {
     return (
       <img
+        key={tentativa}
         src={`${import.meta.env.BASE_URL}logo.png`}
         alt="Play de Todas"
         width={size}
         height={size}
         style={{ width: size, height: size, objectFit: 'contain', flex: 'none' }}
-        onError={() => setOk(false)}
+        onError={aoFalhar}
       />
     )
   }

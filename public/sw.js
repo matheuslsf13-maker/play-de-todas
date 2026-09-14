@@ -6,9 +6,15 @@
 const VERSAO = new URL(self.location.href).searchParams.get('v') || 'dev'
 const CACHE = 'play-de-todas-' + VERSAO
 
+// a logo entra no cache ja na instalacao: ela nao tem hash no nome e so era
+// guardada depois de carregar uma vez -- na primeira abertura com sinal fraco
+// ela falhava e a tela ficava sem logo. O catch e para uma falha aqui nunca
+// impedir o service worker de instalar.
+const PRECACHE = ['./logo.png', './icon-192.png']
+
 self.addEventListener('install', (e) => {
   self.skipWaiting()
-  e.waitUntil(caches.open(CACHE))
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE).catch(() => {})))
 })
 
 self.addEventListener('activate', (e) => {
