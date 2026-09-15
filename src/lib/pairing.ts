@@ -1155,19 +1155,31 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
       for (const id of rival) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
     }
     /*
-     * TODAS JOGAM O MESMO TANTO, mesmo depois de refazer.
+     * TODAS JOGAM O MESMO TANTO, mesmo depois de refazer -- e o MESMO TANTO
+     * DO PLANO.
      *
-     * Cobrir as duplas que faltavam usa o minimo de partidas, e isso deixa
-     * quem entrou tarde (ou quem teve menos sorte na fila) com uma ou duas a
-     * menos. Enquanto a diferenca entre quem mais e quem menos jogou for de
-     * 2 ou mais, entra uma partida com as quatro que menos jogaram -- duplas
-     * repetidas, marcadas como tal, na divisao mais parelha entre as quatro.
+     * Cobrir as duplas que faltavam usa o minimo de partidas, e isso deixava a
+     * noite mais curta para todo mundo (11 partidas onde o plano tinha 14) e
+     * quem entrou tarde uma ou duas atras. Entao o refazer completa: enquanto
+     * alguem estiver abaixo do que o rodizio do grupo daria (`jogosDoRodizio`)
+     * e houver quatro nessa situacao, entra uma partida com as quatro que menos
+     * jogaram -- duplas que ja se formaram hoje, marcadas como repetidas, na
+     * divisao que menos repete e mais equilibra. Quando nao da para fechar
+     * exato (sobram tres abaixo), o teto passa a ser a diferenca de 1.
      */
     const totalDe = (id: string) => (jogosHoje.get(id) ?? 0) + partidas.filter((m) => jogadorasDaPartida(m).includes(id)).length
-    for (let volta = 0; volta < ids.length; volta++) {
-      const contagem = ids.map((id) => totalDe(id))
-      if (Math.max(...contagem) - Math.min(...contagem) < 2 || ids.length < 4) break
-      const quatro = [...ids].sort((a, b) => totalDe(a) - totalDe(b)).slice(0, 4)
+    const vezesJuntas = new Map<string, number>()
+    for (const m of [...opts.jogadas, ...partidas]) {
+      for (const t of [m.team_a, m.team_b]) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
+    }
+    // o teto e o do plano: o refazer nunca deixa a noite maior do que ela
+    // nasceu. Quem passou do plano por uma troca na mao fica onde esta; as
+    // outras sobem ate o plano, nunca alem
+    const alvo = jogosDoRodizio(ids.length)
+    for (let volta = 0; volta < ids.length * 2; volta++) {
+      const abaixoDoAlvo = ids.filter((id) => totalDe(id) < alvo)
+      if (ids.length < 4 || abaixoDoAlvo.length < 4) break
+      const quatro = [...abaixoDoAlvo].sort((a, b) => totalDe(a) - totalDe(b)).slice(0, 4)
       const divisoes: [Duo, Duo][] = [
         [[quatro[0], quatro[1]], [quatro[2], quatro[3]]],
         [[quatro[0], quatro[2]], [quatro[1], quatro[3]]],
@@ -1176,7 +1188,8 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
       let melhor = divisoes[0]
       let melhorCusto = Infinity
       for (const [a, b] of divisoes) {
-        const c = custoDoConfronto(a, b, ctx)
+        const repeticoes = (vezesJuntas.get(pairKey(a[0], a[1])) ?? 0) + (vezesJuntas.get(pairKey(b[0], b[1])) ?? 0)
+        const c = custoDoConfronto(a, b, ctx) + W_REPETIDA * repeticoes
         if (c < melhorCusto) {
           melhorCusto = c
           melhor = [a, b]
@@ -1184,6 +1197,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
       }
       partidas.push({ team_a: melhor[0], team_b: melhor[1], repetida: true })
       marcarConfronto(melhor[0], melhor[1], ctx.dia)
+      for (const t of melhor) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
     }
     melhorarConfrontos(partidas, ctx)
     for (const p of partidas) todas.push({ ...p, grupo: gi })

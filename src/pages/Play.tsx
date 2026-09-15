@@ -2249,6 +2249,7 @@ function PlayDetail({
                 onTrocar={(sai, entra) => trocar(m, sai, entra)}
                 onTrocarPartida={pendentes.length > 1 ? () => setEscolhendo(q) : undefined}
                 jogadorasDoPlay={session.player_ids}
+                mesmoGrupo={grupos?.find((g) => g.includes(m.team_a[0])) ?? null}
               />
             )
           })
@@ -2683,6 +2684,7 @@ function MatchCard({
   repetida,
   espera,
   jogadorasDoPlay,
+  mesmoGrupo,
   onScore,
   onIniciar,
   onCancelarInicio,
@@ -2707,6 +2709,8 @@ function MatchCard({
   repetida: boolean
   espera: Map<string, number>
   jogadorasDoPlay: string[]
+  /** As jogadoras do grupo desta partida (null = play sem grupos). */
+  mesmoGrupo?: string[] | null
   onScore: (m: Match, a: number | null, b: number | null, tie?: number | null) => void
   onIniciar: () => void
   onCancelarInicio: () => void
@@ -2731,6 +2735,7 @@ function MatchCard({
       jogando={jogando}
       espera={espera}
       jogadorasDoPlay={jogadorasDoPlay}
+      mesmoGrupo={mesmoGrupo}
       onTrocar={(sai, entra) => { onTrocar(sai, entra); setTrocando(false) }}
       onClose={() => setTrocando(false)}
     />
@@ -3212,6 +3217,7 @@ function TrocarJogadoras({
   jogando,
   espera,
   jogadorasDoPlay,
+  mesmoGrupo,
   onTrocar,
   onClose,
 }: {
@@ -3220,19 +3226,25 @@ function TrocarJogadoras({
   jogando: Set<string>
   espera: Map<string, number>
   jogadorasDoPlay: string[]
+  mesmoGrupo?: string[] | null
   onTrocar: (sai: string, entra: string) => void
   onClose: () => void
 }) {
   const { nameOf, playerById } = useStore()
   const [sai, setSai] = useState<string | null>(null)
 
+  // quem e de outro grupo entra no rodizio errado: vai para o fim da lista,
+  // com etiqueta, e so deve ser usada quando nao ha ninguem do grupo livre
+  const deOutroGrupo = (id: string) => Boolean(mesmoGrupo && !mesmoGrupo.includes(id))
   const candidatas = jogadorasDoPlay
     .filter((id) => !noTime.includes(id))
     .sort((a, b) => {
+      const ga = deOutroGrupo(a) ? 1 : 0
+      const gb = deOutroGrupo(b) ? 1 : 0
       const oa = ocupadas.has(a) ? 1 : 0
       const ob = ocupadas.has(b) ? 1 : 0
-      // livres primeiro, e entre elas quem esta fora ha mais tempo
-      return oa - ob || (espera.get(a) ?? 0) - (espera.get(b) ?? 0)
+      // do mesmo grupo primeiro, depois livres, e entre elas quem esta fora ha mais tempo
+      return ga - gb || oa - ob || (espera.get(a) ?? 0) - (espera.get(b) ?? 0)
     })
 
   if (!sai) {
@@ -3270,7 +3282,14 @@ function TrocarJogadoras({
           {candidatas.map((id) => (
             <button key={id} className="duo-row" onClick={() => onTrocar(sai, id)}>
               <Avatar player={playerById(id)} size={38} />
-              <span className="grow ellipsis" style={{ fontWeight: 700 }}>{nameOf(id)}</span>
+              <span className="grow ellipsis" style={{ fontWeight: 700 }}>
+                {nameOf(id)}
+                {deOutroGrupo(id) && (
+                  <span className="tiny" style={{ color: 'var(--yellow)', fontWeight: 700, display: 'block' }}>
+                    ⚠️ de outro grupo — ela fica com uma partida a mais no grupo dela
+                  </span>
+                )}
+              </span>
               <Situacao id={id} ocupadas={ocupadas} jogando={jogando} />
             </button>
           ))}

@@ -135,11 +135,14 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   hoje só entra de novo quando não há outra. As "seguidas" contam **por grupo**: a
   quadra do outro grupo terminar não é descanso para ninguém deste. Medido em
   14/09 (6 e 7 em duas quadras): pior encadeamento de 5 para 3.
-- **Refazer a fila nunca some com uma dupla e nivela as partidas**: a dupla que
-  sobra sem adversária joga contra qualquer dupla livre do grupo (marcada 🔁), e
-  enquanto alguém tiver 2 partidas a menos entra uma partida com as quatro que menos
-  jogaram. Em 14/09 o refazer deixou Izabelle + Karla sem jogar e o grupo de 6 a 8
-  partidas; com isso, nenhum par fica de fora e a diferença cai para 1.
+- **Refazer a fila nunca some com uma dupla e completa até o plano, nunca além**:
+  a dupla que sobra sem adversária joga contra qualquer dupla livre do grupo
+  (marcada 🔁); depois, enquanto houver **quatro abaixo de `jogosDoRodizio`**, entra
+  uma partida com as quatro que menos jogaram — o teto é o do plano, então a noite
+  **nunca fica maior** do que nasceu. Medido: 7 com troca na 6ª → 14 partidas, 8 cada
+  (era 11, de 6 a 7). Em 14/09 o refazer tinha deixado Izabelle + Karla sem jogar e o
+  grupo de 6 a 8. Troca **entre grupos** ainda desequilibra (quem entra fica com uma a
+  mais no grupo dela): o Trocar mostra o mesmo grupo primeiro e avisa nas outras.
 - **O empate no fim é configurável** (`sessions.desempate`, `src/lib/desempate.ts`).
   São **três modos**, e o que muda é o que acontece no `alvo-1`x`alvo-1` (o 3x3):
   `alvo` (quem chegar primeiro leva), `vantagem` (“só vai a 2”, sem teto) e
