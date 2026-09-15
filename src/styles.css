@@ -1245,3 +1245,6 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   border: 1px solid var(--purple);
   margin-bottom: 10px;
 }
+
+/* quem ainda nao chegou, na lista do modal */
+.duo-row.off { opacity: .55; }

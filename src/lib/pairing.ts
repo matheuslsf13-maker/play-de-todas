@@ -1507,10 +1507,29 @@ export function ordemPrevista(opts: {
   seguidas?: Map<string, number>
   jaFormadas?: Set<string>
   grupos?: string[][] | null
+  /** Quem ainda nao chegou: as partidas dela vao para depois de todas as outras. */
+  ausentes?: Set<string>
 }): Match[] {
   const e = estadoDaTela({ ...opts, jogos: new Map(), quadrasLivres: [1] })
-  if (opts.pendentes.length <= LIMITE_ORDEM_EXATA) return ordemExata(opts.pendentes, e)
-  let restantes = opts.pendentes.slice()
+  const ausentes = opts.ausentes ?? new Set<string>()
+  // primeiro o que da para jogar sem quem nao chegou; o resto vem depois,
+  // continuando do estado em que a primeira parte terminou
+  const semAusentes = opts.pendentes.filter((m) => !jogadorasDaPartida(m).some((id) => ausentes.has(id)))
+  const comAusentes = opts.pendentes.filter((m) => jogadorasDaPartida(m).some((id) => ausentes.has(id)))
+  const out: Match[] = []
+  for (const parte of [semAusentes, comAusentes]) {
+    if (parte.length === 0) continue
+    const ordem =
+      parte.length <= LIMITE_ORDEM_EXATA ? ordemExata(parte, e) : ordemGulosa(parte, e)
+    for (const m of ordem) avancar(e, [m])
+    out.push(...ordem)
+  }
+  return out
+}
+
+function ordemGulosa(pendentes: Match[], e0: EstadoDaFila): Match[] {
+  const e = clonar(e0)
+  let restantes = pendentes.slice()
   const out: Match[] = []
   while (restantes.length > 0) {
     const proxima = conjuntosCandidatos(restantes, new Set(), 1, e)[0]?.[0]

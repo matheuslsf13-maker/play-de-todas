@@ -53,3 +53,34 @@ export function loadFins(): Horarios {
 export function saveFins(v: Horarios) {
   gravar(KEY_FIM, v)
 }
+
+/* ------------------------------------------------------------------
+   QUEM AINDA NAO CHEGOU
+
+   Quem esta na lista do play mas ainda nao apareceu. Enquanto estiver
+   marcada, o app pula as partidas dela ao sugerir a proxima -- sem isso a
+   quadra ficava parada ou a organizadora tinha que escolher na mao. Quando
+   chega, e desmarcada e entra na frente: e quem esta ha mais tempo sem jogar.
+   Fica so neste aparelho, como a hora de inicio das partidas.
+   ------------------------------------------------------------------ */
+
+const KEY_AUSENTES = CHAVE.ausentes
+
+export type Ausentes = Record<string, string[]> // session_id -> player_ids
+
+export function loadAusentes(): Ausentes {
+  try {
+    const raw = localStorage.getItem(KEY_AUSENTES)
+    return raw ? (JSON.parse(raw) as Ausentes) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveAusentes(v: Ausentes) {
+  try {
+    localStorage.setItem(KEY_AUSENTES, JSON.stringify(v))
+  } catch {
+    /* sem espaco ou modo privado: segue so na memoria */
+  }
+}

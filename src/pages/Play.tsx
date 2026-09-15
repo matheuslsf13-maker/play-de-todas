@@ -29,7 +29,15 @@ import {
 import { normalizar } from '../lib/roster'
 import { dayRankingText, scheduleText } from '../lib/share'
 import { isPlayed, matchPoints } from '../lib/scoring'
-import { loadFins, loadInicios, saveFins, saveInicios, type Horarios } from '../lib/emQuadra'
+import {
+  loadAusentes,
+  loadFins,
+  loadInicios,
+  saveAusentes,
+  saveFins,
+  saveInicios,
+  type Horarios,
+} from '../lib/emQuadra'
 import {
   aplicarBye,
   balance,
@@ -1387,6 +1395,20 @@ function PlayDetail({
   // do banco (ver src/lib/emQuadra.ts)
   const [inicios, setInicios] = useState<Horarios>(() => loadInicios())
   const [fins, setFins] = useState<Horarios>(() => loadFins())
+  /** Quem ainda nao chegou: o app pula as partidas dela ate ser desmarcada. */
+  const [ausentes, setAusentes] = useState<Set<string>>(
+    () => new Set(loadAusentes()[session.id] ?? []),
+  )
+  const [marcandoAusentes, setMarcandoAusentes] = useState(false)
+  function alternarAusente(id: string) {
+    setAusentes((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      saveAusentes({ ...loadAusentes(), [session.id]: [...next] })
+      return next
+    })
+  }
 
   function marcarInicio(id: string, quando: string | null) {
     setInicios((prev) => {
@@ -1441,6 +1463,17 @@ function PlayDetail({
     for (const m of emJogo) for (const id of jogadorasDaPartida(m)) s.add(id)
     return s
   }, [emJogo])
+
+  /**
+   * Quem nao pode entrar em quadra agora: quem esta jogando e quem ainda nao
+   * chegou. Para a escolha da proxima partida da no mesmo -- a partida dela
+   * espera -- mas na tela sao coisas diferentes, por isso dois conjuntos.
+   */
+  const indisponiveis = useMemo(() => {
+    const s = new Set(ocupadas)
+    for (const id of ausentes) if (session.player_ids.includes(id)) s.add(id)
+    return s
+  }, [ocupadas, ausentes, session.player_ids])
 
   /** Quantas partidas cada uma ja fez hoje. */
   const jogos = useMemo(() => {
@@ -1527,7 +1560,7 @@ function PlayDetail({
       }
     }
     const restantes = quadrasLivres.filter((q) => !escolhidasNaMao.has(q))
-    const ocupadasComManuais = new Set(ocupadas)
+    const ocupadasComManuais = new Set(indisponiveis)
     for (const m of escolhidasNaMao.values()) {
       for (const id of jogadorasDaPartida(m)) ocupadasComManuais.add(id)
     }
@@ -1543,7 +1576,7 @@ function PlayDetail({
       grupos,
     })
     return new Map([...escolhidasNaMao, ...auto])
-  }, [quadrasLivres, manuais, pendentes, ocupadas, espera, jogos, seguidas, jaFormadas, session.player_ids, grupos])
+  }, [quadrasLivres, manuais, pendentes, indisponiveis, espera, jogos, seguidas, jaFormadas, session.player_ids, grupos])
 
   /**
    * Quem nao esta disponivel para esta partida: as que estao em quadra agora e
@@ -1562,8 +1595,8 @@ function PlayDetail({
   const livresAgora = useMemo(() => {
     const comprometidas = new Set(ocupadas)
     for (const m of proximas.values()) for (const id of jogadorasDaPartida(m)) comprometidas.add(id)
-    return session.player_ids.filter((id) => !comprometidas.has(id))
-  }, [ocupadas, proximas, session.player_ids])
+    return session.player_ids.filter((id) => !comprometidas.has(id) && !ausentes.has(id))
+  }, [ocupadas, proximas, session.player_ids, ausentes])
 
   /**
    * A fila de verdade: o que sobra depois das quadras, na ordem em que deve
@@ -1572,7 +1605,7 @@ function PlayDetail({
    */
   const filaPrevista = useMemo(() => {
     const naQuadra = new Set([...proximas.values()].map((m) => m.id))
-    const comprometidas = new Set(ocupadas)
+    const comprometidas = new Set(indisponiveis)
     for (const m of proximas.values()) {
       for (const id of jogadorasDaPartida(m)) comprometidas.add(id)
     }
@@ -1584,8 +1617,9 @@ function PlayDetail({
       seguidas,
       jaFormadas,
       grupos,
+      ausentes,
     })
-  }, [pendentes, proximas, ocupadas, espera, session.player_ids, seguidas, jaFormadas, grupos])
+  }, [pendentes, proximas, indisponiveis, espera, session.player_ids, seguidas, jaFormadas, grupos, ausentes])
 
   /**
    * As duplas que jogam duas vezes no dia, por partida.
@@ -2139,7 +2173,22 @@ function PlayDetail({
       )}
 
       <div className="card">
-        <div className="section-title">🏐 Quadras agora</div>
+        <div className="row spread" style={{ alignItems: 'baseline' }}>
+          <div className="section-title">🏐 Quadras agora</div>
+          {editable && !finished && (
+            <button className="btn ghost sm" onClick={() => setMarcandoAusentes(true)}>
+              ⏳ Quem não chegou{ausentes.size > 0 ? ` (${ausentes.size})` : ''}
+            </button>
+          )}
+        </div>
+        {ausentes.size > 0 && (
+          <div className="banner warn" style={{ marginBottom: 10 }}>
+            ⏳ <strong>Ainda não {ausentes.size === 1 ? 'chegou' : 'chegaram'}:</strong>{' '}
+            {[...ausentes].map(nameOf).join(', ')}. As partidas {ausentes.size === 1 ? 'dela' : 'delas'}{' '}
+            ficam para depois; quando chegar, desmarque que {ausentes.size === 1 ? 'ela entra' : 'elas entram'}{' '}
+            na frente.
+          </div>
+        )}
         {jaClassificadas && (
           <div className="banner ok classificadas">
             🎟️ <strong>
@@ -2211,6 +2260,7 @@ function PlayDetail({
         vazio="Nada na fila."
         rodape="A ordem segue quem está fora há mais tempo, igual às quadras — não é a ordem em que as partidas foram geradas. As duplas não mudam."
         partidas={filaPrevista}
+        ausentes={ausentes}
         numerar
         jogos={jogos}
         grupoDe={grupoDe}
@@ -2281,6 +2331,34 @@ function PlayDetail({
         </button>
       )}
 
+      {marcandoAusentes && (
+        <Modal title="⏳ Quem ainda não chegou?" onClose={() => setMarcandoAusentes(false)}>
+          <p className="tiny muted" style={{ marginTop: 0 }}>
+            Marque quem está na lista mas ainda não apareceu. O app pula as partidas dela ao
+            sugerir a próxima; quando ela chegar, desmarque — ela entra na frente, porque é quem
+            está há mais tempo sem jogar. Se ela <strong>não vem</strong>, use o 🔁 Entra / sai.
+          </p>
+          <div className="stack">
+            {session.player_ids.map((id) => (
+              <button
+                key={id}
+                className={`duo-row${ausentes.has(id) ? ' off' : ''}`}
+                onClick={() => alternarAusente(id)}
+              >
+                <Avatar player={playerById(id)} size={38} />
+                <span className="grow ellipsis" style={{ fontWeight: 700 }}>{nameOf(id)}</span>
+                <span className="tiny" style={{ fontWeight: 700 }}>
+                  {ausentes.has(id) ? '⏳ não chegou' : '✅ aqui'}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button className="btn pink block" style={{ marginTop: 12 }} onClick={() => setMarcandoAusentes(false)}>
+            Pronto
+          </button>
+        </Modal>
+      )}
+
       {substituindo && (
         <SubstituirJogadora
           session={session}
@@ -2306,7 +2384,7 @@ function PlayDetail({
         <EscolherPartida
           quadra={escolhendo}
           partidas={pendentes}
-          ocupadas={ocupadas}
+          ocupadas={indisponiveis}
           espera={espera}
           grupoDe={grupoDe}
           totalGrupos={grupos?.length ?? 1}
@@ -2876,6 +2954,7 @@ function ListaDePartidas({
   totalGrupos,
   repetidas,
   emQuadra,
+  ausentes,
   desempateDe,
   target,
   editable,
@@ -2883,6 +2962,8 @@ function ListaDePartidas({
 }: {
   titulo: string
   vazio: string
+  /** Quem ainda nao chegou: a partida dela ganha a etiqueta e vai ficando para o fim. */
+  ausentes?: Set<string>
   /** Explicacao curta embaixo da lista. */
   rodape?: string
   partidas: Match[]
@@ -2951,6 +3032,11 @@ function ListaDePartidas({
                   {m.disputa_3o && (
                     <span className="tiny nowrap" style={{ color: 'var(--bronze)', fontWeight: 800 }}>
                       🥉 3º lugar
+                    </span>
+                  )}
+                  {ausentes && jogadorasDaPartida(m).some((id) => ausentes.has(id)) && (
+                    <span className="tiny nowrap" style={{ color: 'var(--yellow)', fontWeight: 800 }}>
+                      ⏳ espera {jogadorasDaPartida(m).filter((id) => ausentes.has(id)).map(nameOf).join(' e ')} chegar
                     </span>
                   )}
                   {jogada && m.tie != null && desempateDe && (

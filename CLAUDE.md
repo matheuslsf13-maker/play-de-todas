@@ -169,6 +169,12 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Play avulso** (`sessions.ranked = false`): conta no histórico e na força,
   mas **não soma no ranking do mês nem mexe nas sequências**. Serve para o jogo
   fora de calendário que não é o campeonato.
+- **"⏳ Quem não chegou"** (no card das quadras): quem está na lista mas ainda não
+  apareceu é marcada e o app **pula as partidas dela** ao sugerir a próxima — para a
+  escolha ela conta como se estivesse em quadra (`indisponiveis`), e a previsão da
+  fila deixa as partidas dela **para o fim**. Desmarcou, ela entra na frente: é quem
+  está há mais tempo sem jogar. Fica só no aparelho (`CHAVE.ausentes`), como a hora
+  de início. Se ela **não vem**, o caminho é o Entra / sai, não este.
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
   quadra parada e a troca de jogadoras.
