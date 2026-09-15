@@ -1596,7 +1596,35 @@ export function proximasDasQuadras(opts: EscolhaOpts): Map<number, Match> {
       melhor = c
     }
   })
-  melhor.forEach((m, i) => out.set(quadrasLivres[i], m))
+  return atribuirQuadras(melhor, quadrasLivres, e.grupos)
+}
+
+/**
+ * Qual partida vai para qual quadra: o grupo 1 na quadra 1, o grupo 2 na
+ * quadra 2, e assim por diante, sempre que a quadra "da casa" estiver livre.
+ * Sem isso a atribuicao era pela ordem em que as quadras vagavam, e o grupo 2
+ * aparecia na quadra 1 sem motivo -- confundia quem organiza. Quando a quadra
+ * da casa esta ocupada, a partida entra na que sobrar: quadra parada e pior
+ * que quadra trocada.
+ */
+function atribuirQuadras(
+  escolhidas: Match[],
+  quadrasLivres: number[],
+  grupos: string[][] | null,
+): Map<number, Match> {
+  const out = new Map<number, Match>()
+  const sobrando: Match[] = []
+  for (const m of escolhidas) {
+    // a partida nao guarda o grupo: ele sai de quem esta nela
+    const indice = grupos ? grupos.findIndex((g) => g.includes(m.team_a[0])) : 0
+    const casa = Math.max(0, indice) + 1
+    if (quadrasLivres.includes(casa) && !out.has(casa)) out.set(casa, m)
+    else sobrando.push(m)
+  }
+  const livres = quadrasLivres.filter((q) => !out.has(q))
+  sobrando.forEach((m, i) => {
+    if (livres[i] !== undefined) out.set(livres[i], m)
+  })
   return out
 }
 
