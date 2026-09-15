@@ -831,6 +831,51 @@ function custoDoRodizio(partidas: Partida[], ctx: Contexto): number {
   return c
 }
 
+/**
+ * GRUPO DE 6: TRES QUARTETOS
+ *
+ * Com 6 numa quadra, cada partida deixa so 2 descansando -- e o rodizio
+ * montado do jeito geral NUNCA admite uma ordem em que ninguem jogue 3
+ * seguidas (medido: 0 de 40). Esta construcao admite. As 6 se dividem em 3
+ * pares que repetem (A+B, C+D, E+F: cada uma repete UMA parceira, como a
+ * regra manda); cada quarteto e o grupo menos um par, e joga as suas 3
+ * divisoes possiveis. Sao 9 partidas, as 15 duplas, e os quartetos se
+ * revezando (1, 2, 3, 1, 2, 3...) descansam de 3 em 3 -- ninguem emenda 3.
+ *
+ * Quais sao os 3 pares e escolhido como sempre: entre as 15 divisoes
+ * possiveis, a que deixa as partidas mais equilibradas.
+ */
+function rodizioDeSeis(
+  ids: string[],
+  ratings: Map<string, number>,
+  antes: Confrontos,
+  diaAteAgora: Confrontos,
+  entrosamento?: Map<string, number>,
+): Partida[] {
+  let melhor: Partida[] = []
+  let melhorCusto = Infinity
+  for (const pares of conjuntosDeRepetidas(ids)) {
+    const ctx: Contexto = { ratings, entrosamento, antes, dia: new Map(diaAteAgora) }
+    const partidas: Partida[] = []
+    // cada quarteto = todo mundo menos um par; joga as 3 divisoes dele
+    for (const par of pares) {
+      const [a, b, c, d] = ids.filter((id) => !par.includes(id))
+      const divisoes: [Duo, Duo][] = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]]
+      for (const [x, y] of divisoes) {
+        // o lado que fica com a dupla mais forte nao importa; o custo e simetrico
+        partidas.push({ team_a: x, team_b: y })
+        marcarConfronto(x, y, ctx.dia)
+      }
+    }
+    const custo = custoDoRodizio(partidas, { ratings, entrosamento, antes, dia: diaAteAgora })
+    if (custo < melhorCusto) {
+      melhorCusto = custo
+      melhor = partidas
+    }
+  }
+  return melhor
+}
+
 function rodizioDoGrupo(
   ids: string[],
   ratings: Map<string, number>,
@@ -839,6 +884,7 @@ function rodizioDoGrupo(
   entrosamento?: Map<string, number>,
 ): Partida[] {
   if (ids.length < 4) return []
+  if (ids.length === 6) return rodizioDeSeis(ids, ratings, antes, diaAteAgora, entrosamento)
   let melhor: Partida[] = []
   let melhorCusto = Infinity
   /*
@@ -1371,19 +1417,45 @@ function conjuntosCandidatos(pendentes: Match[], ocupadas: Set<string>, quadras:
  */
 function simularResto(escolha: Match[], pendentes: Match[], quadras: number, e0: EstadoDaFila): [number, number] {
   const e = clonar(e0)
-  let restantes = pendentes.filter((m) => !escolha.some((x) => x.id === m.id))
+  const restantes = pendentes.filter((m) => !escolha.some((x) => x.id === m.id))
   avancar(e, escolha)
-  while (restantes.length > 0) {
-    const proxima = conjuntosCandidatos(restantes, new Set(), quadras, e)[0] ?? []
-    if (proxima.length === 0) break
-    avancar(e, proxima)
-    restantes = restantes.filter((m) => !proxima.some((x) => x.id === m.id))
+  /*
+   * As seguidas sao contadas POR GRUPO e cada quadra roda uma partida por
+   * vez, entao o que um grupo faz nao muda a sequencia de ninguem do outro.
+   * Por isso da para olhar cada grupo sozinho -- e, com poucas partidas, de
+   * forma exata: existe uma ordem em que ninguem deste grupo emenda 3? Se
+   * sim, este comeco e bom; se nao, ele ja condenou alguem.
+   */
+  const grupos = e.grupos ?? [[...e.ultima.keys()]]
+  let maior = e.maiorSequencia
+  let emendas = e.emendas
+  for (const g of grupos) {
+    const doGrupo = restantes.filter((m) => g.includes(m.team_a[0]))
+    if (doGrupo.length === 0) continue
+    if (doGrupo.length <= LIMITE_ORDEM_EXATA) {
+      const ordem = ordemExata(doGrupo, e)
+      const eg = clonar(e)
+      for (const m of ordem) avancar(eg, [m])
+      maior = Math.max(maior, eg.maiorSequencia)
+      emendas += eg.emendas
+    } else {
+      const eg = clonar(e)
+      let sobra = doGrupo.slice()
+      while (sobra.length > 0) {
+        const proxima = conjuntosCandidatos(sobra, new Set(), Math.max(1, quadras), eg)[0] ?? []
+        if (proxima.length === 0) break
+        avancar(eg, proxima)
+        sobra = sobra.filter((m) => !proxima.some((x) => x.id === m.id))
+      }
+      maior = Math.max(maior, eg.maiorSequencia)
+      emendas += eg.emendas
+    }
   }
-  return [e.maiorSequencia, e.emendas]
+  return [maior, emendas]
 }
 
 /** Ate quantas partidas pendentes a ordem e buscada por completo (quadra unica). */
-const LIMITE_ORDEM_EXATA = 12
+const LIMITE_ORDEM_EXATA = 16
 
 /**
  * A MELHOR ordem para o que falta, numa quadra so: a que deixa o menor
@@ -1414,6 +1486,34 @@ function ordemExata(pendentes: Match[], e0: EstadoDaFila): Match[] {
   let melhorNota = notaDaOrdem(gulosa, e0)
   let nos = 0
   const TETO = 40000
+
+  // primeiro a pergunta certa: existe ordem em que NINGUEM emende 3? Podando
+  // todo caminho que emendaria, o espaco encolhe tanto que 14 partidas
+  // respondem em milissegundos. Achou, e essa (com as emendas de 2 minimizadas
+  // pela ordem dos candidatos); nao achou, vale a busca geral abaixo.
+  if (melhorNota >= 3e6) {
+    const semTres = (e: EstadoDaFila, ordem: Match[], restantes: Match[]): Match[] | null => {
+      if (nos++ > TETO) return null
+      if (restantes.length === 0) return ordem
+      const candidatas = [...restantes]
+        .filter((m) => !jogadorasDaPartida(m).some((id) => (e.seguidas.get(id) ?? 0) >= 2))
+        .sort((a, b) => custoAgora(a, e) - custoAgora(b, e))
+      for (const m of candidatas) {
+        const e2 = clonar(e)
+        avancar(e2, [m])
+        const r = semTres(e2, [...ordem, m], restantes.filter((x) => x.id !== m.id))
+        if (r) return r
+        if (nos > TETO) return null
+      }
+      return null
+    }
+    const achada = semTres(clonar(e0), [], pendentes.slice())
+    if (achada) {
+      melhor = achada
+      melhorNota = notaDaOrdem(achada, e0)
+    }
+    nos = 0
+  }
   const dfs = (e: EstadoDaFila, ordem: Match[], restantes: Match[]) => {
     if (nos++ > TETO) return
     const notaAteAqui = e.maiorSequencia * 1e6 + e.emendas * 1e3

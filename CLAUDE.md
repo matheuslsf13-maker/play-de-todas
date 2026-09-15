@@ -128,13 +128,18 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   os pontos só desempatam. O critério fica **gravado no play**: os antigos (sem
   valor) seguem por pontos, para um pódio já anunciado nunca mudar, e todo play
   novo nasce `vitorias`. O 🔥 e o "dia vencido" seguem o critério do play.
-- **A fila não emenda três, e repetida vai para o fim** (`EstadoDaFila`,
-  `custoNaFila`). A próxima partida de uma quadra é escolhida olhando o que sobra:
-  com uma quadra livre e até 12 pendentes o app acha a **melhor ordem completa**
-  (`ordemExata`); com mais, simula o resto (`simularResto`). Uma dupla que já jogou
-  hoje só entra de novo quando não há outra. As "seguidas" contam **por grupo**: a
-  quadra do outro grupo terminar não é descanso para ninguém deste. Medido em
-  14/09 (6 e 7 em duas quadras): pior encadeamento de 5 para 3.
+- **Ninguém emenda três, e repetida vai para o fim** (`EstadoDaFila`,
+  `custoNaFila`, `ordemExata`). A próxima partida é escolhida olhando o que sobra:
+  primeiro a pergunta "existe ordem em que ninguém emende 3?" (busca podada, até 16
+  pendentes), depois a melhor ordem geral; com duas quadras livres, a simulação do
+  resto é exata **por grupo** — as seguidas contam por grupo, e cada quadra roda uma
+  partida por vez, então um grupo não mexe na sequência do outro. Uma dupla que já
+  jogou hoje só entra de novo quando não há outra. **Grupo de 6 é montado em três
+  quartetos** (`rodizioDeSeis`): o rodízio geral de 6 *nunca* admite ordem sem 3
+  (medido: 0 de 40); os quartetos, que são o grupo menos um dos 3 pares que repetem,
+  admitem sempre. Medido em 30 noites sem intervenção: 6, 7, 8, 9 numa quadra e
+  6+7 em duas → **máximo 2 em todas**; 7+7 em duas → 3 em 6 de 30. Antes, 6+7 tinha
+  alguém emendando 3 em 29 de 30 noites (e 4 em uma).
 - **Refazer a fila nunca some com uma dupla e completa até o plano, nunca além**:
   a dupla que sobra sem adversária joga contra qualquer dupla livre do grupo
   (marcada 🔁); depois, enquanto houver **quatro abaixo de `jogosDoRodizio`**, entra
