@@ -191,6 +191,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('online', onOnline)
   }, [drain])
 
+  /*
+   * VOLTOU PARA A TELA -> recarrega.
+   *
+   * O tempo real cobre o que acontece enquanto o app esta aberto. Mas no
+   * celular a tela apaga, o app vai para segundo plano e a conexao cai; o
+   * que a outra organizadora lancou nesse meio tempo nao e reenviado quando
+   * a conexao volta. Entao, ao voltar para a tela, o app busca tudo de novo
+   * -- sem sobrescrever escrita pendente, que sai primeiro.
+   */
+  useEffect(() => {
+    const onVisivel = () => {
+      if (document.visibilityState !== 'visible') return
+      if (queueRef.current.length > 0) {
+        void drain()
+        return
+      }
+      void reload()
+    }
+    document.addEventListener('visibilitychange', onVisivel)
+    window.addEventListener('focus', onVisivel)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisivel)
+      window.removeEventListener('focus', onVisivel)
+    }
+  }, [drain, reload])
+
   useEffect(() => {
     if (!supabase) return
     void supabase.auth.getSession().then(({ data: s }) => setUserEmail(s.session?.user.email ?? null))
