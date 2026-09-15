@@ -586,7 +586,16 @@ function ConfirmarFechamento({
   )
 }
 
-export function RankTable({ rows, fire }: { rows: PlayerStat[]; fire?: Map<string, number> }) {
+export function RankTable({
+  rows,
+  fire,
+  vagas = 3,
+}: {
+  rows: PlayerStat[]
+  fire?: Map<string, number>
+  /** Quantas posicoes ganham cor de podio: num grupo pequeno o podio tem menos de 3. */
+  vagas?: number
+}) {
   const { nameOf, playerById } = useStore()
   const showBonus = rows.some((r) => r.bonus > 0)
   // a coluna so aparece quando ha bye no recorte: nos plays sem chave
@@ -615,7 +624,7 @@ export function RankTable({ rows, fire }: { rows: PlayerStat[]; fire?: Map<strin
             const bal = balance(s)
             return (
               <tr key={s.player_id}>
-                <td className={`rank-pos top${posicoes[i]}`} style={{ fontWeight: 800 }}>{posicoes[i]}</td>
+                <td className={`rank-pos${posicoes[i] <= vagas ? ` top${posicoes[i]}` : ''}`} style={{ fontWeight: 800 }}>{posicoes[i]}</td>
                 <td>
                   <div className="row" style={{ gap: 8 }}>
                     <Avatar player={playerById(s.player_id)} size={28} />

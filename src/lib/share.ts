@@ -136,7 +136,6 @@ export function dayRankingText(opts: DayTextOpts): string {
   ]
 
   const varios = Boolean(podios && podios.length > 1)
-  const noPodio = new Set((podios ?? []).flatMap((p) => p.rows.map((x) => x.player_id)))
 
   if (duplas && duplas.length > 0) {
     const titulos = ['*Campeãs do dia*', '*Vice-campeãs*', '*3º lugar*']
@@ -162,24 +161,22 @@ export function dayRankingText(opts: DayTextOpts): string {
           .join('\n'),
     )
   } else if (varios) {
-    // um podio por grupo: cada grupo e um rodizio fechado e so compete consigo
-    const grupoDe = new Map<string, number>()
+    // cada grupo COMPLETO: o podio em destaque e o resto do grupo embaixo, na
+    // posicao de dentro do grupo -- a geral nao diz nada quando cada grupo
+    // jogou o seu proprio rodizio
     for (const p of podios as PodioDoDia[]) {
-      for (const id of p.membros) grupoDe.set(id, p.grupo as number)
+      const doGrupo = new Set(p.membros)
+      const subiu = new Set(p.rows.map((s) => s.player_id))
+      const resto = rows.filter((s) => doGrupo.has(s.player_id) && !subiu.has(s.player_id))
       partes.push(
         `\n*👥 GRUPO ${p.grupo}*\n` +
-          p.rows.map((s, i) => bloco(i, nameOf(s.player_id), s, seq(s.player_id))).join('\n'),
-      )
-    }
-    const fora = rows.filter((s) => !noPodio.has(s.player_id))
-    if (fora.length > 0) {
-      // com varios podios a posicao geral nao diz nada, entao aqui vale marcar
-      // de que grupo cada uma veio -- e o que explica quem subiu com quantos pts
-      partes.push(
-        '\n*Demais jogadoras*\n' +
-          fora
-            .map((s) => `· ${nameOf(s.player_id)} _[G${grupoDe.get(s.player_id)}]_ — ${pts(s.points)}`)
-            .join('\n'),
+          p.rows.map((s, i) => bloco(i, nameOf(s.player_id), s, seq(s.player_id))).join('\n') +
+          (resto.length > 0
+            ? '\n' +
+              resto
+                .map((s, i) => `${i + p.rows.length + 1}º ${nameOf(s.player_id)} — ${pts(s.points)}`)
+                .join('\n')
+            : ''),
       )
     }
   } else {

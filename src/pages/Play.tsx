@@ -2296,21 +2296,37 @@ function PlayDetail({
               )}
               {soFase2 && <DuplasDoDia linhas={duplasDoDia} />}
               {podios.length > 1 ? (
-                podios.map((p) => (
-                  <div key={p.grupo} style={{ marginBottom: 14 }}>
-                    <div className="section-title" style={{ fontSize: 13 }}>
-                      🏆 Pódio do grupo {p.grupo}
+                // cada grupo COMPLETO, com o podio dele colorido: um grupo e um
+                // rodizio fechado, entao a posicao que vale e a de dentro dele
+                podios.map((p) => {
+                  const doGrupo = new Set(p.membros)
+                  return (
+                    <div key={p.grupo} style={{ marginBottom: 14 }}>
+                      <div className="section-title" style={{ fontSize: 13 }}>
+                        👥 Grupo {p.grupo}{' '}
+                        <span className="tiny muted" style={{ fontWeight: 600 }}>
+                          · {p.membros.length} jogadoras · pódio: {p.rows.length}
+                        </span>
+                      </div>
+                      <RankTable
+                        rows={dayRows.filter((s) => doGrupo.has(s.player_id))}
+                        fire={streaksDoDia}
+                        vagas={p.rows.length}
+                      />
                     </div>
-                    <RankTable rows={p.rows} fire={streaksDoDia} />
-                  </div>
-                ))
+                  )
+                })
               ) : (
                 <RankTable rows={dayRows} fire={streaksDoDia} />
               )}
               {podios.length > 1 && (
                 <>
-                  <div className="section-title" style={{ fontSize: 13 }}>📊 Classificação do dia</div>
-                  <RankTable rows={dayRows} fire={streaksDoDia} />
+                  <div className="section-title" style={{ fontSize: 13 }}>📊 Todas juntas</div>
+                  <p className="tiny muted" style={{ marginTop: 0 }}>
+                    Os pontos são os que vão para o ranking do mês; a posição aqui é só de curiosidade,
+                    porque cada grupo jogou o seu próprio rodízio.
+                  </p>
+                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} />
                 </>
               )}
               {podios.length > 1 && (
