@@ -61,6 +61,13 @@ export type PlaySession = {
   /** No modo em grupos, quem esta em cada grupo (o grupo 1 e o de nivel mais alto). */
   groups?: string[][] | null
   /**
+   * O que decide o ranking DO DIA: `pontos` (como sempre foi) ou `vitorias`
+   * (quem venceu mais; os pontos so desempatam). Fica gravado no play para o
+   * podio de um dia ja anunciado nunca mudar de criterio. Ausente = pontos.
+   * O ranking do MES e sempre por pontos.
+   */
+  criterio_dia?: 'pontos' | 'vitorias' | null
+  /**
    * O que fazer quando as duas duplas chegam em `target - 1` (o 3x3):
    * `nenhum`, `vantagem` (vai a 2), `vantagem-tie7` ou `vantagem-tie10`.
    * Ver `src/lib/desempate.ts`. Ausente = `nenhum`, como os plays antigos.

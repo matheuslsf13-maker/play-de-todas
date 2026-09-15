@@ -123,6 +123,23 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   outro ponto de partida é contar ao app o que ele ainda não sabe; depois disso as
   partidas mandam do mesmo jeito, e o histórico é **recalculado a partir do novo
   ponto** (`ratings()`), por isso o campo continua editável no perfil.
+- **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,
+  script 14). Ganhar 5 de 6 apertado vale mais no dia do que ganhar 3 atropelando;
+  os pontos só desempatam. O critério fica **gravado no play**: os antigos (sem
+  valor) seguem por pontos, para um pódio já anunciado nunca mudar, e todo play
+  novo nasce `vitorias`. O 🔥 e o "dia vencido" seguem o critério do play.
+- **A fila não emenda três, e repetida vai para o fim** (`EstadoDaFila`,
+  `custoNaFila`). A próxima partida de uma quadra é escolhida olhando o que sobra:
+  com uma quadra livre e até 12 pendentes o app acha a **melhor ordem completa**
+  (`ordemExata`); com mais, simula o resto (`simularResto`). Uma dupla que já jogou
+  hoje só entra de novo quando não há outra. As "seguidas" contam **por grupo**: a
+  quadra do outro grupo terminar não é descanso para ninguém deste. Medido em
+  14/09 (6 e 7 em duas quadras): pior encadeamento de 5 para 3.
+- **Refazer a fila nunca some com uma dupla e nivela as partidas**: a dupla que
+  sobra sem adversária joga contra qualquer dupla livre do grupo (marcada 🔁), e
+  enquanto alguém tiver 2 partidas a menos entra uma partida com as quatro que menos
+  jogaram. Em 14/09 o refazer deixou Izabelle + Karla sem jogar e o grupo de 6 a 8
+  partidas; com isso, nenhum par fica de fora e a diferença cai para 1.
 - **O empate no fim é configurável** (`sessions.desempate`, `src/lib/desempate.ts`).
   São **três modos**, e o que muda é o que acontece no `alvo-1`x`alvo-1` (o 3x3):
   `alvo` (quem chegar primeiro leva), `vantagem` (“só vai a 2”, sem teto) e

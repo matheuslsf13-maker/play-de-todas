@@ -1,4 +1,6 @@
 import {
+  compararPeloCriterio,
+  type CriterioDoDia,
   DUPLAS_NO_PODIO,
   balance,
   computeStats,
@@ -87,14 +89,16 @@ export type PodioDoDia = {
  * duas coisas rendem a mesma media de pontos). Um podio unico obrigaria os
  * grupos a competirem entre si numa conta que nao se comunica.
  */
-export function podiosDoDia(rank: PlayerStat[], grupos?: string[][] | null): PodioDoDia[] {
+export function podiosDoDia(
+  rank: PlayerStat[],
+  grupos?: string[][] | null,
+  criterio: CriterioDoDia = 'pontos',
+): PodioDoDia[] {
   const primeiras = (lista: PlayerStat[], vagas: number): PlayerStat[] => {
     if (lista.length === 0) return []
     const corte = lista[Math.min(vagas, lista.length) - 1]
-    // empate exato na ultima vaga sobe junto
-    return lista.filter(
-      (x) => x.points > corte.points || (x.points === corte.points && balance(x) >= balance(corte)),
-    )
+    // empate exato na ultima vaga sobe junto -- pelo mesmo criterio que ordenou
+    return lista.filter((x) => compararPeloCriterio(x, corte, criterio) <= 0)
   }
 
   if (!grupos || grupos.length <= 1) {
@@ -230,7 +234,9 @@ export function computeStreaks(data: AppData): Streaks {
     const soFase2 = s.format === 'grupos-duplas'
     const ms = soFase2 ? todas.filter((m) => (m.fase ?? 1) >= 2) : todas
     if (ms.length === 0) continue
-    const rank = rankPlayers(computeStats(ms), nameOf)
+    // o criterio do dia fica gravado no play: um podio ja anunciado nao muda
+    const criterio: CriterioDoDia = s.criterio_dia ?? 'pontos'
+    const rank = rankPlayers(computeStats(ms), nameOf, criterio)
     if (rank.length === 0) continue
 
     // no grupos+duplas quem decide o dia e a DUPLA, e a chave ja disse tudo
@@ -270,7 +276,7 @@ export function computeStreaks(data: AppData): Streaks {
      */
     const noPodio = soFase2
       ? new Set(duplas.slice(0, DUPLAS_NO_PODIO).flatMap((d) => [d.a, d.b]))
-      : new Set(podiosDoDia(rank, s.groups).flatMap((p) => p.rows.map((x) => x.player_id)))
+      : new Set(podiosDoDia(rank, s.groups, criterio).flatMap((p) => p.rows.map((x) => x.player_id)))
     podiumOf.set(s.id, [...noPodio])
 
     const jogaram = new Set<string>()

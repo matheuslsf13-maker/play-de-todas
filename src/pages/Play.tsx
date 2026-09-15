@@ -35,6 +35,7 @@ import {
   balance,
   buildHistory,
   computeStats,
+  type CriterioDoDia,
   type DuplaDoDia,
   DUPLAS_NO_PODIO,
   FORCA_PADRAO,
@@ -503,6 +504,8 @@ function NewPlay({
         created_at: new Date().toISOString(),
         format: emGrupos ? (emDuplas ? 'grupos-duplas' : 'grupos') : 'todas',
         groups: emGrupos ? grupos : null,
+        // todo play novo premia quem venceu mais; os antigos seguem por pontos
+        criterio_dia: 'vitorias',
         duplas_mm: emGrupos && emDuplas ? duplasMM : null,
         alvos: emGrupos && emDuplas ? alvos : null,
         desempates: emGrupos && emDuplas ? desempates : null,
@@ -1256,6 +1259,9 @@ function PlayDetail({
   /** Ha um proximo passo obrigatorio antes de encerrar o play? */
   const faltaFase = podeGerarFase2 || podeGerarRodada
 
+  /** O que decide o ranking deste dia: gravado no play, para nao mudar depois. */
+  const criterioDoDia: CriterioDoDia = session.criterio_dia ?? 'pontos'
+
   /** Os pontos que o bye pagou neste play (so existe no grupos+duplas). */
   const byeDoDia = useMemo(
     () => pontosDeBye([session], matches),
@@ -1275,8 +1281,8 @@ function PlayDetail({
     const todas = playedMatches(data, { sessionId: session.id })
     // a fase de grupos so serviu para formar as duplas; da fase 2 em diante conta
     const ms = soFase2 ? todas.filter((m) => (m.fase ?? 1) >= 2) : todas
-    return rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf)
-  }, [data, session.id, nameOf, soFase2])
+    return rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia)
+  }, [data, session.id, nameOf, soFase2, criterioDoDia])
 
   /**
    * Como o dia e dividido para o podio.
@@ -1286,8 +1292,8 @@ function PlayDetail({
    * em diante. Nos outros formatos continua sendo o grupo.
    */
   const podios = useMemo(
-    () => podiosDoDia(dayRows, soFase2 ? null : session.groups),
-    [dayRows, session.groups, soFase2],
+    () => podiosDoDia(dayRows, soFase2 ? null : session.groups, criterioDoDia),
+    [dayRows, session.groups, soFase2, criterioDoDia],
   )
 
   /**
@@ -1444,6 +1450,44 @@ function PlayDetail({
   }, [jogadas])
 
   /**
+   * Quantas partidas SEGUIDAS cada uma acabou de jogar, contando as jogadas e
+   * as que estao em quadra, na ordem em que terminaram -- dentro do grupo
+   * dela: a quadra do outro grupo terminar nao e descanso para ninguem daqui.
+   * E com isto que a proxima partida evita mandar alguem para a terceira.
+   */
+  const seguidas = useMemo(() => {
+    const ordem = [...jogadas]
+      .sort((a, b) => {
+        const ta = Date.parse(a.ended_at ?? fins[a.id] ?? '') || 0
+        const tb = Date.parse(b.ended_at ?? fins[b.id] ?? '') || 0
+        return ta - tb || a.round - b.round
+      })
+      .concat(emJogo)
+    const map = new Map<string, number>()
+    for (const id of session.player_ids) {
+      const grupo = grupos?.find((g) => g.includes(id)) ?? session.player_ids
+      const doGrupo = ordem.filter((m) => grupo.includes(m.team_a[0]))
+      let seq = 0
+      for (let i = doGrupo.length - 1; i >= 0; i--) {
+        if (!jogadorasDaPartida(doGrupo[i]).includes(id)) break
+        seq++
+      }
+      map.set(id, seq)
+    }
+    return map
+  }, [jogadas, emJogo, fins, session.player_ids, grupos])
+
+  /** Duplas que ja jogaram ou estao jogando hoje: a segunda vez vai para o fim da fila. */
+  const jaFormadas = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of [...jogadas, ...emJogo]) {
+      set.add(pairKey(m.team_a[0], m.team_a[1]))
+      set.add(pairKey(m.team_b[0], m.team_b[1]))
+    }
+    return set
+  }, [jogadas, emJogo])
+
+  /**
    * Fila de espera: 0 e quem esta fora ha mais tempo. Sem hora registrada
    * (banco antigo, outro aparelho) a jogadora conta como "jogou ha muito".
    */
@@ -1493,9 +1537,13 @@ function PlayDetail({
       espera,
       jogos,
       quadrasLivres: restantes,
+      seguidas,
+      jaFormadas,
+      jogadoras: session.player_ids,
+      grupos,
     })
     return new Map([...escolhidasNaMao, ...auto])
-  }, [quadrasLivres, manuais, pendentes, ocupadas, espera, jogos])
+  }, [quadrasLivres, manuais, pendentes, ocupadas, espera, jogos, seguidas, jaFormadas, session.player_ids, grupos])
 
   /**
    * Quem nao esta disponivel para esta partida: as que estao em quadra agora e
@@ -1533,8 +1581,11 @@ function PlayDetail({
       espera,
       ocupadas: comprometidas,
       jogadoras: session.player_ids,
+      seguidas,
+      jaFormadas,
+      grupos,
     })
-  }, [pendentes, proximas, ocupadas, espera, session.player_ids])
+  }, [pendentes, proximas, ocupadas, espera, session.player_ids, seguidas, jaFormadas, grupos])
 
   /**
    * As duplas que jogam duas vezes no dia, por partida.
@@ -1989,6 +2040,8 @@ function PlayDetail({
             {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o campeonato'}
             {' · '}
             {FORMATOS.find((f) => f.valor === (session.format ?? 'todas'))?.rotulo ?? session.format}
+            {' · '}
+            {criterioDoDia === 'vitorias' ? 'dia por vitórias' : 'dia por pontos'}
           </div>
           <div className="small muted">
             {dateLabel(session.date)} · {session.player_ids.length} jogadoras · {session.courts} quadras
@@ -2257,6 +2310,8 @@ function PlayDetail({
           espera={espera}
           grupoDe={grupoDe}
           totalGrupos={grupos?.length ?? 1}
+          seguidas={seguidas}
+          jaFormadas={jaFormadas}
           onEscolher={(m) => {
             setManuais((prev) => ({ ...prev, [escolhendo]: m.id }))
             setEscolhendo(null)
@@ -3097,6 +3152,13 @@ function TrocarJogadoras({
   if (!sai) {
     return (
       <Modal title="Quem sai da partida?" onClose={onClose}>
+        <div className="banner warn" style={{ marginBottom: 10 }}>
+          Isto muda <strong>só esta partida</strong>: quem sai fica com uma a menos e quem entra
+          com uma a mais, e as duplas desta partida deixam de ser as do rodízio. Se alguém{' '}
+          <strong>saiu de vez</strong> ou <strong>chegou agora</strong>, use o{' '}
+          <strong>🔁 Entra / sai</strong>, que arruma a fila inteira. Se for só esta partida, depois
+          toque em <strong>🔄 Refazer a fila</strong> para o app compensar.
+        </div>
         <div className="stack">
           {noTime.map((id) => (
             <button key={id} className="duo-row" onClick={() => setSai(id)}>
@@ -3140,11 +3202,17 @@ function EscolherPartida({
   espera,
   grupoDe,
   totalGrupos,
+  seguidas,
+  jaFormadas,
   onEscolher,
   onClose,
 }: {
   quadra: number
   partidas: Match[]
+  /** Quantas seguidas cada uma acabou de jogar: entrar agora seria a terceira? */
+  seguidas?: Map<string, number>
+  /** Duplas que ja jogaram hoje: esta partida e a segunda vez de uma delas? */
+  jaFormadas?: Set<string>
   ocupadas: Set<string>
   espera: Map<string, number>
   grupoDe: Map<string, number>
@@ -3169,6 +3237,9 @@ function EscolherPartida({
       <div className="stack">
         {ordenadas.slice(0, 30).map((m) => {
           const presas = jogadorasDaPartida(m).filter((id) => ocupadas.has(id))
+          const terceira = jogadorasDaPartida(m).filter((id) => (seguidas?.get(id) ?? 0) >= 2)
+          const repetida =
+            jaFormadas?.has(pairKey(m.team_a[0], m.team_a[1])) || jaFormadas?.has(pairKey(m.team_b[0], m.team_b[1]))
           return (
             <button key={m.id} className="duo-row" onClick={() => onEscolher(m)} disabled={presas.length > 0}>
               <span className="fila-num">
@@ -3176,6 +3247,13 @@ function EscolherPartida({
                 <GrupoTag grupo={(m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])} total={totalGrupos} />
               </span>
               <span className="grow" style={{ minWidth: 0 }}>
+                {(repetida || terceira.length > 0) && (
+                  <span className="tiny" style={{ color: 'var(--yellow)', fontWeight: 700, display: 'block' }}>
+                    {repetida ? '🔁 dupla repetida — melhor deixar para o fim' : ''}
+                    {repetida && terceira.length > 0 ? ' · ' : ''}
+                    {terceira.length > 0 ? `⚠️ ${terceira.map(nameOf).join(' e ')} jogaria a 3ª seguida` : ''}
+                  </span>
+                )}
                 <span className="fila-time">{nameOf(m.team_a[0])} + {nameOf(m.team_a[1])}</span>
                 <span className="fila-time">{nameOf(m.team_b[0])} + {nameOf(m.team_b[1])}</span>
                 {presas.length > 0 && (

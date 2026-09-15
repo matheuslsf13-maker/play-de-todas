@@ -904,29 +904,152 @@ function desigualdadeDeJogos(partidas: Partida[], ids: string[]): number {
    ------------------------------------------------------------------ */
 
 function ordenarFila(partidas: PlannedMatch[]): PlannedMatch[] {
-  const restantes = shuffle(partidas)
-  const ultima = new Map<string, number>()
-  const out: PlannedMatch[] = []
-  while (restantes.length > 0) {
-    let escolhida = 0
-    let melhor = -Infinity
-    for (let i = 0; i < restantes.length; i++) {
-      const esperas = jogadorasDaPartida(restantes[i]).map(
-        (id) => out.length - (ultima.get(id) ?? -50), // quem nao jogou ainda vem antes
-      )
-      // manda quem descansou menos: e o que decide se a partida pode entrar ja
-      const nota = Math.min(...esperas) * 1000 + esperas.reduce((a, b) => a + b, 0)
-      if (nota > melhor) {
-        melhor = nota
-        escolhida = i
+  // varias ordens candidatas, e fica a que menos emenda partidas seguidas:
+  // a escolha gulosa se encurrala no fim, e trocar o comeco muda o fim
+  let melhor: PlannedMatch[] = partidas
+  let melhorNota = Infinity
+  for (let t = 0; t < 12; t++) {
+    const restantes = shuffle(partidas)
+    const estado = estadoInicial(jogadorasDe(partidas), gruposDe(partidas))
+    const out: PlannedMatch[] = []
+    while (restantes.length > 0) {
+      let escolhida = 0
+      let menor = Infinity
+      for (let k = 0; k < restantes.length; k++) {
+        const c = custoNaFila(restantes[k], estado, k)
+        if (c < menor) {
+          menor = c
+          escolhida = k
+        }
       }
+      const m = restantes.splice(escolhida, 1)[0]
+      avancar(estado, [m])
+      out.push(m)
     }
-    const m = restantes.splice(escolhida, 1)[0]
-    for (const id of jogadorasDaPartida(m)) ultima.set(id, out.length)
-    out.push(m)
+    const nota = estado.maiorSequencia * 1e6 + estado.emendas
+    if (nota < melhorNota) {
+      melhorNota = nota
+      melhor = out
+    }
   }
-  return out
+  return melhor
 }
+
+function jogadorasDe(partidas: { team_a: Duo; team_b: Duo }[]): string[] {
+  return [...new Set(partidas.flatMap((m) => jogadorasDaPartida(m)))]
+}
+
+/** Os grupos, lidos do campo `grupo` das partidas planejadas (null = um so). */
+function gruposDe(partidas: PlannedMatch[]): string[][] | null {
+  const por = new Map<number, Set<string>>()
+  for (const m of partidas) {
+    const g = m.grupo ?? 0
+    if (!por.has(g)) por.set(g, new Set())
+    for (const id of jogadorasDaPartida(m)) por.get(g)!.add(id)
+  }
+  return por.size > 1 ? [...por.values()].map((x) => [...x]) : null
+}
+
+/* ------------------------------------------------------------------
+   O ESTADO DA FILA, para escolher a proxima partida
+
+   E o mesmo tanto na geracao, na sugestao das quadras e na lista "proximas":
+   ha quanto tempo cada uma jogou, quantas seguidas acabou de jogar, e que
+   duplas ja se formaram hoje (a segunda vez de uma dupla vai para o fim).
+   ------------------------------------------------------------------ */
+
+export type EstadoDaFila = {
+  /** "Ha quanto tempo jogou", em passos: menor = esperando ha mais tempo. */
+  ultima: Map<string, number>
+  /** Quantas partidas seguidas cada uma acabou de jogar (0 = descansou na ultima). */
+  seguidas: Map<string, number>
+  /** Duplas (pairKey) que ja jogaram hoje: a segunda vez vai para o fim. */
+  jaFormadas: Set<string>
+  /** Quantas partidas cada uma ja fez hoje: quem fez menos entra antes, no empate. */
+  jogos: Map<string, number>
+  /**
+   * Os grupos, quando ha: uma partida so mexe na sequencia de quem e do MESMO
+   * grupo -- a quadra do grupo 2 terminar nao quer dizer que o grupo 1
+   * descansou.
+   */
+  grupos: string[][] | null
+  /** Contadores da simulacao: o pior encadeamento e quantas emendas de 2+. */
+  passo: number
+  maiorSequencia: number
+  emendas: number
+}
+
+function estadoInicial(jogadoras: string[], grupos: string[][] | null = null): EstadoDaFila {
+  return {
+    ultima: new Map(jogadoras.map((id) => [id, -50])),
+    seguidas: new Map(),
+    jaFormadas: new Set(),
+    jogos: new Map(),
+    grupos,
+    passo: 0,
+    maiorSequencia: 0,
+    emendas: 0,
+  }
+}
+
+/** Jogar tres seguidas custa muito; a segunda dupla igual, mais ainda. */
+const W_TERCEIRA_SEGUIDA = 5e5
+const W_SEGUNDA_SEGUIDA = 2e4
+const W_DUPLA_REPETIDA = 1e6
+
+/**
+ * O custo de uma partida entrar AGORA. Menor e melhor: quem descansou mais
+ * entra antes; quem acabou de jogar duas seguidas so entra se nao houver
+ * outra; e a dupla que ja se formou hoje espera todas as outras.
+ */
+function custoNaFila(m: { team_a: Duo; team_b: Duo }, e: EstadoDaFila, desempate: number): number {
+  const ids = jogadorasDaPartida(m)
+  let c = 0
+  for (const id of ids) {
+    c += (e.passo - (e.ultima.get(id) ?? -50)) * -1000 // descansou mais = custo menor
+    const seq = e.seguidas.get(id) ?? 0
+    if (seq >= 2) c += W_TERCEIRA_SEGUIDA
+    else if (seq === 1) c += W_SEGUNDA_SEGUIDA
+    c += (e.jogos.get(id) ?? 0) * 10
+  }
+  if (e.jaFormadas.has(pairKey(m.team_a[0], m.team_a[1])) || e.jaFormadas.has(pairKey(m.team_b[0], m.team_b[1]))) {
+    c += W_DUPLA_REPETIDA
+  }
+  return c + desempate
+}
+
+/**
+ * Uma rodada aconteceu: quem jogou emenda, quem nao jogou descansou -- mas
+ * so dentro do grupo de cada partida: o grupo que nao teve partida nesta
+ * rodada nao descansou nem emendou, ele nem entrou.
+ */
+function avancar(e: EstadoDaFila, jogadas: { team_a: Duo; team_b: Duo }[]) {
+  const jogaram = new Set(jogadas.flatMap((m) => jogadorasDaPartida(m)))
+  const tocadas = new Set<string>()
+  for (const m of jogadas) {
+    const grupo = e.grupos?.find((g) => g.includes(m.team_a[0]))
+    for (const id of grupo ?? e.ultima.keys()) tocadas.add(id)
+  }
+  e.passo++
+  for (const id of e.ultima.keys()) {
+    if (!tocadas.has(id)) continue
+    if (jogaram.has(id)) {
+      const seq = (e.seguidas.get(id) ?? 0) + 1
+      e.seguidas.set(id, seq)
+      e.ultima.set(id, e.passo)
+      e.jogos.set(id, (e.jogos.get(id) ?? 0) + 1)
+      if (seq > e.maiorSequencia) e.maiorSequencia = seq
+      if (seq >= 2) e.emendas++
+    } else {
+      e.seguidas.set(id, 0)
+    }
+  }
+  for (const m of jogadas) {
+    e.jaFormadas.add(pairKey(m.team_a[0], m.team_a[1]))
+    e.jaFormadas.add(pairKey(m.team_b[0], m.team_b[1]))
+  }
+}
+
 
 export type ScheduleOptions = {
   playerIds: string[]
@@ -996,11 +1119,71 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
     if (faltando.length === 0) return
     const ctx: Contexto = { ratings: opts.ratings, entrosamento: opts.entrosamento, antes, dia }
     const { partidas, orfas } = emparelhar(shuffle(faltando), ctx)
+    /*
+     * Dupla que sobrou sem adversaria NUNCA e descartada: e uma dupla que
+     * ainda nao aconteceu hoje, e sumir com ela deixa duas pessoas sem jogar
+     * juntas (foi o que aconteceu com Izabelle + Karla em 14/09). Se nenhuma
+     * dupla das partidas novas serve de rival, vale QUALQUER dupla do grupo que
+     * nao divida jogadora com ela -- uma dupla que ja jogou hoje joga de novo,
+     * marcada como repetida. E entre as rivais possiveis, quem jogou MENOS hoje
+     * vem primeiro: no meio da noite os numeros ja estao desiguais, e a partida
+     * extra deve ir para quem esta atras.
+     */
+    const jogosHoje = new Map<string, number>()
+    for (const m of opts.jogadas) for (const id of jogadorasDaPartida(m)) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
     for (const orfa of orfas) {
-      const rival = escolherRival(partidas, orfa, ctx)
-      if (!rival) continue
+      let rival = escolherRival(partidas, orfa, ctx, jogosHoje)
+      if (!rival) {
+        const livres = ids.filter((id) => !orfa.includes(id))
+        let melhorCusto = Infinity
+        for (let i = 0; i < livres.length; i++) {
+          for (let j = i + 1; j < livres.length; j++) {
+            const d: Duo = [livres[i], livres[j]]
+            const c =
+              custoDoConfronto(d, orfa, ctx) +
+              W_REPETIDA * ((jogosHoje.get(d[0]) ?? 0) + (jogosHoje.get(d[1]) ?? 0))
+            if (c < melhorCusto) {
+              melhorCusto = c
+              rival = d
+            }
+          }
+        }
+      }
+      if (!rival) continue // grupo com menos de 4: nao ha como
       partidas.push({ team_a: orfa, team_b: rival, repetida: true })
       marcarConfronto(orfa, rival, ctx.dia)
+      for (const id of rival) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
+    }
+    /*
+     * TODAS JOGAM O MESMO TANTO, mesmo depois de refazer.
+     *
+     * Cobrir as duplas que faltavam usa o minimo de partidas, e isso deixa
+     * quem entrou tarde (ou quem teve menos sorte na fila) com uma ou duas a
+     * menos. Enquanto a diferenca entre quem mais e quem menos jogou for de
+     * 2 ou mais, entra uma partida com as quatro que menos jogaram -- duplas
+     * repetidas, marcadas como tal, na divisao mais parelha entre as quatro.
+     */
+    const totalDe = (id: string) => (jogosHoje.get(id) ?? 0) + partidas.filter((m) => jogadorasDaPartida(m).includes(id)).length
+    for (let volta = 0; volta < ids.length; volta++) {
+      const contagem = ids.map((id) => totalDe(id))
+      if (Math.max(...contagem) - Math.min(...contagem) < 2 || ids.length < 4) break
+      const quatro = [...ids].sort((a, b) => totalDe(a) - totalDe(b)).slice(0, 4)
+      const divisoes: [Duo, Duo][] = [
+        [[quatro[0], quatro[1]], [quatro[2], quatro[3]]],
+        [[quatro[0], quatro[2]], [quatro[1], quatro[3]]],
+        [[quatro[0], quatro[3]], [quatro[1], quatro[2]]],
+      ]
+      let melhor = divisoes[0]
+      let melhorCusto = Infinity
+      for (const [a, b] of divisoes) {
+        const c = custoDoConfronto(a, b, ctx)
+        if (c < melhorCusto) {
+          melhorCusto = c
+          melhor = [a, b]
+        }
+      }
+      partidas.push({ team_a: melhor[0], team_b: melhor[1], repetida: true })
+      marcarConfronto(melhor[0], melhor[1], ctx.dia)
     }
     melhorarConfrontos(partidas, ctx)
     for (const p of partidas) todas.push({ ...p, grupo: gi })
@@ -1105,46 +1288,49 @@ export type EscolhaOpts = {
   jogos: Map<string, number>
   /** Quadras sem partida em andamento, na ordem em que aparecem na tela. */
   quadrasLivres: number[]
+  /** Quantas partidas seguidas cada uma acabou de jogar (0 = descansou na ultima). */
+  seguidas?: Map<string, number>
+  /** Duplas (pairKey) que ja jogaram ou estao jogando hoje. */
+  jaFormadas?: Set<string>
+  /** Todas as jogadoras do play (para a simulacao do que vem depois). */
+  jogadoras?: string[]
+  /** Os grupos do play, quando ha. */
+  grupos?: string[][] | null
+}
+
+/** O estado da fila a partir do que a tela sabe agora. */
+function estadoDaTela(opts: EscolhaOpts): EstadoDaFila {
+  const jogadoras = opts.jogadoras ?? jogadorasDe(opts.pendentes)
+  const e = estadoInicial(jogadoras, opts.grupos ?? null)
+  // a posicao na espera vira "ha quanto tempo jogou": 0 = ha mais tempo
+  for (const id of jogadoras) e.ultima.set(id, opts.espera.get(id) ?? 0)
+  for (const id of opts.ocupadas) e.ultima.set(id, jogadoras.length + (opts.espera.get(id) ?? 0))
+  e.passo = 2 * jogadoras.length
+  if (opts.seguidas) for (const [id, n] of opts.seguidas) e.seguidas.set(id, n)
+  if (opts.jaFormadas) for (const k of opts.jaFormadas) e.jaFormadas.add(k)
+  for (const [id, n] of opts.jogos) e.jogos.set(id, n)
+  return e
+}
+
+/** Custo de uma partida agora, com o desempate pela ordem em que foi gerada. */
+function custoAgora(m: Match, e: EstadoDaFila): number {
+  return custoNaFila(m, e, m.round)
 }
 
 /**
- * Sugere a proxima partida de cada quadra livre.
- *
- * Escolhe o CONJUNTO de partidas de uma vez, nao uma quadra por vez: pegando
- * a melhor partida para a quadra 1 sem olhar as outras, sobra jogadora
- * repetida entre duas quadras (a mesma menina nao pode entrar em duas ao
- * mesmo tempo). Aqui a busca preenche o maior numero de quadras possivel e,
- * entre as opcoes que preenchem o mesmo tanto, escolhe a de menor custo.
- *
- * Pode devolver menos quadras do que as livres: quando as partidas que faltam
- * so envolvem quem ja esta jogando, a tela mostra a quadra esperando e
- * oferece montar uma partida com quem esta livre.
+ * Os melhores CONJUNTOS de partidas para as quadras livres, do mais barato ao
+ * mais caro, preenchendo o maior numero de quadras possivel.
  */
-export function proximasDasQuadras(opts: EscolhaOpts): Map<number, Match> {
-  const { pendentes, ocupadas, espera, jogos, quadrasLivres } = opts
-
-  const custo = (m: Match) => {
-    const ids = jogadorasDaPartida(m)
-    const esperou = ids.reduce((t, id) => t + (espera.get(id) ?? 0), 0)
-    const feitos = ids.reduce((t, id) => t + (jogos.get(id) ?? 0), 0)
-    return esperou * 1000 + feitos * 10 + m.round
-  }
-
-  const ordenadas = [...pendentes].sort((a, b) => custo(a) - custo(b))
-  const LARGURA = 8 // quantas candidatas testar por quadra
-  const TETO = 3000 // corta a busca em play grande
+function conjuntosCandidatos(pendentes: Match[], ocupadas: Set<string>, quadras: number, e: EstadoDaFila): Match[][] {
+  const ordenadas = [...pendentes].sort((a, b) => custoAgora(a, e) - custoAgora(b, e))
+  const LARGURA = 8
+  const TETO = 3000
   let visitas = 0
-  let melhor: Match[] = []
-  let melhorNota = Infinity
-
+  const completos: { nota: number; escolhidas: Match[] }[] = []
   const busca = (nivel: number, tomadas: Set<string>, escolhidas: Match[], acumulado: number) => {
     // preencher mais quadras vale mais que qualquer economia de custo
-    const nota = -escolhidas.length * 1e9 + acumulado
-    if (nota < melhorNota) {
-      melhorNota = nota
-      melhor = escolhidas.slice()
-    }
-    if (nivel >= quadrasLivres.length || visitas > TETO) return
+    completos.push({ nota: -escolhidas.length * 1e9 + acumulado, escolhidas: escolhidas.slice() })
+    if (nivel >= quadras || visitas > TETO) return
     const usadas = new Set(escolhidas.map((m) => m.id))
     const cabem = ordenadas.filter(
       (m) => !usadas.has(m.id) && jogadorasDaPartida(m).every((id) => !tomadas.has(id)),
@@ -1154,12 +1340,148 @@ export function proximasDasQuadras(opts: EscolhaOpts): Map<number, Match> {
       if (visitas > TETO) return
       const t2 = new Set(tomadas)
       for (const id of jogadorasDaPartida(m)) t2.add(id)
-      busca(nivel + 1, t2, [...escolhidas, m], acumulado + custo(m))
+      busca(nivel + 1, t2, [...escolhidas, m], acumulado + custoAgora(m, e))
     }
   }
   busca(0, new Set(ocupadas), [], 0)
+  completos.sort((a, b) => a.nota - b.nota)
+  return completos.map((c) => c.escolhidas)
+}
 
+/**
+ * O que acontece com o resto da fila se estas partidas entrarem agora: roda
+ * o mesmo criterio ate o fim, rodada a rodada, e devolve o pior encadeamento
+ * que alguem vai ter. E isto que evita a escolha gulosa se encurralar no
+ * fim -- a Beatriz jogando quatro seguidas porque as partidas que sobraram
+ * so tinham ela.
+ */
+function simularResto(escolha: Match[], pendentes: Match[], quadras: number, e0: EstadoDaFila): [number, number] {
+  const e = clonar(e0)
+  let restantes = pendentes.filter((m) => !escolha.some((x) => x.id === m.id))
+  avancar(e, escolha)
+  while (restantes.length > 0) {
+    const proxima = conjuntosCandidatos(restantes, new Set(), quadras, e)[0] ?? []
+    if (proxima.length === 0) break
+    avancar(e, proxima)
+    restantes = restantes.filter((m) => !proxima.some((x) => x.id === m.id))
+  }
+  return [e.maiorSequencia, e.emendas]
+}
+
+/** Ate quantas partidas pendentes a ordem e buscada por completo (quadra unica). */
+const LIMITE_ORDEM_EXATA = 12
+
+/**
+ * A MELHOR ordem para o que falta, numa quadra so: a que deixa o menor
+ * encadeamento de partidas seguidas (e, no empate, menos emendas de duas).
+ *
+ * A escolha gulosa se encurrala no fim -- sobra so partida com quem acabou de
+ * jogar. Com poucas partidas pendentes da para olhar todas as ordens: a busca
+ * parte da ordem gulosa como teto e corta todo ramo que ja emenda tanto
+ * quanto ela. O teto de nos e para o celular nunca travar; sem completar, fica
+ * a melhor ordem vista ate ali, que nunca e pior que a gulosa.
+ */
+function ordemExata(pendentes: Match[], e0: EstadoDaFila): Match[] {
+  // a gulosa: teto inicial e resposta de reserva
+  const gulosa: Match[] = []
+  {
+    const e = clonar(e0)
+    let restantes = pendentes.slice()
+    while (restantes.length > 0) {
+      const m = conjuntosCandidatos(restantes, new Set(), 1, e)[0]?.[0]
+      if (!m) break
+      avancar(e, [m])
+      gulosa.push(m)
+      restantes = restantes.filter((x) => x.id !== m.id)
+    }
+    if (gulosa.length < pendentes.length) return gulosa
+  }
+  let melhor = gulosa
+  let melhorNota = notaDaOrdem(gulosa, e0)
+  let nos = 0
+  const TETO = 40000
+  const dfs = (e: EstadoDaFila, ordem: Match[], restantes: Match[]) => {
+    if (nos++ > TETO) return
+    const notaAteAqui = e.maiorSequencia * 1e6 + e.emendas * 1e3
+    if (notaAteAqui >= melhorNota) return // ja nao bate a melhor
+    if (restantes.length === 0) {
+      melhorNota = notaAteAqui
+      melhor = ordem.slice()
+      return
+    }
+    // as candidatas mais baratas primeiro: acha uma boa ordem cedo e poda mais
+    const candidatas = [...restantes].sort((a, b) => custoAgora(a, e) - custoAgora(b, e))
+    for (const m of candidatas) {
+      const e2 = clonar(e)
+      avancar(e2, [m])
+      dfs(e2, [...ordem, m], restantes.filter((x) => x.id !== m.id))
+      if (nos > TETO) return
+    }
+  }
+  dfs(clonar(e0), [], pendentes.slice())
+  return melhor
+}
+
+function notaDaOrdem(ordem: Match[], e0: EstadoDaFila): number {
+  const e = clonar(e0)
+  for (const m of ordem) avancar(e, [m])
+  return e.maiorSequencia * 1e6 + e.emendas * 1e3
+}
+
+function clonar(e0: EstadoDaFila): EstadoDaFila {
+  return {
+    ultima: new Map(e0.ultima),
+    seguidas: new Map(e0.seguidas),
+    jaFormadas: new Set(e0.jaFormadas),
+    jogos: new Map(e0.jogos),
+    grupos: e0.grupos,
+    passo: e0.passo,
+    maiorSequencia: 0,
+    emendas: 0,
+  }
+}
+
+/**
+ * Sugere a proxima partida de cada quadra livre.
+ *
+ * Escolhe o CONJUNTO de partidas de uma vez, nao uma quadra por vez: pegando
+ * a melhor partida para a quadra 1 sem olhar as outras, sobra jogadora
+ * repetida entre duas quadras (a mesma menina nao pode entrar em duas ao
+ * mesmo tempo). A busca preenche o maior numero de quadras possivel e, entre
+ * as opcoes que preenchem o mesmo tanto, olha o que cada uma faz com o RESTO
+ * da noite: fica a que deixa o menor encadeamento de partidas seguidas, e so
+ * depois a mais barata agora.
+ *
+ * Pode devolver menos quadras do que as livres: quando as partidas que faltam
+ * so envolvem quem ja esta jogando, a tela mostra a quadra esperando.
+ */
+export function proximasDasQuadras(opts: EscolhaOpts): Map<number, Match> {
+  const { pendentes, ocupadas, quadrasLivres } = opts
+  const e = estadoDaTela(opts)
   const out = new Map<number, Match>()
+  // uma quadra livre e pouca coisa pendente: da para achar a melhor ordem
+  // de verdade, e a proxima e a primeira dela (so entre quem esta livre)
+  if (quadrasLivres.length === 1 && pendentes.length <= LIMITE_ORDEM_EXATA) {
+    const livres = pendentes.filter((m) => jogadorasDaPartida(m).every((id) => !ocupadas.has(id)))
+    const ordem = ordemExata(livres, e)
+    if (ordem[0]) out.set(quadrasLivres[0], ordem[0])
+    return out
+  }
+  const candidatos = conjuntosCandidatos(pendentes, ocupadas, quadrasLivres.length, e)
+  if (candidatos.length === 0) return out
+  const maisCheio = candidatos[0].length
+  // so os que preenchem o maximo de quadras, e os 10 mais baratos entre eles
+  const finalistas = candidatos.filter((c) => c.length === maisCheio).slice(0, 10)
+  let melhor = finalistas[0]
+  let melhorNota = Infinity
+  finalistas.forEach((c, i) => {
+    const [maior, emendas] = simularResto(c, pendentes, Math.max(1, quadrasLivres.length), e)
+    const nota = maior * 1e6 + emendas * 1e3 + i
+    if (nota < melhorNota) {
+      melhorNota = nota
+      melhor = c
+    }
+  })
   melhor.forEach((m, i) => out.set(quadrasLivres[i], m))
   return out
 }
@@ -1169,12 +1491,9 @@ export function proximasDasQuadras(opts: EscolhaOpts): Map<number, Match> {
  *
  * Nao e a ordem em que elas foram geradas: essa e so o ponto de partida, e
  * mostra-la na tela engana, porque aparece na frente quem acabou de sair da
- * quadra. Aqui a fila e projetada rodando o mesmo criterio das quadras --
- * entra sempre a partida com as jogadoras que estao ha mais tempo sem jogar --
- * e cada partida escolhida joga as suas quatro para o fim da espera.
- *
- * So muda a ORDEM: as duplas ja estao formadas, entao o rodizio continua
- * intacto (ninguem repete parceira por causa disto).
+ * quadra. Aqui a fila e projetada rodando o mesmo criterio das quadras, uma
+ * partida por vez. So muda a ORDEM: as duplas ja estao formadas, entao o
+ * rodizio continua intacto.
  */
 export function ordemPrevista(opts: {
   /** Partidas sem placar e sem inicio. */
@@ -1185,34 +1504,20 @@ export function ordemPrevista(opts: {
   ocupadas: Set<string>
   /** Todas as jogadoras do play. */
   jogadoras: string[]
+  seguidas?: Map<string, number>
+  jaFormadas?: Set<string>
+  grupos?: string[][] | null
 }): Match[] {
-  const { pendentes, espera, ocupadas, jogadoras } = opts
-  const n = Math.max(1, jogadoras.length)
-
-  // "ha quanto tempo jogou", em passos de fila: menor = esperando ha mais tempo
-  const ultima = new Map<string, number>()
-  for (const id of jogadoras) {
-    const posicao = espera.get(id) ?? 0
-    ultima.set(id, ocupadas.has(id) ? n + posicao : posicao)
-  }
-
-  const restantes = pendentes.slice()
+  const e = estadoDaTela({ ...opts, jogos: new Map(), quadrasLivres: [1] })
+  if (opts.pendentes.length <= LIMITE_ORDEM_EXATA) return ordemExata(opts.pendentes, e)
+  let restantes = opts.pendentes.slice()
   const out: Match[] = []
   while (restantes.length > 0) {
-    let escolhida = 0
-    let melhor = Infinity
-    restantes.forEach((m, i) => {
-      const ids = jogadorasDaPartida(m)
-      const soma = ids.reduce((t, id) => t + (ultima.get(id) ?? 0), 0)
-      const nota = soma * 1000 + m.round // desempate pela ordem em que foi gerada
-      if (nota < melhor) {
-        melhor = nota
-        escolhida = i
-      }
-    })
-    const m = restantes.splice(escolhida, 1)[0]
-    for (const id of jogadorasDaPartida(m)) ultima.set(id, 2 * n + out.length)
-    out.push(m)
+    const proxima = conjuntosCandidatos(restantes, new Set(), 1, e)[0]?.[0]
+    if (!proxima) break
+    avancar(e, [proxima])
+    out.push(proxima)
+    restantes = restantes.filter((m) => m.id !== proxima.id)
   }
   return out
 }

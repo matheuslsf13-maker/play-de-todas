@@ -130,15 +130,33 @@ export function computeStats(matches: Match[]): Map<string, PlayerStat> {
 }
 
 /** Ordena o ranking: pontos > saldo de games > vitorias > nome. */
+/** O que decide um ranking: pontos (o do mes, e o do dia como sempre foi) ou vitorias. */
+export type CriterioDoDia = 'pontos' | 'vitorias'
+
+/**
+ * Compara duas linhas pelo criterio. Negativo = `x` na frente.
+ *
+ * Por vitorias, quem venceu mais fica na frente e os pontos so desempatam --
+ * e o que faz sentido para o DIA: ganhar 5 de 6 apertado vale mais do que
+ * ganhar 3 de 6 atropelando. O mes continua por pontos: la o que se soma e
+ * o que cada noite rendeu.
+ */
+export function compararPeloCriterio(x: PlayerStat, y: PlayerStat, criterio: CriterioDoDia): number {
+  if (criterio === 'vitorias') {
+    return y.wins - x.wins || y.points - x.points || balance(y) - balance(x)
+  }
+  return y.points - x.points || balance(y) - balance(x) || y.wins - x.wins
+}
+
 export function rankPlayers(
   stats: Map<string, PlayerStat>,
   nameOf: (id: string) => string,
+  criterio: CriterioDoDia = 'pontos',
 ): PlayerStat[] {
-  return [...stats.values()].sort((x, y) =>
-    y.points - x.points ||
-    balance(y) - balance(x) ||
-    y.wins - x.wins ||
-    nameOf(x.player_id).localeCompare(nameOf(y.player_id), 'pt-BR'),
+  return [...stats.values()].sort(
+    (x, y) =>
+      compararPeloCriterio(x, y, criterio) ||
+      nameOf(x.player_id).localeCompare(nameOf(y.player_id), 'pt-BR'),
   )
 }
 
