@@ -2429,54 +2429,18 @@ function PlayDetail({
                 </div>
               )}
               {soFase2 && <DuplasDoDia linhas={duplasDoDia} />}
-              {podios.length > 1 ? (
-                // cada grupo COMPLETO, com o podio dele colorido: um grupo e um
-                // rodizio fechado, entao a posicao que vale e a de dentro dele
-                podios.map((p) => {
-                  const doGrupo = new Set(p.membros)
-                  return (
-                    <div key={p.grupo} style={{ marginBottom: 14 }}>
-                      <div className="section-title" style={{ fontSize: 13 }}>
-                        👥 Grupo {p.grupo}{' '}
-                        <span className="tiny muted" style={{ fontWeight: 600 }}>
-                          · {p.membros.length} jogadoras · pódio: {p.rows.length}
-                        </span>
-                      </div>
-                      <RankTable
-                        rows={dayRows.filter((s) => doGrupo.has(s.player_id))}
-                        fire={streaksDoDia}
-                        vagas={p.rows.length}
-                      />
-                    </div>
-                  )
-                })
-              ) : (
-                <RankTable rows={dayRows} fire={streaksDoDia} />
-              )}
               {podios.length > 1 && (
                 <>
-                  <div className="section-title" style={{ fontSize: 13 }}>📊 Todas juntas</div>
-                  <p className="tiny muted" style={{ marginTop: 0 }}>
-                    Os pontos são os que vão para o ranking do mês; a posição aqui é só de curiosidade,
-                    porque cada grupo jogou o seu próprio rodízio.
-                  </p>
-                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} />
-                </>
-              )}
-              {podios.length > 1 && (
-                <>
-                  <div className="section-title" style={{ fontSize: 13, marginTop: 14 }}>
-                    📤 Mandar no grupo
-                  </div>
-                  {/* chips e nao `segmented`: com 4 ou 5 grupos os botoes fixos
-                      nao cabem na largura do celular */}
+                  {/* O seletor manda em tudo: a tabela abaixo, o texto e a imagem.
+                      Geral primeiro, depois cada grupo. Chips e nao `segmented`:
+                      com 4 ou 5 grupos os botoes fixos nao cabem no celular. */}
                   <div className="chips-scroll" style={{ marginBottom: 8 }}>
                     <button
                       className={`chip ${grupoArte === null ? 'on' : 'off'}`}
                       style={{ flex: 'none' }}
                       onClick={() => setGrupoArte(null)}
                     >
-                      📋 Tudo
+                      📋 Geral
                     </button>
                     {podios.map((p) => (
                       <button
@@ -2489,11 +2453,51 @@ function PlayDetail({
                       </button>
                     ))}
                   </div>
-                  <p className="tiny muted" style={{ marginTop: 0, marginBottom: 8 }}>
-                    O texto e a imagem saem só com {grupoArte === null ? 'todos os grupos' : `o grupo ${grupoArte}`},
-                    já escrito de qual grupo se trata.
-                  </p>
                 </>
+              )}
+              {podios.length > 1 && grupoArte === null && (
+                <>
+                  <div className="section-title" style={{ fontSize: 13 }}>
+                    📋 Geral{' '}
+                    <span className="tiny muted" style={{ fontWeight: 600 }}>
+                      · {dayRows.length} jogadoras
+                    </span>
+                  </div>
+                  <p className="tiny muted" style={{ marginTop: 0 }}>
+                    Todas juntas, pelos pontos que vão para o ranking do mês. O pódio é por grupo —
+                    toque num grupo para vê-lo com as medalhas.
+                  </p>
+                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} />
+                </>
+              )}
+              {podios.length > 1 &&
+                grupoArte !== null &&
+                podios
+                  .filter((p) => p.grupo === grupoArte)
+                  .map((p) => {
+                    const doGrupo = new Set(p.membros)
+                    return (
+                      <div key={p.grupo}>
+                        <div className="section-title" style={{ fontSize: 13 }}>
+                          👥 Grupo {p.grupo}{' '}
+                          <span className="tiny muted" style={{ fontWeight: 600 }}>
+                            · {p.membros.length} jogadoras · pódio: {p.rows.length}
+                          </span>
+                        </div>
+                        <RankTable
+                          rows={dayRows.filter((s) => doGrupo.has(s.player_id))}
+                          fire={streaksDoDia}
+                          vagas={p.rows.length}
+                        />
+                      </div>
+                    )
+                  })}
+              {podios.length <= 1 && <RankTable rows={dayRows} fire={streaksDoDia} />}
+              {podios.length > 1 && (
+                <p className="tiny muted" style={{ marginTop: 10, marginBottom: 8 }}>
+                  📤 O texto e a imagem saem com {grupoArte === null ? 'todos os grupos' : `só o grupo ${grupoArte}`},
+                  já escrito de qual grupo se trata.
+                </p>
               )}
               <button
                 className="btn pink block"
