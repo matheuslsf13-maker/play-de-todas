@@ -1706,7 +1706,9 @@ function PlayDetail({
     const fila = refazerFila({
       playerIds: sessao.player_ids,
       groups: sessao.groups ?? undefined,
-      jogadas,
+      // a partida EM QUADRA conta como acontecida: ela fica na lista, entao a
+      // fila nova nao pode formar aquelas duplas de novo nem repetir o confronto
+      jogadas: matches.filter((m) => isPlayed(m) || iniciada(m)),
       ratings: ratings(data, session.date),
       entrosamento: ajusteDeEntrosamento(data),
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
