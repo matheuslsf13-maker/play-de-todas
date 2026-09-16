@@ -4,6 +4,12 @@ App para organizar o **Play de Todas**, o campeonato de **beach tennis** da V3 A
 lança os placares, fecha o dia, soma os pontos no ranking do mês e mostra as
 estatísticas individuais, de duplas e de confrontos.
 
+Duas páginas prontas para mostrar o campeonato a quem chega de fora:
+[**a apresentação**](public/apresentacao/index.html) (as cenas que rodam
+sozinhas, em `/apresentacao/`) e [**como a noite é montada**](public/como-funciona/index.html)
+(o documento de apoio sobre balanceamento, formatos e fechamento, em
+`/como-funciona/` — e é ele que imprime bem em PDF).
+
 ## O que ele faz
 
 - **Rodízio completo** — cada menina faz dupla com **cada uma das outras
@@ -16,23 +22,26 @@ estatísticas individuais, de duplas e de confrontos.
   próxima partida cujas quatro meninas estão livres, **dando preferência a quem
   está fora há mais tempo** — ninguém emenda dois jogos cansada enquanto outra
   espera sentada.
-- **Dois formatos** — *Todas com todas* (o rodízio inteiro) ou **em grupos**:
-  você escolhe quantas meninas por grupo e o app monta os grupos **por nível**
-  (grupo 1 com quem está jogando melhor). Cada grupo é um rodízio
-  próprio, mas **os pontos continuam individuais e o ranking do dia é um só**.
-  Serve para noite curta: com 16 meninas o rodízio inteiro dá 15 jogos para cada
-  uma; em grupos de 8, dá 7.
+- **Três formatos** — *Todas com todas* (o rodízio inteiro), **em grupos** e
+  **grupos + duplas**. Em grupos você escolhe quantas meninas por grupo e o app
+  monta os grupos **por nível** (grupo 1 com quem está jogando melhor); cada
+  grupo é um rodízio próprio, mas **os pontos continuam individuais e o ranking
+  do dia é um só** — o pódio, esse sim, é um por grupo. Serve para noite curta:
+  com 16 meninas o rodízio inteiro dá 15 jogos para cada uma; em grupos de 8, dá
+  7. Já o **grupos + duplas** usa a fase de grupos só para classificar: a
+  colocação vira **dupla fixa** (1ª com 1ª, 2ª com 2ª) e o dia termina em
+  **mata-mata**, com final e disputa de 3º lugar.
 - **Quantidade livre** — você informa quantas jogadoras vieram e quantas quadras
   temos. O app avisa quando o número não fecha e explica a conta.
 - **Pontuação do cartaz** — partida até 4 pontos, sem empate:
   `4x0 = 4 pts · 4x1 = 3 pts · 4x2 = 2 pts · 4x3 = 1 pt` (a derrota não pontua).
   Dá para mudar o "vai até" na criação do play.
-- **Status de sequência 🔥** — terminar sextas seguidas no **pódio do dia** dá
-  status, de 🔥 *Em chamas* (2 sextas) até 👑💎🌟 **Duquesa da V3** (8 ou mais).
+- **Status de sequência 🔥** — terminar semanas seguidas no **pódio do dia** dá
+  status, de 🔥 *Em chamas* (2 semanas) até 👑💎🌟 **Duquesa da V3** (8 ou mais).
   No fechamento do mês a jogadora escolhe **usar** o status (vira pontos e zera)
   ou **preservar** (segue crescendo e ganha 1 vida).
 - **Fechar o mês quando você quiser** — botão com confirmação no Ranking, porque
-  a premiação acontece na última sexta e não na virada do calendário. Dá para
+  a premiação acontece no último play do mês e não na virada do calendário. Dá para
   reabrir se foi engano ou teste.
 - **Histórico completo** — o ranking zera todo mês, mas **nada é apagado**. Dá
   para ver o acumulado de sempre no Ranking e nas Stats.
@@ -187,10 +196,10 @@ aparece na tela inicial como **Próximo play**, e qualquer pessoa que abrir o li
 
 ## Status de sequência ("em chamas")
 
-Terminar a sexta no **pódio do dia** (top 3) mantém o status vivo e faz a
-sequência crescer:
+Terminar o play no **pódio do dia** (top 3 — e, no modo em grupos, o top 3 de
+cada grupo) mantém o status vivo e faz a sequência crescer:
 
-| Sextas seguidas no pódio | Status | Vale |
+| Semanas seguidas no pódio | Status | Vale |
 | --- | --- | --- |
 | 2 | 🔥 Em chamas | 3 pontos |
 | 3 | 🔥🔥 Pegando fogo | 6 pontos |
@@ -202,11 +211,19 @@ sequência crescer:
 
 ### Por que pódio e não vitória do dia
 
-Porque as duplas são equilibradas de propósito: medindo 400 sextas simuladas,
-**a mesma jogadora vence duas sextas seguidas em apenas 11% das vezes** e
-praticamente ninguém chega a 4. Com a vitória do dia como critério, os degraus
-de 4 para cima seriam enfeite. Pelo pódio, a escada inteira passa a ser
-alcançável e a Duquesa continua lendária (cerca de 1,5% das sequências).
+Não é porque o dia seja sorteio — habilidade aparece, e muito: medindo 600
+plays simulados com 16 jogadoras, **a melhor termina no pódio em 61% das vezes**
+(o acaso puro daria 18%) e vence o dia em 31% (contra 6%). O ponto é que
+**nem a melhor da quadra vence toda semana**: a campeã de um dia repete no dia
+seguinte em 16% a 27% das vezes, então com a vitória do dia como critério os
+degraus de 4 para cima seriam enfeite. Pelo pódio a escada inteira passa a ser
+alcançável, e a Duquesa continua rara.
+
+> A versão anterior deste trecho dizia que vencer o dia era "quase sorteio
+> porque as duplas são equilibradas". Está errado e foi corrigido: no rodízio
+> completo a parceira de cada partida já está determinada e todas jogam com
+> todas, então a soma da força das parceiras é idêntica para todo mundo — o que
+> o app escolhe é só a **adversária**. Ver `DECISOES.md`.
 
 ### A decisão do fechamento
 
@@ -218,7 +235,7 @@ terminou o mês com status escolhe:
 - **Preservar** (padrão) — não pontua, o status segue crescendo no mês seguinte
   e ela ganha **1 vida**.
 
-A **vida** absorve uma sexta fora do pódio: o status sobrevive, mas não cresce
+A **vida** absorve um play fora do pódio: o status sobrevive, mas não cresce
 naquela semana. Não acumula (no máximo uma por vez). **Faltar zera o status
 mesmo com vida** — tem que estar lá.
 

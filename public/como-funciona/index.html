@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<title>Play de Todas — como a noite é montada</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e1230">
+<meta name="description" content="Documento de apoio: os três formatos de play, como as duplas são equilibradas, como a fila decide quem entra, a força (Elo) e o fechamento do mês.">
+<link rel="icon" href="../icon-192.png">
+<meta property="og:title" content="Play de Todas — como a noite é montada">
+<meta property="og:description" content="Balanceamento, fila de partidas, formatos e fechamento do mês, explicados com os números medidos.">
+<meta property="og:image" content="https://playdetodas.com.br/icon-512.png">
+<style>*{box-sizing:border-box}html,body{margin:0;padding:0}img{max-width:100%}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Kaushan+Script&family=Figtree:wght@400;600;800;900&display=swap">
+
+<style>
+  /* ---------------------------------------------------------------
+     Documento de apoio do Play de Todas.
+
+     Nao e a apresentacao (que roda sozinha, em cenas): aqui e texto para
+     LER -- na conferencia, no celular ou impresso na frente do cliente.
+     Mesma paleta da apresentacao, layout de documento: sumario fixo,
+     secoes numeradas, tabelas e um estilo de impressao em papel branco.
+     --------------------------------------------------------------- */
+  :root {
+    --noite:   #0e1230;
+    --noite-2: #161c46;
+    --carta:   #1d2352;
+    --linha:   rgba(255, 246, 238, .14);
+    --creme:   #fff6ee;
+    --fumaca:  #a79fc4;
+    --rosa:    #ff5c8a;
+    --roxo:    #8b5cf0;
+    --ouro:    #ffc940;
+    --laranja: #ff8a3d;
+    --verde:   #2ed3b7;
+    --por-do-sol: linear-gradient(100deg, #8b5cf0 0%, #ff5c8a 52%, #ff8a3d 100%);
+    --display: 'Anton', 'Arial Narrow', Impact, sans-serif;
+    --script:  'Kaushan Script', 'Brush Script MT', cursive;
+    --corpo:   'Figtree', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  }
+
+  body { margin: 0; background: var(--noite); color: var(--creme); font-family: var(--corpo);
+    font-size: 16.5px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+  .fundo { position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(60% 40% at 12% 0%, rgba(139, 92, 240, .26), transparent 70%),
+      radial-gradient(50% 35% at 92% 6%, rgba(255, 92, 138, .18), transparent 70%); }
+
+  .pagina { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto;
+    padding: 20px 16px 64px; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 34px; }
+
+  /* ------- topo ------- */
+  .topo { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; }
+  .voltar { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: 999px;
+    border: 1px solid var(--linha); background: rgba(255, 246, 238, .07); color: var(--creme);
+    text-decoration: none; font-size: 14px; font-weight: 800; }
+  .voltar:hover { border-color: var(--rosa); background: rgba(255, 92, 138, .14); }
+  .topo-nome { font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--fumaca); }
+
+  /* ------- capa ------- */
+  .capa { grid-column: 1 / -1; border: 1px solid var(--linha); border-radius: 24px; padding: clamp(22px, 4vw, 40px);
+    background: linear-gradient(180deg, var(--noite-2), rgba(14, 18, 48, .6)); }
+  .capa .selo { font-size: 12px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--rosa); }
+  .capa h1 { font-family: var(--display); font-weight: 400; font-size: clamp(32px, 6.4vw, 60px); line-height: .98;
+    margin: 8px 0 10px; text-transform: uppercase; }
+  .capa h1 em { font-style: normal; background: var(--por-do-sol); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .capa p { margin: 0; color: var(--fumaca); max-width: 70ch; }
+  .capa .assinatura { font-family: var(--script); font-size: clamp(19px, 3.2vw, 26px); color: var(--ouro); display: block; margin-top: 14px; }
+
+  /* ------- sumario ------- */
+  .sumario { position: sticky; top: 18px; align-self: start; border: 1px solid var(--linha);
+    border-radius: 18px; padding: 16px 14px; background: rgba(255, 246, 238, .04); font-size: 14px; }
+  .sumario b { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--rosa); margin-bottom: 10px; }
+  .sumario ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
+  .sumario a { color: var(--fumaca); text-decoration: none; }
+  .sumario a:hover { color: var(--creme); }
+
+  /* ------- corpo ------- */
+  main { min-width: 0; display: flex; flex-direction: column; gap: 34px; }
+  section { scroll-margin-top: 18px; }
+  h2 { font-family: var(--display); font-weight: 400; font-size: clamp(23px, 3.6vw, 34px); line-height: 1.05;
+    margin: 0 0 6px; text-transform: uppercase; }
+  h2 .n { color: var(--rosa); }
+  h3 { font-size: clamp(16.5px, 2.2vw, 19px); font-weight: 900; margin: 22px 0 6px; }
+  h4 { font-size: 15.5px; font-weight: 900; margin: 16px 0 4px; color: var(--ouro); }
+  p { margin: 0 0 12px; }
+  .chamada { color: var(--fumaca); margin-top: 0; }
+  strong, b { font-weight: 800; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em;
+    background: rgba(255, 246, 238, .09); border: 1px solid var(--linha); border-radius: 6px; padding: 1px 5px; }
+  ul, ol { margin: 0 0 12px; padding-left: 22px; display: flex; flex-direction: column; gap: 7px; }
+  a { color: var(--rosa); }
+
+  /* ------- tabelas ------- */
+  .rolagem { overflow-x: auto; margin: 0 0 14px; border: 1px solid var(--linha); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+  thead th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--rosa);
+    background: rgba(255, 246, 238, .05); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num, th.num { font-variant-numeric: tabular-nums; }
+  td.livre, th.livre { white-space: normal; min-width: 240px; }
+  tr.destaque td { background: rgba(46, 211, 183, .10); }
+  tr.alerta td { background: rgba(255, 92, 138, .10); }
+  .legenda { font-size: 13px; color: var(--fumaca); margin: -6px 0 14px; }
+
+  /* ------- avisos ------- */
+  .aviso { display: flex; gap: 11px; align-items: flex-start; border-left: 3px solid var(--ouro);
+    background: rgba(255, 201, 64, .10); border-radius: 0 13px 13px 0; padding: 12px 15px; margin: 0 0 14px; }
+  .aviso.perigo { border-left-color: var(--rosa); background: rgba(255, 92, 138, .12); }
+  .aviso.calmo { border-left-color: var(--verde); background: rgba(46, 211, 183, .10); }
+  .aviso p:last-child { margin: 0; }
+
+  /* ------- cartoes ------- */
+  .cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .cartao { border: 1px solid var(--linha); border-radius: 16px; padding: 14px 16px; background: rgba(255, 246, 238, .04); }
+  .cartao .rot { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--rosa); }
+  .cartao .val { font-family: var(--display); font-weight: 400; font-size: clamp(19px, 3.2vw, 27px); margin: 4px 0 2px; }
+  .cartao .obs { font-size: 13px; color: var(--fumaca); line-height: 1.5; }
+  .cartao .obs b { color: var(--creme); }
+
+  .formatos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .formato { border: 1px solid var(--linha); border-radius: 18px; padding: 16px; background: rgba(255, 246, 238, .04); }
+  .formato h3 { margin: 0 0 2px; font-family: var(--display); font-weight: 400; font-size: 21px; text-transform: uppercase; }
+  .formato .quando { font-size: 12.5px; color: var(--ouro); font-weight: 800; margin-bottom: 8px; }
+  .formato ul { margin: 0; padding-left: 18px; gap: 5px; }
+  .formato li { font-size: 14px; color: var(--fumaca); line-height: 1.45; }
+  .formato li b { color: var(--creme); }
+  .formato.todas { border-color: rgba(255, 92, 138, .5); } .formato.todas h3 { color: var(--rosa); }
+  .formato.grupo { border-color: rgba(139, 92, 240, .55); } .formato.grupo h3 { color: var(--roxo); }
+  .formato.duplas { border-color: rgba(255, 201, 64, .55); } .formato.duplas h3 { color: var(--ouro); }
+
+  /* ------- caminho em passos ------- */
+  .passos { list-style: none; counter-reset: passo; margin: 0 0 14px; padding: 0; display: flex;
+    flex-direction: column; gap: 10px; }
+  .passos li { counter-increment: passo; display: flex; gap: 12px; align-items: flex-start; }
+  .passos li::before { content: counter(passo); flex: none; width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12.5px; font-weight: 900; color: #21103a; background: var(--ouro); }
+  .passos b { display: block; }
+  .passos span { color: var(--fumaca); font-size: 14.5px; }
+  .passos span b { display: inline; color: var(--creme); }
+
+  /* ------- linha do tempo das quadras ------- */
+  .quadras { display: flex; flex-direction: column; gap: 10px; margin: 0 0 8px; }
+  .quadra { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 10px; align-items: center; }
+  .quadra .nome { font-size: 13px; font-weight: 800; }
+  .quadra .nome span { display: block; font-weight: 600; color: var(--fumaca); font-size: 11.5px; }
+  .blocos { display: flex; gap: 3px; }
+  .blocos i { flex: 1; height: 24px; border-radius: 5px; background: rgba(139, 92, 240, .55); }
+  .q2 .blocos i { background: rgba(255, 92, 138, .5); }
+  .blocos i.vazio { background: repeating-linear-gradient(45deg, rgba(255, 246, 238, .07),
+    rgba(255, 246, 238, .07) 4px, transparent 4px, transparent 8px); border: 1px dashed var(--linha); }
+  .regua { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 10px; font-size: 11.5px; color: var(--fumaca); }
+  .regua div { display: flex; justify-content: space-between; }
+
+  /* ------- faixas de forca ------- */
+  .faixas { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .faixa { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+    padding: 9px 14px; border-radius: 13px; background: rgba(255, 246, 238, .05); border: 1px solid var(--linha); }
+  .faixa .nota { font-family: var(--display); font-weight: 400; font-size: 17px; color: var(--ouro);
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ------- perguntas ------- */
+  details { border: 1px solid var(--linha); border-radius: 14px; padding: 12px 15px; margin-bottom: 9px;
+    background: rgba(255, 246, 238, .04); }
+  details[open] { border-color: rgba(255, 92, 138, .45); }
+  summary { cursor: pointer; font-weight: 800; }
+  details p:last-child { margin-bottom: 0; }
+  details p:first-of-type { margin-top: 10px; }
+
+  .rodape { grid-column: 1 / -1; border-top: 1px solid var(--linha); padding-top: 18px; color: var(--fumaca);
+    font-size: 14px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
+
+  :focus-visible { outline: 2px solid var(--ouro); outline-offset: 3px; }
+
+  @media (max-width: 900px) {
+    .pagina { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+    .sumario { position: static; }
+    .quadra, .regua { grid-template-columns: 92px minmax(0, 1fr); }
+  }
+
+  /* Impresso: papel branco, sem navegacao -- e o jeito de virar PDF para o
+     cliente sem precisar de mais nenhuma ferramenta. */
+  @media print {
+    body { background: #fff; color: #17142a; font-size: 11.5pt; }
+    .fundo, .sumario, .topo, .rodape a { display: none !important; }
+    .pagina { display: block; max-width: none; padding: 0; }
+    .capa { background: none; border: 0; padding: 0 0 12pt; }
+    .capa h1 em { -webkit-text-fill-color: #b32e60; color: #b32e60; }
+    section { break-inside: avoid-page; margin-bottom: 18pt; }
+    h2 { color: #17142a; } h2 .n { color: #b32e60; }
+    .capa p, .chamada, .cartao .obs, .formato li, .passos span, .legenda, .quadra .nome span { color: #4a4566; }
+    .cartao, .formato, .aviso, .rolagem, details, .faixa { border-color: #cfc9e0; background: #f7f5fb; }
+    th, td { border-color: #cfc9e0; }
+    details { break-inside: avoid; }
+    details > summary { list-style: none; }
+    details[open] > summary { margin-bottom: 6pt; }
+    /* no papel nao ha rolagem lateral: a tabela larga precisa caber inteira */
+    .rolagem { overflow: visible; }
+    table { font-size: 9.5pt; }
+    th, td { white-space: normal; padding: 6pt 7pt; }
+    td.livre, th.livre { min-width: 0; }
+  }
+</style>
+
+<div class="fundo"></div>
+
+<div class="pagina">
+  <header class="topo">
+    <a class="voltar" href="https://playdetodas.com.br/"><span aria-hidden="true">←</span> Abrir o app</a>
+    <span class="topo-nome">Documento de apoio · setembro de 2026</span>
+  </header>
+
+  <div class="capa">
+    <span class="selo">Play de Todas · V3 Arena</span>
+    <h1>Como a noite é <em>montada</em></h1>
+    <p>
+      Este documento explica o que o app faz entre a lista de presença e o pódio: como as duplas
+      são formadas, como o confronto é escolhido, como a fila decide quem entra em quadra, o que
+      acontece quando o número de jogadoras <strong>não fecha certo</strong> — uma quadra com 6 e
+      outra com 7, por exemplo —, como a força de cada atleta é calculada e como o dia e o mês
+      fecham. Os números marcados como <em>medido</em> vieram de simulação do próprio motor do app,
+      não de estimativa.
+    </p>
+    <span class="assinatura">Mais que um play, uma experiência!</span>
+  </div>
+
+  <nav class="sumario" aria-label="Sumário">
+    <b>Neste documento</b>
+    <ol>
+      <li><a href="#resumo">Em uma página</a></li>
+      <li><a href="#vocabulario">O vocabulário</a></li>
+      <li><a href="#formatos">Os três formatos</a></li>
+      <li><a href="#rodizio">O rodízio: as duplas</a></li>
+      <li><a href="#confronto">Quem enfrenta quem</a></li>
+      <li><a href="#fila">A fila da noite</a></li>
+      <li><a href="#seis-e-sete">O caso difícil: 6 e 7</a></li>
+      <li><a href="#forca">A força (Elo)</a></li>
+      <li><a href="#pontuacao">Pontuação e desempate</a></li>
+      <li><a href="#dia">O fim do dia</a></li>
+      <li><a href="#mes">O fim do mês</a></li>
+      <li><a href="#perguntas">Perguntas que sempre aparecem</a></li>
+      <li><a href="#onde">Onde isso mora</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- 1 -------------------------------------------------------------- -->
+    <section id="resumo">
+      <h2><span class="n">1.</span> Em uma página</h2>
+      <p class="chamada">O que o app resolve, na ordem em que a noite acontece.</p>
+      <ol class="passos">
+        <li><div><b>Marca quem veio</b><span>Lista colada do WhatsApp ou toque na lista de atletas. Quem está devendo aparece barrada, e o pagamento se resolve ali mesmo.</span></div></li>
+        <li><div><b>Escolhe o formato</b><span>Todas com todas, em grupos, ou grupos + duplas. É a escolha que muda tudo o que vem depois.</span></div></li>
+        <li><div><b>Divide os grupos por força</b><span>A força é um Elo alimentado por todas as partidas já jogadas. Empatadas são sorteadas, e a organizadora pode mover na mão.</span></div></li>
+        <li><div><b>Monta o rodízio</b><span>Cada uma faz dupla com cada uma das outras exatamente uma vez, e <b>todas jogam o mesmo número de partidas</b> dentro do grupo.</span></div></li>
+        <li><div><b>Escolhe os confrontos</b><span>Entre as duplas possíveis, o app pega sempre a que menos se enfrentou com aquela — e a que deixa o jogo mais parelho.</span></div></li>
+        <li><div><b>Roda a fila</b><span>Não há rodadas: a quadra que vaga puxa a próxima partida cujas quatro estão livres, dando preferência a quem está fora há mais tempo — e sem deixar ninguém emendar três.</span></div></li>
+        <li><div><b>Fecha o dia</b><span>Ranking do dia por vitórias, pódio (um por grupo), status 🔥, texto para o grupo e arte do pódio.</span></div></li>
+        <li><div><b>Fecha o mês</b><span>Na mão, no último play do mês: os pontos viram o ranking mensal e quem está em chamas escolhe usar ou preservar o status.</span></div></li>
+      </ol>
+      <div class="aviso calmo">
+        <p><b>A promessa do app, em uma frase:</b> dentro de um grupo, todas jogam a mesma quantidade
+        de partidas, com todas as parceiras possíveis, contra adversárias espalhadas e sem emendar
+        três seguidas — e isso continua valendo quando o número de jogadoras não é redondo.</p>
+      </div>
+    </section>
+
+    <!-- 2 -------------------------------------------------------------- -->
+    <section id="vocabulario">
+      <h2><span class="n">2.</span> O vocabulário</h2>
+      <p class="chamada">Seis palavras que se repetem no resto do documento.</p>
+      <div class="cartoes">
+        <div class="cartao"><div class="rot">Play</div><div class="val">Um dia</div><div class="obs">Uma noite de jogos. Toda segunda, 20h.</div></div>
+        <div class="cartao"><div class="rot">Fila</div><div class="val">As partidas</div><div class="obs">A lista de partidas do dia. Não há rodadas: a quadra que vaga puxa da fila.</div></div>
+        <div class="cartao"><div class="rot">Rodízio</div><div class="val">Todas com todas</div><div class="obs">Cada jogadora faz dupla com cada uma das outras exatamente uma vez.</div></div>
+        <div class="cartao"><div class="rot">Ronda</div><div class="val">Um giro</div><div class="obs">Um conjunto de duplas em que ninguém se repete — cobre o grupo inteiro de uma vez.</div></div>
+        <div class="cartao"><div class="rot">Força</div><div class="val">O nível</div><div class="obs">A nota de Elo de cada atleta. Equilibra duplas, divide grupos e aparece na tela.</div></div>
+        <div class="cartao"><div class="rot">Status 🔥</div><div class="val">A sequência</div><div class="obs">Semanas seguidas terminando no pódio do dia. Vira pontos no fim do mês.</div></div>
+      </div>
+    </section>
+
+    <!-- 3 -------------------------------------------------------------- -->
+    <section id="formatos">
+      <h2><span class="n">3.</span> Os três formatos</h2>
+      <p class="chamada">Escolhidos na criação do play, logo depois de marcar quem veio.</p>
+
+      <div class="formatos">
+        <div class="formato todas">
+          <h3>🔁 Todas com todas</h3>
+          <div class="quando">quando dá tempo para todo mundo</div>
+          <ul>
+            <li>Um rodízio só, com <b>todas as presentes</b>.</li>
+            <li>Cada uma faz dupla com cada uma das outras, <b>uma vez</b>.</li>
+            <li>Pontos individuais, <b>um pódio</b> (top 3).</li>
+            <li>Com 16 jogadoras são <b>60 partidas e 15 jogos</b> para cada uma — longo demais para uma noite.</li>
+          </ul>
+        </div>
+        <div class="formato grupo">
+          <h3>👥 Em grupos</h3>
+          <div class="quando">o formato do dia a dia</div>
+          <ul>
+            <li><b>O mesmo rodízio, dentro de cada grupo.</b></li>
+            <li>Grupos formados <b>por nível</b>: o grupo 1 leva as mais bem pontuadas.</li>
+            <li>Pontos continuam <b>individuais</b> e o ranking do dia é <b>um só</b>.</li>
+            <li>O <b>pódio é um por grupo</b> — e é dele que sai o status 🔥.</li>
+          </ul>
+        </div>
+        <div class="formato duplas">
+          <h3>🤝 Grupos + duplas</h3>
+          <div class="quando">quando o dia tem que ter uma campeã</div>
+          <ul>
+            <li>Fase 1: rodízio em <b>grupos equilibrados entre si</b>.</li>
+            <li>Fase 2: a colocação vira <b>dupla fixa</b> (1ª com 1ª, 2ª com 2ª…).</li>
+            <li>Depois é <b>mata-mata</b>: quartas, semi, final e disputa de 3º.</li>
+            <li>Quem decide o dia é a <b>dupla</b>, não a soma individual.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>O que muda de um para o outro</h3>
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>&nbsp;</th><th>Todas com todas</th><th>Em grupos</th><th>Grupos + duplas</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Parceira</td><td>todas, uma vez</td><td>todas do grupo, uma vez</td><td>todas do grupo; depois <b>fixa</b></td></tr>
+            <tr><td>Quem pontua</td><td>individual</td><td>individual</td><td>individual, <b>só da fase 2 em diante</b></td></tr>
+            <tr><td>Ranking do dia</td><td>um só</td><td>um só</td><td>o da <b>chave</b></td></tr>
+            <tr><td>Pódio</td><td>top 3</td><td>top 3 <b>de cada grupo</b></td><td>campeã, vice e 3º lugar (<b>duplas</b>)</td></tr>
+            <tr><td>Status 🔥</td><td>segue o pódio</td><td>segue o pódio de cada grupo</td><td>segue as 3 duplas do pódio</td></tr>
+            <tr><td>Duração típica</td><td>longa</td><td>ajustável pelo tamanho do grupo</td><td>média, com final marcada</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Como o “grupos + duplas” anda</h3>
+      <ol class="passos">
+        <li><div><b>Grupos equilibrados, não por nível</b><span>Aqui os grupos precisam ter a <b>mesma força média</b>: a distribuição é em serpentina (1-2-3-4, depois 4-3-2-1), porque ser 1ª tem que custar o mesmo em qualquer grupo. É o oposto do formato “em grupos”, onde o grupo 1 leva as melhores de propósito.</span></div></li>
+        <li><div><b>A fase de grupos classifica — e não pontua</b><span>Ela existe para formar as duplas. Não soma pontos no dia nem no mês; o Elo, sim, continua contando essas partidas, que aconteceram.</span></div></li>
+        <li><div><b>A colocação vira dupla</b><span>Todas entram numa fila por colocação (as 1ªs, depois as 2ªs…) e as <b>vizinhas</b> viram dupla, sem repetir quem já jogou junto no grupo. Emparelhar vizinhas, e não “1ª com 1ª” ao pé da letra, é o que faz a conta fechar com número ímpar de grupos.</span></div></li>
+        <li><div><b>Mata-mata com bye</b><span>Quem foi melhor nos grupos passa direto da primeira rodada. O <b>bye paga pontos</b>: exatamente o que uma vitória daquela rodada pagou, na média — nem menos, que puniria quem foi bem, nem mais, que faria valer a pena não jogar. Bye não vira partida: não mexe no Elo nem no retrospecto.</span></div></li>
+        <li><div><b>Ouro e prata saem da final</b><span>Nunca da soma de pontos. Com bye, a vice chega à final com as mesmas vitórias da campeã e <b>mais pontos</b>, porque jogou uma partida a mais — o desempate por pontos invertia o pódio em 6% dos plays. O bronze sai da disputa de 3º, que roda em paralelo com a final, na quadra ao lado.</span></div></li>
+      </ol>
+    </section>
+
+    <!-- 4 -------------------------------------------------------------- -->
+    <section id="rodizio">
+      <h2><span class="n">4.</span> O rodízio: como as duplas nascem</h2>
+      <p class="chamada">A parte que ninguém vê e que decide se a noite é justa.</p>
+
+      <h3>O método do círculo</h3>
+      <p>
+        O rodízio usa a construção clássica de torneio (1-fatoração do grafo completo): fixa uma
+        jogadora, gira as outras e gera <strong>rondas</strong> — conjuntos de duplas em que ninguém
+        aparece duas vezes. Toda combinação de parceiras aparece <strong>exatamente uma vez</strong>,
+        e como as duplas de uma ronda não dividem jogadora, qualquer par delas forma uma partida
+        válida. É isso que permite todas as quadras rodarem ao mesmo tempo.
+      </p>
+
+      <h3>Todas jogam o mesmo tanto — mesmo quando a conta não fecha</h3>
+      <p>
+        Um grupo de <code>n</code> gera <code>n(n−1)/2</code> duplas e cada partida gasta duas. Quando
+        <code>n</code> é <strong>6, 7, 10 ou 11</strong> essa divisão não fecha em partidas inteiras
+        com todo mundo jogando igual. A saída antiga era remendar no fim: uma dupla já formada jogava
+        de novo — e isso dava <strong>um jogo a mais para exatamente duas meninas</strong>.
+      </p>
+      <p>
+        Hoje as duplas que repetem são <strong>escolhidas para cair igualmente sobre todas</strong>:
+        um pareamento perfeito quando cada uma repete 1 (grupo par) ou um ciclo passando por todas
+        quando repete 2 (grupo ímpar). A conta vira <code>partidas = n(n−1+k)/4</code> e a divisão é
+        sempre exata.
+      </p>
+
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr>
+              <th class="num">Grupo</th><th class="num">Repete</th><th class="num">Partidas</th>
+              <th class="num">Jogos por pessoa</th><th class="num">Fora por vez</th>
+              <th class="num">Quadras que enche</th><th class="num">Chance de pódio</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="destaque"><td class="num">4</td><td class="num">—</td><td class="num">3</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">2 de 4 (50%)</td></tr>
+            <tr class="destaque"><td class="num">5</td><td class="num">—</td><td class="num">5</td><td class="num">4</td><td class="num">1</td><td class="num">1</td><td class="num">2 de 5 (40%)</td></tr>
+            <tr><td class="num">6</td><td class="num">1 parceira</td><td class="num">9</td><td class="num">6</td><td class="num">2</td><td class="num">1</td><td class="num">3 de 6 (50%)</td></tr>
+            <tr><td class="num">7</td><td class="num">2 parceiras</td><td class="num">14</td><td class="num">8</td><td class="num">3</td><td class="num">1</td><td class="num">3 de 7 (43%)</td></tr>
+            <tr class="destaque"><td class="num">8</td><td class="num">—</td><td class="num">14</td><td class="num">7</td><td class="num">0</td><td class="num">2</td><td class="num">3 de 8 (38%)</td></tr>
+            <tr class="destaque"><td class="num">9</td><td class="num">—</td><td class="num">18</td><td class="num">8</td><td class="num">1</td><td class="num">2</td><td class="num">3 de 9 (33%)</td></tr>
+            <tr><td class="num">10</td><td class="num">1 parceira</td><td class="num">25</td><td class="num">10</td><td class="num">2</td><td class="num">2</td><td class="num">3 de 10 (30%)</td></tr>
+            <tr><td class="num">11</td><td class="num">2 parceiras</td><td class="num">33</td><td class="num">12</td><td class="num">3</td><td class="num">2</td><td class="num">3 de 11 (27%)</td></tr>
+            <tr class="destaque"><td class="num">12</td><td class="num">—</td><td class="num">33</td><td class="num">11</td><td class="num">0</td><td class="num">3</td><td class="num">3 de 12 (25%)</td></tr>
+            <tr class="destaque"><td class="num">13</td><td class="num">—</td><td class="num">39</td><td class="num">12</td><td class="num">1</td><td class="num">3</td><td class="num">3 de 13 (23%)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="legenda">
+        As linhas verdes são os tamanhos “redondos” — não precisam de repetição nenhuma.
+        <strong>5, 9 e 13 são os ideais</strong>: fecham certo <em>e</em> deixam gente descansando.
+        4, 8 e 12 fecham certo mas não têm folga: quem termina já volta.
+      </p>
+
+      <h3>Quem repete com quem é escolhido, não sorteado</h3>
+      <p>
+        Até <strong>1.000</strong> maneiras de montar as repetições, o app compara <strong>todas</strong>
+        e fica com a que deixa a noite mais equilibrada — partidas mais parelhas e os mesmos pares se
+        enfrentando o menos possível. Um grupo de 6 tem 15 maneiras; um de 7, 360; um de 10, 945.
+        De 11 em diante não cabe no celular (1,8 milhão), e aí vale uma amostra de 300.
+      </p>
+      <div class="aviso">
+        <p><b>O custo é tempo de quadra.</b> Um grupo de 7 passa de 11 para 14 partidas para que todas
+        joguem 8. Quem cria o play vê o total e a duração estimada na tela antes de confirmar.</p>
+      </div>
+    </section>
+
+    <!-- 5 -------------------------------------------------------------- -->
+    <section id="confronto">
+      <h2><span class="n">5.</span> Quem enfrenta quem</h2>
+      <p class="chamada">A parceira o rodízio já decidiu. O que o app escolhe é a adversária.</p>
+
+      <p>
+        Não dá para “nunca se enfrentar”, e é importante dizer isso na frente do grupo: num grupo de 8
+        são <strong>28 duplas, 14 partidas e 56 confrontos individuais para apenas 28 pares
+        possíveis</strong> — na média, cada par se cruza duas vezes. O alvo não é zerar, é
+        <strong>espalhar</strong>. Medido com o algoritmo atual: os confrontos ficam entre
+        <strong>1 e 3, com média exata de 2,00</strong>.
+      </p>
+
+      <h3>A conta que escolhe a partida</h3>
+      <p>Entre duas duplas que não dividem jogadora, o app soma quatro pesos e fica com o menor:</p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Peso</th><th class="num">Vale</th><th>Por quê</th></tr></thead>
+          <tbody>
+            <tr><td>Diferença de força entre as duplas</td><td class="num">30 por ponto</td><td>Jogo parelho é o produto: 4x3 vale mais que 4x0 para todo mundo.</td></tr>
+            <tr><td>Já se enfrentaram <b>hoje</b></td><td class="num">50 por vez</td><td>Repetir confronto na mesma noite é o que mais incomoda.</td></tr>
+            <tr><td>Já se enfrentaram <b>em outros plays</b></td><td class="num">12 por vez, com peso 0,45</td><td>O histórico conta, mas vale menos de metade do de hoje: quem veio hoje é quem manda.</td></tr>
+            <tr><td>Dupla que precisou jogar duas vezes</td><td class="num">400</td><td>Só quando não há alternativa; nunca como primeira escolha.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        O custo cresce a cada repetição — a quarta vez pesa mais que a segunda —, então o resultado se
+        espalha sozinho em vez de castigar sempre as mesmas. No fim, uma passada extra troca as
+        adversárias entre duas partidas quando isso espalha melhor, mas <strong>só dentro da mesma
+        ronda</strong>: trocar entre rondas espalha um pouco melhor e destrói a propriedade que mantém
+        as quadras cheias. Medido com 16 jogadoras e 3 quadras: <strong>quadra ociosa em 11% dos casos
+        com a restrição, contra 46% sem ela</strong>.
+      </p>
+
+      <h3>A força da dupla não é a média das duas</h3>
+      <p>
+        Para comparar os dois lados, o app usa a soma das notas das duas <strong>mais o
+        entrosamento</strong>: o quanto aquela dupla específica rende além do que as notas individuais
+        previam. Duas medianas que se acham em quadra valem mais do que a soma diz, e isso não aparece
+        na nota de ninguém. Só entram duplas com <strong>6 ou mais partidas juntas</strong> — com duas
+        ou três o número é ruído, e ruído no confronto piora o equilíbrio em vez de melhorar.
+      </p>
+    </section>
+
+    <!-- 6 -------------------------------------------------------------- -->
+    <section id="fila">
+      <h2><span class="n">6.</span> A fila da noite</h2>
+      <p class="chamada">Não existe rodada. Existe uma fila, e quadra que vaga puxa dela.</p>
+
+      <p>
+        As quadras nunca terminam juntas: uma partida acaba enquanto a outra ainda está rolando, e
+        esperar a rodada inteira fechar deixava quadra parada de graça. Hoje o app gera a fila do dia
+        e, a cada quadra que vaga, escolhe a partida cujas quatro jogadoras estão livres. Cinco regras
+        governam essa escolha.
+      </p>
+
+      <ol class="passos">
+        <li><div><b>Entra quem está fora há mais tempo</b><span>O app guarda a hora em que cada partida terminou. Quem está empatada na espera recebe a <b>mesma</b> posição — dar posições diferentes para quem está na mesma situação inventava uma preferência que atropelava a fila e desmontava as rondas logo na primeira troca.</span></div></li>
+        <li><div><b>Ninguém emenda três</b><span>Antes de escolher, o app pergunta: <i>existe uma ordem, daqui até o fim, em que ninguém jogue três seguidas?</i> Se existe, é por ela que a noite anda.</span></div></li>
+        <li><div><b>A escolha é do conjunto, não quadra por quadra</b><span>Pegar a melhor partida para a quadra 1 sem olhar as outras fazia a mesma jogadora ser sugerida em duas quadras ao mesmo tempo. A busca preenche o máximo de quadras de uma vez.</span></div></li>
+        <li><div><b>Dupla repetida vai para o fim</b><span>Quando uma dupla precisa jogar duas vezes, a segunda só entra quando não há outra opção.</span></div></li>
+        <li><div><b>Cada grupo na sua quadra</b><span>Grupo 1 na quadra 1, grupo 2 na quadra 2 — sempre que a quadra “da casa” estiver livre. Quadra parada é pior que quadra trocada, então na falta a partida entra onde couber.</span></div></li>
+      </ol>
+
+      <h3>O “ninguém emenda três”, medido</h3>
+      <p>
+        Esse era o incômodo mais concreto da quadra, e ele foi atacado em três frentes: a busca
+        pergunta primeiro pela ordem sem emenda tripla (podando todo caminho que emendaria) e alcança
+        as 14 partidas de um grupo de 7; o grupo de 6 passou a ser montado de outro jeito (veja a
+        seção seguinte); e, com duas quadras livres, a simulação do resto da noite é exata
+        <strong>por grupo</strong> — as seguidas são por grupo, então um grupo não mexe na sequência
+        do outro.
+      </p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Cenário</th><th class="num">Antes</th><th class="num">Agora</th></tr></thead>
+          <tbody>
+            <tr><td>Grupos de 6, 7, 8 ou 9 numa quadra</td><td class="num">até 3 seguidas</td><td class="num"><b>máximo 2</b></td></tr>
+            <tr class="destaque"><td>6 + 7 em duas quadras</td><td class="num">3 seguidas em 29 de 30 noites (e 4 em uma)</td><td class="num"><b>máximo 2 em todas as 30</b></td></tr>
+            <tr><td>7 + 7 em duas quadras</td><td class="num">—</td><td class="num">3 seguidas em 6 de 30 noites</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="legenda">Medido em 30 noites simuladas sem nenhuma intervenção manual. A escolha mais cara leva cerca de 100 ms no celular.</p>
+
+      <h3>Quando a noite sai do roteiro</h3>
+      <div class="cartoes">
+        <div class="cartao">
+          <div class="rot">⏳ Quem não chegou</div>
+          <div class="val">Pula as partidas dela</div>
+          <div class="obs">Marcada, ela conta como se estivesse em quadra e as partidas dela vão para o fim da previsão. Desmarcou, entra na frente — é quem está há mais tempo sem jogar. Fica só no aparelho de quem organiza.</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">🔄 Entra / sai</div>
+          <div class="val">Troca na mão</div>
+          <div class="obs">Alguém foi embora de verdade: a organizadora troca a jogadora no card da partida. O app oferece primeiro quem é do <b>mesmo grupo</b> — trocar entre grupos deixa quem entra com uma partida a mais no grupo dela.</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">♻️ Refazer a fila</div>
+          <div class="val">Completa até o plano</div>
+          <div class="obs">Remonta só o que falta, em cima do que já aconteceu. Nenhuma dupla some, e o teto é o do plano: a noite nunca fica maior do que nasceu. Medido: grupo de 7 com troca na 6ª partida → 14 partidas, 8 jogos para cada uma.</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">✏️ Corrigir placar</div>
+          <div class="val">Sem voltar para a fila</div>
+          <div class="obs">O ✏️ da lista “já jogadas” abre o placar para correção e preserva o horário de encerramento — a partida não volta a ser sugerida.</div>
+        </div>
+      </div>
+      <div class="aviso perigo">
+        <p><b>O que o app deliberadamente não faz:</b> montar uma partida com “quem está livre” para
+        não deixar quadra parada. Isso desfaz uma dupla do rodízio e dá um jogo a mais para uma e a
+        menos para outra. Medido em 100 noites por cenário, no modo em grupos a quadra fica parada de
+        <b>0,1% a 11% do tempo</b> e a maior espera é de <b>uns 17 minutos — uma partida</b>. Esperar
+        sai mais barato que quebrar o rodízio.</p>
+      </div>
+    </section>
+
+    <!-- 7 -------------------------------------------------------------- -->
+    <section id="seis-e-sete">
+      <h2><span class="n">7.</span> O caso difícil: 6 numa quadra, 7 na outra</h2>
+      <p class="chamada">13 confirmadas, 2 quadras. É o cenário que mais aparece — e o que mais exige do motor.</p>
+
+      <p>
+        Com 13 presentes e grupos pedidos de 6, 7 ou 8, o app monta <strong>7 + 6</strong>: a sobra vai
+        para o primeiro grupo, que é o de nível mais alto. Cada partida precisa de quatro jogadoras
+        <strong>do mesmo grupo</strong>, então cada grupo enche exatamente uma quadra — 13 jogadoras
+        em 2 quadras, não em 3.
+      </p>
+
+      <div class="cartoes">
+        <div class="cartao">
+          <div class="rot">Quadra 1 · grupo de 7</div>
+          <div class="val">14 partidas</div>
+          <div class="obs"><b>8 jogos para cada uma.</b><br>Cada uma repete 2 parceiras.<br>3 de fora por vez · pódio: 3 de 7</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">Quadra 2 · grupo de 6</div>
+          <div class="val">9 partidas</div>
+          <div class="obs"><b>6 jogos para cada uma.</b><br>Cada uma repete 1 parceira.<br>2 de fora por vez · pódio: 3 de 6</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">A noite</div>
+          <div class="val">23 partidas</div>
+          <div class="obs"><b>Umas 3h30 na quadra do 7.</b><br>Uns 15 min por partida até 4 pontos.</div>
+        </div>
+      </div>
+
+      <h3>O grupo de 6 é montado em três quartetos</h3>
+      <p>
+        Aqui está a parte contraintuitiva, e vale contar numa apresentação: com 6 numa quadra, cada
+        partida deixa só duas descansando — e o rodízio de 6 montado do jeito geral
+        <strong>nunca</strong> admite uma ordem em que ninguém jogue três seguidas (medido: 0 de 40
+        tentativas). Então o grupo de 6 é construído de outro jeito: as seis se dividem em
+        <strong>3 pares que repetem</strong> (A+B, C+D, E+F — cada uma repetindo uma parceira, como a
+        regra manda) e cada <strong>quarteto</strong> é o grupo menos um desses pares. Cada quarteto
+        joga as suas 3 divisões possíveis: 9 partidas, as 15 duplas, e os quartetos se revezando
+        (1, 2, 3, 1, 2, 3…) descansam de três em três. <strong>Ninguém emenda três.</strong>
+      </p>
+
+      <h3>Como a noite se desenha</h3>
+      <div class="quadras">
+        <div class="quadra">
+          <div class="nome">Quadra 1 <span>grupo de 7</span></div>
+          <div class="blocos" aria-label="14 partidas na quadra 1">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+        <div class="quadra q2">
+          <div class="nome">Quadra 2 <span>grupo de 6</span></div>
+          <div class="blocos" aria-label="9 partidas na quadra 2, e a quadra livre depois">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i class="vazio"></i><i class="vazio"></i><i class="vazio"></i><i class="vazio"></i><i class="vazio"></i>
+          </div>
+        </div>
+      </div>
+      <div class="regua"><div></div><div><span>20h</span><span>21h45</span><span>23h30</span></div></div>
+      <div class="aviso">
+        <p><b>Leia a faixa listrada.</b> O grupo de 6 termina a noite dele em 9 partidas — cerca de
+        2h15 — enquanto o grupo de 7 ainda tem 5 pela frente, até umas 3h30. A quadra 2 fica livre e
+        <b>não pode ajudar</b>: uma partida precisa de quatro do mesmo grupo. Isso não é falha do
+        algoritmo, é aritmética do rodízio — mas é o que a organizadora precisa saber na hora de
+        avisar o grupo, porque a estimativa que o app mostra divide o total pelas quadras e sai por
+        volta de 3h, enquanto quem manda é sempre o <b>grupo mais cheio</b>.</p>
+      </div>
+
+      <h3>As alternativas, com 13 presentes</h3>
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>Como montar</th><th class="num">Grupos</th><th class="num">Partidas</th><th class="num">Jogos por pessoa</th><th class="num">Quadras</th><th class="livre">O que você ganha e o que perde</th></tr>
+          </thead>
+          <tbody>
+            <tr class="destaque">
+              <td>Grupos de 6 a 8</td><td class="num">7 + 6</td><td class="num">23</td><td class="num">8 e 6</td><td class="num">2</td>
+              <td class="livre">O padrão com 2 quadras. Noite cheia; quem está no grupo de 7 joga duas partidas a mais.</td>
+            </tr>
+            <tr>
+              <td>Grupos de 4 ou 5</td><td class="num">5 + 4 + 4</td><td class="num">11</td><td class="num">4 e 3</td><td class="num">3</td>
+              <td class="livre">Noite curta e pódio fácil (2 de cada 4). Enche <b>3 quadras</b>: com duas, os três grupos se revezam e um está sempre esperando.</td>
+            </tr>
+            <tr class="alerta">
+              <td>Todas com todas</td><td class="num">13</td><td class="num">39</td><td class="num">12</td><td class="num">3</td>
+              <td class="livre">O rodízio inteiro: perto de 5h em 2 quadras. Não cabe numa segunda.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="legenda">
+        Para efeito de comparação: <b>12 presentes</b> viram 6 + 6 (18 partidas, 6 jogos para todas) e
+        <b>14</b> viram 7 + 7 (28 partidas, 8 jogos para todas) — nos dois casos os grupos terminam
+        junto, porque têm o mesmo tamanho.
+      </p>
+
+      <div class="aviso calmo">
+        <p><b>A honestidade que vale dizer em voz alta:</b> “todas jogam o mesmo tanto” vale
+        <b>dentro do grupo</b>. Com 7 + 6, quem está no grupo de 7 joga 8 partidas e quem está no de 6
+        joga 6 — e, como o ranking do dia é uma lista só, o grupo maior soma mais. É exatamente por
+        isso que <b>o pódio é um por grupo</b>, e é o pódio que vale para o status 🔥. Cada grupo
+        disputa contra quem jogou o mesmo tanto que ela.</p>
+      </div>
+    </section>
+
+    <!-- 8 -------------------------------------------------------------- -->
+    <section id="forca">
+      <h2><span class="n">8.</span> A força: um Elo, porque importa <em>de quem</em> você ganhou</h2>
+      <p class="chamada">É a nota que divide os grupos, equilibra os confrontos — e hoje aparece na tela.</p>
+
+      <p>
+        A força de cada atleta passou por três versões. <strong>Ranking do mês</strong> foi descartado:
+        o primeiro play do mês sairia com todo mundo zerado e sem equilíbrio nenhum.
+        <strong>Média de pontos por partida</strong> era melhor, mas tem um furo: ela não sabe de quem
+        você ganhou. No modo em grupos isso não é detalhe, é quebra — cada grupo é um rodízio fechado,
+        então dominar o grupo 2 rende a mesma média que dominar o grupo 1, as notas deixam de ser
+        comparáveis e a divisão do play seguinte erra, realimentando o erro toda semana.
+      </p>
+      <p>
+        Hoje é um <strong>Elo</strong>: cada partida move a nota das quatro conforme a nota de quem
+        estava do outro lado, e a margem conta (4x0 vale 1,00 e 4x3 vale 0,57, como na pontuação do
+        campeonato).
+      </p>
+
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Correlação com a habilidade real</th><th class="num">2ª semana</th><th class="num">4ª</th><th class="num">8ª</th><th class="num">12ª</th></tr></thead>
+          <tbody>
+            <tr><td>Todas com todas — média de pontos</td><td class="num">0,85</td><td class="num">0,91</td><td class="num">0,90</td><td class="num">0,91</td></tr>
+            <tr class="destaque"><td>Todas com todas — <b>Elo</b></td><td class="num">0,88</td><td class="num">0,93</td><td class="num">0,95</td><td class="num"><b>0,96</b></td></tr>
+            <tr class="alerta"><td>Em grupos — média de pontos</td><td class="num">0,56</td><td class="num">0,77</td><td class="num">0,73</td><td class="num"><b>0,70</b> ⚠️</td></tr>
+            <tr class="destaque"><td>Em grupos — <b>Elo</b></td><td class="num">0,60</td><td class="num">0,84</td><td class="num">0,90</td><td class="num"><b>0,92</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="legenda">
+        12 segundas simuladas, 16 jogadoras, 30 temporadas (1,00 seria perfeito). Repare na média de
+        pontos em grupos: ela <b>piora</b> com o tempo (0,77 → 0,70). O Elo melhora.
+      </p>
+
+      <h3>A escala na tela</h3>
+      <p>
+        A força aparece na aba <strong>💪 Força</strong>, na ficha da atleta e na linha dela na lista.
+        A escala é a clássica do Elo, com <strong>1500 no meio</strong> — e isso não é enfeite: o Elo é
+        <strong>soma zero</strong> (o que uma ganha, a outra perde), então a média do grupo fica sempre
+        em 1500 e as faixas continuam querendo dizer a mesma coisa no ano que vem.
+      </p>
+      <div class="faixas">
+        <div class="faixa"><span>🚀</span><span><b>Topo do grupo</b></span><span class="nota">1575+</span></div>
+        <div class="faixa"><span>📈</span><span><b>Acima da média</b></span><span class="nota">1525 – 1574</span></div>
+        <div class="faixa"><span>⚖️</span><span><b>No pelotão</b></span><span class="nota">1475 – 1524</span></div>
+        <div class="faixa"><span>🎯</span><span><b>Em evolução</b></span><span class="nota">1425 – 1474</span></div>
+        <div class="faixa"><span>🌱</span><span><b>Começando</b></span><span class="nota">abaixo de 1425</span></div>
+      </div>
+      <p class="legenda">
+        As faixas (±25 e ±75) saem de uma temporada simulada de 12 semanas com 16 jogadoras, em que o
+        grupo se espalhou de −107 a +91 em torno do meio. Com menos de <b>12 partidas</b> a nota sai
+        marcada como <b>provisória</b> — ela conta para o equilíbrio, mas ainda é chute. Quem nunca
+        jogou fica fora da lista: a nota dela é exatamente a média, mas por falta de informação.
+      </p>
+
+      <h3>De onde cada uma parte</h3>
+      <p>
+        O padrão é <strong>1500, o meio da escala — não a média das cadastradas</strong>. Como o Elo é
+        soma zero, a média fica em 1500 sozinha enquanto todas partirem dali. Quando a organização já
+        conhece o nível de alguém, dá para escolher outro ponto de partida no cadastro; o histórico é
+        recalculado a partir dele, e daí em diante as partidas mandam do mesmo jeito. Quem falta fica
+        com a <strong>nota parada</strong>, que é o certo: sem jogo, sem informação nova.
+      </p>
+
+      <h3>A dupla tem força própria</h3>
+      <p>
+        Na aba <strong>🤝 Dupla</strong>, cada parceria tem uma nota que começa na média das duas — o
+        <em>ponto de partida</em> — e se move a cada partida daquela dupla. A diferença entre a nota e
+        a base é o <strong>entrosamento</strong>: o quanto as duas rendem juntas além (ou aquém) do que
+        as notas individuais previam. É esse número que entra no balanceamento dos confrontos, a partir
+        de 6 partidas juntas.
+      </p>
+    </section>
+
+    <!-- 9 -------------------------------------------------------------- -->
+    <section id="pontuacao">
+      <h2><span class="n">9.</span> Pontuação e desempate</h2>
+      <p class="chamada">A regra do cartaz, e as três formas de fechar um jogo empatado.</p>
+
+      <div class="cartoes">
+        <div class="cartao"><div class="rot">4 × 0</div><div class="val">4 pontos</div><div class="obs">Pontos = games do vencedor − games do perdedor, no mínimo 1.</div></div>
+        <div class="cartao"><div class="rot">4 × 1</div><div class="val">3 pontos</div><div class="obs">Quanto mais folgada a vitória, mais pontos.</div></div>
+        <div class="cartao"><div class="rot">4 × 2</div><div class="val">2 pontos</div><div class="obs">Sem empate: a partida sempre tem uma vencedora.</div></div>
+        <div class="cartao"><div class="rot">4 × 3</div><div class="val">1 ponto</div><div class="obs">Quem perde não pontua.</div></div>
+      </div>
+
+      <h3>O que acontece no 3 × 3</h3>
+      <p>O modo é escolhido na criação do play (e, no grupos + duplas, fase por fase):</p>
+      <ul>
+        <li><b>🎾 Quem chegar leva</b> — o 3×3 vira 4×3 e acabou. É o mais rápido, e o padrão.</li>
+        <li><b>➕ Só vai a 2</b> — segue jogando até abrir dois games, sem teto: 5×3, 6×4, 7×5…
+          É o único modo em que a vencedora passa do alvo, e por isso o único que muda o placar que dá
+          para lançar.</li>
+        <li><b>➕🎯 Vai a 2 e depois tie</b> — vai a 2 até o 4×4 e dali um tie (de 7 ou o super tie de
+          10) decide. <b>É o único modo com teto</b>, o que protege o relógio da quadra.</li>
+      </ul>
+      <p>
+        <strong>O tie sempre vai a 2</strong> (7×5 vale, 7×6 não). Isso é regra, não pergunta — é como
+        o grupo joga, e é uma opção a menos na tela. Como o tie decide o game que fecha, ele nunca
+        aparece no placar em games.
+      </p>
+      <div class="aviso">
+        <p><b>Quanto isso custa em tempo.</b> A calibragem do app é de <b>15 minutos por partida até
+        4</b> — os 4 games de quem ganha mais uns 1,5 de quem perde. “Só vai a 2” costuma render um
+        game a mais; o tie de 7 vale cerca de 1,5 game e o de 10, uns 2. A estimativa da noite na tela
+        já conta isso.</p>
+      </div>
+    </section>
+
+    <!-- 10 ------------------------------------------------------------- -->
+    <section id="dia">
+      <h2><span class="n">10.</span> O fim do dia</h2>
+      <p class="chamada">Lançou o último placar, a noite vira pódio, texto e imagem.</p>
+
+      <h3>O ranking do dia é por vitórias; o do mês, por pontos</h3>
+      <p>
+        Ganhar 5 de 6 apertado vale mais no dia do que ganhar 3 atropelando — os pontos só desempatam.
+        O critério fica <strong>gravado no play</strong>: os plays antigos seguem por pontos, para que
+        um pódio já anunciado nunca mude, e todo play novo nasce por vitórias. O status 🔥 e o título
+        de “dia vencido” seguem o critério daquele play.
+      </p>
+
+      <h3>O pódio</h3>
+      <ul>
+        <li><b>Todas com todas:</b> top 3 do dia.</li>
+        <li><b>Em grupos:</b> top 3 <b>de cada grupo</b> — e nunca mais que metade do grupo, para que um grupo de 4 não dê status a três das quatro.</li>
+        <li><b>Grupos + duplas:</b> as três duplas medalhistas — campeã, vice e a vencedora da disputa de 3º.</li>
+      </ul>
+      <p>
+        Por que um pódio por grupo? Porque cada grupo é um rodízio fechado e dominar o grupo 2 tem o
+        mesmo mérito que dominar o grupo 1. Medido em 800 plays com 16 jogadoras: as vagas de pódio
+        ficaram 48% para o grupo 1 e 52% para o grupo 2, e os pontos por jogadora, 7,7 contra 7,8.
+        <strong>É justo.</strong> Com pódio único, a chance de status passava a depender de
+        <em>quantas apareceram</em> — 19% numa noite de 16, 10% numa de 32 —, punindo quem veio numa
+        segunda cheia.
+      </p>
+      <div class="aviso">
+        <p><b>Cuidado com o argumento “grupo equilibrado = mais mérito”.</b> É intuitivo, mas o efeito
+        medido é o inverso: num grupo de 8 com níveis misturados a melhor termina em 1º em 34% das
+        vezes; num grupo muito equilibrado, 15% (o puro acaso daria 12%). Entre iguais, cada partida
+        se aproxima de um cara ou coroa — então o pódio de um grupo parelho premia
+        <b>quem jogou melhor naquela noite</b>, não “quem é a melhor”.</p>
+      </div>
+
+      <h3>E o que sai pronto</h3>
+      <p>
+        O ranking do dia completo (com chips “Tudo / Grupo 1 / Grupo 2…”), o texto formatado para colar
+        no grupo do WhatsApp e a <strong>arte do pódio</strong> — os dois carimbados com o grupo, e com
+        o status de cada medalhista.
+      </p>
+    </section>
+
+    <!-- 11 ------------------------------------------------------------- -->
+    <section id="mes">
+      <h2><span class="n">11.</span> O fim do mês</h2>
+      <p class="chamada">O ranking zera. O histórico, não.</p>
+
+      <p>
+        O mês <strong>fecha na mão</strong>, no botão “🏁 Finalizar o mês” do Ranking — porque a
+        premiação acontece no último play do mês, antes de o calendário virar (e dá para reabrir se
+        foi engano). O ranking mensal zera; nada é apagado: o histórico completo continua no Ranking e
+        nas Stats, e é dele que a força se alimenta.
+      </p>
+
+      <h3>O status 🔥, degrau a degrau</h3>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Degrau</th><th class="num">Semanas seguidas no pódio</th><th class="num">Vale</th></tr></thead>
+          <tbody>
+            <tr><td>🔥 Em chamas</td><td class="num">2</td><td class="num">3 pts</td></tr>
+            <tr><td>🔥🔥 Pegando fogo</td><td class="num">3</td><td class="num">6 pts</td></tr>
+            <tr><td>🔥🔥🔥 Imparável</td><td class="num">4</td><td class="num">10 pts</td></tr>
+            <tr><td>👑🔥 Lenda do Play</td><td class="num">5</td><td class="num">16 pts</td></tr>
+            <tr><td>👑💎 Rainha do Play</td><td class="num">6</td><td class="num">24 pts</td></tr>
+            <tr><td>👑🌟 Imperatriz do Play</td><td class="num">7</td><td class="num">34 pts</td></tr>
+            <tr class="destaque"><td>👑💎🌟 <b>Duquesa da V3</b></td><td class="num">8 ou mais</td><td class="num"><b>50 pts</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="legenda">A escada é calibrada para 2, 3 e 4 serem possíveis dentro de um mês, e 5, 6 e 7 no segundo.</p>
+
+      <ul>
+        <li><b>Faltar zera o status</b>, mesmo tendo vida. Tem que estar lá.</li>
+        <li><b>A vida absorve um play fora do pódio</b> — um só, e não acumula. Ela é ganha ao preservar o status no fechamento do mês.</li>
+        <li>No fechamento, quem tem status escolhe: <b>usar</b> (vira pontos naquele mês e zera — é irreversível e pede confirmação) ou <b>preservar</b> (não pontua, o status segue crescendo e ela ganha a vida). O padrão é preservar.</li>
+      </ul>
+      <p>
+        Por que alguém usaria em vez de acumular? Porque a diferença entre 1ª e 2ª no mês é de apenas
+        <strong>3,6 pontos em média</strong> — sacar o bônus decide o mês.
+      </p>
+      <div class="aviso calmo">
+        <p><b>O status não inflacionou com o pódio por grupo.</b> Medido em 40 temporadas de 16
+        semanas: o 🔥 <i>Em chamas</i> deixou de ser raro (81% das meninas encostam nele, contra 33%),
+        mas a <b>Duquesa</b> ficou <b>mais</b> rara (0,3 por temporada contra 0,6) — dentro de um grupo
+        equilibrado o pódio é mais imprevisível, e emendar 8 semanas fica mais difícil, não menos.</p>
+      </div>
+
+      <h3>Play avulso</h3>
+      <p>
+        Nem todo jogo é campeonato. Na criação dá para desmarcar “vale para o campeonato”: o play
+        avulso <strong>conta</strong> no histórico e na força que equilibra os próximos plays, mas
+        <strong>não</strong> soma no ranking do mês nem mexe nas sequências.
+      </p>
+    </section>
+
+    <!-- 12 ------------------------------------------------------------- -->
+    <section id="perguntas">
+      <h2><span class="n">12.</span> Perguntas que sempre aparecem</h2>
+      <p class="chamada">As respostas curtas, para usar na hora.</p>
+
+      <details>
+        <summary>“Joguei contra a mesma menina três vezes. O app está sorteando mal?”</summary>
+        <p>Não — está espalhando o máximo que a matemática permite. Num grupo de 8 há 56 confrontos
+        individuais para 28 pares possíveis: na média cada par se cruza duas vezes, e alguns
+        inevitavelmente três. O app escolhe sempre a dupla que menos se enfrentou com a sua; medido, a
+        distribuição fica entre 1 e 3, com média exata de 2,00.</p>
+      </details>
+      <details>
+        <summary>“Ela jogou mais partidas que eu.”</summary>
+        <p>Dentro do mesmo grupo, não: o rodízio é montado para todas jogarem exatamente o mesmo
+        número, inclusive quando a conta não fecha. Entre grupos de tamanhos diferentes (7 e 6, por
+        exemplo), o número muda — e é por isso que o pódio que vale para o status é o <b>do seu
+        grupo</b>. A outra causa possível é uma troca feita na mão no meio da noite; nesse caso,
+        “refazer a fila” reequilibra até o teto do plano.</p>
+      </details>
+      <details>
+        <summary>“Por que a quadra ficou parada se tem gente sentada?”</summary>
+        <p>Porque uma partida precisa de quatro jogadoras do <b>mesmo grupo</b>, e quem está livre
+        pode ser de grupos diferentes. O app mostra quem está livre, separado por grupo, e explica por
+        que não dá para juntar. Medido, a espera máxima no modo em grupos é de uns 17 minutos — uma
+        partida. Quebrar o rodízio para preencher sairia mais caro.</p>
+      </details>
+      <details>
+        <summary>“A estreante foi para o grupo forte. Isso não é injusto?”</summary>
+        <p>Quem nunca jogou entra com a nota do meio da escala, então cai no meio da tabela — e todas
+        as empatadas são <b>sorteadas</b> antes de dividir os grupos. Sem o sorteio, o desempate era a
+        ordem da lista de presença e refazer o play dava sempre os mesmos grupos. Se ela for muito
+        melhor (ou pior) que a média, o Elo a move já no primeiro play. E a organizadora pode mover
+        qualquer uma na mão, tocando no nome dela no cartão dos grupos.</p>
+      </details>
+      <details>
+        <summary>“O app decide quem ganha?”</summary>
+        <p>O app decide com quem você joga e contra quem — para o jogo sair parelho — e nada mais.
+        Quem ganha é a quadra. Medido em 600 noites simuladas com 16 jogadoras: a melhor jogadora
+        termina no pódio em 61% das vezes (o acaso puro daria 18%) e vence o dia em 31% (contra 6%).
+        Habilidade aparece, e muito; o que o equilíbrio faz é impedir que ela apareça
+        <b>sempre</b>.</p>
+      </details>
+      <details>
+        <summary>“Quem paga, quem não paga?”</summary>
+        <p>São quatro categorias: <b>📅 mensalista</b> (liberada enquanto o mês estiver pago; na
+        virada do mês ela volta a aparecer devendo sozinha), <b>🎟️ avulsa</b> (crédito de uma
+        participação, gasto ao finalizar o play), <b>🤝 convidada</b> (nunca é bloqueada; dois plays
+        seguidos acendem um alerta para a organização decidir) e <b>🎫 isenta</b> (nunca alerta). Se o
+        grupo não cobra, todo mundo isenta e o portão some. Tocar em quem está devendo, na hora de
+        escalar, resolve o pagamento ali mesmo sem perder a lista montada.</p>
+      </details>
+      <details>
+        <summary>“E se a internet cair na quadra?”</summary>
+        <p>O app é um site instalável (PWA) e continua funcionando: os lançamentos entram numa fila de
+        escrita que sobrevive a refresh e sobe sozinha quando o sinal volta. Quem organiza entra com
+        login; para todas as outras, é só abrir o link.</p>
+      </details>
+    </section>
+
+    <!-- 13 ------------------------------------------------------------- -->
+    <section id="onde">
+      <h2><span class="n">13.</span> Onde isso mora</h2>
+      <p class="chamada">Para quem quiser ver o código depois da conferência.</p>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th class="livre">Assunto</th><th>Arquivo</th></tr></thead>
+          <tbody>
+            <tr><td>Rodízio, confrontos, fila e escolha da próxima partida</td><td><code>src/lib/pairing.ts</code></td></tr>
+            <tr><td>Elo individual e histórico de parcerias</td><td><code>src/lib/stats.ts</code></td></tr>
+            <tr><td>Força na tela, força da dupla e entrosamento</td><td><code>src/lib/forca.ts</code></td></tr>
+            <tr><td>Status 🔥, pódios e fechamento do mês</td><td><code>src/lib/streaks.ts</code></td></tr>
+            <tr><td>Pontuação da partida</td><td><code>src/lib/scoring.ts</code></td></tr>
+            <tr><td>Modos de desempate</td><td><code>src/lib/desempate.ts</code></td></tr>
+            <tr><td>Categorias de pagamento</td><td><code>src/lib/mensalidade.ts</code></td></tr>
+            <tr><td>O porquê de cada decisão, com as medições</td><td><code>DECISOES.md</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="rodape">
+    <span>Play de Todas · beach tennis feminino · V3 Arena · toda segunda, 20h</span>
+    <span><a href="../apresentacao/">Ver a apresentação</a> · <a href="https://playdetodas.com.br">playdetodas.com.br</a></span>
+  </footer>
+</div>
+
+<script>
+  /* As perguntas ficam fechadas na tela (a secao inteira aberta viraria uma
+     parede de texto), mas no papel elas TEM que sair: um PDF com os titulos e
+     nenhuma resposta nao serve para entregar a ninguem. */
+  addEventListener('beforeprint', function () {
+    document.querySelectorAll('details').forEach(function (d) {
+      d.dataset.fechada = d.open ? '' : '1'
+      d.open = true
+    })
+  })
+  addEventListener('afterprint', function () {
+    document.querySelectorAll('details').forEach(function (d) {
+      if (d.dataset.fechada) d.open = false
+    })
+  })
+</script>
+
+</body>
+</html>
