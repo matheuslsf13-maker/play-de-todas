@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0e1230">
-<meta name="description" content="Como funciona o Play de Todas: participação, instalação do app, formatos de jogo e o mini-game dos status.">
+<meta name="description" content="Como funciona o Play de Todas: participação, instalação do app, os três formatos de jogo, o equilíbrio das duplas, a força de cada atleta e o mini-game dos status.">
 <link rel="icon" href="../icon-192.png">
 <meta property="og:title" content="Play de Todas — apresentação">
 <meta property="og:description" content="Beach tennis feminino na V3 Arena, toda segunda às 20h.">
@@ -169,6 +169,7 @@
   .cartao .rot { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--rosa); }
   .cartao .val { font-family: var(--display); font-weight: 400; font-size: clamp(20px, 3.6vw, 30px); margin: 4px 0 2px; }
   .cartao .obs { font-size: 12.5px; color: var(--fumaca); line-height: 1.45; }
+  .cartao .obs b { color: var(--creme); font-weight: 900; }
 
   /* ------- comparacao dos dois formatos ------- */
   .formatos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
@@ -182,6 +183,8 @@
   .formato.grupo h3 { color: var(--roxo); }
   .formato.todas { border-color: rgba(255, 92, 138, .5); }
   .formato.todas h3 { color: var(--rosa); }
+  .formato.duplas { border-color: rgba(255, 201, 64, .55); }
+  .formato.duplas h3 { color: var(--ouro); }
 
   /* ------- balanca do Elo ------- */
   .balanca { display: flex; flex-direction: column; gap: 6px; }
@@ -380,10 +383,10 @@
       </div>
     </section>
 
-    <!-- 7 · os dois formatos -->
-    <section class="cena" data-dur="16000">
+    <!-- 7 · os tres formatos -->
+    <section class="cena" data-dur="17000">
       <span class="selo">Como o play é montado</span>
-      <h2>Dois formatos, <em>a mesma regra de ouro</em></h2>
+      <h2>Três formatos, <em>a mesma regra de ouro</em></h2>
       <div class="formatos">
         <div class="formato todas">
           <h3>Todas com todas</h3>
@@ -396,20 +399,43 @@
         </div>
         <div class="formato grupo">
           <h3>Em grupos</h3>
-          <div class="quando">quando a noite é mais curta</div>
+          <div class="quando">o formato do dia a dia</div>
           <ul>
             <li>O mesmo rodízio, mas <b>dentro do seu grupo</b>.</li>
             <li>Os grupos saem <b>por nível</b> — jogos mais parelhos.</li>
             <li>Grupos de 8: 7 jogos para cada uma.</li>
           </ul>
         </div>
+        <div class="formato duplas">
+          <h3>Grupos + duplas</h3>
+          <div class="quando">quando o dia tem que ter uma campeã</div>
+          <ul>
+            <li>O rodízio do grupo <b>classifica</b>: 1ª com 1ª, 2ª com 2ª.</li>
+            <li>Dupla fixa e <b>mata-mata</b> até a final.</li>
+            <li>Quem vence o dia é a <b>dupla</b>.</li>
+          </ul>
+        </div>
       </div>
       <div class="aviso">
         <span>🏆</span>
-        <div>Nos dois formatos os <b>pontos são individuais</b>: o grupo muda contra quem você joga,
+        <div>Nos dois primeiros os <b>pontos são individuais</b>: o grupo muda contra quem você joga,
         não como você pontua. A classificação do dia é uma só — mas <b>cada grupo tem o seu
         pódio</b>, com 1º, 2º e 3º.</div>
       </div>
+    </section>
+
+    <!-- 8 · como o grupos + duplas anda -->
+    <section class="cena" data-dur="16000">
+      <span class="selo">Grupos + duplas</span>
+      <h2>O dia que termina <em>numa final</em></h2>
+      <ol class="passos">
+        <li><p><b>Rodízio no seu grupo.</b> Aqui os grupos saem com a <b>mesma força média</b> — ser 1ª tem que custar o mesmo em todos eles.</p></li>
+        <li><p><b>A colocação vira dupla.</b> A 1ª de um grupo com a 1ª do outro, a 2ª com a 2ª. Dupla fixa daqui até o fim.</p></li>
+        <li><p><b>Mata-mata.</b> Quem foi bem nos grupos passa direto da primeira rodada — e o bye <b>paga pontos</b>, para ninguém sair perdendo por ter ido bem.</p></li>
+        <li><p><b>Final e 3º lugar</b> ao mesmo tempo, uma quadra do lado da outra.</p></li>
+      </ol>
+      <p class="linha-fina">A fase de grupos <strong>não pontua</strong>: ela serve para formar as duplas.
+      O pódio do dia é 🥇 campeã, 🥈 vice e 🥉 a melhor semifinalista.</p>
     </section>
 
     <!-- 8 · a fila -->
@@ -420,7 +446,39 @@
         <li><span class="marca-item">⏱️</span><div><b>A quadra que vagar chama a próxima</b><span>As quadras nunca terminam juntas, então não faz sentido esperar a rodada inteira fechar.</span></div></li>
         <li><span class="marca-item">🪑</span><div><b>Entra quem está fora há mais tempo</b><span>Ninguém emenda dois jogos cansada enquanto outra espera sentada.</span></div></li>
         <li><span class="marca-item">⚖️</span><div><b>Quem enfrenta quem também é escolhido</b><span>O app pega sempre a dupla que menos se enfrentou com a sua, para espalhar os confrontos.</span></div></li>
+        <li><span class="marca-item">🚫</span><div><b>Ninguém joga três seguidas</b><span>Antes de chamar a próxima, o app procura uma ordem — daqui até o fim da noite — em que ninguém emende três. Quando ela existe, é por ela que a fila anda.</span></div></li>
       </ul>
+    </section>
+
+    <!-- · a conta que nao fecha -->
+    <section class="cena" data-dur="16000">
+      <span class="selo">A conta que não fecha</span>
+      <h2>Grupo de 6, grupo de&nbsp;7, <em>e todas jogam igual</em></h2>
+      <p class="linha-fina">
+        Nem todo número é redondo: com <strong>6, 7, 10 ou 11</strong> no grupo, o rodízio não divide
+        em partidas inteiras com todo mundo jogando o mesmo tanto. Em vez de dar um jogo a mais para
+        duas, o app <strong>espalha as repetições por todas</strong>.
+      </p>
+      <div class="cartoes">
+        <div class="cartao">
+          <div class="rot">Grupo de 6</div><div class="val">9 partidas</div>
+          <div class="obs"><b>6 jogos para cada uma.</b> Cada uma repete 1 parceira.</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">Grupo de 7</div><div class="val">14 partidas</div>
+          <div class="obs"><b>8 jogos para cada uma.</b> Cada uma repete 2 parceiras.</div>
+        </div>
+        <div class="cartao">
+          <div class="rot">Grupo de 8</div><div class="val">14 partidas</div>
+          <div class="obs"><b>7 jogos para cada uma.</b> Fecha redondo, sem repetir nada.</div>
+        </div>
+      </div>
+      <div class="aviso calmo">
+        <span>⚖️</span>
+        <div>Num grupo de 7, antes, <b>duas jogavam 7 partidas e as outras 6</b>. Hoje são
+        <b>8 para todas</b> — e quem repete com quem é <b>escolhido</b> entre todas as combinações
+        possíveis, para os jogos saírem parelhos.</div>
+      </div>
     </section>
 
     <!-- 9 · o Elo -->
@@ -443,6 +501,24 @@
       </p>
     </section>
 
+    <!-- · a forca na tela -->
+    <section class="cena" data-dur="15000">
+      <span class="selo">💪 Força</span>
+      <h2>O seu nível, <em>com número e tudo</em></h2>
+      <p class="linha-fina">A conta que sempre montou os grupos agora aparece: na aba
+      <strong>💪 Força</strong>, na sua ficha e na sua linha da lista. O meio da escala é
+      <strong>1500</strong> — é ali que fica a média do grupo.</p>
+      <div class="escada">
+        <div class="degrau topo"><span class="emo">🚀</span><span class="nome">Topo do grupo</span><span class="vale">1575+</span></div>
+        <div class="degrau"><span class="emo">📈</span><span class="nome">Acima da média</span><span class="vale">1525–1574</span></div>
+        <div class="degrau"><span class="emo">⚖️</span><span class="nome">No pelotão</span><span class="vale">1475–1524</span></div>
+        <div class="degrau"><span class="emo">🎯</span><span class="nome">Em evolução</span><span class="vale">1425–1474</span></div>
+        <div class="degrau"><span class="emo">🌱</span><span class="nome">Começando</span><span class="vale">até 1424</span></div>
+      </div>
+      <p class="linha-fina">Com menos de 12 partidas a nota sai marcada como
+      <strong>provisória</strong>: ela já conta para o equilíbrio, mas ainda está se formando.</p>
+    </section>
+
     <!-- 10 · pontuação -->
     <section class="cena" data-dur="11000">
       <span class="selo">Pontuação</span>
@@ -455,6 +531,11 @@
       </div>
       <p class="linha-fina">Sem empate. Quanto mais folgada a vitória, mais pontos. <strong>A derrota não
       pontua.</strong> Tudo se acumula no ranking do mês, e a premiação acontece na última semana.</p>
+      <div class="aviso">
+        <span>🥇</span>
+        <div><b>O dia é por vitórias; o mês, por pontos.</b> Ganhar 5 de 6 apertado vale mais no dia
+        do que ganhar 3 atropelando — os pontos entram só para desempatar.</div>
+      </div>
     </section>
 
     <!-- 11 · o perfil -->
@@ -490,6 +571,21 @@
       <p class="linha-fina">O app guarda <strong>toda dupla que já se formou</strong>, com o retrospecto
       completo: quantas venceram, contra quem jogaram e o placar de cada partida. Dá para buscar
       qualquer dupla e ver a história dela.</p>
+      <p class="linha-fina">E cada dupla tem uma <strong>força própria</strong> — que não é a média de
+      vocês duas, é o quanto vocês rendem <strong>juntas</strong>. Tem dupla que se acha em quadra e
+      joga acima da soma, e o app leva isso em conta para montar os confrontos.</p>
+    </section>
+
+    <!-- · o que mais tem dentro -->
+    <section class="cena" data-dur="16000">
+      <span class="selo">E ainda tem</span>
+      <h2>Os detalhes que <em>a noite pede</em></h2>
+      <ul class="pontos">
+        <li><span class="marca-item">⏳</span><div><b>Quem ainda não chegou</b><span>Marcou, o app pula as partidas dela e a noite segue. Chegou, ela entra na frente — é quem está há mais tempo sem jogar.</span></div></li>
+        <li><span class="marca-item">🔄</span><div><b>Entra e sai no meio do play</b><span>Alguém precisou ir embora? Troca na mão, e o app refaz o que falta sem encurtar a noite de ninguém.</span></div></li>
+        <li><span class="marca-item">📋</span><div><b>A lista do grupo, colada</b><span>Cola a lista do WhatsApp e a presença sai marcada — os ✅ e a numeração são descartados sozinhos.</span></div></li>
+        <li><span class="marca-item">📴</span><div><b>Sem sinal, continua</b><span>Placar lançado sem internet entra numa fila e sobe sozinho quando o sinal volta.</span></div></li>
+      </ul>
     </section>
 
     <!-- 13 · o mini-game -->
@@ -568,6 +664,7 @@
       <h2>Bora jogar? <em>Segunda tem play.</em></h2>
       <p class="sub" style="max-width:56ch">Abre o link, instala na tela de início e acompanha o ranking direto do celular.</p>
       <a class="link-final" href="https://playdetodas.com.br" target="_blank" rel="noopener">playdetodas.com.br</a>
+      <a class="link-final" href="../como-funciona/">📄 Como a noite é montada, em detalhe</a>
       <span class="assinatura">Mais que um play, uma experiência!</span>
     </section>
 
@@ -578,7 +675,7 @@
     <button class="bt" id="pausar" aria-label="Reproduzir ou pausar">▶</button>
     <div class="trilha" id="trilha" role="tablist" aria-label="Cenas"></div>
     <button class="bt" id="proximo" aria-label="Próxima cena">→</button>
-    <span class="conta" id="conta">1/18</span>
+    <span class="conta" id="conta">1/22</span>
   </div>
 </div>
 
