@@ -19,9 +19,32 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'checkins', label: 'Check-ins', icon: '✅' },
 ]
 
+/**
+ * A aba aberta fica guardada no aparelho: o app recarrega ao voltar para a
+ * tela (e no F5), e cair sempre no Ranking obrigava a navegar de novo.
+ */
+const CHAVE_DA_ABA = 'play-de-todas:aba'
+
+function abaSalva(): Tab {
+  try {
+    const v = localStorage.getItem(CHAVE_DA_ABA)
+    if (v && TABS.some((t) => t.id === v)) return v as Tab
+  } catch {
+    /* sem localStorage: comeca no ranking */
+  }
+  return 'ranking'
+}
+
 export default function App() {
   const { loading, error, online, canEdit, userEmail, signIn, signOut, sync, pendingCount } = useStore()
-  const [tab, setTab] = useState<Tab>('ranking')
+  const [tab, setTab] = useState<Tab>(abaSalva)
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAVE_DA_ABA, tab)
+    } catch {
+      /* sem localStorage: paciencia */
+    }
+  }, [tab])
   /** Aba de Stats pedida por outra tela (o “ver a força” do Ranking). */
   const [abrirStats, setAbrirStats] = useState<'jogadora' | 'duplas' | 'forca' | null>(null)
   const [abrirPlay, setAbrirPlay] = useState<string | null>(null)

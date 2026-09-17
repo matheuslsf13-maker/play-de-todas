@@ -5,6 +5,7 @@ import type { Repo } from '../data/repo'
 import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
 import type {
+  Acerto,
   AppData,
   Checkin,
   CheckinConta,
@@ -58,6 +59,8 @@ type Ctx = {
   deleteCheckinPagamento: (checkinId: string) => void
   saveCaixa: (lancamento: LancamentoDeCaixa) => void
   deleteCaixa: (id: string) => void
+  saveAcerto: (acerto: Acerto) => void
+  deleteAcerto: (id: string) => void
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   playerById: (id: string) => Player | undefined
@@ -154,6 +157,10 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
       return { ...d, caixa: upsert(d.caixa, op.lancamento) }
     case 'deleteCaixa':
       return { ...d, caixa: d.caixa.filter((l) => l.id !== op.lancamentoId) }
+    case 'saveAcerto':
+      return { ...d, checkinAcertos: upsert(d.checkinAcertos, op.acerto) }
+    case 'deleteAcerto':
+      return { ...d, checkinAcertos: d.checkinAcertos.filter((a) => a.id !== op.acertoId) }
     case 'mergePlayers': {
       let matches = d.matches
       for (const m of op.matches) matches = upsert(matches, m)
@@ -165,6 +172,8 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
       for (const c of op.checkins ?? []) checkins = upsert(checkins, c)
       let checkinContas = d.checkinContas.filter((c) => c.player_id !== op.fromId)
       for (const c of op.contas ?? []) checkinContas = upsert(checkinContas, c)
+      let checkinAcertos = d.checkinAcertos
+      for (const a of op.acertos ?? []) checkinAcertos = upsert(checkinAcertos, a)
       return {
         ...d,
         players: d.players.filter((p) => p.id !== op.fromId),
@@ -172,6 +181,7 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
         sessions,
         checkins,
         checkinContas,
+        checkinAcertos,
       }
     }
   }
@@ -368,6 +378,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deleteCheckinPagamento: (checkinId) => push({ id: uid(), type: 'deleteCheckinPagamento', checkinId }),
       saveCaixa: (lancamento) => push({ id: uid(), type: 'saveCaixa', lancamento }),
       deleteCaixa: (lancamentoId) => push({ id: uid(), type: 'deleteCaixa', lancamentoId }),
+      saveAcerto: (acerto) => push({ id: uid(), type: 'saveAcerto', acerto }),
+      deleteAcerto: (acertoId) => push({ id: uid(), type: 'deleteAcerto', acertoId }),
       mergePlayers: (fromId, intoId) => {
         const troca = (id: string) => (id === fromId ? intoId : id)
         // partidas: a duplicada vira a jogadora que fica
@@ -389,7 +401,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const contas = data.checkinContas
           .filter((c) => c.player_id === fromId && (!c.principal || !temPrincipal))
           .map((c) => (c.principal ? { ...c, id: `principal:${intoId}`, player_id: intoId } : { ...c, player_id: intoId }))
-        push({ id: uid(), type: 'mergePlayers', fromId, intoId, matches, sessions, contas, checkins })
+        const acertos = data.checkinAcertos.filter((a) => a.player_id === fromId).map((a) => ({ ...a, player_id: intoId }))
+        push({ id: uid(), type: 'mergePlayers', fromId, intoId, matches, sessions, contas, checkins, acertos })
       },
       signIn: async (email, password) => {
         if (!supabase) return
@@ -459,12 +472,17 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.saveCaixa(op.lancamento)
     case 'deleteCaixa':
       return repo.deleteCaixa(op.lancamentoId)
+    case 'saveAcerto':
+      return repo.saveAcerto(op.acerto)
+    case 'deleteAcerto':
+      return repo.deleteAcerto(op.acertoId)
     case 'mergePlayers':
       await repo.saveMatches(op.matches)
       for (const s of op.sessions) await repo.saveSession(s)
       // reapontar ANTES de apagar: a cascata do banco levaria as contas junto
       for (const c of op.contas ?? []) await repo.saveCheckinConta(c)
       for (const c of op.checkins ?? []) await repo.saveCheckin(c)
+      for (const a of op.acertos ?? []) await repo.saveAcerto(a)
       return repo.deletePlayer(op.fromId)
   }
 }

@@ -196,6 +196,13 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   recusa o que a tela aceitou (sem unique dia+atleta, FKs `set null`): uma escrita
   recusada travaria a fila de envio para sempre; a tela abre o lançamento existente
   em vez de duplicar, e só deixa **desativar** conta/arena com histórico.
+  **O crédito não é gravado: é o saldo que sobrou** (`extratoDaAtleta`, o saldo
+  correndo na ordem do calendário). O play seguinte usa o crédito sozinho — o campo
+  "Pagou" já vem com `devido − crédito` — e quem deve vê o aviso com o total para
+  quitar; apagar um dia devolve o que ele consumiu, sem nada para desfazer. Mexer
+  no saldo fora de um play é um **acerto** (`checkin_acertos`, script 17): `valor`
+  é o efeito no saldo e `dinheiro` diz se entrou/saiu dinheiro de verdade — só
+  esses contam na receita; perdoar uma dívida não conta.
 - **"⏳ Quem não chegou"** (no card das quadras): quem está na lista mas ainda não
   apareceu é marcada e o app **pula as partidas dela** ao sugerir a próxima — para a
   escolha ela conta como se estivesse em quadra (`indisponiveis`), e a previsão da
@@ -225,6 +232,9 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Separador entre links é desenhado (`::before`), não digitado**: como texto, o
   `·` conta como palavra e vai parar sozinho no fim da linha.
 - **Nada de `(s)`**: use `plural()` de `src/lib/types.ts`.
+- **A aba aberta fica guardada** (`play-de-todas:aba`, e a seção dos Check-ins em
+  `play-de-todas:checkins-secao`): o app recarrega ao voltar para a tela, e cair
+  sempre no Ranking obrigava a navegar de novo.
 
 ## Convenções
 

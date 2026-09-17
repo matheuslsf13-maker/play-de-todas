@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type {
+  Acerto,
   AppData,
   Checkin,
   CheckinConta,
@@ -90,7 +91,7 @@ export const supabaseRepo: Repo = {
   kind: 'supabase',
   async load(): Promise<AppData> {
     const sb = client()
-    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa] =
+    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos] =
       await Promise.all([
         sb.from('players').select('*').order('name'),
         sb.from('sessions').select('*').order('date', { ascending: false }),
@@ -104,6 +105,7 @@ export const supabaseRepo: Repo = {
         // estas duas so quem esta logada le: para anon voltam vazias, sem erro
         sb.from('checkin_pagamentos').select('*'),
         sb.from('caixa').select('*'),
+        sb.from('checkin_acertos').select('*'),
       ])
     const err = players.error || sessions.error || matches.error
     if (err) throw err
@@ -115,7 +117,7 @@ export const supabaseRepo: Repo = {
     // (uma escrita contra tabela inexistente travaria a fila para sempre)
     const doCheckin: [string, { error: { message: string } | null }][] = [
       ['checkin_locais', locais], ['checkin_contas', contas], ['checkin_dias', dias],
-      ['checkins', checkins], ['checkin_pagamentos', pagamentos], ['caixa', caixa],
+      ['checkins', checkins], ['checkin_pagamentos', pagamentos], ['caixa', caixa], ['checkin_acertos', acertos],
     ]
     for (const [nome, r] of doCheckin) {
       if (r.error) {
@@ -145,6 +147,7 @@ export const supabaseRepo: Repo = {
         valor_devido: p.valor_devido === null || p.valor_devido === undefined ? null : numero(p.valor_devido),
       })),
       caixa: ((caixa.data ?? []) as LancamentoDeCaixa[]).map((c) => ({ ...c, valor: numero(c.valor) })),
+      checkinAcertos: ((acertos.data ?? []) as Acerto[]).map((a) => ({ ...a, valor: numero(a.valor) })),
     }
   },
   async savePlayer(p: Player) {
@@ -235,6 +238,13 @@ export const supabaseRepo: Repo = {
     const { error } = await client().from('caixa').delete().eq('id', id)
     if (error) throw error
   },
+  async saveAcerto(acerto: Acerto) {
+    await upsertTolerante('checkin_acertos', acerto)
+  },
+  async deleteAcerto(id: string) {
+    const { error } = await client().from('checkin_acertos').delete().eq('id', id)
+    if (error) throw error
+  },
   async deletePhoto(url: string) {
     const marca = '/storage/v1/object/public/photos/'
     const i = url.indexOf(marca)
@@ -258,6 +268,7 @@ export const supabaseRepo: Repo = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins' }, cb)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_pagamentos' }, cb)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'caixa' }, cb)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_acertos' }, cb)
       .subscribe()
     return () => {
       void sb.removeChannel(ch)

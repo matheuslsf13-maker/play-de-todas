@@ -73,7 +73,9 @@ sozinhas, em `/apresentacao/`) e [**como a noite é montada**](public/como-funci
   cada menina, somando as contas dela — inclusive a conta de outra pessoa (o
   marido) quando a dela acaba. Por dia de play lança-se quem veio, com qual conta,
   em qual arena, como pagou (check-in + valor ou integral), quanto pagou e o que
-  ficou de **crédito ou débito**. O relatório **para as arenas** (texto de
+  ficou de **crédito ou débito** — o crédito de um play cobre o seguinte sozinho, e
+  quem deve vê o total para quitar; acertos fora de play (pagou depois, devolveram,
+  perdoaram) têm tela própria. O relatório **para as arenas** (texto de
   WhatsApp ou Excel, por mês ou período, uma arena ou todas) sai **sem valores**.
   O **caixa** (receitas extras, brindes, aluguel…) e o **resumo mensal** só
   aparecem para quem está logada, e o **Excel completo** reproduz as abas da
@@ -102,8 +104,8 @@ salvos apenas no navegador de quem está usando. Ótimo para testar.
    bucket `photos` para as fotos de perfil. Depois rode os arquivos numerados
    da pasta [`supabase/`](supabase) **na ordem** (`02` em diante): são as
    migrações que vieram depois (o `15-checkins.sql` cria as tabelas da aba
-   Check-ins — as de dinheiro só quem está logada lê — e o `16` carrega a
-   planilha de setembro de 2026). O app funciona sem elas — guarda o que falta no
+   Check-ins — as de dinheiro só quem está logada lê —, o `16` carrega a
+   planilha de setembro de 2026 e o `17` cria os acertos de saldo). O app funciona sem elas — guarda o que falta no
    celular de quem organiza — mas aí o modo em grupos, o tempo de descanso e o
    fechamento do mês não chegam aos outros aparelhos.
 3. Em **Authentication → Users**, clique em *Add user* e crie o login de quem vai

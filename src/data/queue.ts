@@ -1,5 +1,6 @@
 import { CHAVE } from '../lib/chaves'
 import type {
+  Acerto,
   Checkin,
   CheckinConta,
   CheckinDia,
@@ -39,6 +40,8 @@ export type WriteOp =
   | { id: string; type: 'deleteCheckinPagamento'; checkinId: string }
   | { id: string; type: 'saveCaixa'; lancamento: LancamentoDeCaixa }
   | { id: string; type: 'deleteCaixa'; lancamentoId: string }
+  | { id: string; type: 'saveAcerto'; acerto: Acerto }
+  | { id: string; type: 'deleteAcerto'; acertoId: string }
   | {
       id: string
       type: 'mergePlayers'
@@ -49,6 +52,7 @@ export type WriteOp =
       /** Opcionais: uma op antiga persistida na fila nao os tem. */
       contas?: CheckinConta[]
       checkins?: Checkin[]
+      acertos?: Acerto[]
     }
 
 const QUEUE_KEY = CHAVE.fila

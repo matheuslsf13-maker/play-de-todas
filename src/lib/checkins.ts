@@ -6,6 +6,7 @@
  * um lancamento antigo corrige o presente sozinho, como no resto do app.
  */
 import type {
+  Acerto,
   AppData,
   CategoriaDeCaixa,
   Checkin,
@@ -132,6 +133,7 @@ export function mesesComCheckins(data: AppData): string[] {
   for (const d of data.checkinDias) set.add(monthOf(d.date))
   for (const s of data.sessions) set.add(monthOf(s.date))
   for (const l of data.caixa) set.add(monthOf(l.date))
+  for (const a of data.checkinAcertos) set.add(monthOf(a.date))
   set.add(monthOf(todayISO()))
   return [...set].sort().reverse()
 }
@@ -179,8 +181,13 @@ export function saldoDoCheckin(c: Checkin, dia: CheckinDia, pag?: CheckinPagamen
   return centavos((pag?.valor_pago ?? 0) - valorDevido(c, dia, pag))
 }
 
-export type Saldo = { pago: number; devido: number; saldo: number; lancamentos: number }
+export type Saldo = { pago: number; devido: number; acertos: number; saldo: number; lancamentos: number }
 
+/**
+ * O saldo da menina: tudo que pagou menos tudo que devia, mais os acertos.
+ * Positivo e credito para o proximo play; negativo e o que falta. E a soma
+ * de todos os lancamentos, entao apagar um dia devolve o credito sozinho.
+ */
 export function saldoDaAtleta(data: AppData, playerId: string): Saldo {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
   let pago = 0
@@ -195,7 +202,102 @@ export function saldoDaAtleta(data: AppData, playerId: string): Saldo {
     devido += valorDevido(c, dia, pag)
     lancamentos++
   }
-  return { pago: centavos(pago), devido: centavos(devido), saldo: centavos(pago - devido), lancamentos }
+  const acertos = data.checkinAcertos.filter((a) => a.player_id === playerId).reduce((t, a) => t + a.valor, 0)
+  return {
+    pago: centavos(pago),
+    devido: centavos(devido),
+    acertos: centavos(acertos),
+    saldo: centavos(pago - devido + acertos),
+    lancamentos,
+  }
+}
+
+/** O saldo da menina sem contar um lancamento (o que esta sendo editado): positivo e credito, negativo e divida. */
+export function saldoAntesDe(data: AppData, playerId: string, semCheckinId?: string): number {
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
+  let saldo = data.checkinAcertos.filter((a) => a.player_id === playerId).reduce((t, a) => t + a.valor, 0)
+  for (const c of data.checkins) {
+    if (c.player_id !== playerId || c.id === semCheckinId) continue
+    const dia = dias.get(c.dia_id)
+    if (!dia) continue
+    const pag = pagamentoDoCheckin(data, c.id)
+    saldo += (pag?.valor_pago ?? 0) - valorDevido(c, dia, pag)
+  }
+  return centavos(saldo)
+}
+
+/** O credito que a menina tem para o proximo play. */
+export function creditoDisponivel(data: AppData, playerId: string, semCheckinId?: string): number {
+  return Math.max(0, saldoAntesDe(data, playerId, semCheckinId))
+}
+
+export type Movimento =
+  | {
+      tipo: 'lancamento'
+      date: string
+      checkin: Checkin
+      dia: CheckinDia
+      pag: CheckinPagamento | undefined
+      devido: number
+      pago: number
+      /** Quanto do credito que ela tinha cobriu este play. */
+      creditoUsado: number
+      /** Quanto do que pagou a mais foi para quitar divida de antes. */
+      dividaQuitada: number
+      /** O que ainda falta deste play depois do credito (0 quando fechou). */
+      falta: number
+      /** O que pagou a mais e virou credito novo (depois de quitar o que devia). */
+      sobra: number
+      saldoDepois: number
+    }
+  | { tipo: 'acerto'; date: string; acerto: Acerto; saldoDepois: number }
+
+/**
+ * O extrato da menina, na ordem do calendario, com o saldo correndo: e aqui
+ * que o credito de um play e "gasto" no seguinte. O credito nao e gravado em
+ * lugar nenhum -- ele e o saldo que sobrou antes daquele dia.
+ */
+export function extratoDaAtleta(data: AppData, playerId: string): Movimento[] {
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
+  type Bruto = { date: string; criado: string; checkin?: Checkin; acerto?: Acerto }
+  const brutos: Bruto[] = []
+  for (const c of data.checkins) {
+    if (c.player_id !== playerId) continue
+    const dia = dias.get(c.dia_id)
+    if (dia) brutos.push({ date: dia.date, criado: c.created_at, checkin: c })
+  }
+  for (const a of data.checkinAcertos) {
+    if (a.player_id === playerId) brutos.push({ date: a.date, criado: a.created_at, acerto: a })
+  }
+  brutos.sort((a, b) => a.date.localeCompare(b.date) || a.criado.localeCompare(b.criado))
+  let saldo = 0
+  const extrato: Movimento[] = []
+  for (const b of brutos) {
+    if (b.acerto) {
+      saldo = centavos(saldo + b.acerto.valor)
+      extrato.push({ tipo: 'acerto', date: b.date, acerto: b.acerto, saldoDepois: saldo })
+      continue
+    }
+    const checkin = b.checkin as Checkin
+    const dia = dias.get(checkin.dia_id) as CheckinDia
+    const pag = pagamentoDoCheckin(data, checkin.id)
+    const devido = valorDevido(checkin, dia, pag)
+    const pago = centavos(pag?.valor_pago ?? 0)
+    const faltava = centavos(devido - pago)
+    const creditoUsado = faltava > 0 ? Math.min(Math.max(0, saldo), faltava) : 0
+    const pagouAMais = Math.max(0, -faltava)
+    const dividaQuitada = Math.min(Math.max(0, -saldo), pagouAMais)
+    saldo = centavos(saldo + pago - devido)
+    extrato.push({
+      tipo: 'lancamento', date: b.date, checkin, dia, pag, devido, pago,
+      creditoUsado: centavos(creditoUsado),
+      dividaQuitada: centavos(dividaQuitada),
+      falta: centavos(Math.max(0, faltava - creditoUsado)),
+      sobra: centavos(pagouAMais - dividaQuitada),
+      saldoDepois: saldo,
+    })
+  }
+  return extrato
 }
 
 export type StatusDoCheckin = 'regularizado' | 'verificar'
@@ -381,6 +483,11 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
     const dia = c ? dias.get(c.dia_id) : undefined
     if (!dia) continue
     linha(monthOf(dia.date)).receitasPlay += p.valor_pago
+  }
+  // um acerto com dinheiro e receita dos plays no mes em que aconteceu: a
+  // divida paga depois entra (+), o credito devolvido sai (-); o perdao nao mexe
+  for (const a of data.checkinAcertos) {
+    if (a.dinheiro) linha(monthOf(a.date)).receitasPlay += a.valor
   }
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))

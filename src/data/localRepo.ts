@@ -1,4 +1,5 @@
 import type {
+  Acerto,
   AppData,
   Checkin,
   CheckinConta,
@@ -38,6 +39,7 @@ function read(): AppData {
       checkins: parsed.checkins ?? [],
       checkinPagamentos: parsed.checkinPagamentos ?? [],
       caixa: parsed.caixa ?? [],
+      checkinAcertos: parsed.checkinAcertos ?? [],
     }
   } catch {
     return emptyData()
@@ -189,6 +191,16 @@ export const localRepo: Repo = {
   async deleteCaixa(id: string) {
     const d = read()
     d.caixa = d.caixa.filter((l) => l.id !== id)
+    write(d)
+  },
+  async saveAcerto(acerto: Acerto) {
+    const d = read()
+    upsertEm(d.checkinAcertos, acerto)
+    write(d)
+  },
+  async deleteAcerto(id: string) {
+    const d = read()
+    d.checkinAcertos = d.checkinAcertos.filter((a) => a.id !== id)
     write(d)
   },
   async deleteMatchesOfSession(sessionId: string) {

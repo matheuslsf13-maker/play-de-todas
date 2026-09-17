@@ -11,7 +11,9 @@ import {
   contaDoCheckin,
   contasDaAtleta,
   diasDoMes,
+  saldoAntesDe,
   disponibilidade,
+  extratoDaAtleta,
   formatarReais,
   lerValor,
   mesesComCheckins,
@@ -39,6 +41,7 @@ import {
   plural,
   todayISO,
   uid,
+  type Acerto,
   type CategoriaDeCaixa,
   type Checkin,
   type CheckinConta,
@@ -61,8 +64,24 @@ import { gerarXlsx } from '../lib/xlsx'
 
 type Secao = 'atletas' | 'dias' | 'arenas' | 'caixa' | 'padroes'
 
+/** O modal da atleta abre nas contas, no extrato do saldo ou direto no acerto. */
+type VisaoDasContas = 'contas' | 'extrato' | 'acerto'
+
 /** O que o modal de lancamento recebe: um lancamento existente, ou de quem e de que dia e o novo. */
 type PedidoDeLancamento = { checkin?: Checkin; playerId?: string; diaId?: string }
+
+const CHAVE_DA_SECAO = 'play-de-todas:checkins-secao'
+const SECOES: Secao[] = ['atletas', 'dias', 'arenas', 'caixa', 'padroes']
+
+function secaoSalva(): Secao {
+  try {
+    const v = localStorage.getItem(CHAVE_DA_SECAO)
+    if (v && (SECOES as string[]).includes(v)) return v as Secao
+  } catch {
+    /* sem localStorage */
+  }
+  return 'atletas'
+}
 
 const VALOR_CHEIO_INICIAL = 50
 const VALOR_COM_CHECKIN_INICIAL = 25
@@ -79,9 +98,16 @@ function nomeDoMes(mes: string): string {
 
 export default function Checkins({ onToast }: { onToast: (m: string) => void }) {
   const { data, canEdit, online } = useStore()
-  const [secao, setSecao] = useState<Secao>('atletas')
+  const [secao, setSecao] = useState<Secao>(secaoSalva)
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAVE_DA_SECAO, secao)
+    } catch {
+      /* sem localStorage */
+    }
+  }, [secao])
   const [mes, setMes] = useState(() => monthOf(todayISO()))
-  const [contasDe, setContasDe] = useState<Player | null>(null)
+  const [contasDe, setContasDe] = useState<{ jogadora: Player; visao: VisaoDasContas } | null>(null)
   const [lancando, setLancando] = useState<PedidoDeLancamento | null>(null)
   const [editandoDia, setEditandoDia] = useState<CheckinDia | 'novo' | null>(null)
 
@@ -92,6 +118,8 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
   const podeEditar = canEdit && tabelasFaltando.length === 0
 
   const meses = useMemo(() => mesesComCheckins(data), [data])
+  // a secao guardada pode ser o Caixa de quando estava logada: deslogada, cai em Atletas
+  const secaoAtiva: Secao = secao === 'caixa' && !veDinheiro ? 'atletas' : secao
 
   const secoes: { id: Secao; rotulo: string }[] = [
     { id: 'atletas', rotulo: '👯 Atletas' },
@@ -105,9 +133,13 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
     <>
       {tabelasFaltando.length > 0 && (
         <div className="banner warn">
-          ⚠️ <strong>O banco ainda não tem as tabelas dos check-ins</strong> (
-          {tabelasFaltando.map((t) => <code key={t}>{t}</code>).reduce((a, b) => <>{a}, {b}</>)}). Rode{' '}
-          <code>supabase/15-checkins.sql</code> no SQL Editor do Supabase; até lá esta aba fica só de leitura.
+          ⚠️ <strong>O banco ainda não tem {tabelasFaltando.length === 1 ? 'esta tabela' : 'estas tabelas'}:</strong>{' '}
+          {tabelasFaltando.map((t) => <code key={t}>{t}</code>).reduce((a, b) => <>{a}, {b}</>)}. Rode{' '}
+          {[...new Set(tabelasFaltando.map((t) => (t === 'checkin_acertos' ? '17-acertos.sql' : '15-checkins.sql')))]
+            .sort()
+            .map((f) => <code key={f}>supabase/{f}</code>)
+            .reduce((a, b) => <>{a} e {b}</>)}{' '}
+          no SQL Editor do Supabase; até lá esta aba fica só de leitura.
         </div>
       )}
 
@@ -122,23 +154,23 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
         </div>
         <div className="segmented">
           {secoes.map((s) => (
-            <button key={s.id} className={secao === s.id ? 'on' : ''} onClick={() => setSecao(s.id)}>
+            <button key={s.id} className={secaoAtiva === s.id ? 'on' : ''} onClick={() => setSecao(s.id)}>
               {s.rotulo}
             </button>
           ))}
         </div>
       </div>
 
-      {secao === 'atletas' && (
+      {secaoAtiva === 'atletas' && (
         <SecaoAtletas
           mes={mes}
           veDinheiro={veDinheiro}
           podeEditar={podeEditar}
-          onContas={setContasDe}
+          onContas={(jogadora, visao) => setContasDe({ jogadora, visao })}
           onLancar={(playerId) => setLancando({ playerId, diaId: diasDoMes(data, mes)[0]?.id })}
         />
       )}
-      {secao === 'dias' && (
+      {secaoAtiva === 'dias' && (
         <SecaoDias
           mes={mes}
           veDinheiro={veDinheiro}
@@ -148,11 +180,21 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
           onLancar={setLancando}
         />
       )}
-      {secao === 'arenas' && <SecaoArenas mes={mes} onToast={onToast} />}
-      {secao === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
-      {secao === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
+      {secaoAtiva === 'arenas' && <SecaoArenas mes={mes} onToast={onToast} />}
+      {secaoAtiva === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
+      {secaoAtiva === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
 
-      {contasDe && <ContasModal jogadora={contasDe} mes={mes} podeEditar={podeEditar} onClose={() => setContasDe(null)} onToast={onToast} />}
+      {contasDe && (
+        <ContasModal
+          jogadora={contasDe.jogadora}
+          visaoInicial={contasDe.visao}
+          mes={mes}
+          veDinheiro={veDinheiro}
+          podeEditar={podeEditar}
+          onClose={() => setContasDe(null)}
+          onToast={onToast}
+        />
+      )}
       {editandoDia && (
         <EditarDiaModal
           dia={editandoDia === 'novo' ? null : editandoDia}
@@ -191,7 +233,7 @@ function SecaoAtletas({
   mes: string
   veDinheiro: boolean
   podeEditar: boolean
-  onContas: (p: Player) => void
+  onContas: (p: Player, visao: VisaoDasContas) => void
   onLancar: (playerId: string) => void
 }) {
   const { data, nameOf } = useStore()
@@ -253,7 +295,11 @@ function SecaoAtletas({
                         {nameOf(p.id)}
                         {!p.active && <span className="tiny muted"> · pausada</span>}
                       </div>
-                      {veDinheiro && saldo.lancamentos > 0 && <BadgeSaldo saldo={saldo.saldo} />}
+                      {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && (
+                        <button className="linkish" style={{ padding: 0 }} onClick={() => onContas(p, 'extrato')}>
+                          <BadgeSaldo saldo={saldo.saldo} />
+                        </button>
+                      )}
                     </div>
                     <div className="tiny" style={{ marginTop: 2 }}>
                       🎟️ <strong>{disp.disponiveis}</strong> de {disp.cota} livres em {nomeDoMes(mes)}
@@ -273,9 +319,19 @@ function SecaoAtletas({
                     ))}
                     <div className="tiny muted acoes-atleta">
                       {saldo.lancamentos > 0 && <span>{plural(saldo.lancamentos, 'lançamento')}</span>}
-                      <button className="linkish" onClick={() => onContas(p)}>
+                      <button className="linkish" onClick={() => onContas(p, 'contas')}>
                         {podeEditar ? 'contas' : 'ver contas'}
                       </button>
+                      {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && (
+                        <button className="linkish" onClick={() => onContas(p, 'extrato')}>
+                          extrato
+                        </button>
+                      )}
+                      {podeEditar && saldo.saldo !== 0 && (
+                        <button className="linkish" onClick={() => onContas(p, 'acerto')}>
+                          acertar
+                        </button>
+                      )}
                       {podeEditar && (
                         <button className="linkish" onClick={() => onLancar(p.id)}>
                           lançar
@@ -324,6 +380,14 @@ function LinhaDeLancamento({
   const devido = valorDevido(checkin, dia, pag)
   const saldo = saldoDoCheckin(checkin, dia, pag)
   const status = statusDoCheckin(checkin, pag, veDinheiro)
+  // o credito que ela tinha antes deste play cobre o que faltou: vem do extrato
+  const mov = veDinheiro
+    ? extratoDaAtleta(data, checkin.player_id).find((m) => m.tipo === 'lancamento' && m.checkin.id === checkin.id)
+    : undefined
+  const creditoUsado = mov?.tipo === 'lancamento' ? mov.creditoUsado : 0
+  const falta = mov?.tipo === 'lancamento' ? mov.falta : Math.max(0, -saldo)
+  const quitou = mov?.tipo === 'lancamento' ? mov.dividaQuitada : 0
+  const sobra = mov?.tipo === 'lancamento' ? mov.sobra : Math.max(0, saldo)
 
   return (
     <div
@@ -349,14 +413,10 @@ function LinhaDeLancamento({
           <span className="tiny">
             pagou {formatarReais(pag?.valor_pago ?? 0)}
             {devido > 0 && ` de ${formatarReais(devido)}`}
-            {saldo !== 0 && (
-              <>
-                {' · '}
-                <span className={saldo > 0 ? 'valor-pos' : 'valor-neg'}>
-                  {saldo > 0 ? `crédito ${formatarReais(saldo)}` : `falta ${formatarReais(-saldo)}`}
-                </span>
-              </>
-            )}
+            {creditoUsado > 0 && <span className="valor-pos"> · {formatarReais(creditoUsado)} do crédito</span>}
+            {quitou > 0 && <span className="valor-pos"> · quitou {formatarReais(quitou)} de antes</span>}
+            {falta > 0 && <span className="valor-neg"> · falta {formatarReais(falta)}</span>}
+            {sobra > 0 && <span className="valor-pos"> · vira crédito {formatarReais(sobra)}</span>}
             {pag && !pag.pagamento_confirmado && <span className="muted"> · pgto a confirmar</span>}
           </span>
         )}
@@ -889,20 +949,26 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
 
 function ContasModal({
   jogadora,
+  visaoInicial,
   mes,
+  veDinheiro,
   podeEditar,
   onClose,
   onToast,
 }: {
   jogadora: Player
+  visaoInicial: VisaoDasContas
   mes: string
+  veDinheiro: boolean
   podeEditar: boolean
   onClose: () => void
   onToast: (m: string) => void
 }) {
-  const { data, nameOf, saveCheckinConta, deleteCheckinConta } = useStore()
+  const { data, nameOf, saveCheckinConta, deleteCheckinConta, saveAcerto, deleteAcerto } = useStore()
   const [editando, setEditando] = useState<CheckinConta | null>(null)
+  const [visao, setVisao] = useState<VisaoDasContas>(visaoInicial)
   const nome = nameOf(jogadora.id)
+  const saldo = saldoDaAtleta(data, jogadora.id)
   const contas = contasDaAtleta(data, jogadora.id, { incluirInativas: true })
   const disp = disponibilidade(data, jogadora.id, mes)
   const locais = data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)
@@ -916,6 +982,93 @@ function ContasModal({
     saveCheckinConta({ ...c, nome: c.principal ? '' : c.nome.trim(), created_at: c.created_at || new Date().toISOString() })
     setEditando(null)
     onToast('Conta salva')
+  }
+
+  if (visao === 'extrato' && veDinheiro) {
+    const extrato = extratoDaAtleta(data, jogadora.id).reverse()
+    return (
+      <Modal title={`Extrato de ${nome}`} onClose={onClose}>
+        <div className="stack">
+          <div className="row spread">
+            <BadgeSaldo saldo={saldo.saldo} />
+            <div className="row" style={{ gap: 6 }}>
+              {podeEditar && <button className="btn pink sm" onClick={() => setVisao('acerto')}>💰 Acertar</button>}
+              <button className="btn ghost sm" onClick={() => setVisao('contas')}>Contas</button>
+            </div>
+          </div>
+          {extrato.length === 0 ? (
+            <div className="tiny muted" style={{ textAlign: 'center' }}>Nenhum lançamento ainda.</div>
+          ) : (
+            extrato.map((m) => (
+              <div key={m.tipo === 'acerto' ? m.acerto.id : m.checkin.id} className="fila-linha">
+                <span className="fila-num">{dateLabel(m.date).slice(0, 5)}</span>
+                <div className="grow">
+                  {m.tipo === 'acerto' ? (
+                    <>
+                      <span className="fila-time"><b>{m.acerto.descricao || 'Acerto'}</b></span>
+                      <span className="tiny muted">{m.acerto.dinheiro ? 'com dinheiro' : 'sem dinheiro'} · acerto</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="fila-time">
+                        <b>{rotuloDoDia(m.dia, data.sessions)}</b>
+                        {!m.checkin.compareceu && <span className="muted"> · não veio</span>}
+                      </span>
+                      <span className="tiny muted">
+                        {m.checkin.modo === 'checkin' ? 'check-in' : 'integral'} · devia {formatarReais(m.devido)} · pagou {formatarReais(m.pago)}
+                        {m.creditoUsado > 0 && ` · ${formatarReais(m.creditoUsado)} do crédito`}
+                      </span>
+                    </>
+                  )}
+                  <span className="tiny">
+                    saldo depois:{' '}
+                    <span className={m.saldoDepois > 0 ? 'valor-pos' : m.saldoDepois < 0 ? 'valor-neg' : undefined}>
+                      {formatarReais(m.saldoDepois)}
+                    </span>
+                  </span>
+                </div>
+                <span className={m.tipo === 'acerto' ? (m.acerto.valor >= 0 ? 'valor-pos' : 'valor-neg') : m.pago - m.devido >= 0 ? 'valor-pos' : 'valor-neg'}>
+                  {m.tipo === 'acerto'
+                    ? `${m.acerto.valor >= 0 ? '+' : '−'} ${formatarReais(Math.abs(m.acerto.valor))}`
+                    : `${m.pago - m.devido >= 0 ? '+' : '−'} ${formatarReais(Math.abs(m.pago - m.devido))}`}
+                </span>
+                {m.tipo === 'acerto' && podeEditar && (
+                  <button
+                    className="btn danger sm"
+                    onClick={() => {
+                      if (!confirm(`Apagar o acerto "${m.acerto.descricao || formatarReais(m.acerto.valor)}"?`)) return
+                      deleteAcerto(m.acerto.id)
+                    }}
+                  >
+                    🗑
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+          <span className="hint">
+            O saldo é a soma de tudo: o que ela pagou menos o que cada play custou, mais os acertos. O crédito de um play
+            cobre o seguinte sozinho; apagar um dia devolve o que ele tinha consumido.
+          </span>
+        </div>
+      </Modal>
+    )
+  }
+
+  if (visao === 'acerto' && podeEditar) {
+    return (
+      <AcertoForm
+        jogadora={jogadora}
+        saldo={saldo.saldo}
+        onClose={onClose}
+        onVoltar={() => setVisao('extrato')}
+        onSalvar={(a) => {
+          saveAcerto(a)
+          onToast('Acerto lançado')
+          setVisao('extrato')
+        }}
+      />
+    )
   }
 
   if (editando) {
@@ -998,6 +1151,15 @@ function ContasModal({
   return (
     <Modal title={`Contas de ${nome}`} onClose={onClose}>
       <div className="stack">
+        {veDinheiro && (
+          <div className="row spread">
+            <BadgeSaldo saldo={saldo.saldo} />
+            <div className="row" style={{ gap: 6 }}>
+              <button className="btn ghost sm" onClick={() => setVisao('extrato')}>Extrato</button>
+              {podeEditar && <button className="btn pink sm" onClick={() => setVisao('acerto')}>💰 Acertar</button>}
+            </div>
+          </div>
+        )}
         <div className="tiny muted">
           🎟️ <strong>{disp.disponiveis}</strong> de {disp.cota} check-ins livres em {nomeDoMes(mes)}, somando as contas.
         </div>
@@ -1046,6 +1208,104 @@ function ContasModal({
           Quando a conta dela acaba, o check-in é feito na conta de outra pessoa (o marido, por exemplo). A arena vê o nome
           dessa pessoa; o play continua sendo de {nome}.
         </span>
+      </div>
+    </Modal>
+  )
+}
+
+/* ========================================================= modal: acerto */
+
+const TIPOS_DE_ACERTO: { id: string; rotulo: string; sinal: 1 | -1; dinheiro: boolean; descricao: string; explica: string }[] = [
+  { id: 'pagou', rotulo: '💰 Ela pagou', sinal: 1, dinheiro: true, descricao: 'Pagou o que faltava', explica: 'entrou dinheiro: tira a dívida e conta na receita' },
+  { id: 'devolvi', rotulo: '↩️ Devolvi a ela', sinal: -1, dinheiro: true, descricao: 'Crédito devolvido', explica: 'saiu dinheiro: tira o crédito e desconta da receita' },
+  { id: 'perdao', rotulo: '🤝 Perdoar / dar crédito', sinal: 1, dinheiro: false, descricao: 'Dívida perdoada', explica: 'sem dinheiro: só zera a dívida (ou dá crédito)' },
+  { id: 'tirar', rotulo: '✖️ Tirar crédito', sinal: -1, dinheiro: false, descricao: 'Crédito retirado', explica: 'sem dinheiro: só tira o crédito (usou noutra coisa, por exemplo)' },
+]
+
+/** Muda o saldo da menina fora de um play: pagou depois, devolveram, perdoaram. */
+function AcertoForm({
+  jogadora,
+  saldo,
+  onClose,
+  onVoltar,
+  onSalvar,
+}: {
+  jogadora: Player
+  saldo: number
+  onClose: () => void
+  onVoltar: () => void
+  onSalvar: (a: Acerto) => void
+}) {
+  const { nameOf } = useStore()
+  const nome = nameOf(jogadora.id)
+  // o palpite segue o saldo: quem deve costuma pagar; quem tem credito costuma receber de volta
+  const [tipoId, setTipoId] = useState(saldo < 0 ? 'pagou' : saldo > 0 ? 'devolvi' : 'perdao')
+  const [valor, setValor] = useState(saldo !== 0 ? textoDoValor(Math.abs(saldo)) : '')
+  const [date, setDate] = useState(todayISO())
+  const [descricao, setDescricao] = useState('')
+  const tipo = TIPOS_DE_ACERTO.find((t) => t.id === tipoId) ?? TIPOS_DE_ACERTO[0]
+  const v = lerValor(valor)
+  const efeito = v === null ? null : tipo.sinal * v
+  const saldoDepois = efeito === null ? null : Math.round((saldo + efeito) * 100) / 100
+
+  return (
+    <Modal title={`Acertar o saldo de ${nome}`} onClose={onClose}>
+      <div className="stack">
+        <div className="row spread">
+          <span className="tiny muted">saldo de hoje</span>
+          <BadgeSaldo saldo={saldo} />
+        </div>
+        <div className="field">
+          <span>O que aconteceu</span>
+          <div className="stack" style={{ gap: 6 }}>
+            {TIPOS_DE_ACERTO.map((t) => (
+              <button key={t.id} className={`opcao ${tipoId === t.id ? 'on' : ''}`} onClick={() => setTipoId(t.id)}>
+                <span className="opcao-marca">{tipoId === t.id ? '●' : '○'}</span>
+                <span><strong>{t.rotulo}</strong><span className="tiny muted">{t.explica}</span></span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid2">
+          <label className="field">
+            <span>Valor (R$)</span>
+            <input className="input valor" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Data</span>
+            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        </div>
+        <label className="field">
+          <span>Descrição</span>
+          <input className="input" placeholder={tipo.descricao} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+        </label>
+        {saldoDepois !== null && (
+          <span className="hint">
+            Saldo depois: <strong>{saldoDepois > 0 ? `crédito ${formatarReais(saldoDepois)}` : saldoDepois < 0 ? `deve ${formatarReais(-saldoDepois)}` : 'em dia'}</strong>
+            {tipo.dinheiro && ` · ${tipo.sinal > 0 ? 'entra' : 'sai'} ${formatarReais(v ?? 0)} no caixa de ${nomeDoMes(monthOf(date || todayISO()))}`}
+          </span>
+        )}
+        <div className="row" style={{ gap: 6 }}>
+          <button
+            className="btn pink grow"
+            disabled={v === null || v <= 0 || !date}
+            onClick={() =>
+              onSalvar({
+                id: uid(),
+                player_id: jogadora.id,
+                date,
+                valor: tipo.sinal * (v ?? 0),
+                dinheiro: tipo.dinheiro,
+                descricao: descricao.trim() || tipo.descricao,
+                created_at: new Date().toISOString(),
+              })
+            }
+          >
+            Lançar acerto
+          </button>
+          <button className="btn ghost" onClick={onVoltar}>Voltar</button>
+        </div>
       </div>
     </Modal>
   )
@@ -1237,12 +1497,26 @@ function LancarModal({
 
   const vPreco = precoDiferente.trim() ? lerValor(precoDiferente) : null
   const devido = !dia ? 0 : !compareceu ? 0 : vPreco !== null ? vPreco : modo === 'checkin' ? dia.valor_com_checkin : dia.valor_cheio
-  // o valor pago acompanha o devido ate a organizadora digitar algo
+  // o credito que ela trouxe de plays anteriores cobre este primeiro: o que
+  // sobrar e o que ela paga agora (o campo ja vem com essa conta feita)
+  const saldoAntes = playerId ? saldoAntesDe(data, playerId, existente?.id) : 0
+  const credito = Math.max(0, saldoAntes)
+  const dividaAntes = Math.max(0, -saldoAntes)
+  const cobertoPeloCredito = Math.min(credito, devido)
   useEffect(() => {
-    if (!pagoEditado) setValorPago(textoDoValor(devido))
-  }, [devido, pagoEditado])
+    if (pagoEditado) return
+    setValorPago(textoDoValor(Math.max(0, Math.round((devido - cobertoPeloCredito) * 100) / 100)))
+    // credito cobrindo tudo = nada pendente: o pagamento ja nasce confirmado
+    if (!existente && devido > 0 && cobertoPeloCredito >= devido) setPagamentoConfirmado(true)
+  }, [devido, cobertoPeloCredito, pagoEditado, existente])
   const vPago = valorPago.trim() ? lerValor(valorPago) : 0
-  const saldo = vPago === null ? null : Math.round((vPago - devido) * 100) / 100
+  const usaDoCredito = vPago === null ? 0 : Math.min(credito, Math.max(0, Math.round((devido - vPago) * 100) / 100))
+  // o saldo deste play; o que passar do devido quita a divida de antes primeiro
+  const saldo = vPago === null ? null : Math.round((vPago + usaDoCredito - devido) * 100) / 100
+  const quitaDeAntes = Math.min(dividaAntes, Math.max(0, saldo ?? 0))
+  const sobraDoPlay = Math.round((Math.max(0, saldo ?? 0) - quitaDeAntes) * 100) / 100
+  const dividaDepois = Math.round((dividaAntes - quitaDeAntes + Math.max(0, -(saldo ?? 0))) * 100) / 100
+  const creditoDepois = Math.round((credito - usaDoCredito + sobraDoPlay) * 100) / 100
 
   function salvar() {
     if (!playerId || !dia || vPago === null || (precoDiferente.trim() && vPreco === null)) return
@@ -1403,13 +1677,28 @@ function LancarModal({
                 <span className="hint">só se for diferente do dia</span>
               </label>
             </div>
+            {dividaAntes > 0 && (
+              <div className="banner warn" style={{ margin: 0 }}>
+                ⚠️ {nameOf(playerId)} <strong>deve {formatarReais(dividaAntes)}</strong> de antes.
+                {devido > 0 && <> Para quitar tudo hoje: <strong>{formatarReais(dividaAntes + devido)}</strong> ({formatarReais(devido)} deste play + {formatarReais(dividaAntes)}).</>}
+                {' '}
+                <button className="linkish" onClick={() => { setValorPago(textoDoValor(Math.round((dividaAntes + devido) * 100) / 100)); setPagoEditado(true) }}>
+                  Pagou tudo
+                </button>
+              </div>
+            )}
             {saldo !== null && (
-              <span className={`hint ${saldo < 0 ? 'aviso' : ''}`} style={{ marginTop: -4 }}>
+              <span className={`hint ${saldo < 0 || dividaDepois > 0 ? 'aviso' : ''}`} style={{ marginTop: -4 }}>
+                {credito > 0 && `Ela tinha ${formatarReais(credito)} de crédito`}
+                {credito > 0 && usaDoCredito > 0 && `: ${formatarReais(usaDoCredito)} cobrem este play`}
+                {credito > 0 && '. '}
                 {saldo === 0
-                  ? `Em dia: ${formatarReais(devido)} devidos, ${formatarReais(vPago ?? 0)} pagos.`
+                  ? `Este play em dia: ${formatarReais(devido)} devidos, ${formatarReais(vPago ?? 0)} pagos${usaDoCredito > 0 ? ` + ${formatarReais(usaDoCredito)} do crédito` : ''}.`
                   : saldo > 0
-                    ? `Sobram ${formatarReais(saldo)}: viram crédito para o próximo play.`
-                    : `Faltam ${formatarReais(-saldo)}: fica devendo.`}
+                    ? `Pagou ${formatarReais(saldo)} a mais${quitaDeAntes > 0 ? `: ${formatarReais(quitaDeAntes)} quitam o que devia` : ''}${sobraDoPlay > 0 ? `${quitaDeAntes > 0 ? ' e ' : ': '}${formatarReais(sobraDoPlay)} viram crédito` : ''}.`
+                    : `Faltam ${formatarReais(-saldo)} deste play.`}
+                {dividaDepois > 0 && ` Fica devendo ${formatarReais(dividaDepois)} no total.`}
+                {creditoDepois > 0 && ` Fica com ${formatarReais(creditoDepois)} de crédito.`}
               </span>
             )}
             <label className="toggle-card row">

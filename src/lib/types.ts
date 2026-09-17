@@ -278,6 +278,24 @@ export type LancamentoDeCaixa = {
   created_at: string
 }
 
+/**
+ * Um acerto no saldo da menina fora de um play: ela pagou depois o que
+ * faltava, a organizacao devolveu um credito, perdoou uma divida... `valor`
+ * e o efeito no saldo dela (+ a favor dela: pagou ou ganhou credito; - contra:
+ * devolveram ou tiraram credito). `dinheiro` diz se dinheiro de verdade
+ * mudou de mao -- so esses entram no caixa; um perdao nao entra.
+ */
+export type Acerto = {
+  id: string
+  /** Sem FK de proposito, como os lancamentos: o caixa nao muda se um cadastro for apagado. */
+  player_id: string
+  date: string // YYYY-MM-DD
+  valor: number
+  dinheiro: boolean
+  descricao: string
+  created_at: string
+}
+
 export type AppData = {
   players: Player[]
   sessions: PlaySession[]
@@ -290,11 +308,13 @@ export type AppData = {
   checkins: Checkin[]
   checkinPagamentos: CheckinPagamento[]
   caixa: LancamentoDeCaixa[]
+  checkinAcertos: Acerto[]
 }
 
 export const emptyData = (): AppData => ({
   players: [], sessions: [], matches: [], choices: [], closures: [],
   checkinLocais: [], checkinContas: [], checkinDias: [], checkins: [], checkinPagamentos: [], caixa: [],
+  checkinAcertos: [],
 })
 
 export function uid(): string {
