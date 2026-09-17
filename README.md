@@ -68,10 +68,11 @@ sozinhas, em `/apresentacao/`) e [**como a noite é montada**](public/como-funci
   do mês); dá para pôr, trocar e remover, e o arquivo antigo é apagado do
   armazenamento junto.
 - **✅ Check-ins** — a planilha da organizadora dentro do app. Cada conta de
-  passe (Wellhub/TotalPass) dá **12 check-ins por mês**; as aulas na arena gastam
-  parte (1x por semana usa 8, 2x usa os 12) e a aba mostra quantos **sobram** para
-  cada menina, somando as contas dela — inclusive a conta de outra pessoa (o
-  marido) quando a dela acaba. Por dia de play lança-se quem veio, com qual conta,
+  passe tem um **plano** (Wellhub Gold, Gold+, TotalPass — editáveis em ⚙️) que dá
+  **12 check-ins por mês em cada arena que aceita**; as aulas cobram a cota da arena
+  onde são feitas (1 por semana = 8, 2 = 12, 3 = 16) e a aba mostra quantos
+  **sobram para o play em cada arena**, por conta — inclusive a conta de outra
+  pessoa (o marido) quando a dela acaba — e avisa quando a conta não fecha. Por dia de play lança-se quem veio, com qual conta,
   em qual arena, como pagou (check-in + valor ou integral), quanto pagou e o que
   ficou de **crédito ou débito** — o crédito de um play cobre o seguinte sozinho, e
   quem deve vê o total para quitar; acertos fora de play (pagou depois, devolveram,
@@ -105,7 +106,8 @@ salvos apenas no navegador de quem está usando. Ótimo para testar.
    da pasta [`supabase/`](supabase) **na ordem** (`02` em diante): são as
    migrações que vieram depois (o `15-checkins.sql` cria as tabelas da aba
    Check-ins — as de dinheiro só quem está logada lê —, o `16` carrega a
-   planilha de setembro de 2026 e o `17` cria os acertos de saldo). O app funciona sem elas — guarda o que falta no
+   planilha de setembro de 2026, o `17` cria os acertos de saldo e o `18` os
+   planos com cota por arena). O app funciona sem elas — guarda o que falta no
    celular de quem organiza — mas aí o modo em grupos, o tempo de descanso e o
    fechamento do mês não chegam aos outros aparelhos.
 3. Em **Authentication → Users**, clique em *Add user* e crie o login de quem vai

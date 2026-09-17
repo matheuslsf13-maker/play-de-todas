@@ -6,6 +6,7 @@ import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
 import type {
   Acerto,
+  Plano,
   AppData,
   Checkin,
   CheckinConta,
@@ -61,6 +62,8 @@ type Ctx = {
   deleteCaixa: (id: string) => void
   saveAcerto: (acerto: Acerto) => void
   deleteAcerto: (id: string) => void
+  savePlano: (plano: Plano) => void
+  deletePlano: (id: string) => void
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   playerById: (id: string) => Player | undefined
@@ -161,6 +164,14 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
       return { ...d, checkinAcertos: upsert(d.checkinAcertos, op.acerto) }
     case 'deleteAcerto':
       return { ...d, checkinAcertos: d.checkinAcertos.filter((a) => a.id !== op.acertoId) }
+    case 'savePlano':
+      return { ...d, checkinPlanos: upsert(d.checkinPlanos, op.plano) }
+    case 'deletePlano':
+      return {
+        ...d,
+        checkinPlanos: d.checkinPlanos.filter((p) => p.id !== op.planoId),
+        checkinContas: d.checkinContas.map((c) => (c.plano_id === op.planoId ? { ...c, plano_id: null } : c)),
+      }
     case 'mergePlayers': {
       let matches = d.matches
       for (const m of op.matches) matches = upsert(matches, m)
@@ -380,6 +391,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deleteCaixa: (lancamentoId) => push({ id: uid(), type: 'deleteCaixa', lancamentoId }),
       saveAcerto: (acerto) => push({ id: uid(), type: 'saveAcerto', acerto }),
       deleteAcerto: (acertoId) => push({ id: uid(), type: 'deleteAcerto', acertoId }),
+      savePlano: (plano) => push({ id: uid(), type: 'savePlano', plano }),
+      deletePlano: (planoId) => push({ id: uid(), type: 'deletePlano', planoId }),
       mergePlayers: (fromId, intoId) => {
         const troca = (id: string) => (id === fromId ? intoId : id)
         // partidas: a duplicada vira a jogadora que fica
@@ -476,6 +489,10 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.saveAcerto(op.acerto)
     case 'deleteAcerto':
       return repo.deleteAcerto(op.acertoId)
+    case 'savePlano':
+      return repo.savePlano(op.plano)
+    case 'deletePlano':
+      return repo.deletePlano(op.planoId)
     case 'mergePlayers':
       await repo.saveMatches(op.matches)
       for (const s of op.sessions) await repo.saveSession(s)

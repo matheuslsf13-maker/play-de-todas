@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type {
   Acerto,
+  Plano,
   AppData,
   Checkin,
   CheckinConta,
@@ -91,7 +92,7 @@ export const supabaseRepo: Repo = {
   kind: 'supabase',
   async load(): Promise<AppData> {
     const sb = client()
-    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos] =
+    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos] =
       await Promise.all([
         sb.from('players').select('*').order('name'),
         sb.from('sessions').select('*').order('date', { ascending: false }),
@@ -106,6 +107,7 @@ export const supabaseRepo: Repo = {
         sb.from('checkin_pagamentos').select('*'),
         sb.from('caixa').select('*'),
         sb.from('checkin_acertos').select('*'),
+        sb.from('checkin_planos').select('*').order('ordem'),
       ])
     const err = players.error || sessions.error || matches.error
     if (err) throw err
@@ -118,6 +120,7 @@ export const supabaseRepo: Repo = {
     const doCheckin: [string, { error: { message: string } | null }][] = [
       ['checkin_locais', locais], ['checkin_contas', contas], ['checkin_dias', dias],
       ['checkins', checkins], ['checkin_pagamentos', pagamentos], ['caixa', caixa], ['checkin_acertos', acertos],
+      ['checkin_planos', planos],
     ]
     for (const [nome, r] of doCheckin) {
       if (r.error) {
@@ -134,7 +137,12 @@ export const supabaseRepo: Repo = {
       choices: (choices.data ?? []) as StreakChoice[],
       closures: (closures.data ?? []) as MonthClosure[],
       checkinLocais: (locais.data ?? []) as CheckinLocal[],
-      checkinContas: (contas.data ?? []) as CheckinConta[],
+      // as colunas novas (plano_id, aulas) podem nao existir antes do script 18
+      checkinContas: ((contas.data ?? []) as CheckinConta[]).map((c) => ({
+        ...c,
+        plano_id: c.plano_id ?? null,
+        aulas: Array.isArray(c.aulas) ? c.aulas : [],
+      })),
       checkinDias: ((dias.data ?? []) as CheckinDia[]).map((d) => ({
         ...d,
         valor_cheio: numero(d.valor_cheio),
@@ -148,6 +156,10 @@ export const supabaseRepo: Repo = {
       })),
       caixa: ((caixa.data ?? []) as LancamentoDeCaixa[]).map((c) => ({ ...c, valor: numero(c.valor) })),
       checkinAcertos: ((acertos.data ?? []) as Acerto[]).map((a) => ({ ...a, valor: numero(a.valor) })),
+      checkinPlanos: ((planos.data ?? []) as Plano[]).map((p) => ({
+        ...p,
+        cotas: Object.fromEntries(Object.entries(p.cotas ?? {}).map(([k, v]) => [k, numero(v)])),
+      })),
     }
   },
   async savePlayer(p: Player) {
@@ -245,6 +257,13 @@ export const supabaseRepo: Repo = {
     const { error } = await client().from('checkin_acertos').delete().eq('id', id)
     if (error) throw error
   },
+  async savePlano(plano: Plano) {
+    await upsertTolerante('checkin_planos', plano)
+  },
+  async deletePlano(id: string) {
+    const { error } = await client().from('checkin_planos').delete().eq('id', id)
+    if (error) throw error
+  },
   async deletePhoto(url: string) {
     const marca = '/storage/v1/object/public/photos/'
     const i = url.indexOf(marca)
@@ -269,6 +288,7 @@ export const supabaseRepo: Repo = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_pagamentos' }, cb)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'caixa' }, cb)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_acertos' }, cb)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_planos' }, cb)
       .subscribe()
     return () => {
       void sb.removeChannel(ch)

@@ -179,10 +179,16 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Play avulso** (`sessions.ranked = false`): conta no histórico e na força,
   mas **não soma no ranking do mês nem mexe nas sequências**. Serve para o jogo
   fora de calendário que não é o campeonato.
-- **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 e 16): a planilha da
-  organizadora. Cada **conta** de passe dá `COTA_MENSAL` = **12 check-ins por mês**;
-  as aulas na arena gastam **8 (1x/semana) ou 12 (2x)**, e o que sobra é para os
-  plays. A conta **principal** de cada menina existe na tela sem estar gravada
+- **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 a 18): a planilha da
+  organizadora. **A cota é por arena e vem do plano** (`checkin_planos`, script 18):
+  Wellhub Gold dá 12 na V3 e 12 na GW (não aceita Itaparica); Gold+ e TotalPass dão
+  12 em cada uma das três (`cotas` = `{local_id: n}`, ausente = não aceita; os
+  planos e as cotas se editam em ⚙️). As **aulas cobram a cota do local onde são
+  feitas** — `consumoDasAulas`: 1/semana = 8, 2 = 12, 3 = 16 (`4 × (n + 1)`) — e
+  ficam na conta como `aulas [{local_id, por_semana}]`; `disponibilidade` é por
+  conta **e por local**, e avisa quando as aulas passam da cota ou o plano não aceita
+  a arena ("precisa de conta secundária ou trocar o plano"). Conta **sem plano** vale
+  como antes: 12 em qualquer arena. A conta **principal** de cada menina existe na tela sem estar gravada
   (`contaPrincipalVirtual`, id `principal:<player_id>`) e só vai ao banco quando
   editada; `checkins.conta_id` **nulo** quer dizer "a principal dela". A **conta de
   outra pessoa** (o marido) é uma conta secundária: a arena vê o **titular**

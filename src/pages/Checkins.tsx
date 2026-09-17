@@ -4,8 +4,11 @@ import { avisosDoBanco } from '../data/supabaseRepo'
 import {
   CATEGORIAS_DE_CAIXA,
   COTA_MENSAL,
-  OPCOES_DE_AULAS,
   TIPOS_DE_CONTA,
+  appDaConta,
+  aulasDaConta,
+  consumoDasAulas,
+  cotaDoPlano,
   checkinDaAtletaNoDia,
   checkinsDoDia,
   contaDoCheckin,
@@ -16,9 +19,11 @@ import {
   extratoDaAtleta,
   formatarReais,
   lerValor,
+  livresNoLocal,
   mesesComCheckins,
   nomeDoTitular,
   pagamentoDoCheckin,
+  planoDaConta,
   relatorioDasArenas,
   resumoDoCaixa,
   rotuloDoDia,
@@ -30,6 +35,7 @@ import {
   valorDevido,
   type FiltroDoRelatorio,
   type LinhaDoResumo,
+  type UsoDaConta,
 } from '../lib/checkins'
 import { planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
 import { normalizar } from '../lib/roster'
@@ -42,11 +48,14 @@ import {
   todayISO,
   uid,
   type Acerto,
+  type AppData,
   type CategoriaDeCaixa,
   type Checkin,
   type CheckinConta,
   type CheckinDia,
+  type CheckinLocal,
   type CheckinModo,
+  type Plano,
   type Player,
 } from '../lib/types'
 import { gerarXlsx } from '../lib/xlsx'
@@ -135,7 +144,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
         <div className="banner warn">
           ⚠️ <strong>O banco ainda não tem {tabelasFaltando.length === 1 ? 'esta tabela' : 'estas tabelas'}:</strong>{' '}
           {tabelasFaltando.map((t) => <code key={t}>{t}</code>).reduce((a, b) => <>{a}, {b}</>)}. Rode{' '}
-          {[...new Set(tabelasFaltando.map((t) => (t === 'checkin_acertos' ? '17-acertos.sql' : '15-checkins.sql')))]
+          {[...new Set(tabelasFaltando.map((t) => (t === 'checkin_acertos' ? '17-acertos.sql' : t === 'checkin_planos' ? '18-planos.sql' : '15-checkins.sql')))]
             .sort()
             .map((f) => <code key={f}>supabase/{f}</code>)
             .reduce((a, b) => <>{a} e {b}</>)}{' '}
@@ -205,6 +214,8 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       )}
       {lancando && (
         <LancarModal
+          // abrir "esse lancamento" troca o pedido no mesmo lugar da arvore: a chave remonta o modal com o estado certo
+          key={lancando.checkin?.id ?? `novo:${lancando.playerId ?? ''}:${lancando.diaId ?? ''}`}
           pedido={lancando}
           onTrocar={(checkin) => setLancando({ checkin })}
           onClose={() => setLancando(null)}
@@ -216,6 +227,42 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
 }
 
 /* ================================================================ atletas */
+
+/** "V3 4/12 · Itaparica — · GW 12/12": o que sobra da conta em cada arena. */
+function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
+  return (
+    <span className="tiny">
+      {uso.locais.map((u, i) => (
+        <span key={u.local.id}>
+          {i > 0 && <span className="muted"> · </span>}
+          <span className="muted">{nomeCurto(u.local.nome)} </span>
+          {!u.aceita ? (
+            <span className="muted" title={`${uso.plano.nome} não aceita ${u.local.nome}`}>—</span>
+          ) : (
+            <strong className={u.disponiveis < 0 ? 'valor-neg' : u.disponiveis === 0 ? 'muted' : undefined}>
+              {u.disponiveis}/{u.cota}
+            </strong>
+          )}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** "Arena V3" -> "V3", "Itaparica Beach" -> "Itaparica", "GW Líder" -> "GW". */
+function nomeCurto(nome: string): string {
+  const semArena = nome.replace(/^arena\s+/i, '')
+  return semArena.split(/\s+/)[0]
+}
+
+/** "2× V3 · 1× Itaparica" ou "sem aulas". */
+function textoDasAulas(data: AppData, conta: CheckinConta): string {
+  const aulas = aulasDaConta(conta)
+  if (aulas.length === 0) return 'sem aulas'
+  return aulas
+    .map((a) => `${a.por_semana}× ${nomeCurto(data.checkinLocais.find((l) => l.id === a.local_id)?.nome ?? '?')}`)
+    .join(' · ')
+}
 
 function BadgeSaldo({ saldo }: { saldo: number }) {
   if (saldo > 0) return <span className="badge credito">crédito {formatarReais(saldo)}</span>
@@ -283,8 +330,6 @@ function SecaoAtletas({
           {lista.map((p) => {
             const disp = disponibilidade(data, p.id, mes)
             const saldo = saldoDaAtleta(data, p.id)
-            const estourou = disp.contas.some((c) => c.disponiveis < 0)
-            const pct = Math.min(100, Math.round((disp.usados / Math.max(1, disp.cota)) * 100))
             return (
               <div key={p.id} className="atleta-linha" style={{ opacity: p.active ? 1 : 0.55 }}>
                 <div className="row" style={{ alignItems: 'flex-start' }}>
@@ -302,20 +347,25 @@ function SecaoAtletas({
                       )}
                     </div>
                     <div className="tiny" style={{ marginTop: 2 }}>
-                      🎟️ <strong>{disp.disponiveis}</strong> de {disp.cota} livres em {nomeDoMes(mes)}
+                      🎟️ <span className="muted">livres para o play em {nomeDoMes(mes)}:</span>{' '}
+                      {disp.porLocal.map((l, i) => (
+                        <span key={l.local.id}>
+                          {i > 0 && <span className="muted"> · </span>}
+                          {nomeCurto(l.local.nome)} <strong className={l.disponiveis === 0 ? 'valor-neg' : undefined}>{l.aceita ? l.disponiveis : '—'}</strong>
+                        </span>
+                      ))}
                       {disp.contas.length > 1 && <span className="muted"> · {plural(disp.contas.length, 'conta')}</span>}
                     </div>
-                    <span className="mini-barra"><i className={estourou ? 'estourou' : ''} style={{ width: `${pct}%` }} /></span>
-                    {disp.contas.filter((u) => disp.contas.length > 1 || u.consumoAulas > 0).map((u) => (
-                      <div key={u.conta.id} className="tiny muted">
-                        {nomeDoTitular(u.conta, nameOf(p.id))} · {rotuloDoTipo(u.conta.tipo)}
-                        {u.consumoAulas > 0 && ` · aulas usam ${u.consumoAulas}`}
-                        {u.usadosEmPlays > 0 && ` · ${plural(u.usadosEmPlays, 'play')}`}
-                        {' · '}
-                        <span className={u.disponiveis < 0 ? 'valor-neg' : undefined}>
-                          {u.disponiveis < 0 ? `passou ${-u.disponiveis}` : `${u.disponiveis} livres`}
-                        </span>
+                    {disp.contas.map((u) => (
+                      <div key={u.conta.id} className="tiny muted" style={{ marginTop: 2 }}>
+                        {nomeDoTitular(u.conta, nameOf(p.id))} · {u.plano.nome}
+                        {aulasDaConta(u.conta).length > 0 && ` · aulas ${textoDasAulas(data, u.conta)}`}
+                        <br />
+                        <LivresPorLocal uso={u} />
                       </div>
+                    ))}
+                    {disp.avisos.map((a) => (
+                      <span key={a} className="hint aviso">⚠️ {a}</span>
                     ))}
                     <div className="tiny muted acoes-atleta">
                       {saldo.lancamentos > 0 && <span>{plural(saldo.lancamentos, 'lançamento')}</span>}
@@ -405,7 +455,7 @@ function LinhaDeLancamento({
           {!checkin.compareceu
             ? 'pagou e não veio: o valor vira crédito'
             : checkin.modo === 'checkin'
-              ? `${titular !== nome ? `conta de ${titular} · ` : ''}${rotuloDoTipo(conta.tipo)} · ${local}` +
+              ? `${titular !== nome ? `conta de ${titular} · ` : ''}${rotuloDoTipo(appDaConta(data, conta))} · ${local}` +
                 (checkin.checkin_confirmado ? '' : ' · check-in a confirmar')
               : 'integral, sem check-in'}
         </span>
@@ -816,7 +866,11 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
 /* ================================================================ padroes */
 
 function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (m: string) => void }) {
-  const { data, saveCheckinLocal, deleteCheckinLocal } = useStore()
+  const { data, saveCheckinLocal, deleteCheckinLocal, savePlano, deletePlano } = useStore()
+  const [planoEditado, setPlanoEditado] = useState<Plano | null>(null)
+  const planos = [...data.checkinPlanos].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, 'pt-BR'))
+  const locaisAtivos = data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)
+  const contasNoPlano = (id: string) => data.checkinContas.filter((c) => c.plano_id === id).length
   const [novo, setNovo] = useState('')
   const [renomeando, setRenomeando] = useState<{ id: string; nome: string } | null>(null)
   const locais = [...data.checkinLocais].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, 'pt-BR'))
@@ -922,6 +976,90 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
       </div>
 
       <div className="card">
+        <div className="section-title">🎫 Planos de passe</div>
+        <p className="tiny muted" style={{ margin: '0 0 10px' }}>
+          Quantos check-ins por mês cada plano dá <strong>em cada arena</strong> (vazio = não aceita). É o que a conta de
+          cada menina usa para contar o que sobra para o play.
+        </p>
+        <div className="stack">
+          {planos.map((p) =>
+            planoEditado?.id === p.id ? (
+              <EditorDePlano
+                key={p.id}
+                plano={planoEditado}
+                locais={locaisAtivos}
+                onChange={setPlanoEditado}
+                onSalvar={() => {
+                  savePlano({ ...planoEditado, nome: planoEditado.nome.trim() })
+                  setPlanoEditado(null)
+                  onToast('Plano salvo')
+                }}
+                onVoltar={() => setPlanoEditado(null)}
+              />
+            ) : (
+              <div key={p.id} className="fila-linha" style={{ opacity: p.ativo ? 1 : 0.55 }}>
+                <div className="grow">
+                  <span className="fila-time">
+                    <b>{p.nome}</b>
+                    <span className="muted"> · {rotuloDoTipo(p.app)}</span>
+                    {!p.ativo && <span className="muted"> · inativo</span>}
+                  </span>
+                  <span className="tiny muted">
+                    {locaisAtivos.map((l) => `${nomeCurto(l.nome)} ${cotaDoPlano(p, l.id) || '—'}`).join(' · ')}
+                    {' · '}{plural(contasNoPlano(p.id), 'conta')}
+                  </span>
+                </div>
+                {podeEditar && (
+                  <div className="row" style={{ gap: 4 }}>
+                    <button className="btn ghost sm" onClick={() => setPlanoEditado({ ...p, cotas: { ...p.cotas } })}>✏️</button>
+                    <button className="btn ghost sm" onClick={() => savePlano({ ...p, ativo: !p.ativo })}>{p.ativo ? 'Desativar' : 'Ativar'}</button>
+                    {contasNoPlano(p.id) === 0 && (
+                      <button
+                        className="btn danger sm"
+                        onClick={() => {
+                          if (confirm(`Apagar o plano ${p.nome}?`)) deletePlano(p.id)
+                        }}
+                      >
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ),
+          )}
+          {planoEditado && !planos.some((p) => p.id === planoEditado.id) && (
+            <EditorDePlano
+              plano={planoEditado}
+              locais={locaisAtivos}
+              onChange={setPlanoEditado}
+              onSalvar={() => {
+                savePlano({ ...planoEditado, nome: planoEditado.nome.trim() })
+                setPlanoEditado(null)
+                onToast(`${planoEditado.nome.trim()} cadastrado`)
+              }}
+              onVoltar={() => setPlanoEditado(null)}
+            />
+          )}
+        </div>
+        {podeEditar && !planoEditado && (
+          <button
+            className="btn ghost block"
+            style={{ marginTop: 12 }}
+            onClick={() =>
+              setPlanoEditado({
+                id: uid(), nome: '', app: 'wellhub', ativo: true,
+                ordem: Math.max(0, ...planos.map((p) => p.ordem)) + 1,
+                cotas: Object.fromEntries(locaisAtivos.map((l) => [l.id, COTA_MENSAL])),
+              })
+            }
+          >
+            ➕ Novo plano
+          </button>
+        )}
+      </div>
+
+      <div className="card">
         <div className="section-title">💵 Valores do dia</div>
         <p className="tiny muted" style={{ margin: 0 }}>
           Um dia novo nasce com os valores do último dia criado
@@ -936,12 +1074,76 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
       <div className="card">
         <div className="section-title">🎟️ Como a cota é contada</div>
         <p className="tiny muted" style={{ margin: 0 }}>
-          Cada conta dá <strong>{COTA_MENSAL} check-ins por mês</strong>. As aulas na arena gastam parte deles:
-          1x por semana usa 8, 2x usa os 12. O que sobra é o que a menina tem para os plays — e quem esgota a conta
-          lança o play na conta de outra pessoa (a secundária, em Atletas › contas).
+          A cota é <strong>por arena</strong>: o plano da conta diz quantos check-ins por mês ela tem em cada uma
+          (os três de hoje dão {COTA_MENSAL}). As aulas cobram a cota da arena onde são feitas — 1 por semana cobra 8,
+          2 cobram 12, 3 cobram 16 — e o que sobra ali é o que a menina tem para o play. Quem esgota a conta lança o
+          play na conta de outra pessoa (a secundária, em Atletas › contas).
         </p>
       </div>
     </>
+  )
+}
+
+/** Nome, app e a cota por arena de um plano, dentro do cartao de planos. */
+function EditorDePlano({
+  plano,
+  locais,
+  onChange,
+  onSalvar,
+  onVoltar,
+}: {
+  plano: Plano
+  locais: CheckinLocal[]
+  onChange: (p: Plano) => void
+  onSalvar: () => void
+  onVoltar: () => void
+}) {
+  return (
+    <div className="stack" style={{ padding: 10, border: '1px solid var(--line)', borderRadius: 14, background: 'var(--card-2)' }}>
+      <label className="field">
+        <span>Nome do plano</span>
+        <input className="input" placeholder="Wellhub Gold" value={plano.nome} onChange={(e) => onChange({ ...plano, nome: e.target.value })} />
+      </label>
+      <div className="field">
+        <span>App (o que a arena vê)</span>
+        <div className="chips-scroll">
+          {TIPOS_DE_CONTA.map((t) => (
+            <button key={t.valor} className={`chip ${plano.app === t.valor ? 'on' : ''}`} onClick={() => onChange({ ...plano, app: t.valor })}>
+              {t.rotulo}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span>Check-ins por mês em cada arena</span>
+        <div className="stack" style={{ gap: 6 }}>
+          {locais.map((l) => (
+            <label key={l.id} className="row spread" style={{ gap: 8 }}>
+              <span className="grow" style={{ fontSize: 13, fontWeight: 700 }}>{l.nome}</span>
+              <input
+                className="input valor"
+                style={{ width: 90 }}
+                inputMode="numeric"
+                placeholder="não aceita"
+                value={plano.cotas[l.id] ? String(plano.cotas[l.id]) : ''}
+                onChange={(e) => {
+                  const n = Number(e.target.value.replace(/\D/g, ''))
+                  const cotas = { ...plano.cotas }
+                  if (n > 0) cotas[l.id] = n
+                  else delete cotas[l.id]
+                  onChange({ ...plano, cotas })
+                }}
+              />
+            </label>
+          ))}
+        </div>
+        <span className="hint">Vazio = o plano não aceita check-in nessa arena.</span>
+      </div>
+      <div className="row" style={{ gap: 6 }}>
+        <button className="btn pink grow" disabled={!plano.nome.trim()} onClick={onSalvar}>Salvar</button>
+        <button className="btn ghost" onClick={onVoltar}>Voltar</button>
+      </div>
+    </div>
   )
 }
 
@@ -972,14 +1174,24 @@ function ContasModal({
   const contas = contasDaAtleta(data, jogadora.id, { incluirInativas: true })
   const disp = disponibilidade(data, jogadora.id, mes)
   const locais = data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)
+  const planos = data.checkinPlanos.filter((p) => p.ativo).sort((a, b) => a.ordem - b.ordem)
 
   function usoDaConta(id: string): number {
     return data.checkins.filter((c) => c.conta_id === id).length
   }
 
   function salvar(c: CheckinConta) {
-    // a principal virtual nasce sem created_at; o banco nao aceita '' num timestamptz
-    saveCheckinConta({ ...c, nome: c.principal ? '' : c.nome.trim(), created_at: c.created_at || new Date().toISOString() })
+    const plano = c.plano_id ? data.checkinPlanos.find((p) => p.id === c.plano_id) : undefined
+    saveCheckinConta({
+      ...c,
+      nome: c.principal ? '' : c.nome.trim(),
+      // o app vem do plano (o relatorio da arena usa); as aulas por local substituem o campo antigo
+      tipo: plano?.app ?? c.tipo,
+      aulas: c.aulas.filter((a) => a.por_semana > 0),
+      aulas_semana: null,
+      // a principal virtual nasce sem created_at; o banco nao aceita '' num timestamptz
+      created_at: c.created_at || new Date().toISOString(),
+    })
     setEditando(null)
     onToast('Conta salva')
   }
@@ -1075,6 +1287,18 @@ function ContasModal({
     const c = editando
     const uso = c.principal ? 0 : usoDaConta(c.id)
     const eNova = !c.principal && !data.checkinContas.some((x) => x.id === c.id)
+    const planoEditado = planoDaConta(data, c)
+    const locaisAceitos = locais.filter((l) => cotaDoPlano(planoEditado, l.id) > 0)
+    const aulasEditadas = aulasDaConta(c)
+    const avisosDoEditor: string[] = []
+    for (const a of aulasEditadas) {
+      const local = data.checkinLocais.find((l) => l.id === a.local_id)
+      if (!local) continue
+      const cota = cotaDoPlano(planoEditado, local.id)
+      if (cota === 0) avisosDoEditor.push(`${planoEditado.nome} não aceita ${local.nome}: as aulas de lá precisam de outra conta ou outro plano.`)
+      else if (consumoDasAulas(a.por_semana) > cota)
+        avisosDoEditor.push(`${a.por_semana} aulas em ${local.nome} cobram ${consumoDasAulas(a.por_semana)} e o plano dá ${cota}: precisa de conta secundária ou trocar o plano.`)
+    }
     return (
       <Modal title={c.principal ? `Conta de ${nome}` : eNova ? 'Nova conta secundária' : `Conta de ${c.nome || '(sem nome)'}`} onClose={onClose}>
         <div className="stack">
@@ -1086,31 +1310,79 @@ function ContasModal({
             </label>
           )}
           <div className="field">
-            <span>App</span>
+            <span>Plano</span>
             <div className="chips-scroll">
-              {TIPOS_DE_CONTA.map((t) => (
-                <button key={t.valor} className={`chip ${c.tipo === t.valor ? 'on' : ''}`} onClick={() => setEditando({ ...c, tipo: t.valor })}>
-                  {t.rotulo}
+              {planos.map((p) => (
+                <button key={p.id} className={`chip ${c.plano_id === p.id ? 'on' : ''}`} onClick={() => setEditando({ ...c, plano_id: p.id, tipo: p.app })}>
+                  {p.nome}
                 </button>
               ))}
+              <button className={`chip ${c.plano_id === null ? 'on' : ''}`} onClick={() => setEditando({ ...c, plano_id: null })}>Sem plano</button>
             </div>
+            <span className="hint">
+              {planoEditado.id
+                ? `${planoEditado.nome}: ${locais.map((l) => `${nomeCurto(l.nome)} ${cotaDoPlano(planoEditado, l.id) || '—'}`).join(' · ')} por mês`
+                : 'Sem plano conta como 12 em qualquer arena. Os planos e as cotas ficam em ⚙️.'}
+            </span>
           </div>
+          {c.plano_id === null && (
+            <div className="field">
+              <span>App</span>
+              <div className="chips-scroll">
+                {TIPOS_DE_CONTA.map((t) => (
+                  <button key={t.valor} className={`chip ${c.tipo === t.valor ? 'on' : ''}`} onClick={() => setEditando({ ...c, tipo: t.valor })}>
+                    {t.rotulo}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="field">
-            <span>Aulas na arena com esta conta</span>
+            <span>Aulas por semana com esta conta</span>
             <div className="stack" style={{ gap: 6 }}>
-              {OPCOES_DE_AULAS.map((o) => (
-                <button key={String(o.valor)} className={`opcao ${c.aulas_semana === o.valor ? 'on' : ''}`} onClick={() => setEditando({ ...c, aulas_semana: o.valor })}>
-                  <span className="opcao-marca">{c.aulas_semana === o.valor ? '●' : '○'}</span>
-                  <span><strong>{o.rotulo}</strong><span className="tiny muted">{o.explica}</span></span>
-                </button>
-              ))}
+              {locaisAceitos.map((l) => {
+                const cota = cotaDoPlano(planoEditado, l.id)
+                const atual = aulasEditadas.find((a) => a.local_id === l.id)?.por_semana ?? 0
+                const consumo = consumoDasAulas(atual)
+                return (
+                  <div key={l.id} className="row spread" style={{ gap: 8 }}>
+                    <span className="grow" style={{ minWidth: 0 }}>
+                      <strong style={{ fontSize: 13 }}>{l.nome}</strong>
+                      <span className="tiny muted" style={{ display: 'block' }}>
+                        {atual === 0
+                          ? `${cota} livres para o play`
+                          : consumo > cota
+                            ? `as aulas cobram ${consumo}, o plano dá ${cota}`
+                            : `aulas cobram ${consumo} · ${cota - consumo} para o play`}
+                      </span>
+                    </span>
+                    <span className="row" style={{ gap: 4 }}>
+                      {[0, 1, 2, 3].map((k) => (
+                        <button
+                          key={k}
+                          className={`chip ${atual === k ? 'on' : ''}`}
+                          style={{ padding: '5px 9px' }}
+                          onClick={() => setEditando({ ...c, aulas: [...aulasEditadas.filter((a) => a.local_id !== l.id), { local_id: l.id, por_semana: k }] })}
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </span>
+                  </div>
+                )
+              })}
+              {locaisAceitos.length === 0 && <span className="tiny muted">Este plano não aceita nenhuma arena cadastrada.</span>}
             </div>
+            <span className="hint">1 aula por semana cobra 8 check-ins do local; 2 cobram 12; 3 cobram 16.</span>
+            {avisosDoEditor.map((a) => (
+              <span key={a} className="hint aviso">⚠️ {a}</span>
+            ))}
           </div>
           <div className="field">
-            <span>Arena padrão</span>
+            <span>Arena padrão do play</span>
             <div className="chips-scroll">
               <button className={`chip ${c.local_padrao_id === null ? 'on' : ''}`} onClick={() => setEditando({ ...c, local_padrao_id: null })}>Nenhuma</button>
-              {locais.map((l) => (
+              {locaisAceitos.map((l) => (
                 <button key={l.id} className={`chip ${c.local_padrao_id === l.id ? 'on' : ''}`} onClick={() => setEditando({ ...c, local_padrao_id: l.id })}>
                   {l.nome}
                 </button>
@@ -1161,11 +1433,19 @@ function ContasModal({
           </div>
         )}
         <div className="tiny muted">
-          🎟️ <strong>{disp.disponiveis}</strong> de {disp.cota} check-ins livres em {nomeDoMes(mes)}, somando as contas.
+          🎟️ livres para o play em {nomeDoMes(mes)}, somando as contas:{' '}
+          {disp.porLocal.map((l, i) => (
+            <span key={l.local.id}>
+              {i > 0 && ' · '}
+              {nomeCurto(l.local.nome)} <strong style={{ color: 'var(--text)' }}>{l.aceita ? l.disponiveis : '—'}</strong>
+            </span>
+          ))}
         </div>
+        {disp.avisos.map((a) => (
+          <span key={a} className="hint aviso" style={{ marginTop: 0 }}>⚠️ {a}</span>
+        ))}
         {contas.map((c) => {
           const u = disp.contas.find((x) => x.conta.id === c.id)
-          const aulas = OPCOES_DE_AULAS.find((o) => o.valor === c.aulas_semana)?.rotulo ?? 'Não informou'
           const arena = data.checkinLocais.find((l) => l.id === c.local_padrao_id)?.nome
           return (
             <div key={c.id} className="fila-linha" style={{ opacity: c.ativo ? 1 : 0.55 }}>
@@ -1176,16 +1456,9 @@ function ContasModal({
                   {!c.ativo && <span className="muted"> · inativa</span>}
                 </span>
                 <span className="tiny muted">
-                  {rotuloDoTipo(c.tipo)} · {aulas}{arena ? ` · ${arena}` : ''}
+                  {planoDaConta(data, c).nome} · {aulasDaConta(c).length > 0 ? `aulas ${textoDasAulas(data, c)}` : 'sem aulas'}{arena ? ` · play em ${arena}` : ''}
                 </span>
-                {u && (
-                  <span className="tiny">
-                    {u.disponiveis < 0
-                      ? <span className="valor-neg">passou {-u.disponiveis} em {nomeDoMes(mes)}</span>
-                      : <>{u.disponiveis} livres em {nomeDoMes(mes)}</>}
-                    {u.usadosEmPlays > 0 && <span className="muted"> · {plural(u.usadosEmPlays, 'play')}</span>}
-                  </span>
-                )}
+                {u && <LivresPorLocal uso={u} />}
               </div>
               {podeEditar && <button className="btn ghost sm" onClick={() => setEditando(c)}>✏️</button>}
             </div>
@@ -1196,8 +1469,8 @@ function ContasModal({
             className="btn ghost block"
             onClick={() =>
               setEditando({
-                id: uid(), player_id: jogadora.id, nome: '', principal: false, tipo: 'wellhub', aulas_semana: null,
-                local_padrao_id: null, ativo: true, created_at: new Date().toISOString(),
+                id: uid(), player_id: jogadora.id, nome: '', principal: false, tipo: planos[0]?.app ?? 'wellhub', aulas_semana: null,
+                plano_id: planos[0]?.id ?? null, aulas: [], local_padrao_id: null, ativo: true, created_at: new Date().toISOString(),
               })
             }
           >
@@ -1465,34 +1738,53 @@ function LancarModal({
   /** A conta escolhida (nulo = principal) e quantos check-ins ela ainda tem. */
   const contaEscolhida = contas.find((c) => (contaId === null ? c.principal : c.id === contaId)) ?? contas[0]
   const usoDaEscolhida = disp?.contas.find((u) => u.conta.id === contaEscolhida?.id)
+  // os livres que importam sao os da arena escolhida: a cota e por local
+  const noLocal = usoDaEscolhida ? livresNoLocal(usoDaEscolhida, localId) : undefined
   // ao editar, o proprio lancamento ja esta descontado: devolve ele e tira o de agora
   const jaContado = Boolean(
     existente && existente.modo === 'checkin' && existente.compareceu && contaDoCheckin(data, existente).id === contaEscolhida?.id,
   )
   const contaAgora = modo === 'checkin' && compareceu
-  const livresDepois = usoDaEscolhida ? usoDaEscolhida.disponiveis + (jaContado ? 1 : 0) - (contaAgora ? 1 : 0) : null
+  const livresDepois = noLocal ? noLocal.disponiveis + (jaContado ? 1 : 0) - (contaAgora ? 1 : 0) : null
 
   // o palpite: a conta com check-ins livres, a arena padrao dela, e o modo
   // que a cota permite. So no lancamento novo, e so uma vez por atleta/dia.
   useEffect(() => {
     if (prefeito || !playerId || !dia || !disp) return
-    const comLivre = disp.contas.find((u) => u.disponiveis > 0) ?? disp.contas[0]
-    const conta = comLivre.conta
-    setContaId(conta.principal ? null : conta.id)
+    // a conta e a arena vao juntas: a primeira conta com check-in livre em alguma
+    // arena, de preferencia na arena padrao dela; senao a arena mais usada no dia
     const maisUsada = (() => {
       const cont = new Map<string, number>()
       for (const c of checkinsDoDia(data, dia.id)) if (c.local_id) cont.set(c.local_id, (cont.get(c.local_id) ?? 0) + 1)
       return [...cont.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
     })()
-    setLocalId(conta.local_padrao_id ?? maisUsada ?? locais[0]?.id ?? null)
-    setModo(comLivre.disponiveis > 0 ? 'checkin' : 'integral')
+    const livreEm = (u: UsoDaConta, id: string | null | undefined) => (id ? (livresNoLocal(u, id)?.disponiveis ?? 0) > 0 : false)
+    const escolha = disp.contas
+      .map((u) => {
+        const arena = livreEm(u, u.conta.local_padrao_id)
+          ? u.conta.local_padrao_id
+          : livreEm(u, maisUsada)
+            ? maisUsada
+            : (u.locais.find((x) => x.aceita && x.disponiveis > 0)?.local.id ?? null)
+        return { u, arena }
+      })
+      .find((e) => e.arena !== null)
+    const u = escolha?.u ?? disp.contas[0]
+    setContaId(u.conta.principal ? null : u.conta.id)
+    setLocalId(escolha?.arena ?? u.conta.local_padrao_id ?? maisUsada ?? locais[0]?.id ?? null)
+    setModo(escolha ? 'checkin' : 'integral')
     setPrefeito(true)
   }, [prefeito, playerId, dia, disp, data, locais])
 
   // trocar de conta leva a arena padrao dela junto
   function escolherConta(c: CheckinConta) {
     setContaId(c.principal ? null : c.id)
-    if (c.local_padrao_id) setLocalId(c.local_padrao_id)
+    const plano = planoDaConta(data, c)
+    if (c.local_padrao_id && cotaDoPlano(plano, c.local_padrao_id) > 0) setLocalId(c.local_padrao_id)
+    else if (localId && cotaDoPlano(plano, localId) === 0) {
+      const primeira = locais.find((l) => cotaDoPlano(plano, l.id) > 0)
+      if (primeira) setLocalId(primeira.id)
+    }
   }
 
   const vPreco = precoDiferente.trim() ? lerValor(precoDiferente) : null
@@ -1615,19 +1907,29 @@ function LancarModal({
                   <div className="chips-scroll">
                     {contas.map((c) => {
                       const u = disp?.contas.find((x) => x.conta.id === c.id)
+                      const aqui = u ? livresNoLocal(u, localId) : undefined
                       const on = contaEscolhida?.id === c.id
                       return (
-                        <button key={c.id} className={`chip ${on ? 'on' : ''}`} onClick={() => escolherConta(c)}>
-                          {nomeDoTitular(c, nameOf(playerId))} · {rotuloDoTipo(c.tipo)}
-                          {u && <span className="tiny" style={{ opacity: 0.8 }}>{u.disponiveis} livres</span>}
+                        <button key={c.id} className={`chip ${on ? 'on' : ''} ${aqui && !aqui.aceita ? 'off' : ''}`} onClick={() => escolherConta(c)}>
+                          {nomeDoTitular(c, nameOf(playerId))} · {u?.plano.nome ?? rotuloDoTipo(c.tipo)}
+                          {aqui && (
+                            <span className="tiny" style={{ opacity: 0.8 }}>
+                              {aqui.aceita ? `${aqui.disponiveis} livres ${nomeCurto(aqui.local.nome)}` : `não aceita ${nomeCurto(aqui.local.nome)}`}
+                            </span>
+                          )}
                         </button>
                       )
                     })}
                   </div>
-                  {livresDepois !== null && livresDepois < 0 && (
+                  {noLocal && !noLocal.aceita && (
                     <span className="hint aviso">
-                      Esta conta já usou os {COTA_MENSAL} de {nomeDoMes(mes)}: fica {-livresDepois} além. Confira se o check-in foi
-                      noutra conta.
+                      O {usoDaEscolhida?.plano.nome} desta conta não aceita {noLocal.local.nome}. Confira a arena ou use outra conta.
+                    </span>
+                  )}
+                  {noLocal && noLocal.aceita && livresDepois !== null && livresDepois < 0 && (
+                    <span className="hint aviso">
+                      Esta conta já usou os {noLocal.cota} de {noLocal.local.nome} em {nomeDoMes(mes)}: fica {-livresDepois} além.
+                      Confira se o check-in foi noutra conta.
                     </span>
                   )}
                 </div>

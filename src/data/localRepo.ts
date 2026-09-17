@@ -1,5 +1,6 @@
 import type {
   Acerto,
+  Plano,
   AppData,
   Checkin,
   CheckinConta,
@@ -14,7 +15,7 @@ import type {
   StreakChoice,
 } from '../lib/types'
 import { emptyData } from '../lib/types'
-import { LOCAIS_INICIAIS } from '../lib/checkins'
+import { LOCAIS_INICIAIS, PLANOS_INICIAIS } from '../lib/checkins'
 import { CHAVE } from '../lib/chaves'
 import type { Repo } from './repo'
 
@@ -40,6 +41,8 @@ function read(): AppData {
       checkinPagamentos: parsed.checkinPagamentos ?? [],
       caixa: parsed.caixa ?? [],
       checkinAcertos: parsed.checkinAcertos ?? [],
+      // os planos de hoje entram quando a chave nunca os teve (mesma regra dos locais)
+      checkinPlanos: parsed.checkinPlanos ?? PLANOS_INICIAIS.map((p) => ({ ...p, cotas: { ...p.cotas } })),
     }
   } catch {
     return emptyData()
@@ -201,6 +204,17 @@ export const localRepo: Repo = {
   async deleteAcerto(id: string) {
     const d = read()
     d.checkinAcertos = d.checkinAcertos.filter((a) => a.id !== id)
+    write(d)
+  },
+  async savePlano(plano: Plano) {
+    const d = read()
+    upsertEm(d.checkinPlanos, plano)
+    write(d)
+  },
+  async deletePlano(id: string) {
+    const d = read()
+    d.checkinPlanos = d.checkinPlanos.filter((p) => p.id !== id)
+    d.checkinContas = d.checkinContas.map((c) => (c.plano_id === id ? { ...c, plano_id: null } : c))
     write(d)
   },
   async deleteMatchesOfSession(sessionId: string) {

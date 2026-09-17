@@ -1,5 +1,6 @@
 import type {
   Acerto,
+  Plano,
   AppData,
   Checkin,
   CheckinConta,
@@ -42,6 +43,8 @@ export interface Repo {
   deleteCaixa(id: string): Promise<void>
   saveAcerto(acerto: Acerto): Promise<void>
   deleteAcerto(id: string): Promise<void>
+  savePlano(plano: Plano): Promise<void>
+  deletePlano(id: string): Promise<void>
   uploadPhoto(playerId: string, file: File): Promise<string>
   /** Apaga o arquivo da foto. Silencioso se a url nao for do nosso storage. */
   deletePhoto(url: string): Promise<void>

@@ -1,6 +1,7 @@
 import { CHAVE } from '../lib/chaves'
 import type {
   Acerto,
+  Plano,
   Checkin,
   CheckinConta,
   CheckinDia,
@@ -42,6 +43,8 @@ export type WriteOp =
   | { id: string; type: 'deleteCaixa'; lancamentoId: string }
   | { id: string; type: 'saveAcerto'; acerto: Acerto }
   | { id: string; type: 'deleteAcerto'; acertoId: string }
+  | { id: string; type: 'savePlano'; plano: Plano }
+  | { id: string; type: 'deletePlano'; planoId: string }
   | {
       id: string
       type: 'mergePlayers'

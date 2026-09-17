@@ -196,6 +196,24 @@ export type CheckinLocal = {
 export type TipoDeConta = 'wellhub' | 'totalpass' | 'outro'
 
 /**
+ * Um plano de passe (Wellhub Gold, Gold+, TotalPass...). A cota e POR LOCAL:
+ * `cotas` mapeia o id do local para quantos check-ins por mes o plano da ali;
+ * local ausente (ou 0) e local que o plano nao aceita. `app` e o que a arena
+ * ve no relatorio (Wellhub / TotalPass).
+ */
+export type Plano = {
+  id: string
+  nome: string
+  app: TipoDeConta
+  cotas: Record<string, number>
+  ativo: boolean
+  ordem: number
+}
+
+/** Aulas por semana que a conta faz num local: consomem a cota daquele local. */
+export type AulaDaConta = { local_id: string; por_semana: number }
+
+/**
  * Uma conta de passe: a principal (a propria menina) ou uma secundaria (o
  * marido, por exemplo). A principal so e gravada quando alguem edita as aulas
  * ou o padrao dela; enquanto isso a tela usa uma principal "virtual". O id da
@@ -208,9 +226,14 @@ export type CheckinConta = {
   /** Vazio na principal (e o nome da propria menina). */
   nome: string
   principal: boolean
+  /** O app da conta. Derivado do plano ao salvar; fica para as contas antigas e para o relatorio. */
   tipo: TipoDeConta
-  /** Aulas por semana na arena: 0, 1 ou 2. Nulo = nao informou (conta como 0). */
+  /** Legado (antes dos planos): aulas por semana na arena padrao. `aulas` vazio + isto = migra na leitura. */
   aulas_semana: number | null
+  /** O plano de passe; nulo = "sem plano" (aceita todo local com 12, como era antes). */
+  plano_id: string | null
+  /** As aulas por local, que consomem a cota daquele local. */
+  aulas: AulaDaConta[]
   /** Arena onde essa conta costuma fazer o check-in: vira o palpite ao lancar. */
   local_padrao_id: string | null
   ativo: boolean
@@ -309,12 +332,13 @@ export type AppData = {
   checkinPagamentos: CheckinPagamento[]
   caixa: LancamentoDeCaixa[]
   checkinAcertos: Acerto[]
+  checkinPlanos: Plano[]
 }
 
 export const emptyData = (): AppData => ({
   players: [], sessions: [], matches: [], choices: [], closures: [],
   checkinLocais: [], checkinContas: [], checkinDias: [], checkins: [], checkinPagamentos: [], caixa: [],
-  checkinAcertos: [],
+  checkinAcertos: [], checkinPlanos: [],
 })
 
 export function uid(): string {

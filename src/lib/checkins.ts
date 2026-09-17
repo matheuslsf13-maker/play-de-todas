@@ -8,6 +8,8 @@
 import type {
   Acerto,
   AppData,
+  AulaDaConta,
+  Plano,
   CategoriaDeCaixa,
   Checkin,
   CheckinConta,
@@ -33,21 +35,61 @@ export const LOCAIS_INICIAIS: CheckinLocal[] = [
 ]
 
 /**
- * Quanto as aulas consomem da conta no mes. E a conta da arena, nao do app:
- * 1 aula por semana gasta 8 dos 12; 2 por semana gastam os 12 (e a menina
- * precisa de outra conta para o play). Nao informou = nao desconta nada.
+ * Os planos de hoje, com ids fixos (os mesmos que o script 18 semeia). A cota
+ * e POR LOCAL: o Gold nao aceita a Itaparica; Gold+ e TotalPass aceitam as tres.
  */
-export const OPCOES_DE_AULAS: { valor: number | null; rotulo: string; explica: string }[] = [
-  { valor: null, rotulo: 'Não informou', explica: 'conta como se não fizesse aula: 12 livres' },
-  { valor: 0, rotulo: 'Não faz aula', explica: 'os 12 check-ins ficam para os plays' },
-  { valor: 1, rotulo: '1x por semana', explica: 'as aulas usam 8; sobram 4 para plays' },
-  { valor: 2, rotulo: '2x por semana', explica: 'as aulas usam os 12; o play precisa de outra conta' },
+export const PLANOS_INICIAIS: Plano[] = [
+  { id: 'plano-wellhub-gold', nome: 'Wellhub Gold', app: 'wellhub', ativo: true, ordem: 1,
+    cotas: { 'local-arena-v3': 12, 'local-gw-lider': 12 } },
+  { id: 'plano-wellhub-gold-plus', nome: 'Wellhub Gold+', app: 'wellhub', ativo: true, ordem: 2,
+    cotas: { 'local-arena-v3': 12, 'local-itaparica-beach': 12, 'local-gw-lider': 12 } },
+  { id: 'plano-totalpass', nome: 'TotalPass', app: 'totalpass', ativo: true, ordem: 3,
+    cotas: { 'local-arena-v3': 12, 'local-itaparica-beach': 12, 'local-gw-lider': 12 } },
 ]
 
-export function consumoDasAulas(aulasSemana: number | null | undefined): number {
-  if (aulasSemana === 1) return 8
-  if (aulasSemana === 2) return 12
-  return 0
+/**
+ * Quanto as aulas consomem da cota DO LOCAL no mes. E a conta da arena, nao do
+ * app: 1 aula por semana cobra 8, 2 cobram 12, 3 cobram 16 -- 4 x (n + 1).
+ * Passou da cota do local, a tela avisa: precisa de outra conta ou outro plano.
+ */
+export function consumoDasAulas(porSemana: number | null | undefined): number {
+  if (!porSemana || porSemana <= 0) return 0
+  return 4 * (porSemana + 1)
+}
+
+/** As aulas da conta; a conta antiga (`aulas_semana` na arena padrao) vira uma aula nesse local. */
+export function aulasDaConta(conta: CheckinConta): AulaDaConta[] {
+  if (conta.aulas && conta.aulas.length > 0) return conta.aulas.filter((a) => a.por_semana > 0)
+  if (conta.aulas_semana && conta.local_padrao_id) return [{ local_id: conta.local_padrao_id, por_semana: conta.aulas_semana }]
+  return []
+}
+
+/** Sem plano escolhido, a conta vale como antes: 12 em qualquer arena ativa. */
+export function planoVirtual(data: AppData, app: TipoDeConta): Plano {
+  return {
+    id: '',
+    nome: 'Sem plano',
+    app,
+    cotas: Object.fromEntries(data.checkinLocais.filter((l) => l.ativo).map((l) => [l.id, COTA_MENSAL])),
+    ativo: true,
+    ordem: 0,
+  }
+}
+
+export function planoDaConta(data: AppData, conta: CheckinConta): Plano {
+  return (conta.plano_id && data.checkinPlanos.find((p) => p.id === conta.plano_id)) || planoVirtual(data, conta.tipo)
+}
+
+/** O app que a arena ve: o do plano; nas contas antigas, o que estava na conta. */
+export function appDaConta(data: AppData, conta: CheckinConta): TipoDeConta {
+  const plano = conta.plano_id ? data.checkinPlanos.find((p) => p.id === conta.plano_id) : undefined
+  return plano?.app ?? conta.tipo
+}
+
+/** Quantos check-ins o plano da num local (0 = nao aceita). */
+export function cotaDoPlano(plano: Plano, localId: string): number {
+  const n = plano.cotas[localId]
+  return Number.isFinite(n) && n > 0 ? n : 0
 }
 
 export const TIPOS_DE_CONTA: { valor: TipoDeConta; rotulo: string }[] = [
@@ -84,6 +126,8 @@ export function contaPrincipalVirtual(playerId: string): CheckinConta {
     principal: true,
     tipo: 'wellhub',
     aulas_semana: null,
+    plano_id: null,
+    aulas: [],
     local_padrao_id: null,
     ativo: true,
     created_at: '',
@@ -315,32 +359,86 @@ export function statusDoCheckin(c: Checkin, pag: CheckinPagamento | undefined, l
 
 /* --------------------------------------------------------- disponibilidade */
 
-export type UsoDaConta = {
-  conta: CheckinConta
+export type UsoNoLocal = {
+  local: CheckinLocal
+  /** O plano da conta aceita este local. */
+  aceita: boolean
+  cota: number
+  aulasPorSemana: number
   consumoAulas: number
   usadosEmPlays: number
-  /** Pode ficar negativo: 2x de aula mais um play no mes. A tela avisa, nao bloqueia. */
+  /** Pode ficar negativo: as aulas ja passaram da cota, ou um play a mais. A tela avisa, nao bloqueia. */
   disponiveis: number
 }
 
-export type Disponibilidade = { contas: UsoDaConta[]; cota: number; usados: number; disponiveis: number }
+export type UsoDaConta = {
+  conta: CheckinConta
+  plano: Plano
+  locais: UsoNoLocal[]
+  /** O que nao fecha nesta conta: aulas alem da cota, aula num local que o plano nao aceita. */
+  avisos: string[]
+}
 
-/** Quantos check-ins cada conta da menina ainda tem no mes, e a soma. */
+export type Disponibilidade = {
+  contas: UsoDaConta[]
+  /** Somando as contas: quantos check-ins sobram para o play em cada arena. */
+  porLocal: { local: CheckinLocal; disponiveis: number; aceita: boolean }[]
+  avisos: string[]
+}
+
+/**
+ * Quantos check-ins cada conta da menina ainda tem no mes, POR LOCAL: a cota
+ * do plano naquele local, menos o que as aulas dali cobram, menos os plays
+ * lancados ali nesta conta. Locais inativos so aparecem se ainda tem uso.
+ */
 export function disponibilidade(data: AppData, playerId: string, mes: string): Disponibilidade {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
-  const contas = contasDaAtleta(data, playerId).map((conta) => {
-    const consumoAulas = consumoDasAulas(conta.aulas_semana)
-    const usadosEmPlays = data.checkins.filter((c) => {
-      if (c.modo !== 'checkin' || !c.compareceu) return false
-      const dia = dias.get(c.dia_id)
-      if (!dia || monthOf(dia.date) !== mes) return false
-      return contaDoCheckin(data, c).id === conta.id
-    }).length
-    return { conta, consumoAulas, usadosEmPlays, disponiveis: COTA_MENSAL - consumoAulas - usadosEmPlays }
+  const locais = [...data.checkinLocais].sort((a, b) => a.ordem - b.ordem)
+  const contas: UsoDaConta[] = contasDaAtleta(data, playerId).map((conta) => {
+    const plano = planoDaConta(data, conta)
+    const aulas = aulasDaConta(conta)
+    const avisos: string[] = []
+    const usos: UsoNoLocal[] = []
+    for (const local of locais) {
+      const cota = cotaDoPlano(plano, local.id)
+      const aceita = cota > 0
+      const aulasPorSemana = aulas.filter((a) => a.local_id === local.id).reduce((t, a) => t + a.por_semana, 0)
+      const consumoAulas = consumoDasAulas(aulasPorSemana)
+      const usadosEmPlays = data.checkins.filter((c) => {
+        if (c.modo !== 'checkin' || !c.compareceu || c.local_id !== local.id) return false
+        const dia = dias.get(c.dia_id)
+        if (!dia || monthOf(dia.date) !== mes) return false
+        return contaDoCheckin(data, c).id === conta.id
+      }).length
+      if (!local.ativo && !aceita && aulasPorSemana === 0 && usadosEmPlays === 0) continue
+      if (aulasPorSemana > 0 && !aceita) {
+        avisos.push(`${plano.nome} não aceita ${local.nome}: as aulas de lá precisam de outra conta ou outro plano.`)
+      } else if (consumoAulas > cota && aceita) {
+        avisos.push(
+          `${aulasPorSemana} aula${aulasPorSemana === 1 ? '' : 's'} por semana em ${local.nome} cobram ${consumoAulas} e o ${plano.nome} dá ${cota}: precisa de conta secundária ou trocar o plano.`,
+        )
+      }
+      const disponiveis = cota - consumoAulas - usadosEmPlays
+      // play lancado alem do que sobrava: nao bloqueia, mas a organizadora precisa ver
+      if (aceita && consumoAulas <= cota && disponiveis < 0) {
+        avisos.push(`${conta.nome || 'A conta principal'} passou ${-disponiveis} check-in${disponiveis === -1 ? '' : 's'} da cota em ${local.nome} este mês.`)
+      }
+      usos.push({ local, aceita, cota, aulasPorSemana, consumoAulas, usadosEmPlays, disponiveis })
+    }
+    return { conta, plano, locais: usos, avisos }
   })
-  const cota = COTA_MENSAL * contas.length
-  const usados = contas.reduce((t, c) => t + c.consumoAulas + c.usadosEmPlays, 0)
-  return { contas, cota, usados, disponiveis: contas.reduce((t, c) => t + c.disponiveis, 0) }
+  const porLocal = locais
+    .filter((l) => l.ativo || contas.some((c) => c.locais.some((u) => u.local.id === l.id)))
+    .map((local) => {
+      const usos = contas.flatMap((c) => c.locais.filter((u) => u.local.id === local.id && u.aceita))
+      return { local, aceita: usos.length > 0, disponiveis: usos.reduce((t, u) => t + Math.max(0, u.disponiveis), 0) }
+    })
+  return { contas, porLocal, avisos: contas.flatMap((c) => c.avisos) }
+}
+
+/** Os livres de uma conta num local (0 quando o plano nao aceita). */
+export function livresNoLocal(uso: UsoDaConta, localId: string | null): UsoNoLocal | undefined {
+  return localId ? uso.locais.find((u) => u.local.id === localId) : undefined
 }
 
 /* -------------------------------------------------------------- relatorios */
@@ -402,7 +500,7 @@ export function relatorioDasArenas(
           local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',
           atleta: atleta === '—' ? '(atleta removida)' : atleta,
           titular: nomeDoTitular(conta, atleta),
-          app: rotuloDoTipo(conta.tipo),
+          app: rotuloDoTipo(appDaConta(data, conta)),
           modo: c.modo,
           compareceu: c.compareceu,
           confirmado: c.checkin_confirmado,

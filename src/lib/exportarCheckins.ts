@@ -10,10 +10,12 @@ import type { AppData } from './types'
 import { dateLabel, monthLabel, monthOf } from './types'
 import {
   CATEGORIAS_DE_CAIXA,
+  appDaConta,
   contaDoCheckin,
   extratoDaAtleta,
   nomeDoTitular,
   pagamentoDoCheckin,
+  planoDaConta,
   resumoDoCaixa,
   rotuloDoDia,
   rotuloDoTipo,
@@ -62,7 +64,7 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
     nome: 'Controle Play',
     linhas: [
       [
-        'Data', 'Dia', 'Atleta', 'Titular da conta', 'App', 'Arena', 'Modalidade', 'Compareceu',
+        'Data', 'Dia', 'Atleta', 'Titular da conta', 'Plano', 'App', 'Arena', 'Modalidade', 'Compareceu',
         'Check-in confirmado', 'Valor devido', 'Valor pago', 'Crédito usado', 'Quitou de antes', 'Falta', 'Vira crédito',
         'Pagamento confirmado', 'Status', 'Observação',
       ],
@@ -97,7 +99,8 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
       rotuloDoDia(dia, data.sessions),
       atleta,
       comCheckin ? nomeDoTitular(conta, atleta) : '',
-      comCheckin ? rotuloDoTipo(conta.tipo) : '',
+      comCheckin ? planoDaConta(data, conta).nome : '',
+      comCheckin ? rotuloDoTipo(appDaConta(data, conta)) : '',
       comCheckin ? data.checkinLocais.find((l) => l.id === c.local_id)?.nome ?? '' : '',
       comCheckin ? 'Check-in + valor' : 'Integral',
       SIM_NAO(c.compareceu),
