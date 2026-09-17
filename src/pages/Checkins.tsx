@@ -375,6 +375,7 @@ function SecaoAtletas({
                         {u.notas.map((t) => <span key={t}> · {t}</span>)}
                         <br />
                         <LivresPorLocal uso={u} />
+                        <span className="muted"> · mês {u.usadosNoMes}/{u.tetoDoMes}</span>
                       </div>
                     ))}
                     {disp.avisos.map((a) => (
@@ -1089,8 +1090,9 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
         <p className="tiny muted" style={{ margin: 0 }}>
           A cota é <strong>por arena</strong>: o plano da conta diz quantos check-ins por mês ela tem em cada uma
           (os três de hoje dão {COTA_MENSAL}). As aulas cobram a cota da arena onde são feitas — 1 por semana cobra 8,
-          2 cobram 12, 3 cobram 16 — e o que sobra ali é o que a menina tem para o play. Quem esgota a conta lança o
-          play na conta de outra pessoa (a secundária, em Atletas › contas).
+          2 cobram 12, 3 cobram 16 — e o que sobra ali é o que a menina tem para o play. Além disso a conta faz
+          <strong> um check-in por dia</strong>: somando as arenas, o teto do mês é o número de dias dele (30 ou 31).
+          Quem esgota a conta lança o play na conta de outra pessoa (a secundária, em Atletas › contas).
         </p>
       </div>
     </>
@@ -1512,7 +1514,12 @@ function ContasModal({
                   {planoDaConta(data, c).nome} · {aulasDaConta(c).length > 0 ? `aulas ${textoDasAulas(data, c, u)}` : 'sem aulas'}{arena ? ` · play em ${arena}` : ''}
                   {u?.notas.map((t) => <span key={t}> · {t}</span>)}
                 </span>
-                {u && <LivresPorLocal uso={u} />}
+                {u && (
+                  <span className="tiny">
+                    <LivresPorLocal uso={u} />
+                    <span className="muted"> · mês {u.usadosNoMes}/{u.tetoDoMes}</span>
+                  </span>
+                )}
               </div>
               {podeEditar && <button className="btn ghost sm" onClick={() => setEditando(c)}>✏️</button>}
             </div>

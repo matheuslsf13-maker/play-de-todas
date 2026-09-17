@@ -52,6 +52,12 @@ export const PLANOS_INICIAIS: Plano[] = [
  * app: 1 aula por semana cobra 8, 2 cobram 12, 3 cobram 16 -- 4 x (n + 1).
  * Passou da cota do local, a tela avisa: precisa de outra conta ou outro plano.
  */
+/** Dias do mes (AAAA-MM): uma conta faz no maximo um check-in por dia, entao e o teto dela no mes. */
+export function diasNoMes(mes: string): number {
+  const [y, m] = mes.split('-').map(Number)
+  return new Date(y, m, 0).getDate()
+}
+
 export function consumoDasAulas(porSemana: number | null | undefined): number {
   if (!porSemana || porSemana <= 0) return 0
   return 4 * (porSemana + 1)
@@ -381,6 +387,10 @@ export type UsoDaConta = {
   conta: CheckinConta
   plano: Plano
   locais: UsoNoLocal[]
+  /** O teto do mes da conta: um check-in por dia (30 ou 31), somando todas as arenas. */
+  tetoDoMes: number
+  usadosNoMes: number
+  livresNoMes: number
   /** O que nao fecha nesta conta: aulas alem da cota sem destino, aula num local que o plano nao aceita. */
   avisos: string[]
   /** O que esta conta faz pelas outras: "cobre 4 das aulas de Beatriz na V3". */
@@ -479,7 +489,14 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
         usadosEmPlays, disponiveis,
       })
     }
-    return { conta, plano, locais: usos, avisos, notas }
+    // o teto do mes: a conta faz um check-in por dia, em qualquer arena. Com
+    // tres arenas de 12 o plano "daria" 36, mas o mes tem 30 dias
+    const tetoDoMes = diasNoMes(mes)
+    const usadosNoMes = usos.filter((u) => u.aceita).reduce((t, u) => t + u.consumoAulas + u.complemento + u.usadosEmPlays, 0)
+    const livresNoMes = tetoDoMes - usadosNoMes
+    if (livresNoMes < 0) avisos.push(`${nomeDaConta(conta)} passou dos ${tetoDoMes} dias do mês: ${usadosNoMes} check-ins somando as arenas.`)
+    for (const u of usos) if (u.aceita) u.disponiveis = Math.min(u.disponiveis, livresNoMes)
+    return { conta, plano, locais: usos, tetoDoMes, usadosNoMes, livresNoMes, avisos, notas }
   })
   const porLocal = locais
     .filter((l) => l.ativo || contas.some((c) => c.locais.some((u) => u.local.id === l.id)))
