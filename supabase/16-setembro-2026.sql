@@ -14,6 +14,17 @@
 --  saldo -212,99 -- os mesmos numeros da aba Resumo da planilha.
 -- ============================================================
 
+-- ---- antes de tudo: o 15 precisa ter rodado INTEIRO (as arenas vêm de lá)
+do $$
+begin
+  if not exists (select 1 from public.checkin_locais where id = 'local-arena-v3') then
+    raise exception 'Rode o 15-checkins.sql inteiro antes: a arena local-arena-v3 nao existe ainda.';
+  end if;
+  if not (select relrowsecurity from pg_class where oid = 'public.checkin_pagamentos'::regclass) then
+    raise exception 'Rode o 15-checkins.sql inteiro antes: checkin_pagamentos esta sem RLS.';
+  end if;
+end $$;
+
 -- ---- o dia
 insert into public.checkin_dias (id, date, session_id, titulo, valor_cheio, valor_com_checkin) values
   ('seed-dia-2026-09-14', '2026-09-14', '6c4c5f4c-a107-4e82-996d-17f17e874d7a', null, 50, 25)
