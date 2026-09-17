@@ -3,18 +3,20 @@ import { BotaoInstalar } from './components/InstalarApp'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
 import { aplicarTema, temaSalvo, type Tema } from './lib/tema'
+import Checkins from './pages/Checkins'
 import Play from './pages/Play'
 import Players from './pages/Players'
 import Ranking from './pages/Ranking'
 import Stats from './pages/Stats'
 
-type Tab = 'ranking' | 'play' | 'players' | 'stats'
+type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'ranking', label: 'Ranking', icon: '🏆' },
   { id: 'play', label: 'Play', icon: '🎾' },
   { id: 'stats', label: 'Stats', icon: '📊' },
   { id: 'players', label: 'Meninas', icon: '👯' },
+  { id: 'checkins', label: 'Check-ins', icon: '✅' },
 ]
 
 export default function App() {
@@ -122,6 +124,7 @@ export default function App() {
           )}
           {tab === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
           {tab === 'players' && <Players onToast={show} />}
+          {tab === 'checkins' && <Checkins onToast={show} />}
         </main>
       )}
 

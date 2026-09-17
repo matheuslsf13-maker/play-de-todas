@@ -202,6 +202,33 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Compartilha um arquivo pela folha do celular (WhatsApp, Drive...) e, onde
+ * nao da (ou se a pessoa cancelou), baixa. Diz o que aconteceu para a tela
+ * escolher o aviso.
+ */
+export async function baixarOuCompartilhar(arquivo: File, texto: string): Promise<'compartilhou' | 'baixou'> {
+  const nav = navigator as Navigator & {
+    canShare?: (d: { files: File[] }) => boolean
+    share?: (d: { files: File[]; text?: string }) => Promise<void>
+  }
+  if (nav.canShare?.({ files: [arquivo] }) && nav.share) {
+    try {
+      await nav.share({ files: [arquivo], text: texto })
+      return 'compartilhou'
+    } catch {
+      /* cancelou: cai para o download */
+    }
+  }
+  const url = URL.createObjectURL(arquivo)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = arquivo.name
+  a.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 10000)
+  return 'baixou'
+}
+
 export function shareOrCopy(text: string): Promise<boolean> {
   const nav = navigator as Navigator & { share?: (d: { text: string }) => Promise<void> }
   if (nav.share) {

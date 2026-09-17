@@ -4,7 +4,20 @@ import { loadCache, loadQueue, saveCache, saveQueue, type WriteOp } from '../dat
 import type { Repo } from '../data/repo'
 import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
-import type { AppData, Match, MonthClosure, PlaySession, Player, StreakChoice } from './types'
+import type {
+  AppData,
+  Checkin,
+  CheckinConta,
+  CheckinDia,
+  CheckinLocal,
+  CheckinPagamento,
+  LancamentoDeCaixa,
+  Match,
+  MonthClosure,
+  PlaySession,
+  Player,
+  StreakChoice,
+} from './types'
 import { emptyData, uid } from './types'
 
 export type SyncState = 'saved' | 'saving' | 'pending'
@@ -32,6 +45,19 @@ type Ctx = {
   deleteClosure: (month: string) => void
   /** Junta duas jogadoras numa so, preservando partidas, pontos e sequencia. */
   mergePlayers: (fromId: string, intoId: string) => void
+  /* check-ins */
+  saveCheckinLocal: (local: CheckinLocal) => void
+  deleteCheckinLocal: (id: string) => void
+  saveCheckinConta: (conta: CheckinConta) => void
+  deleteCheckinConta: (id: string) => void
+  saveCheckinDia: (dia: CheckinDia) => void
+  deleteCheckinDia: (id: string) => void
+  saveCheckin: (checkin: Checkin) => void
+  deleteCheckin: (id: string) => void
+  saveCheckinPagamento: (pagamento: CheckinPagamento) => void
+  deleteCheckinPagamento: (checkinId: string) => void
+  saveCaixa: (lancamento: LancamentoDeCaixa) => void
+  deleteCaixa: (id: string) => void
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   playerById: (id: string) => Player | undefined
@@ -46,7 +72,12 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
     case 'savePlayer':
       return { ...d, players: upsert(d.players, op.player) }
     case 'deletePlayer':
-      return { ...d, players: d.players.filter((p) => p.id !== op.playerId) }
+      return {
+        ...d,
+        players: d.players.filter((p) => p.id !== op.playerId),
+        // as contas de passe sao da menina; os lancamentos ficam (relatorio da arena)
+        checkinContas: d.checkinContas.filter((c) => c.player_id !== op.playerId),
+      }
     case 'saveSession':
       return { ...d, sessions: upsert(d.sessions, op.session) }
     case 'deleteSession':
@@ -54,6 +85,8 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
         ...d,
         sessions: d.sessions.filter((s) => s.id !== op.sessionId),
         matches: d.matches.filter((m) => m.session_id !== op.sessionId),
+        // o dia de check-in sobrevive ao play: so perde o vinculo
+        checkinDias: d.checkinDias.map((x) => (x.session_id === op.sessionId ? { ...x, session_id: null } : x)),
       }
     case 'saveMatches': {
       let matches = d.matches
@@ -71,16 +104,74 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
       return { ...d, closures: upsert(d.closures, op.closure) }
     case 'deleteClosure':
       return { ...d, closures: d.closures.filter((c) => c.month !== op.month) }
+    // ---- check-ins: espelha as cascatas e os "set null" que o banco faz sozinho
+    case 'saveCheckinLocal':
+      return { ...d, checkinLocais: upsert(d.checkinLocais, op.local) }
+    case 'deleteCheckinLocal':
+      return {
+        ...d,
+        checkinLocais: d.checkinLocais.filter((l) => l.id !== op.localId),
+        checkins: d.checkins.map((c) => (c.local_id === op.localId ? { ...c, local_id: null } : c)),
+        checkinContas: d.checkinContas.map((c) => (c.local_padrao_id === op.localId ? { ...c, local_padrao_id: null } : c)),
+      }
+    case 'saveCheckinConta':
+      return { ...d, checkinContas: upsert(d.checkinContas, op.conta) }
+    case 'deleteCheckinConta':
+      return {
+        ...d,
+        checkinContas: d.checkinContas.filter((c) => c.id !== op.contaId),
+        checkins: d.checkins.map((c) => (c.conta_id === op.contaId ? { ...c, conta_id: null } : c)),
+      }
+    case 'saveCheckinDia':
+      return { ...d, checkinDias: upsert(d.checkinDias, op.dia) }
+    case 'deleteCheckinDia': {
+      const idos = new Set(d.checkins.filter((c) => c.dia_id === op.diaId).map((c) => c.id))
+      return {
+        ...d,
+        checkinDias: d.checkinDias.filter((x) => x.id !== op.diaId),
+        checkins: d.checkins.filter((c) => c.dia_id !== op.diaId),
+        checkinPagamentos: d.checkinPagamentos.filter((p) => !idos.has(p.checkin_id)),
+      }
+    }
+    case 'saveCheckin':
+      return { ...d, checkins: upsert(d.checkins, op.checkin) }
+    case 'deleteCheckin':
+      return {
+        ...d,
+        checkins: d.checkins.filter((c) => c.id !== op.checkinId),
+        checkinPagamentos: d.checkinPagamentos.filter((p) => p.checkin_id !== op.checkinId),
+      }
+    case 'saveCheckinPagamento': {
+      const i = d.checkinPagamentos.findIndex((p) => p.checkin_id === op.pagamento.checkin_id)
+      const lista = d.checkinPagamentos.slice()
+      if (i < 0) lista.push(op.pagamento)
+      else lista[i] = op.pagamento
+      return { ...d, checkinPagamentos: lista }
+    }
+    case 'deleteCheckinPagamento':
+      return { ...d, checkinPagamentos: d.checkinPagamentos.filter((p) => p.checkin_id !== op.checkinId) }
+    case 'saveCaixa':
+      return { ...d, caixa: upsert(d.caixa, op.lancamento) }
+    case 'deleteCaixa':
+      return { ...d, caixa: d.caixa.filter((l) => l.id !== op.lancamentoId) }
     case 'mergePlayers': {
       let matches = d.matches
       for (const m of op.matches) matches = upsert(matches, m)
       let sessions = d.sessions
       for (const s of op.sessions) sessions = upsert(sessions, s)
+      // check-ins e contas secundarias passam para quem fica; a principal de
+      // quem sai some (ops antigas na fila nao trazem estes campos)
+      let checkins = d.checkins
+      for (const c of op.checkins ?? []) checkins = upsert(checkins, c)
+      let checkinContas = d.checkinContas.filter((c) => c.player_id !== op.fromId)
+      for (const c of op.contas ?? []) checkinContas = upsert(checkinContas, c)
       return {
         ...d,
         players: d.players.filter((p) => p.id !== op.fromId),
         matches,
         sessions,
+        checkins,
+        checkinContas,
       }
     }
   }
@@ -98,7 +189,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const repo = hasSupabase ? supabaseRepo : localRepo
   // no modo online o app abre com o ultimo estado conhecido, mesmo sem sinal
   const cached = hasSupabase ? loadCache<AppData>() : null
-  const [data, setData] = useState<AppData>(() => cached ?? emptyData())
+  // o cache gravado por uma versao anterior nao tem as chaves novas: sem o
+  // espalhamento, `data.checkins.filter` quebraria na abertura
+  const [data, setData] = useState<AppData>(() => (cached ? { ...emptyData(), ...cached } : emptyData()))
   // com dados em cache a tela ja aparece; a atualizacao vem em segundo plano
   const [loading, setLoading] = useState(cached === null)
   const [error, setError] = useState<string | null>(null)
@@ -263,6 +356,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       saveChoice: (choice) => push({ id: uid(), type: 'saveChoice', choice }),
       saveClosure: (closure) => push({ id: uid(), type: 'saveClosure', closure }),
       deleteClosure: (month) => push({ id: uid(), type: 'deleteClosure', month }),
+      saveCheckinLocal: (local) => push({ id: uid(), type: 'saveCheckinLocal', local }),
+      deleteCheckinLocal: (localId) => push({ id: uid(), type: 'deleteCheckinLocal', localId }),
+      saveCheckinConta: (conta) => push({ id: uid(), type: 'saveCheckinConta', conta }),
+      deleteCheckinConta: (contaId) => push({ id: uid(), type: 'deleteCheckinConta', contaId }),
+      saveCheckinDia: (dia) => push({ id: uid(), type: 'saveCheckinDia', dia }),
+      deleteCheckinDia: (diaId) => push({ id: uid(), type: 'deleteCheckinDia', diaId }),
+      saveCheckin: (checkin) => push({ id: uid(), type: 'saveCheckin', checkin }),
+      deleteCheckin: (checkinId) => push({ id: uid(), type: 'deleteCheckin', checkinId }),
+      saveCheckinPagamento: (pagamento) => push({ id: uid(), type: 'saveCheckinPagamento', pagamento }),
+      deleteCheckinPagamento: (checkinId) => push({ id: uid(), type: 'deleteCheckinPagamento', checkinId }),
+      saveCaixa: (lancamento) => push({ id: uid(), type: 'saveCaixa', lancamento }),
+      deleteCaixa: (lancamentoId) => push({ id: uid(), type: 'deleteCaixa', lancamentoId }),
       mergePlayers: (fromId, intoId) => {
         const troca = (id: string) => (id === fromId ? intoId : id)
         // partidas: a duplicada vira a jogadora que fica
@@ -277,7 +382,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const sessions = data.sessions
           .filter((s) => s.player_ids.includes(fromId))
           .map((s) => ({ ...s, player_ids: [...new Set(s.player_ids.map(troca))] }))
-        push({ id: uid(), type: 'mergePlayers', fromId, intoId, matches, sessions })
+        // check-ins de quem sai passam para quem fica; as contas secundarias
+        // tambem, e a principal de quem sai so migra se quem fica nao tem a sua
+        const checkins = data.checkins.filter((c) => c.player_id === fromId).map((c) => ({ ...c, player_id: intoId }))
+        const temPrincipal = data.checkinContas.some((c) => c.player_id === intoId && c.principal)
+        const contas = data.checkinContas
+          .filter((c) => c.player_id === fromId && (!c.principal || !temPrincipal))
+          .map((c) => (c.principal ? { ...c, id: `principal:${intoId}`, player_id: intoId } : { ...c, player_id: intoId }))
+        push({ id: uid(), type: 'mergePlayers', fromId, intoId, matches, sessions, contas, checkins })
       },
       signIn: async (email, password) => {
         if (!supabase) return
@@ -323,9 +435,36 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.saveClosure(op.closure)
     case 'deleteClosure':
       return repo.deleteClosure(op.month)
+    case 'saveCheckinLocal':
+      return repo.saveCheckinLocal(op.local)
+    case 'deleteCheckinLocal':
+      return repo.deleteCheckinLocal(op.localId)
+    case 'saveCheckinConta':
+      return repo.saveCheckinConta(op.conta)
+    case 'deleteCheckinConta':
+      return repo.deleteCheckinConta(op.contaId)
+    case 'saveCheckinDia':
+      return repo.saveCheckinDia(op.dia)
+    case 'deleteCheckinDia':
+      return repo.deleteCheckinDia(op.diaId)
+    case 'saveCheckin':
+      return repo.saveCheckin(op.checkin)
+    case 'deleteCheckin':
+      return repo.deleteCheckin(op.checkinId)
+    case 'saveCheckinPagamento':
+      return repo.saveCheckinPagamento(op.pagamento)
+    case 'deleteCheckinPagamento':
+      return repo.deleteCheckinPagamento(op.checkinId)
+    case 'saveCaixa':
+      return repo.saveCaixa(op.lancamento)
+    case 'deleteCaixa':
+      return repo.deleteCaixa(op.lancamentoId)
     case 'mergePlayers':
       await repo.saveMatches(op.matches)
       for (const s of op.sessions) await repo.saveSession(s)
+      // reapontar ANTES de apagar: a cascata do banco levaria as contas junto
+      for (const c of op.contas ?? []) await repo.saveCheckinConta(c)
+      for (const c of op.checkins ?? []) await repo.saveCheckin(c)
       return repo.deletePlayer(op.fromId)
   }
 }

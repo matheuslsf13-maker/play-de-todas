@@ -1,5 +1,17 @@
 import { CHAVE } from '../lib/chaves'
-import type { Match, MonthClosure, PlaySession, Player, StreakChoice } from '../lib/types'
+import type {
+  Checkin,
+  CheckinConta,
+  CheckinDia,
+  CheckinLocal,
+  CheckinPagamento,
+  LancamentoDeCaixa,
+  Match,
+  MonthClosure,
+  PlaySession,
+  Player,
+  StreakChoice,
+} from '../lib/types'
 
 /**
  * Operacoes de escrita em formato serializavel: assim a fila sobrevive a um
@@ -15,7 +27,29 @@ export type WriteOp =
   | { id: string; type: 'saveChoice'; choice: StreakChoice }
   | { id: string; type: 'saveClosure'; closure: MonthClosure }
   | { id: string; type: 'deleteClosure'; month: string }
-  | { id: string; type: 'mergePlayers'; fromId: string; intoId: string; matches: Match[]; sessions: PlaySession[] }
+  | { id: string; type: 'saveCheckinLocal'; local: CheckinLocal }
+  | { id: string; type: 'deleteCheckinLocal'; localId: string }
+  | { id: string; type: 'saveCheckinConta'; conta: CheckinConta }
+  | { id: string; type: 'deleteCheckinConta'; contaId: string }
+  | { id: string; type: 'saveCheckinDia'; dia: CheckinDia }
+  | { id: string; type: 'deleteCheckinDia'; diaId: string }
+  | { id: string; type: 'saveCheckin'; checkin: Checkin }
+  | { id: string; type: 'deleteCheckin'; checkinId: string }
+  | { id: string; type: 'saveCheckinPagamento'; pagamento: CheckinPagamento }
+  | { id: string; type: 'deleteCheckinPagamento'; checkinId: string }
+  | { id: string; type: 'saveCaixa'; lancamento: LancamentoDeCaixa }
+  | { id: string; type: 'deleteCaixa'; lancamentoId: string }
+  | {
+      id: string
+      type: 'mergePlayers'
+      fromId: string
+      intoId: string
+      matches: Match[]
+      sessions: PlaySession[]
+      /** Opcionais: uma op antiga persistida na fila nao os tem. */
+      contas?: CheckinConta[]
+      checkins?: Checkin[]
+    }
 
 const QUEUE_KEY = CHAVE.fila
 const CACHE_KEY = CHAVE.cache

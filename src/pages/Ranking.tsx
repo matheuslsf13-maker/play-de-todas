@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Avatar, Empty, Logo, Modal, StatBox, shareOrCopy } from '../components/ui'
+import { Avatar, Empty, Logo, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { buildMonthPoster } from '../lib/poster'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
@@ -163,23 +163,8 @@ export default function Ranking({
   async function salvarImagem() {
     if (!poster) return
     const arquivo = new File([poster.blob], `ranking-${historico ? 'historico' : activeMonth}.png`, { type: 'image/png' })
-    const nav = navigator as Navigator & {
-      canShare?: (d: { files: File[] }) => boolean
-      share?: (d: { files: File[]; text?: string }) => Promise<void>
-    }
-    if (nav.canShare?.({ files: [arquivo] }) && nav.share) {
-      try {
-        await nav.share({ files: [arquivo], text: `Ranking — ${rotuloPeriodo} 🏆` })
-        return
-      } catch {
-        /* cancelou: cai para o download */
-      }
-    }
-    const a = document.createElement('a')
-    a.href = poster.url
-    a.download = arquivo.name
-    a.click()
-    onToast('Imagem salva 📸')
+    const resultado = await baixarOuCompartilhar(arquivo, `Ranking — ${rotuloPeriodo} 🏆`)
+    if (resultado === 'baixou') onToast('Imagem salva 📸')
   }
   const podium = rows.slice(0, 3)
   const order = [1, 0, 2] // 2º, 1º, 3º na tela

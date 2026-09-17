@@ -171,16 +171,130 @@ export type MonthClosure = {
   closed_at: string
 }
 
+/* -------------------------------------------------------------------------
+   CHECK-INS
+
+   O play e pago com um check-in do app de passe (Wellhub ou TotalPass) mais
+   uma parte em dinheiro, ou com o valor cheio sem check-in. Cada CONTA de
+   passe da 12 check-ins por mes; as aulas da arena consomem parte deles, e o
+   que sobra vale para os plays. Quem esgota a conta faz o check-in em nome de
+   outra pessoa -- uma conta secundaria, cadastrada aqui.
+
+   Dinheiro (quanto pagou, quanto deve, o caixa) fica em tabelas que so quem
+   esta logada le: a chave anon do app e publica, e RLS e a unica cerca.
+   ------------------------------------------------------------------------- */
+
+/** Onde o check-in e feito: Arena V3, Itaparica Beach, GW Lider... e o que vier. */
+export type CheckinLocal = {
+  id: string
+  nome: string
+  ativo: boolean
+  /** Ordem de exibicao (a semente usa 1, 2, 3). */
+  ordem: number
+}
+
+export type TipoDeConta = 'wellhub' | 'totalpass' | 'outro'
+
+/**
+ * Uma conta de passe: a principal (a propria menina) ou uma secundaria (o
+ * marido, por exemplo). A principal so e gravada quando alguem edita as aulas
+ * ou o padrao dela; enquanto isso a tela usa uma principal "virtual". O id da
+ * principal e determinístico (`principal:<player_id>`) para dois aparelhos
+ * editando ao mesmo tempo cairem na mesma linha.
+ */
+export type CheckinConta = {
+  id: string
+  player_id: string
+  /** Vazio na principal (e o nome da propria menina). */
+  nome: string
+  principal: boolean
+  tipo: TipoDeConta
+  /** Aulas por semana na arena: 0, 1 ou 2. Nulo = nao informou (conta como 0). */
+  aulas_semana: number | null
+  /** Arena onde essa conta costuma fazer o check-in: vira o palpite ao lancar. */
+  local_padrao_id: string | null
+  ativo: boolean
+  created_at: string
+}
+
+/** Um dia de check-in: normalmente o dia de um play, criado na mao. */
+export type CheckinDia = {
+  id: string
+  date: string // YYYY-MM-DD
+  /** O play daquele dia, quando ha um. */
+  session_id: string | null
+  titulo: string | null
+  /** Quanto custa sem check-in. */
+  valor_cheio: number
+  /** A parte em dinheiro quando usa check-in. */
+  valor_com_checkin: number
+  created_at: string
+}
+
+export type CheckinModo = 'checkin' | 'integral'
+
+/** O lancamento de uma menina num dia: o que e publico (sem dinheiro). */
+export type Checkin = {
+  id: string
+  dia_id: string
+  /** Sem chave estrangeira de proposito: o relatorio da arena sobrevive a um cadastro apagado. */
+  player_id: string
+  /** Nulo = conta principal da propria menina. */
+  conta_id: string | null
+  local_id: string | null
+  modo: CheckinModo
+  /** Pagou e nao foi: o devido e zero e o que pagou vira credito. */
+  compareceu: boolean
+  /** A arena confirmou o check-in (a coluna "Check-in Confirmado" da planilha). */
+  checkin_confirmado: boolean
+  created_at: string
+}
+
+/** A parte em dinheiro do lancamento -- so quem esta logada le. */
+export type CheckinPagamento = {
+  /** O proprio id do lancamento. */
+  checkin_id: string
+  valor_pago: number
+  /** Preco combinado diferente do dia (a menina que paga 45 quando o dia e 50). Nulo = o do dia. */
+  valor_devido: number | null
+  pagamento_confirmado: boolean
+  observacao: string | null
+}
+
+export type CategoriaDeCaixa = 'extra' | 'aluguel' | 'brinde' | 'confraternizacao' | 'outra'
+
+/**
+ * O caixa da organizacao: receitas extras (o valor avulso de um play fora do
+ * calendario) e todas as saidas (brindes, aluguel...). A receita dos plays
+ * NAO entra aqui: ela e a soma dos pagamentos dos lancamentos.
+ */
+export type LancamentoDeCaixa = {
+  id: string
+  date: string // YYYY-MM-DD
+  descricao: string
+  categoria: CategoriaDeCaixa
+  tipo: 'entrada' | 'saida'
+  valor: number
+  created_at: string
+}
+
 export type AppData = {
   players: Player[]
   sessions: PlaySession[]
   matches: Match[]
   choices: StreakChoice[]
   closures: MonthClosure[]
+  checkinLocais: CheckinLocal[]
+  checkinContas: CheckinConta[]
+  checkinDias: CheckinDia[]
+  checkins: Checkin[]
+  checkinPagamentos: CheckinPagamento[]
+  caixa: LancamentoDeCaixa[]
 }
 
 export const emptyData = (): AppData => ({
   players: [], sessions: [], matches: [], choices: [], closures: [],
+  checkinLocais: [], checkinContas: [], checkinDias: [], checkins: [], checkinPagamentos: [], caixa: [],
 })
 
 export function uid(): string {

@@ -67,6 +67,17 @@ sozinhas, em `/apresentacao/`) e [**como a noite é montada**](public/como-funci
 - **Fotos** — cada jogadora pode ter foto de perfil (aparece no pódio e na arte
   do mês); dá para pôr, trocar e remover, e o arquivo antigo é apagado do
   armazenamento junto.
+- **✅ Check-ins** — a planilha da organizadora dentro do app. Cada conta de
+  passe (Wellhub/TotalPass) dá **12 check-ins por mês**; as aulas na arena gastam
+  parte (1x por semana usa 8, 2x usa os 12) e a aba mostra quantos **sobram** para
+  cada menina, somando as contas dela — inclusive a conta de outra pessoa (o
+  marido) quando a dela acaba. Por dia de play lança-se quem veio, com qual conta,
+  em qual arena, como pagou (check-in + valor ou integral), quanto pagou e o que
+  ficou de **crédito ou débito**. O relatório **para as arenas** (texto de
+  WhatsApp ou Excel, por mês ou período, uma arena ou todas) sai **sem valores**.
+  O **caixa** (receitas extras, brindes, aluguel…) e o **resumo mensal** só
+  aparecem para quem está logada, e o **Excel completo** reproduz as abas da
+  planilha antiga.
 
 ## Como as meninas acessam
 
@@ -89,8 +100,10 @@ salvos apenas no navegador de quem está usando. Ótimo para testar.
 2. No **SQL Editor**, cole e rode o conteúdo de [`supabase/schema.sql`](supabase/schema.sql).
    Isso cria as tabelas, libera a leitura pública, ativa o tempo real e cria o
    bucket `photos` para as fotos de perfil. Depois rode os arquivos numerados
-   da pasta [`supabase/`](supabase) **na ordem** (`02` a `06`): são as
-   migrações que vieram depois. O app funciona sem elas — guarda o que falta no
+   da pasta [`supabase/`](supabase) **na ordem** (`02` em diante): são as
+   migrações que vieram depois (o `15-checkins.sql` cria as tabelas da aba
+   Check-ins — as de dinheiro só quem está logada lê — e o `16` carrega a
+   planilha de setembro de 2026). O app funciona sem elas — guarda o que falta no
    celular de quem organiza — mas aí o modo em grupos, o tempo de descanso e o
    fechamento do mês não chegam aos outros aparelhos.
 3. Em **Authentication → Users**, clique em *Add user* e crie o login de quem vai
@@ -287,7 +300,9 @@ src/lib/stats.ts     rankings, força estimada, parcerias e confrontos
 src/lib/streaks.ts   sequências de vitórias e bônus "em chamas"
 src/lib/share.ts     textos prontos para o WhatsApp
 src/lib/poster.ts    arte do fechamento do mês (canvas 1080x1350)
+src/lib/checkins.ts  cota de check-ins, saldo, relatório das arenas e caixa
+src/lib/xlsx.ts      escritor mínimo de .xlsx (sem dependência)
 src/data/            armazenamento (localStorage ou Supabase)
-src/pages/           Ranking · Play · Estatísticas · Jogadoras
+src/pages/           Ranking · Play · Estatísticas · Jogadoras · Check-ins
 supabase/schema.sql  banco, permissões e bucket de fotos
 ```

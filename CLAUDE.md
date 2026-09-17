@@ -25,10 +25,12 @@ npx tsc --noEmit # só a checagem de tipos
 ## Mapa do código
 
 ```
-src/pages/       telas: Play.tsx (a maior), Ranking.tsx, Stats.tsx, Players.tsx
+src/pages/       telas: Play.tsx (a maior), Ranking.tsx, Stats.tsx, Players.tsx,
+                 Checkins.tsx (contas, dias, arenas, caixa)
 src/lib/         regras: pairing (fila de partidas e grupos), scoring,
                  streaks (status 🔥), stats, poster (imagens de fechamento),
-                 roster (importar lista), emQuadra (horários locais), store
+                 roster (importar lista), emQuadra (horários locais), store,
+                 checkins (cota, saldo, relatórios), xlsx (escritor de .xlsx)
 src/data/        armazenamento: localRepo (navegador) e supabaseRepo, com fila
                  de escrita otimista que sobrevive a refresh (queue.ts)
 src/config.ts    URL e chave pública do Supabase (NUNCA a secret/service_role)
@@ -177,6 +179,23 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Play avulso** (`sessions.ranked = false`): conta no histórico e na força,
   mas **não soma no ranking do mês nem mexe nas sequências**. Serve para o jogo
   fora de calendário que não é o campeonato.
+- **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 e 16): a planilha da
+  organizadora. Cada **conta** de passe dá `COTA_MENSAL` = **12 check-ins por mês**;
+  as aulas na arena gastam **8 (1x/semana) ou 12 (2x)**, e o que sobra é para os
+  plays. A conta **principal** de cada menina existe na tela sem estar gravada
+  (`contaPrincipalVirtual`, id `principal:<player_id>`) e só vai ao banco quando
+  editada; `checkins.conta_id` **nulo** quer dizer "a principal dela". A **conta de
+  outra pessoa** (o marido) é uma conta secundária: a arena vê o **titular**
+  (`nomeDoTitular`), o play continua da menina. Tudo é **derivado**: devido =
+  0 se não compareceu, senão o preço combinado ou o do dia pelo modo; saldo = pago −
+  devido (positivo é crédito). *Regularizado* só com pagamento **e** check-in
+  confirmados, como na planilha. **Dinheiro só logada**: `checkin_pagamentos` e
+  `caixa` têm RLS `to authenticated` também no `select`, porque a chave anon é
+  pública — e por isso `statusDoCheckin` recebe `logada`. A receita dos plays é a
+  soma dos pagamentos; no `caixa` entram só receitas extras e saídas. Nada no banco
+  recusa o que a tela aceitou (sem unique dia+atleta, FKs `set null`): uma escrita
+  recusada travaria a fila de envio para sempre; a tela abre o lançamento existente
+  em vez de duplicar, e só deixa **desativar** conta/arena com histórico.
 - **"⏳ Quem não chegou"** (no card das quadras): quem está na lista mas ainda não
   apareceu é marcada e o app **pula as partidas dela** ao sugerir a próxima — para a
   escolha ela conta como se estivesse em quadra (`indisponiveis`), e a previsão da

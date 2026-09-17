@@ -41,6 +41,11 @@
   --teal-suave:   rgba(31, 143, 160, 0.12);
   --danger-suave: rgba(214, 58, 74, 0.11);
 
+  /* a cor "da marca" que a opcao escolhida, a fase e a rodada usam: e o rosa
+     do logo. Resolve no :root, entao segue o rosa mais claro do tema escuro. */
+  --marca: var(--pink);
+  --marca-suave: var(--pink-suave);
+
   /* ---- as duas que nao mudam de tema ---- */
   --sempre-claro:  #fff6ee;
   --sempre-escuro: #14183a;
@@ -1248,3 +1253,29 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 
 /* quem ainda nao chegou, na lista do modal */
 .duo-row.off { opacity: .55; }
+
+/* ---------- check-ins ---------- */
+/* saldo da menina: o que pagou menos o que devia, somando todos os plays */
+.badge.credito { background: var(--teal-suave); color: var(--teal); }
+.badge.debito { background: var(--danger-suave); color: var(--danger); }
+.badge.zerado { background: var(--card-2); color: var(--muted); }
+/* o status da planilha: "Regularizado" so com check-in E pagamento confirmados */
+.badge.regularizado { background: var(--teal-suave); color: var(--teal); }
+.badge.verificar { background: var(--orange-suave); color: var(--orange); }
+.input.valor { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+/* a conta que passou dos 12 no mes */
+.mini-barra i.estourou { background: var(--danger); }
+.valor-pos { color: var(--teal); font-weight: 800; font-variant-numeric: tabular-nums; }
+.valor-neg { color: var(--danger); font-weight: 800; font-variant-numeric: tabular-nums; }
+/* o resumo do caixa tem 10 colunas: rola de lado dentro do cartao, nunca a pagina */
+.tabela-rolavel { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+.tabela-rolavel .table { min-width: 640px; font-variant-numeric: tabular-nums; }
+.tabela-rolavel .table th:first-child, .tabela-rolavel .table td:first-child {
+  position: sticky; left: 0; background: var(--card); z-index: 1;
+}
+.tabela-rolavel .table tfoot td { font-weight: 800; border-top: 1px solid var(--line-2); }
+/* chip numa fileira rolavel nunca quebra a palavra: rola de lado */
+.chips-scroll .chip { flex: none; white-space: nowrap; }
+/* a lista de dias: a linha inteira e o botao que abre o dia */
+.dia-linha { display: block; }
+.dia-linha.on { border-color: var(--pink); background: var(--pink-suave); }

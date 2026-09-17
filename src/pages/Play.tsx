@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import ImportarLista from '../components/ImportarLista'
-import { Avatar, Empty, Modal, StatBox, Stepper, shareOrCopy } from '../components/ui'
+import { Avatar, Empty, Modal, StatBox, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
   duplasDaFase2,
   duplasVivas,
@@ -1755,27 +1755,9 @@ function PlayDetail({
     if (!arte) return
     const sufixo = grupoArte === null ? '' : `-grupo${grupoArte}`
     const arquivo = new File([arte.blob], `play-${session.date}${sufixo}.png`, { type: 'image/png' })
-    const nav = navigator as Navigator & {
-      canShare?: (d: { files: File[] }) => boolean
-      share?: (d: { files: File[]; text?: string }) => Promise<void>
-    }
-    if (nav.canShare?.({ files: [arquivo] }) && nav.share) {
-      try {
-        const deQuem = grupoArte === null ? '' : ` · Grupo ${grupoArte}`
-        await nav.share({
-          files: [arquivo],
-          text: `${session.title} — ${dateLabel(session.date)}${deQuem} 🏐`,
-        })
-        return
-      } catch {
-        /* cancelou: cai para o download */
-      }
-    }
-    const a = document.createElement('a')
-    a.href = arte.url
-    a.download = arquivo.name
-    a.click()
-    onToast('Imagem salva 📸')
+    const deQuem = grupoArte === null ? '' : ` · Grupo ${grupoArte}`
+    const resultado = await baixarOuCompartilhar(arquivo, `${session.title} — ${dateLabel(session.date)}${deQuem} 🏐`)
+    if (resultado === 'baixou') onToast('Imagem salva 📸')
   }
 
   /**

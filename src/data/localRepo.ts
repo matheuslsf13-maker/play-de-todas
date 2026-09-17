@@ -1,5 +1,19 @@
-import type { AppData, Match, MonthClosure, PlaySession, Player, StreakChoice } from '../lib/types'
+import type {
+  AppData,
+  Checkin,
+  CheckinConta,
+  CheckinDia,
+  CheckinLocal,
+  CheckinPagamento,
+  LancamentoDeCaixa,
+  Match,
+  MonthClosure,
+  PlaySession,
+  Player,
+  StreakChoice,
+} from '../lib/types'
 import { emptyData } from '../lib/types'
+import { LOCAIS_INICIAIS } from '../lib/checkins'
 import { CHAVE } from '../lib/chaves'
 import type { Repo } from './repo'
 
@@ -16,10 +30,25 @@ function read(): AppData {
       matches: parsed.matches ?? [],
       choices: parsed.choices ?? [],
       closures: parsed.closures ?? [],
+      // a semente dos locais so entra quando a chave nunca foi gravada com
+      // eles: uma lista esvaziada de proposito continua vazia
+      checkinLocais: parsed.checkinLocais ?? LOCAIS_INICIAIS.map((l) => ({ ...l })),
+      checkinContas: parsed.checkinContas ?? [],
+      checkinDias: parsed.checkinDias ?? [],
+      checkins: parsed.checkins ?? [],
+      checkinPagamentos: parsed.checkinPagamentos ?? [],
+      caixa: parsed.caixa ?? [],
     }
   } catch {
     return emptyData()
   }
+}
+
+function upsertEm<T extends { id: string }>(lista: T[], item: T): T[] {
+  const i = lista.findIndex((x) => x.id === item.id)
+  if (i >= 0) lista[i] = item
+  else lista.push(item)
+  return lista
 }
 
 function write(d: AppData) {
@@ -45,6 +74,8 @@ export const localRepo: Repo = {
   async deletePlayer(id: string) {
     const d = read()
     d.players = d.players.filter((p) => p.id !== id)
+    // as contas de passe sao da menina; os lancamentos ficam (o relatorio da arena)
+    d.checkinContas = d.checkinContas.filter((c) => c.player_id !== id)
     write(d)
   },
   async saveSession(s: PlaySession) {
@@ -58,6 +89,8 @@ export const localRepo: Repo = {
     const d = read()
     d.sessions = d.sessions.filter((s) => s.id !== id)
     d.matches = d.matches.filter((m) => m.session_id !== id)
+    // o dia de check-in sobrevive ao play: so perde o vinculo
+    d.checkinDias = d.checkinDias.map((x) => (x.session_id === id ? { ...x, session_id: null } : x))
     write(d)
   },
   async saveMatches(ms: Match[]) {
@@ -86,6 +119,76 @@ export const localRepo: Repo = {
   async deleteClosure(month: string) {
     const d = read()
     d.closures = d.closures.filter((c) => c.month !== month)
+    write(d)
+  },
+  // ---- check-ins: espelha as cascatas e os "set null" que o banco faz sozinho
+  async saveCheckinLocal(local: CheckinLocal) {
+    const d = read()
+    upsertEm(d.checkinLocais, local)
+    write(d)
+  },
+  async deleteCheckinLocal(id: string) {
+    const d = read()
+    d.checkinLocais = d.checkinLocais.filter((l) => l.id !== id)
+    d.checkins = d.checkins.map((c) => (c.local_id === id ? { ...c, local_id: null } : c))
+    d.checkinContas = d.checkinContas.map((c) => (c.local_padrao_id === id ? { ...c, local_padrao_id: null } : c))
+    write(d)
+  },
+  async saveCheckinConta(conta: CheckinConta) {
+    const d = read()
+    upsertEm(d.checkinContas, conta)
+    write(d)
+  },
+  async deleteCheckinConta(id: string) {
+    const d = read()
+    d.checkinContas = d.checkinContas.filter((c) => c.id !== id)
+    d.checkins = d.checkins.map((c) => (c.conta_id === id ? { ...c, conta_id: null } : c))
+    write(d)
+  },
+  async saveCheckinDia(dia: CheckinDia) {
+    const d = read()
+    upsertEm(d.checkinDias, dia)
+    write(d)
+  },
+  async deleteCheckinDia(id: string) {
+    const d = read()
+    d.checkinDias = d.checkinDias.filter((x) => x.id !== id)
+    const idos = new Set(d.checkins.filter((c) => c.dia_id === id).map((c) => c.id))
+    d.checkins = d.checkins.filter((c) => c.dia_id !== id)
+    d.checkinPagamentos = d.checkinPagamentos.filter((p) => !idos.has(p.checkin_id))
+    write(d)
+  },
+  async saveCheckin(checkin: Checkin) {
+    const d = read()
+    upsertEm(d.checkins, checkin)
+    write(d)
+  },
+  async deleteCheckin(id: string) {
+    const d = read()
+    d.checkins = d.checkins.filter((c) => c.id !== id)
+    d.checkinPagamentos = d.checkinPagamentos.filter((p) => p.checkin_id !== id)
+    write(d)
+  },
+  async saveCheckinPagamento(pagamento: CheckinPagamento) {
+    const d = read()
+    const i = d.checkinPagamentos.findIndex((p) => p.checkin_id === pagamento.checkin_id)
+    if (i >= 0) d.checkinPagamentos[i] = pagamento
+    else d.checkinPagamentos.push(pagamento)
+    write(d)
+  },
+  async deleteCheckinPagamento(checkinId: string) {
+    const d = read()
+    d.checkinPagamentos = d.checkinPagamentos.filter((p) => p.checkin_id !== checkinId)
+    write(d)
+  },
+  async saveCaixa(lancamento: LancamentoDeCaixa) {
+    const d = read()
+    upsertEm(d.caixa, lancamento)
+    write(d)
+  },
+  async deleteCaixa(id: string) {
+    const d = read()
+    d.caixa = d.caixa.filter((l) => l.id !== id)
     write(d)
   },
   async deleteMatchesOfSession(sessionId: string) {
