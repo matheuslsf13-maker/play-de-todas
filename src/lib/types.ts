@@ -210,8 +210,15 @@ export type Plano = {
   ordem: number
 }
 
-/** Aulas por semana que a conta faz num local: consomem a cota daquele local. */
-export type AulaDaConta = { local_id: string; por_semana: number }
+/**
+ * Aulas por semana que a conta faz num local: consomem a cota daquele local.
+ * Quando cobram mais do que o plano da ali (3 aulas = 16, plano da 12), o que
+ * passa e coberto por OUTRA conta da menina (`excedente` = id dela) ou pago em
+ * dinheiro (`excedente` = 'dinheiro'); sem isso a tela avisa que nao fecha.
+ */
+export type AulaDaConta = { local_id: string; por_semana: number; excedente?: string | null }
+
+export const EXCEDENTE_EM_DINHEIRO = 'dinheiro'
 
 /**
  * Uma conta de passe: a principal (a propria menina) ou uma secundaria (o

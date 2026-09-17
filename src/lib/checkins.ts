@@ -19,7 +19,7 @@ import type {
   PlaySession,
   TipoDeConta,
 } from './types'
-import { dateLabel, monthLabel, monthOf, todayISO } from './types'
+import { EXCEDENTE_EM_DINHEIRO, dateLabel, monthLabel, monthOf, todayISO } from './types'
 
 /** Check-ins que uma conta de passe da por mes. */
 export const COTA_MENSAL = 12
@@ -365,7 +365,13 @@ export type UsoNoLocal = {
   aceita: boolean
   cota: number
   aulasPorSemana: number
+  /** O que as aulas desta conta cobram aqui, ja limitado a cota (o que passa vai para `excedente`). */
   consumoAulas: number
+  /** Check-ins desta conta cobrindo as aulas de OUTRA conta da menina neste local. */
+  complemento: number
+  /** O que as aulas daqui cobram alem da cota, e para onde foi: outra conta, dinheiro, ou lugar nenhum (aviso). */
+  excedente: number
+  excedentePara: 'conta' | 'dinheiro' | null
   usadosEmPlays: number
   /** Pode ficar negativo: as aulas ja passaram da cota, ou um play a mais. A tela avisa, nao bloqueia. */
   disponiveis: number
@@ -375,8 +381,10 @@ export type UsoDaConta = {
   conta: CheckinConta
   plano: Plano
   locais: UsoNoLocal[]
-  /** O que nao fecha nesta conta: aulas alem da cota, aula num local que o plano nao aceita. */
+  /** O que nao fecha nesta conta: aulas alem da cota sem destino, aula num local que o plano nao aceita. */
   avisos: string[]
+  /** O que esta conta faz pelas outras: "cobre 4 das aulas de Beatriz na V3". */
+  notas: string[]
 }
 
 export type Disponibilidade = {
@@ -394,38 +402,84 @@ export type Disponibilidade = {
 export function disponibilidade(data: AppData, playerId: string, mes: string): Disponibilidade {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
   const locais = [...data.checkinLocais].sort((a, b) => a.ordem - b.ordem)
-  const contas: UsoDaConta[] = contasDaAtleta(data, playerId).map((conta) => {
+  const lista = contasDaAtleta(data, playerId)
+  const nomeDaConta = (c: CheckinConta) => (c.principal || !c.nome.trim() ? 'A conta principal' : `A conta ${c.nome.trim()}`)
+  const deQuem = (c: CheckinConta) => (c.principal || !c.nome.trim() ? 'da conta principal' : `de ${c.nome.trim()}`)
+
+  // 1ª passada: o que as aulas de cada conta cobram alem da cota do local, e
+  // para onde vai -- outra conta da menina (complemento), dinheiro, ou nada
+  type Excesso = { quanto: number; para: 'conta' | 'dinheiro' | null; destino?: CheckinConta }
+  const excessos = new Map<string, Excesso>() // `${contaId}|${localId}`
+  const complementos = new Map<string, { quanto: number; de: CheckinConta }[]>() // `${contaId}|${localId}`
+  for (const conta of lista) {
+    const plano = planoDaConta(data, conta)
+    for (const local of locais) {
+      const aulasDoLocal = aulasDaConta(conta).filter((a) => a.local_id === local.id)
+      const porSemana = aulasDoLocal.reduce((t, a) => t + a.por_semana, 0)
+      if (porSemana === 0) continue
+      const cota = cotaDoPlano(plano, local.id)
+      const quanto = Math.max(0, consumoDasAulas(porSemana) - cota)
+      if (quanto === 0) continue
+      const escolha = aulasDoLocal.find((a) => a.excedente)?.excedente ?? null
+      const destino = escolha && escolha !== EXCEDENTE_EM_DINHEIRO ? lista.find((c) => c.id === escolha && c.id !== conta.id && c.ativo) : undefined
+      const para: Excesso['para'] = escolha === EXCEDENTE_EM_DINHEIRO ? 'dinheiro' : destino ? 'conta' : null
+      excessos.set(`${conta.id}|${local.id}`, { quanto, para, destino })
+      if (destino) {
+        const chave = `${destino.id}|${local.id}`
+        complementos.set(chave, [...(complementos.get(chave) ?? []), { quanto, de: conta }])
+      }
+    }
+  }
+
+  // 2ª passada: o uso de cada conta em cada local, ja com o que ela cobre das outras
+  const contas: UsoDaConta[] = lista.map((conta) => {
     const plano = planoDaConta(data, conta)
     const aulas = aulasDaConta(conta)
     const avisos: string[] = []
+    const notas: string[] = []
     const usos: UsoNoLocal[] = []
     for (const local of locais) {
       const cota = cotaDoPlano(plano, local.id)
       const aceita = cota > 0
       const aulasPorSemana = aulas.filter((a) => a.local_id === local.id).reduce((t, a) => t + a.por_semana, 0)
-      const consumoAulas = consumoDasAulas(aulasPorSemana)
+      const consumoBruto = consumoDasAulas(aulasPorSemana)
+      const excesso = excessos.get(`${conta.id}|${local.id}`)
+      const consumoAulas = Math.min(consumoBruto, cota)
+      const recebidos = complementos.get(`${conta.id}|${local.id}`) ?? []
+      const complemento = recebidos.reduce((t, r) => t + r.quanto, 0)
       const usadosEmPlays = data.checkins.filter((c) => {
         if (c.modo !== 'checkin' || !c.compareceu || c.local_id !== local.id) return false
         const dia = dias.get(c.dia_id)
         if (!dia || monthOf(dia.date) !== mes) return false
         return contaDoCheckin(data, c).id === conta.id
       }).length
-      if (!local.ativo && !aceita && aulasPorSemana === 0 && usadosEmPlays === 0) continue
-      if (aulasPorSemana > 0 && !aceita) {
-        avisos.push(`${plano.nome} não aceita ${local.nome}: as aulas de lá precisam de outra conta ou outro plano.`)
-      } else if (consumoAulas > cota && aceita) {
+      if (!local.ativo && !aceita && aulasPorSemana === 0 && usadosEmPlays === 0 && complemento === 0) continue
+      const s = (k: number) => (k === 1 ? '' : 's')
+      if (excesso && excesso.para === null) {
         avisos.push(
-          `${aulasPorSemana} aula${aulasPorSemana === 1 ? '' : 's'} por semana em ${local.nome} cobram ${consumoAulas} e o ${plano.nome} dá ${cota}: precisa de conta secundária ou trocar o plano.`,
+          aceita
+            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e o ${plano.nome} dá ${cota}: os ${excesso.quanto} que faltam precisam de uma conta secundária ou ficam em dinheiro.`
+            : `${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} das aulas de lá precisam de outra conta ou ficam em dinheiro.`,
         )
       }
-      const disponiveis = cota - consumoAulas - usadosEmPlays
-      // play lancado alem do que sobrava: nao bloqueia, mas a organizadora precisa ver
-      if (aceita && consumoAulas <= cota && disponiveis < 0) {
-        avisos.push(`${conta.nome || 'A conta principal'} passou ${-disponiveis} check-in${disponiveis === -1 ? '' : 's'} da cota em ${local.nome} este mês.`)
+      for (const r of recebidos) notas.push(`Cobre ${r.quanto} das aulas ${deQuem(r.de)} em ${local.nome}.`)
+      if (complemento > 0 && !aceita) {
+        avisos.push(`O ${plano.nome} ${deQuem(conta)} não aceita ${local.nome}, então não cobre as aulas de lá.`)
+      } else if (complemento > 0 && consumoAulas + complemento > cota) {
+        avisos.push(`${nomeDaConta(conta)} não tem ${complemento} sobrando em ${local.nome} para cobrir as aulas das outras contas.`)
       }
-      usos.push({ local, aceita, cota, aulasPorSemana, consumoAulas, usadosEmPlays, disponiveis })
+      const disponiveis = cota - consumoAulas - complemento - usadosEmPlays
+      // play lancado alem do que sobrava: nao bloqueia, mas a organizadora precisa ver
+      if (aceita && consumoAulas + complemento <= cota && disponiveis < 0) {
+        avisos.push(`${nomeDaConta(conta)} passou ${-disponiveis} check-in${s(-disponiveis)} da cota em ${local.nome} este mês.`)
+      }
+      usos.push({
+        local, aceita, cota, aulasPorSemana, consumoAulas, complemento,
+        excedente: excesso?.quanto ?? 0, excedentePara: excesso?.para ?? null,
+        usadosEmPlays, disponiveis,
+      })
     }
-    return { conta, plano, locais: usos, avisos }
+    return { conta, plano, locais: usos, avisos, notas }
   })
   const porLocal = locais
     .filter((l) => l.ativo || contas.some((c) => c.locais.some((u) => u.local.id === l.id)))

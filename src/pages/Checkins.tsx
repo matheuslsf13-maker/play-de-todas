@@ -41,6 +41,7 @@ import { planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
 import {
+  EXCEDENTE_EM_DINHEIRO,
   dateLabel,
   monthLabel,
   monthOf,
@@ -255,12 +256,23 @@ function nomeCurto(nome: string): string {
   return semArena.split(/\s+/)[0]
 }
 
-/** "2× V3 · 1× Itaparica" ou "sem aulas". */
-function textoDasAulas(data: AppData, conta: CheckinConta): string {
+/** "3× V3 (4 pela conta Matheus) · 1× Itaparica" ou "sem aulas". */
+function textoDasAulas(data: AppData, conta: CheckinConta, uso?: UsoDaConta): string {
   const aulas = aulasDaConta(conta)
   if (aulas.length === 0) return 'sem aulas'
   return aulas
-    .map((a) => `${a.por_semana}× ${nomeCurto(data.checkinLocais.find((l) => l.id === a.local_id)?.nome ?? '?')}`)
+    .map((a) => {
+      const u = uso?.locais.find((x) => x.local.id === a.local_id)
+      const destino =
+        u && u.excedente > 0
+          ? u.excedentePara === 'dinheiro'
+            ? ` (${u.excedente} em dinheiro)`
+            : u.excedentePara === 'conta'
+              ? ` (${u.excedente} pela conta ${data.checkinContas.find((c) => c.id === a.excedente)?.nome || 'principal'})`
+              : ` (${u.excedente} sem destino)`
+          : ''
+      return `${a.por_semana}× ${nomeCurto(data.checkinLocais.find((l) => l.id === a.local_id)?.nome ?? '?')}${destino}`
+    })
     .join(' · ')
 }
 
@@ -359,7 +371,8 @@ function SecaoAtletas({
                     {disp.contas.map((u) => (
                       <div key={u.conta.id} className="tiny muted" style={{ marginTop: 2 }}>
                         {nomeDoTitular(u.conta, nameOf(p.id))} · {u.plano.nome}
-                        {aulasDaConta(u.conta).length > 0 && ` · aulas ${textoDasAulas(data, u.conta)}`}
+                        {aulasDaConta(u.conta).length > 0 && ` · aulas ${textoDasAulas(data, u.conta, u)}`}
+                        {u.notas.map((t) => <span key={t}> · {t}</span>)}
                         <br />
                         <LivresPorLocal uso={u} />
                       </div>
@@ -1290,14 +1303,23 @@ function ContasModal({
     const planoEditado = planoDaConta(data, c)
     const locaisAceitos = locais.filter((l) => cotaDoPlano(planoEditado, l.id) > 0)
     const aulasEditadas = aulasDaConta(c)
+    // uma arena que o plano nao aceita mas tem aula (mudou de plano) continua na lista, para zerar ou dar destino
+    const locaisComAulas = locais.filter((l) => cotaDoPlano(planoEditado, l.id) > 0 || aulasEditadas.some((a) => a.local_id === l.id))
+    const outrasContas = contas.filter((o) => o.id !== c.id && o.ativo)
     const avisosDoEditor: string[] = []
     for (const a of aulasEditadas) {
       const local = data.checkinLocais.find((l) => l.id === a.local_id)
       if (!local) continue
       const cota = cotaDoPlano(planoEditado, local.id)
-      if (cota === 0) avisosDoEditor.push(`${planoEditado.nome} não aceita ${local.nome}: as aulas de lá precisam de outra conta ou outro plano.`)
-      else if (consumoDasAulas(a.por_semana) > cota)
-        avisosDoEditor.push(`${a.por_semana} aulas em ${local.nome} cobram ${consumoDasAulas(a.por_semana)} e o plano dá ${cota}: precisa de conta secundária ou trocar o plano.`)
+      const excesso = Math.max(0, consumoDasAulas(a.por_semana) - cota)
+      if (excesso === 0) continue
+      const destino = a.excedente && a.excedente !== EXCEDENTE_EM_DINHEIRO ? outrasContas.find((o) => o.id === a.excedente) : undefined
+      if (a.excedente === EXCEDENTE_EM_DINHEIRO || destino) continue
+      avisosDoEditor.push(
+        cota === 0
+          ? `${planoEditado.nome} não aceita ${local.nome}: os ${excesso} das aulas de lá precisam de outra conta ou ficam em dinheiro.`
+          : `${a.por_semana} aulas em ${local.nome} cobram ${consumoDasAulas(a.por_semana)} e o plano dá ${cota}: escolha quem cobre os ${excesso} que passam.`,
+      )
     }
     return (
       <Modal title={c.principal ? `Conta de ${nome}` : eNova ? 'Nova conta secundária' : `Conta de ${c.nome || '(sem nome)'}`} onClose={onClose}>
@@ -1340,38 +1362,69 @@ function ContasModal({
           <div className="field">
             <span>Aulas por semana com esta conta</span>
             <div className="stack" style={{ gap: 6 }}>
-              {locaisAceitos.map((l) => {
+              {locaisComAulas.map((l) => {
                 const cota = cotaDoPlano(planoEditado, l.id)
-                const atual = aulasEditadas.find((a) => a.local_id === l.id)?.por_semana ?? 0
+                const aceita = cota > 0
+                const aula = aulasEditadas.find((a) => a.local_id === l.id)
+                const atual = aula?.por_semana ?? 0
                 const consumo = consumoDasAulas(atual)
+                const excesso = Math.max(0, consumo - cota)
+                const mudar = (k: number) =>
+                  setEditando({ ...c, aulas: [...aulasEditadas.filter((a) => a.local_id !== l.id), { local_id: l.id, por_semana: k, excedente: aula?.excedente ?? null }] })
+                const destinar = (para: string | null) =>
+                  setEditando({ ...c, aulas: aulasEditadas.map((a) => (a.local_id === l.id ? { ...a, excedente: para } : a)) })
                 return (
-                  <div key={l.id} className="row spread" style={{ gap: 8 }}>
-                    <span className="grow" style={{ minWidth: 0 }}>
-                      <strong style={{ fontSize: 13 }}>{l.nome}</strong>
-                      <span className="tiny muted" style={{ display: 'block' }}>
-                        {atual === 0
-                          ? `${cota} livres para o play`
-                          : consumo > cota
-                            ? `as aulas cobram ${consumo}, o plano dá ${cota}`
-                            : `aulas cobram ${consumo} · ${cota - consumo} para o play`}
+                  <div key={l.id} className="stack" style={{ gap: 4 }}>
+                    <div className="row spread" style={{ gap: 8 }}>
+                      <span className="grow" style={{ minWidth: 0 }}>
+                        <strong style={{ fontSize: 13 }}>{l.nome}</strong>
+                        <span className="tiny muted" style={{ display: 'block' }}>
+                          {!aceita
+                            ? `o ${planoEditado.nome} não aceita esta arena`
+                            : atual === 0
+                              ? `${cota} livres para o play`
+                              : consumo > cota
+                                ? `as aulas cobram ${consumo}, o plano dá ${cota}`
+                                : `aulas cobram ${consumo} · ${cota - consumo} para o play`}
+                        </span>
                       </span>
-                    </span>
-                    <span className="row" style={{ gap: 4 }}>
-                      {[0, 1, 2, 3].map((k) => (
-                        <button
-                          key={k}
-                          className={`chip ${atual === k ? 'on' : ''}`}
-                          style={{ padding: '5px 9px' }}
-                          onClick={() => setEditando({ ...c, aulas: [...aulasEditadas.filter((a) => a.local_id !== l.id), { local_id: l.id, por_semana: k }] })}
-                        >
-                          {k}
-                        </button>
-                      ))}
-                    </span>
+                      <span className="row" style={{ gap: 4 }}>
+                        {[0, 1, 2, 3].map((k) => (
+                          <button key={k} className={`chip ${atual === k ? 'on' : ''}`} style={{ padding: '5px 9px' }} onClick={() => mudar(k)}>
+                            {k}
+                          </button>
+                        ))}
+                      </span>
+                    </div>
+                    {excesso > 0 && (
+                      <div className="tiny" style={{ paddingLeft: 8 }}>
+                        <span className="muted">Os {excesso} que passam: </span>
+                        <span className="chips-scroll" style={{ display: 'inline-flex', verticalAlign: 'middle' }}>
+                          {outrasContas.map((o) => (
+                            <button
+                              key={o.id}
+                              className={`chip ${aula?.excedente === o.id ? 'on' : ''}`}
+                              style={{ padding: '4px 9px', fontSize: 12 }}
+                              onClick={() => destinar(aula?.excedente === o.id ? null : o.id)}
+                            >
+                              conta {nomeDoTitular(o, nome)}
+                            </button>
+                          ))}
+                          <button
+                            className={`chip ${aula?.excedente === EXCEDENTE_EM_DINHEIRO ? 'on' : ''}`}
+                            style={{ padding: '4px 9px', fontSize: 12 }}
+                            onClick={() => destinar(aula?.excedente === EXCEDENTE_EM_DINHEIRO ? null : EXCEDENTE_EM_DINHEIRO)}
+                          >
+                            💵 Em dinheiro
+                          </button>
+                        </span>
+                        {outrasContas.length === 0 && <span className="muted"> (ou cadastre uma conta secundária)</span>}
+                      </div>
+                    )}
                   </div>
                 )
               })}
-              {locaisAceitos.length === 0 && <span className="tiny muted">Este plano não aceita nenhuma arena cadastrada.</span>}
+              {locaisComAulas.length === 0 && <span className="tiny muted">Este plano não aceita nenhuma arena cadastrada.</span>}
             </div>
             <span className="hint">1 aula por semana cobra 8 check-ins do local; 2 cobram 12; 3 cobram 16.</span>
             {avisosDoEditor.map((a) => (
@@ -1456,7 +1509,8 @@ function ContasModal({
                   {!c.ativo && <span className="muted"> · inativa</span>}
                 </span>
                 <span className="tiny muted">
-                  {planoDaConta(data, c).nome} · {aulasDaConta(c).length > 0 ? `aulas ${textoDasAulas(data, c)}` : 'sem aulas'}{arena ? ` · play em ${arena}` : ''}
+                  {planoDaConta(data, c).nome} · {aulasDaConta(c).length > 0 ? `aulas ${textoDasAulas(data, c, u)}` : 'sem aulas'}{arena ? ` · play em ${arena}` : ''}
+                  {u?.notas.map((t) => <span key={t}> · {t}</span>)}
                 </span>
                 {u && <LivresPorLocal uso={u} />}
               </div>

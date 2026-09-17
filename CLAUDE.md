@@ -187,7 +187,9 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   feitas** — `consumoDasAulas`: 1/semana = 8, 2 = 12, 3 = 16 (`4 × (n + 1)`) — e
   ficam na conta como `aulas [{local_id, por_semana}]`; `disponibilidade` é por
   conta **e por local**, e avisa quando as aulas passam da cota ou o plano não aceita
-  a arena ("precisa de conta secundária ou trocar o plano"). Conta **sem plano** vale
+  a arena. **O que passa da cota tem destino** (`AulaDaConta.excedente`): outra conta
+  da menina (o Matheus cobre os 4 das 3 aulas da Beatriz — vira `complemento` na conta
+  dele, naquele local) ou `'dinheiro'` (não consome nada); sem destino, aviso. Conta **sem plano** vale
   como antes: 12 em qualquer arena. A conta **principal** de cada menina existe na tela sem estar gravada
   (`contaPrincipalVirtual`, id `principal:<player_id>`) e só vai ao banco quando
   editada; `checkins.conta_id` **nulo** quer dizer "a principal dela". A **conta de
