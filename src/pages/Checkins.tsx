@@ -36,6 +36,7 @@ import {
   type FiltroDoRelatorio,
   type LinhaDoResumo,
   type UsoDaConta,
+  type UsoNoLocal,
 } from '../lib/checkins'
 import { planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
 import { normalizar } from '../lib/roster'
@@ -240,7 +241,7 @@ function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
           {!u.aceita ? (
             <span className="muted" title={`${uso.plano.nome} não aceita ${u.local.nome}`}>—</span>
           ) : (
-            <strong className={u.disponiveis < 0 ? 'valor-neg' : u.disponiveis === 0 ? 'muted' : undefined}>
+            <strong className={u.disponiveis < 0 ? 'valor-neg' : u.disponiveis === 0 ? 'muted' : undefined} title={detalheDoUso(u)}>
               {u.disponiveis}/{u.cota}
             </strong>
           )}
@@ -248,6 +249,15 @@ function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
       ))}
     </span>
   )
+}
+
+/** "12 − 4 (aulas de outra conta) − 1 (play) = 7": de onde saiu o que sobra. */
+function detalheDoUso(u: UsoNoLocal): string {
+  const partes: string[] = []
+  if (u.consumoAulas > 0) partes.push(`${u.consumoAulas} das aulas`)
+  if (u.complemento > 0) partes.push(`${u.complemento} das aulas de outra conta`)
+  if (u.usadosEmPlays > 0) partes.push(`${u.usadosEmPlays} de play${u.usadosEmPlays === 1 ? '' : 's'}`)
+  return partes.length === 0 ? `${u.cota} sem uso` : `${u.cota} − ${partes.join(' − ')} = ${u.disponiveis}`
 }
 
 /** "Arena V3" -> "V3", "Itaparica Beach" -> "Itaparica", "GW Líder" -> "GW". */
@@ -1308,6 +1318,7 @@ function ContasModal({
     // uma arena que o plano nao aceita mas tem aula (mudou de plano) continua na lista, para zerar ou dar destino
     const locaisComAulas = locais.filter((l) => cotaDoPlano(planoEditado, l.id) > 0 || aulasEditadas.some((a) => a.local_id === l.id))
     const outrasContas = contas.filter((o) => o.id !== c.id && o.ativo)
+    const usoAtual = disp.contas.find((x) => x.conta.id === c.id)
     const avisosDoEditor: string[] = []
     for (const a of aulasEditadas) {
       const local = data.checkinLocais.find((l) => l.id === a.local_id)
@@ -1371,6 +1382,13 @@ function ContasModal({
                 const atual = aula?.por_semana ?? 0
                 const consumo = consumoDasAulas(atual)
                 const excesso = Math.max(0, consumo - cota)
+                // o que a conta ja gastou aqui fora destas aulas: cobrindo aulas de outra conta, e plays lancados
+                const jaUsado = usoAtual?.locais.find((x) => x.local.id === l.id)
+                const outros = (jaUsado?.complemento ?? 0) + (jaUsado?.usadosEmPlays ?? 0)
+                const sobra = cota - Math.min(consumo, cota) - outros
+                const detalhe = jaUsado && outros > 0
+                  ? ` (${[jaUsado.complemento > 0 ? `${jaUsado.complemento} cobrem aulas de outra conta` : '', jaUsado.usadosEmPlays > 0 ? `${jaUsado.usadosEmPlays} de play` : ''].filter(Boolean).join(', ')})`
+                  : ''
                 const mudar = (k: number) =>
                   setEditando({ ...c, aulas: [...aulasEditadas.filter((a) => a.local_id !== l.id), { local_id: l.id, por_semana: k, excedente: aula?.excedente ?? null }] })
                 const destinar = (para: string | null) =>
@@ -1384,10 +1402,10 @@ function ContasModal({
                           {!aceita
                             ? `o ${planoEditado.nome} não aceita esta arena`
                             : atual === 0
-                              ? `${cota} livres para o play`
+                              ? `${sobra} livres para o play${detalhe}`
                               : consumo > cota
-                                ? `as aulas cobram ${consumo}, o plano dá ${cota}`
-                                : `aulas cobram ${consumo} · ${cota - consumo} para o play`}
+                                ? `as aulas cobram ${consumo}, o plano dá ${cota}${detalhe}`
+                                : `aulas cobram ${consumo} · ${sobra} para o play${detalhe}`}
                         </span>
                       </span>
                       <span className="row" style={{ gap: 4 }}>
@@ -1520,6 +1538,13 @@ function ContasModal({
                     <span className="muted"> · mês {u.usadosNoMes}/{u.tetoDoMes}</span>
                   </span>
                 )}
+                {u?.locais
+                  .filter((x) => x.aceita && (x.consumoAulas > 0 || x.complemento > 0 || x.usadosEmPlays > 0))
+                  .map((x) => (
+                    <span key={x.local.id} className="tiny muted">
+                      {nomeCurto(x.local.nome)}: {detalheDoUso(x)}
+                    </span>
+                  ))}
               </div>
               {podeEditar && <button className="btn ghost sm" onClick={() => setEditando(c)}>✏️</button>}
             </div>
