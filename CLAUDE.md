@@ -189,7 +189,12 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   conta **e por local**, e avisa quando as aulas passam da cota ou o plano não aceita
   a arena. **O que passa da cota tem destino** (`AulaDaConta.excedente`): outra conta
   da menina (o Matheus cobre os 4 das 3 aulas da Beatriz — vira `complemento` na conta
-  dele, naquele local) ou `'dinheiro'` (não consome nada); sem destino, aviso.
+  dele, naquele local), **outra arena da mesma conta** (`'local:<id>'`: V3 e Itaparica
+  se cobrem — os 4 que não cabem na V3 do Matheus saem da Itaparica dele) ou
+  `'dinheiro'` (não consome nada); sem destino, aviso. Em cada arena a ordem é:
+  complementos recebidos → aulas da própria conta (só o que sobrou) → plays; o
+  excedente é calculado em **duas rodadas**, porque o que uma conta cobre das outras
+  só se sabe depois de olhar todas (`testa_disp.mjs` no scratchpad tem os cenários).
   **E a conta faz um check-in por dia**: somando as arenas, o teto do mês é
   `diasNoMes` (30/31) — três arenas de 12 "dariam" 36, mas o que sobra em cada
   arena é `min(cota − uso ali, dias − uso total da conta)`. Conta **sem plano** vale
