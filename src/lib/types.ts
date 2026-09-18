@@ -219,6 +219,8 @@ export type Plano = {
 export type AulaDaConta = { local_id: string; por_semana: number; excedente?: string | null }
 
 export const EXCEDENTE_EM_DINHEIRO = 'dinheiro'
+/** `excedente` = 'local:<id>': o que passa vai para OUTRA arena da mesma conta (V3 e Itaparica se cobrem). */
+export const EXCEDENTE_PARA_LOCAL = 'local:'
 
 /**
  * Uma conta de passe: a principal (a propria menina) ou uma secundaria (o

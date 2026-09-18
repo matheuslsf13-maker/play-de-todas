@@ -9,6 +9,7 @@ import {
   aulasDaConta,
   consumoDasAulas,
   cotaDoPlano,
+  destinoDoExcedente,
   checkinDaAtletaNoDia,
   checkinsDoDia,
   contaDoCheckin,
@@ -43,6 +44,7 @@ import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
 import {
   EXCEDENTE_EM_DINHEIRO,
+  EXCEDENTE_PARA_LOCAL,
   dateLabel,
   monthLabel,
   monthOf,
@@ -51,6 +53,7 @@ import {
   uid,
   type Acerto,
   type AppData,
+  type AulaDaConta,
   type CategoriaDeCaixa,
   type Checkin,
   type CheckinConta,
@@ -255,7 +258,9 @@ function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
 function detalheDoUso(u: UsoNoLocal): string {
   const partes: string[] = []
   if (u.consumoAulas > 0) partes.push(`${u.consumoAulas} das aulas`)
-  if (u.complemento > 0) partes.push(`${u.complemento} das aulas de outra conta`)
+  for (const r of u.complementos) {
+    partes.push(r.deLocal.id !== u.local.id ? `${r.quanto} das aulas na ${nomeCurto(r.deLocal.nome)}` : `${r.quanto} das aulas de outra conta`)
+  }
   if (u.usadosEmPlays > 0) partes.push(`${u.usadosEmPlays} de play${u.usadosEmPlays === 1 ? '' : 's'}`)
   return partes.length === 0 ? `${u.cota} sem uso` : `${u.cota} − ${partes.join(' − ')} = ${u.disponiveis}`
 }
@@ -279,7 +284,9 @@ function textoDasAulas(data: AppData, conta: CheckinConta, uso?: UsoDaConta): st
             ? ` (${u.excedente} em dinheiro)`
             : u.excedentePara === 'conta'
               ? ` (${u.excedente} pela conta ${data.checkinContas.find((c) => c.id === a.excedente)?.nome || 'principal'})`
-              : ` (${u.excedente} sem destino)`
+              : u.excedentePara === 'local'
+                ? ` (${u.excedente} pela ${nomeCurto(data.checkinLocais.find((l) => `${EXCEDENTE_PARA_LOCAL}${l.id}` === a.excedente)?.nome ?? '?')})`
+                : ` (${u.excedente} sem destino)`
           : ''
       return `${a.por_semana}× ${nomeCurto(data.checkinLocais.find((l) => l.id === a.local_id)?.nome ?? '?')}${destino}`
     })
@@ -1320,18 +1327,27 @@ function ContasModal({
     const outrasContas = contas.filter((o) => o.id !== c.id && o.ativo)
     const usoAtual = disp.contas.find((x) => x.conta.id === c.id)
     const avisosDoEditor: string[] = []
+    /** O que sobra na arena para as aulas desta conta, tirando o que ela ja cobre das outras (e de si mesma, vindo de outra arena). */
+    const sobraParaAulas = (localId: string) => {
+      const cota = cotaDoPlano(planoEditado, localId)
+      const ja = usoAtual?.locais.find((x) => x.local.id === localId)
+      return Math.max(0, cota - (ja?.complemento ?? 0))
+    }
+    const destinoValido = (a: AulaDaConta) => {
+      const d = destinoDoExcedente(a.excedente, c, contas.filter((o) => o.ativo), locais)
+      if (d?.tipo === 'local' && (d.local.id === a.local_id || cotaDoPlano(planoEditado, d.local.id) === 0)) return null
+      return d
+    }
     for (const a of aulasEditadas) {
       const local = data.checkinLocais.find((l) => l.id === a.local_id)
       if (!local) continue
       const cota = cotaDoPlano(planoEditado, local.id)
-      const excesso = Math.max(0, consumoDasAulas(a.por_semana) - cota)
-      if (excesso === 0) continue
-      const destino = a.excedente && a.excedente !== EXCEDENTE_EM_DINHEIRO ? outrasContas.find((o) => o.id === a.excedente) : undefined
-      if (a.excedente === EXCEDENTE_EM_DINHEIRO || destino) continue
+      const excesso = Math.max(0, consumoDasAulas(a.por_semana) - sobraParaAulas(local.id))
+      if (excesso === 0 || destinoValido(a)) continue
       avisosDoEditor.push(
         cota === 0
-          ? `${planoEditado.nome} não aceita ${local.nome}: os ${excesso} das aulas de lá precisam de outra conta ou ficam em dinheiro.`
-          : `${a.por_semana} aulas em ${local.nome} cobram ${consumoDasAulas(a.por_semana)} e o plano dá ${cota}: escolha quem cobre os ${excesso} que passam.`,
+          ? `${planoEditado.nome} não aceita ${local.nome}: os ${excesso} das aulas de lá precisam de outra conta, de outra arena ou ficam em dinheiro.`
+          : `${a.por_semana} aulas em ${local.nome} cobram ${consumoDasAulas(a.por_semana)} e sobravam ${sobraParaAulas(local.id)}: escolha quem cobre os ${excesso} que passam.`,
       )
     }
     return (
@@ -1381,14 +1397,19 @@ function ContasModal({
                 const aula = aulasEditadas.find((a) => a.local_id === l.id)
                 const atual = aula?.por_semana ?? 0
                 const consumo = consumoDasAulas(atual)
-                const excesso = Math.max(0, consumo - cota)
-                // o que a conta ja gastou aqui fora destas aulas: cobrindo aulas de outra conta, e plays lancados
+                // o que a conta ja gastou aqui fora destas aulas: cobrindo aulas de outra conta
+                // (ou dela mesma, vindas de outra arena), e plays lancados
                 const jaUsado = usoAtual?.locais.find((x) => x.local.id === l.id)
+                const excesso = Math.max(0, consumo - sobraParaAulas(l.id))
                 const outros = (jaUsado?.complemento ?? 0) + (jaUsado?.usadosEmPlays ?? 0)
-                const sobra = cota - Math.min(consumo, cota) - outros
+                const sobra = cota - Math.min(consumo, sobraParaAulas(l.id)) - outros
                 const detalhe = jaUsado && outros > 0
-                  ? ` (${[jaUsado.complemento > 0 ? `${jaUsado.complemento} cobrem aulas de outra conta` : '', jaUsado.usadosEmPlays > 0 ? `${jaUsado.usadosEmPlays} de play` : ''].filter(Boolean).join(', ')})`
+                  ? ` (${[
+                      ...jaUsado.complementos.map((r) => (r.deLocal.id !== l.id ? `${r.quanto} das aulas na ${nomeCurto(r.deLocal.nome)}` : `${r.quanto} cobrem aulas de outra conta`)),
+                      jaUsado.usadosEmPlays > 0 ? `${jaUsado.usadosEmPlays} de play` : '',
+                    ].filter(Boolean).join(', ')})`
                   : ''
+                const outrasArenas = locaisAceitos.filter((o) => o.id !== l.id)
                 const mudar = (k: number) =>
                   setEditando({ ...c, aulas: [...aulasEditadas.filter((a) => a.local_id !== l.id), { local_id: l.id, por_semana: k, excedente: aula?.excedente ?? null }] })
                 const destinar = (para: string | null) =>
@@ -1430,6 +1451,19 @@ function ContasModal({
                               conta {nomeDoTitular(o, nome)}
                             </button>
                           ))}
+                          {outrasArenas.map((o) => {
+                            const id = `${EXCEDENTE_PARA_LOCAL}${o.id}`
+                            return (
+                              <button
+                                key={o.id}
+                                className={`chip ${aula?.excedente === id ? 'on' : ''}`}
+                                style={{ padding: '4px 9px', fontSize: 12 }}
+                                onClick={() => destinar(aula?.excedente === id ? null : id)}
+                              >
+                                {nomeCurto(o.nome)} (mesma conta)
+                              </button>
+                            )
+                          })}
                           <button
                             className={`chip ${aula?.excedente === EXCEDENTE_EM_DINHEIRO ? 'on' : ''}`}
                             style={{ padding: '4px 9px', fontSize: 12 }}
@@ -1438,7 +1472,7 @@ function ContasModal({
                             💵 Em dinheiro
                           </button>
                         </span>
-                        {outrasContas.length === 0 && <span className="muted"> (ou cadastre uma conta secundária)</span>}
+                        {outrasContas.length === 0 && outrasArenas.length === 0 && <span className="muted"> (ou cadastre uma conta secundária)</span>}
                       </div>
                     )}
                   </div>
