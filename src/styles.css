@@ -46,6 +46,20 @@
   --marca: var(--pink);
   --marca-suave: var(--pink-suave);
 
+  /* os nomes "pelo que querem dizer", que a forca, o podio e o tie usam:
+     --verde e o "esta bem" (nivel acima da media, cadastro em dia), --ouro o
+     primeiro lugar e o aviso, --apoio o "em evolucao", --bronze o terceiro
+     lugar, a "pausada" e quem esta comecando. Sao apelidos das cores do logo
+     (resolvem no :root, entao acompanham o tema); so o bronze e uma cor a
+     mais, porque o logo nao tem nenhuma entre o laranja e o marrom. Sem estas
+     declaracoes o var() caia no currentColor e o podio saia todo da cor do
+     texto. */
+  --verde: var(--teal);
+  --ouro: var(--yellow);
+  --ouro-suave: var(--yellow-suave);
+  --apoio: var(--purple);
+  --bronze: #b7702c;
+
   /* ---- as duas que nao mudam de tema ---- */
   --sempre-claro:  #fff6ee;
   --sempre-escuro: #14183a;
@@ -82,6 +96,10 @@
   --orange-suave: rgba(255, 138, 61, 0.14);
   --teal-suave:   rgba(46, 211, 183, 0.14);
   --danger-suave: rgba(255, 107, 107, 0.15);
+
+  /* o bronze e a unica cor "com nome" que nao e apelido: precisa da versao
+     clara aqui, como as do logo */
+  --bronze: #f0a86e;
 
   --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
