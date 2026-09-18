@@ -29,10 +29,16 @@ export const COTA_MENSAL = 12
  * banco, entao o modo local e o online falam da mesma "Arena V3".
  */
 export const LOCAIS_INICIAIS: CheckinLocal[] = [
-  { id: 'local-arena-v3', nome: 'Arena V3', ativo: true, ordem: 1 },
-  { id: 'local-itaparica-beach', nome: 'Itaparica Beach', ativo: true, ordem: 2 },
-  { id: 'local-gw-lider', nome: 'GW Líder', ativo: true, ordem: 3 },
+  { id: 'local-arena-v3', nome: 'Arena V3', ativo: true, ordem: 1, afiliacao: 'v3-itaparica' },
+  { id: 'local-itaparica-beach', nome: 'Itaparica Beach', ativo: true, ordem: 2, afiliacao: 'v3-itaparica' },
+  { id: 'local-gw-lider', nome: 'GW Líder', ativo: true, ordem: 3, afiliacao: null },
 ]
+
+/** As outras arenas que dividem check-in com esta (mesma afiliacao). A GW nao divide com ninguem. */
+export function arenasAfiliadas(local: CheckinLocal, locais: CheckinLocal[]): CheckinLocal[] {
+  if (!local.afiliacao) return []
+  return locais.filter((l) => l.id !== local.id && l.afiliacao === local.afiliacao)
+}
 
 /**
  * Os planos de hoje, com ids fixos (os mesmos que o script 18 semeia). A cota
@@ -480,8 +486,12 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
         if (quanto === 0) continue
         const escolha = aulasDaConta(conta).find((a) => a.local_id === local.id && a.excedente)?.excedente ?? null
         let destino = destinoDoExcedente(escolha, conta, lista, locais)
-        // destino que nao serve (arena igual, ou que o plano nao aceita) e o mesmo que nenhum
-        if (destino?.tipo === 'local' && (destino.local.id === local.id || cotaDoPlano(plano, destino.local.id) === 0)) destino = null
+        // destino que nao serve (arena igual, nao afiliada, ou que o plano nao aceita) e o mesmo que nenhum
+        if (destino?.tipo === 'local') {
+          const alvo = destino.local
+          const serve = alvo.id !== local.id && cotaDoPlano(plano, alvo.id) > 0 && arenasAfiliadas(local, locais).some((a) => a.id === alvo.id)
+          if (!serve) destino = null
+        }
         excessos.set(chave(conta, local), { quanto, destino })
         if (destino?.tipo === 'conta') {
           const k = chave(destino.conta, local)
@@ -521,8 +531,8 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
       if (excesso && excesso.destino === null) {
         avisos.push(
           aceita
-            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta, de outra arena ou ficam em dinheiro.`
-            : `${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} das aulas de lá precisam de outra conta, de outra arena ou ficam em dinheiro.`,
+            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
+            : `${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} das aulas de lá precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`,
         )
       } else if (excesso?.destino?.tipo === 'local') {
         notas.push(`${excesso.quanto} das aulas em ${local.nome} usam ${excesso.destino.local.nome}.`)

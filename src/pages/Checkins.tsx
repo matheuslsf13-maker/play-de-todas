@@ -6,6 +6,7 @@ import {
   COTA_MENSAL,
   TIPOS_DE_CONTA,
   appDaConta,
+  arenasAfiliadas,
   aulasDaConta,
   consumoDasAulas,
   cotaDoPlano,
@@ -244,9 +245,14 @@ function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
           {!u.aceita ? (
             <span className="muted" title={`${uso.plano.nome} não aceita ${u.local.nome}`}>—</span>
           ) : (
-            <strong className={u.disponiveis < 0 ? 'valor-neg' : u.disponiveis === 0 ? 'muted' : undefined} title={detalheDoUso(u)}>
-              {u.disponiveis}/{u.cota}
-            </strong>
+            <>
+              <strong className={u.disponiveis < 0 ? 'valor-neg' : u.disponiveis === 0 ? 'muted' : undefined} title={detalheDoUso(u)}>
+                {u.disponiveis}/{u.cota}
+              </strong>
+              {u.usadosEmPlays > 0 && (
+                <span className="muted" title={detalheDoUso(u)}> ({u.disponiveis + u.usadosEmPlays} − {u.usadosEmPlays} play{u.usadosEmPlays === 1 ? '' : 's'})</span>
+              )}
+            </>
           )}
         </span>
       ))}
@@ -261,8 +267,9 @@ function detalheDoUso(u: UsoNoLocal): string {
   for (const r of u.complementos) {
     partes.push(r.deLocal.id !== u.local.id ? `${r.quanto} das aulas na ${nomeCurto(r.deLocal.nome)}` : `${r.quanto} das aulas de outra conta`)
   }
-  if (u.usadosEmPlays > 0) partes.push(`${u.usadosEmPlays} de play${u.usadosEmPlays === 1 ? '' : 's'}`)
-  return partes.length === 0 ? `${u.cota} sem uso` : `${u.cota} − ${partes.join(' − ')} = ${u.disponiveis}`
+  const paraPlays = u.disponiveis + u.usadosEmPlays
+  const base = partes.length === 0 ? `${u.cota} para plays` : `${u.cota} − ${partes.join(' − ')} = ${paraPlays} para plays`
+  return u.usadosEmPlays > 0 ? `${base} · ${u.usadosEmPlays} já usado${u.usadosEmPlays === 1 ? '' : 's'} → sobram ${u.disponiveis}` : base
 }
 
 /** "Arena V3" -> "V3", "Itaparica Beach" -> "Itaparica", "GW Líder" -> "GW". */
@@ -926,7 +933,8 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
         <div className="section-title">📍 Arenas de check-in</div>
         <p className="tiny muted" style={{ margin: '0 0 10px' }}>
           As arenas onde as meninas fazem check-in. Cada conta tem a sua arena padrão (em Atletas › contas), então
-          lançar é só confirmar.
+          lançar é só confirmar. Arenas que <strong>dividem check-in</strong> (V3 e Itaparica) cobrem uma o que passa da
+          cota da outra, na mesma conta; a GW não divide com ninguém.
         </p>
         <div className="stack">
           {locais.map((l) => (
@@ -949,7 +957,39 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
                 ) : (
                   <>
                     <span className="fila-time"><b>{l.nome}</b>{!l.ativo && <span className="muted"> · inativa</span>}</span>
-                    <span className="tiny muted">{plural(usoDoLocal(l.id), 'uso')}</span>
+                    <span className="tiny muted">
+                      {plural(usoDoLocal(l.id), 'uso')}
+                      {' · '}
+                      {arenasAfiliadas(l, locais).length > 0
+                        ? `divide check-in com ${arenasAfiliadas(l, locais).map((a) => a.nome).join(' e ')}`
+                        : 'não divide check-in com outra arena'}
+                    </span>
+                    {podeEditar && (
+                      <span className="tiny">
+                        <span className="muted">Divide com: </span>
+                        <select
+                          className="select"
+                          style={{ width: 'auto', padding: '4px 8px', fontSize: 12, display: 'inline-block' }}
+                          value={arenasAfiliadas(l, locais)[0]?.id ?? ''}
+                          onChange={(e) => {
+                            const outra = locais.find((x) => x.id === e.target.value)
+                            if (!outra) {
+                              saveCheckinLocal({ ...l, afiliacao: null })
+                              return
+                            }
+                            // a afiliacao e um grupo: entra no da outra (ou cria um com as duas)
+                            const grupo = outra.afiliacao || `afiliacao-${outra.id}`
+                            if (!outra.afiliacao) saveCheckinLocal({ ...outra, afiliacao: grupo })
+                            saveCheckinLocal({ ...l, afiliacao: grupo })
+                          }}
+                        >
+                          <option value="">ninguém</option>
+                          {locais.filter((x) => x.id !== l.id).map((x) => (
+                            <option key={x.id} value={x.id}>{x.nome}</option>
+                          ))}
+                        </select>
+                      </span>
+                    )}
                   </>
                 )}
               </div>
@@ -1335,7 +1375,12 @@ function ContasModal({
     }
     const destinoValido = (a: AulaDaConta) => {
       const d = destinoDoExcedente(a.excedente, c, contas.filter((o) => o.ativo), locais)
-      if (d?.tipo === 'local' && (d.local.id === a.local_id || cotaDoPlano(planoEditado, d.local.id) === 0)) return null
+      const origem = locais.find((l) => l.id === a.local_id)
+      if (
+        d?.tipo === 'local' &&
+        (!origem || cotaDoPlano(planoEditado, d.local.id) === 0 || !arenasAfiliadas(origem, locais).some((x) => x.id === d.local.id))
+      )
+        return null
       return d
     }
     for (const a of aulasEditadas) {
@@ -1346,7 +1391,7 @@ function ContasModal({
       if (excesso === 0 || destinoValido(a)) continue
       avisosDoEditor.push(
         cota === 0
-          ? `${planoEditado.nome} não aceita ${local.nome}: os ${excesso} das aulas de lá precisam de outra conta, de outra arena ou ficam em dinheiro.`
+          ? `${planoEditado.nome} não aceita ${local.nome}: os ${excesso} das aulas de lá precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
           : `${a.por_semana} aulas em ${local.nome} cobram ${consumoDasAulas(a.por_semana)} e sobravam ${sobraParaAulas(local.id)}: escolha quem cobre os ${excesso} que passam.`,
       )
     }
@@ -1409,7 +1454,7 @@ function ContasModal({
                       jaUsado.usadosEmPlays > 0 ? `${jaUsado.usadosEmPlays} de play` : '',
                     ].filter(Boolean).join(', ')})`
                   : ''
-                const outrasArenas = locaisAceitos.filter((o) => o.id !== l.id)
+                const outrasArenas = arenasAfiliadas(l, locaisAceitos)
                 const mudar = (k: number) =>
                   setEditando({ ...c, aulas: [...aulasEditadas.filter((a) => a.local_id !== l.id), { local_id: l.id, por_semana: k, excedente: aula?.excedente ?? null }] })
                 const destinar = (para: string | null) =>

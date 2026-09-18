@@ -191,6 +191,12 @@ export type CheckinLocal = {
   ativo: boolean
   /** Ordem de exibicao (a semente usa 1, 2, 3). */
   ordem: number
+  /**
+   * Arenas com a mesma afiliacao se cobrem: o que as aulas cobram alem da
+   * cota numa pode sair da cota da outra, na mesma conta (V3 e Itaparica).
+   * Nulo = a arena nao divide check-in com nenhuma outra (GW).
+   */
+  afiliacao?: string | null
 }
 
 export type TipoDeConta = 'wellhub' | 'totalpass' | 'outro'

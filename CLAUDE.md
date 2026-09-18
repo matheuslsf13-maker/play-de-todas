@@ -189,8 +189,9 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   conta **e por local**, e avisa quando as aulas passam da cota ou o plano não aceita
   a arena. **O que passa da cota tem destino** (`AulaDaConta.excedente`): outra conta
   da menina (o Matheus cobre os 4 das 3 aulas da Beatriz — vira `complemento` na conta
-  dele, naquele local), **outra arena da mesma conta** (`'local:<id>'`: V3 e Itaparica
-  se cobrem — os 4 que não cabem na V3 do Matheus saem da Itaparica dele) ou
+  dele, naquele local), **outra arena da mesma conta** (`'local:<id>'`, só entre arenas
+  com a mesma `checkin_locais.afiliacao`, script 19: V3 e Itaparica se cobrem, a GW não
+  divide com ninguém — os 4 que não cabem na V3 do Matheus saem da Itaparica dele) ou
   `'dinheiro'` (não consome nada); sem destino, aviso. Em cada arena a ordem é:
   complementos recebidos → aulas da própria conta (só o que sobrou) → plays; o
   excedente é calculado em **duas rodadas**, porque o que uma conta cobre das outras

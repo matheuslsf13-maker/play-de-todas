@@ -34,7 +34,10 @@ function read(): AppData {
       closures: parsed.closures ?? [],
       // a semente dos locais so entra quando a chave nunca foi gravada com
       // eles: uma lista esvaziada de proposito continua vazia
-      checkinLocais: parsed.checkinLocais ?? LOCAIS_INICIAIS.map((l) => ({ ...l })),
+      checkinLocais: (parsed.checkinLocais ?? LOCAIS_INICIAIS.map((l) => ({ ...l }))).map((l: CheckinLocal) =>
+        // locais gravados antes da afiliacao existir: os de hoje ganham a deles
+        l.afiliacao === undefined ? { ...l, afiliacao: LOCAIS_INICIAIS.find((x) => x.id === l.id)?.afiliacao ?? null } : l,
+      ),
       checkinContas: parsed.checkinContas ?? [],
       checkinDias: parsed.checkinDias ?? [],
       checkins: parsed.checkins ?? [],
