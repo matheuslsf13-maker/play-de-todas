@@ -193,7 +193,9 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   com a mesma `checkin_locais.afiliacao`, script 19: V3 e Itaparica se cobrem, a GW não
   divide com ninguém — os 4 que não cabem na V3 do Matheus saem da Itaparica dele) ou
   `'dinheiro'` (não consome nada); sem destino, aviso. Em cada arena a ordem é:
-  complementos recebidos → aulas da própria conta (só o que sobrou) → plays; o
+  complementos recebidos → plays já lançados → aulas da própria conta (só o que
+  sobrou; o resto vai para o destino) — assim um play na V3 empurra mais aula para a
+  Itaparica em vez de deixar a V3 negativa; o
   excedente é calculado em **duas rodadas**, porque o que uma conta cobre das outras
   só se sabe depois de olhar todas (`testa_disp.mjs` no scratchpad tem os cenários).
   **E a conta faz um check-in por dia**: somando as arenas, o teto do mês é

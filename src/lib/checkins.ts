@@ -462,6 +462,13 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
   const chave = (c: CheckinConta, l: CheckinLocal) => `${c.id}|${l.id}`
   const somaPorSemana = (c: CheckinConta, l: CheckinLocal) =>
     aulasDaConta(c).filter((a) => a.local_id === l.id).reduce((t, a) => t + a.por_semana, 0)
+  const playsEm = (c: CheckinConta, l: CheckinLocal) =>
+    data.checkins.filter((x) => {
+      if (x.modo !== 'checkin' || !x.compareceu || x.local_id !== l.id) return false
+      const dia = dias.get(x.dia_id)
+      if (!dia || monthOf(dia.date) !== mes) return false
+      return contaDoCheckin(data, x).id === c.id
+    }).length
 
   type Excesso = { quanto: number; destino: DestinoDoExcedente }
   let excessos = new Map<string, Excesso>()
@@ -480,8 +487,11 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
         const porSemana = somaPorSemana(conta, local)
         if (porSemana === 0) continue
         const cota = cotaDoPlano(plano, local.id)
+        // as aulas usam o que sobrou depois do que a conta cobre dos outros E dos
+        // plays ja lancados aqui: com arenas que se cobrem, um play na V3 empurra
+        // mais aula para a Itaparica em vez de deixar a V3 negativa
         const recebido = (anteriores.get(chave(conta, local)) ?? []).reduce((t, r) => t + r.quanto, 0)
-        const sobrava = Math.max(0, cota - recebido)
+        const sobrava = Math.max(0, cota - recebido - playsEm(conta, local))
         const quanto = Math.max(0, consumoDasAulas(porSemana) - sobrava)
         if (quanto === 0) continue
         const escolha = aulasDaConta(conta).find((a) => a.local_id === local.id && a.excedente)?.excedente ?? null
@@ -518,20 +528,15 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
       const recebidos = complementos.get(chave(conta, local)) ?? []
       const complemento = recebidos.reduce((t, r) => t + r.quanto, 0)
       const excesso = excessos.get(chave(conta, local))
-      // as aulas daqui usam o que sobrou depois do que a conta cobre dos outros
-      const consumoAulas = Math.min(consumoBruto, Math.max(0, cota - complemento))
-      const usadosEmPlays = data.checkins.filter((c) => {
-        if (c.modo !== 'checkin' || !c.compareceu || c.local_id !== local.id) return false
-        const dia = dias.get(c.dia_id)
-        if (!dia || monthOf(dia.date) !== mes) return false
-        return contaDoCheckin(data, c).id === conta.id
-      }).length
+      const usadosEmPlays = playsEm(conta, local)
+      // as aulas daqui usam o que sobrou depois do que a conta cobre dos outros e dos plays
+      const consumoAulas = Math.min(consumoBruto, Math.max(0, cota - complemento - usadosEmPlays))
       if (!local.ativo && !aceita && aulasPorSemana === 0 && usadosEmPlays === 0 && complemento === 0) continue
 
       if (excesso && excesso.destino === null) {
         avisos.push(
           aceita
-            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
+            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento - usadosEmPlays)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
             : `${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} das aulas de lá precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`,
         )
       } else if (excesso?.destino?.tipo === 'local') {
@@ -548,7 +553,7 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
       const disponiveis = cota - complemento - consumoAulas - usadosEmPlays
       // play lancado alem do que sobrava: nao bloqueia, mas a organizadora precisa ver
       if (aceita && complemento <= cota && disponiveis < 0) {
-        avisos.push(`${nomeDaConta(conta)} passou ${-disponiveis} check-in${s(-disponiveis)} da cota em ${local.nome} este mês.`)
+        avisos.push(`${nomeDaConta(conta)} passou ${-disponiveis} check-in${s(-disponiveis)} da cota em ${local.nome} este mês (plays além do que sobrava).`)
       }
       usos.push({
         local, aceita, cota, aulasPorSemana, consumoAulas, complemento, complementos: recebidos,

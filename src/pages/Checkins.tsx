@@ -249,9 +249,6 @@ function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
               <strong className={u.disponiveis < 0 ? 'valor-neg' : u.disponiveis === 0 ? 'muted' : undefined} title={detalheDoUso(u)}>
                 {u.disponiveis}/{u.cota}
               </strong>
-              {u.usadosEmPlays > 0 && (
-                <span className="muted" title={detalheDoUso(u)}> ({u.disponiveis + u.usadosEmPlays} − {u.usadosEmPlays} play{u.usadosEmPlays === 1 ? '' : 's'})</span>
-              )}
             </>
           )}
         </span>
@@ -262,14 +259,14 @@ function LivresPorLocal({ uso }: { uso: UsoDaConta }) {
 
 /** "12 − 4 (aulas de outra conta) − 1 (play) = 7": de onde saiu o que sobra. */
 function detalheDoUso(u: UsoNoLocal): string {
+  // na ordem em que a cota e gasta: o que cobre dos outros, os plays lancados, as aulas daqui
   const partes: string[] = []
-  if (u.consumoAulas > 0) partes.push(`${u.consumoAulas} das aulas`)
   for (const r of u.complementos) {
     partes.push(r.deLocal.id !== u.local.id ? `${r.quanto} das aulas na ${nomeCurto(r.deLocal.nome)}` : `${r.quanto} das aulas de outra conta`)
   }
-  const paraPlays = u.disponiveis + u.usadosEmPlays
-  const base = partes.length === 0 ? `${u.cota} para plays` : `${u.cota} − ${partes.join(' − ')} = ${paraPlays} para plays`
-  return u.usadosEmPlays > 0 ? `${base} · ${u.usadosEmPlays} já usado${u.usadosEmPlays === 1 ? '' : 's'} → sobram ${u.disponiveis}` : base
+  if (u.usadosEmPlays > 0) partes.push(`${u.usadosEmPlays} de play${u.usadosEmPlays === 1 ? '' : 's'}`)
+  if (u.consumoAulas > 0) partes.push(`${u.consumoAulas} das aulas`)
+  return partes.length === 0 ? `${u.cota} sem uso` : `${u.cota} − ${partes.join(' − ')} = ${u.disponiveis}`
 }
 
 /** "Arena V3" -> "V3", "Itaparica Beach" -> "Itaparica", "GW Líder" -> "GW". */
@@ -1371,7 +1368,7 @@ function ContasModal({
     const sobraParaAulas = (localId: string) => {
       const cota = cotaDoPlano(planoEditado, localId)
       const ja = usoAtual?.locais.find((x) => x.local.id === localId)
-      return Math.max(0, cota - (ja?.complemento ?? 0))
+      return Math.max(0, cota - (ja?.complemento ?? 0) - (ja?.usadosEmPlays ?? 0))
     }
     const destinoValido = (a: AulaDaConta) => {
       const d = destinoDoExcedente(a.excedente, c, contas.filter((o) => o.ativo), locais)
@@ -1447,7 +1444,7 @@ function ContasModal({
                 const jaUsado = usoAtual?.locais.find((x) => x.local.id === l.id)
                 const excesso = Math.max(0, consumo - sobraParaAulas(l.id))
                 const outros = (jaUsado?.complemento ?? 0) + (jaUsado?.usadosEmPlays ?? 0)
-                const sobra = cota - Math.min(consumo, sobraParaAulas(l.id)) - outros
+                const sobra = sobraParaAulas(l.id) - Math.min(consumo, sobraParaAulas(l.id))
                 const detalhe = jaUsado && outros > 0
                   ? ` (${[
                       ...jaUsado.complementos.map((r) => (r.deLocal.id !== l.id ? `${r.quanto} das aulas na ${nomeCurto(r.deLocal.nome)}` : `${r.quanto} cobrem aulas de outra conta`)),
