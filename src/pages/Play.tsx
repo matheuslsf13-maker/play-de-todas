@@ -2112,6 +2112,10 @@ function PlayDetail({
 
   /** Troca as ocupadas por quem esta livre, mantendo equilibrio e duplas novas. */
   function trocar(m: Match, sai: string, entra: string) {
+    if (ocupadas.has(entra)) {
+      onToast(`${nameOf(entra)} está em quadra agora — espere a partida dela acabar`)
+      return
+    }
     saveMatches([trocarNaPartida(m, sai, entra)])
     const nova = trocarNaPartida(m, sai, entra)
     anotar(
@@ -3419,7 +3423,15 @@ function TrocarJogadoras({
       ) : (
         <div className="stack">
           {candidatas.map((id) => (
-            <button key={id} className="duo-row" onClick={() => onTrocar(sai, id)}>
+            // quem esta em quadra agora nao pode entrar em outra partida: a
+            // linha fica visivel (para se saber onde ela esta), mas nao entra
+            <button
+              key={id}
+              className="duo-row"
+              disabled={jogando.has(id)}
+              title={jogando.has(id) ? `${nameOf(id)} está em quadra agora` : undefined}
+              onClick={() => onTrocar(sai, id)}
+            >
               <Avatar player={playerById(id)} size={38} />
               <span className="grow ellipsis" style={{ fontWeight: 700 }}>
                 {nameOf(id)}

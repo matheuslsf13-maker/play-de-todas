@@ -776,6 +776,9 @@ hr.sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
   cursor: pointer;
 }
 .duo-row:active { background: var(--pink-suave); border-color: var(--pink); }
+/* linha que nao pode ser escolhida agora (menina em quadra, partida presa): apagada, sem toque */
+.duo-row:disabled { opacity: .5; cursor: not-allowed; }
+.duo-row:disabled:active { background: var(--card); border-color: var(--line); }
 .duo-fotos { display: flex; flex: none; }
 .duo-fotos > :last-child { margin-left: -10px; border: 2px solid var(--card); border-radius: 50%; }
 .duo-nomes { display: block; font-weight: 700; font-size: 14px; }
