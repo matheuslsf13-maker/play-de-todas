@@ -377,27 +377,37 @@ function faixasDeStatus(c: CanvasRenderingContext2D, rows: PosterRow[], chao: nu
     return y + 74
   }
 
-  // mais de uma em chamas: uma fileira so de pastilhas, cada uma com o nome --
-  // duas fileiras empurrariam o resto da classificacao para fora da arte
-  const textos = comStatus.map((r) => `${r.statusEmoji ?? '🔥'} ${r.name} · ${r.statusTitle}`)
-  const cabe = (tam: number) => {
+  // cada uma em chamas ganha a pastilha DEBAIXO DO PROPRIO DEGRAU. Uma fileira
+  // unica na ordem 1a-2a-3a ficava desencontrada com o podio, que e 2a-1a-3a:
+  // o nome da campea saia debaixo da vice e vice-versa
+  const degraus = [
+    { i: 0, x: W / 2, largura: 300 },
+    { i: 1, x: 175, largura: 250 },
+    { i: 2, x: 905, largura: 250 },
+  ]
+  for (const d of degraus) {
+    const r = rows[d.i]
+    if (!r?.statusTitle) continue
+    const texto = `${r.statusEmoji ?? '🔥'} ${r.statusTitle}`
+    let tam = d.i === 0 ? 27 : 24
     c.font = `800 ${tam}px system-ui, Segoe UI, Arial, sans-serif`
-    const largs = textos.map((t) => c.measureText(t).width + 44)
-    return { largs, total: largs.reduce((a, b) => a + b, 0) + (textos.length - 1) * 14 }
+    while (c.measureText(texto).width > d.largura - 28 && tam > 15) {
+      c.font = `800 ${--tam}px system-ui, Segoe UI, Arial, sans-serif`
+    }
+    const larg = Math.min(d.largura, c.measureText(texto).width + 36)
+    if (d.i === 0) {
+      const g = c.createLinearGradient(d.x - larg / 2, 0, d.x + larg / 2, 0)
+      g.addColorStop(0, '#ff7a18')
+      g.addColorStop(0.5, PINK)
+      g.addColorStop(1, '#9b2fae')
+      c.fillStyle = g
+    } else {
+      c.fillStyle = 'rgba(255,124,26,.22)'
+    }
+    faixa(c, d.x - larg / 2, y, larg, 52, 26)
+    c.fillStyle = d.i === 0 ? '#fff' : '#ffd9a8'
+    c.fillText(texto, d.x, y + 34)
   }
-  let tam = 25
-  let medida = cabe(tam)
-  while (medida.total > W - 80 && tam > 17) medida = cabe(--tam)
-
-  let x = W / 2 - Math.min(medida.total, W - 40) / 2
-  textos.forEach((t, i) => {
-    const primeira = comStatus[i] === rows[0]
-    c.fillStyle = primeira ? 'rgba(255,124,26,.34)' : 'rgba(255,124,26,.2)'
-    faixa(c, x, y, medida.largs[i], 52, 26)
-    c.fillStyle = primeira ? '#fff' : '#ffd9a8'
-    c.fillText(t, x + medida.largs[i] / 2, y + 34)
-    x += medida.largs[i] + 14
-  })
   return y + 64
 }
 
