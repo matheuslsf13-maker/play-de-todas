@@ -155,6 +155,14 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   ainda desequilibra: o Trocar mostra o mesmo grupo primeiro e avisa nas outras.
   Quando uma troca deixa alguém com 2+ partidas de diferença no grupo, o card das
   quadras mostra o banner **"a fila desandou"** com o Refazer ao lado (`desajuste`).
+- **O play tem diário** (`sessions.eventos`, script 20): cada intervenção na mão —
+  trocar jogadora, entra/sai, refazer a fila, refazer tudo, abrir/tirar quadra — fica
+  anotada com hora, texto pronto e quantas partidas já tinham sido jogadas
+  (`comEvento`/`anotar` em Play.tsx), e sai no card "🛠️ Intervenções nesta noite".
+  Em 21/09 ninguém sabia dizer quando a troca tinha sido feita; agora o banco sabe.
+  E o texto do 🔁 distingue a repetição **do plano** (grupo de 6/7/10/11: "é o que
+  deixa todas com o mesmo número") da que **veio de uma troca na mão** ("não estava no
+  plano… Refazer a fila compensa") — num grupo de 8 nunca há repetição planejada.
 - **O empate no fim é configurável** (`sessions.desempate`, `src/lib/desempate.ts`).
   São **três modos**, e o que muda é o que acontece no `alvo-1`x`alvo-1` (o 3x3):
   `alvo` (quem chegar primeiro leva), `vantagem` (“só vai a 2”, sem teto) e

@@ -42,6 +42,20 @@ export type SessionStatus = 'open' | 'finished'
 export type PlayFormat = 'todas' | 'grupos' | 'grupos-duplas'
 
 /** Um "Play de Todas": um dia de jogos. */
+export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra'
+
+export type EventoDoPlay = {
+  /** Hora da intervencao (ISO). */
+  at: string
+  tipo: TipoDeEvento
+  /** Frase pronta, ja com nomes: "Trocar jogadora na 12ª: Vanessa → Beatriz". */
+  texto: string
+  /** Quantas partidas do play ja estavam jogadas naquele momento. */
+  jogadas: number
+  /** A partida mexida, quando houver (posicao na fila). */
+  round?: number
+}
+
 export type PlaySession = {
   id: string
   date: string // YYYY-MM-DD
@@ -83,6 +97,13 @@ export type PlaySession = {
    * ordem de forca. Nulo enquanto a fase 1 nao terminou.
    */
   duos?: [string, string][] | null
+  /**
+   * O diario das intervencoes feitas na mao durante o play (troca de
+   * jogadora, entra/sai, refazer, quadra a mais...), com hora e quantas
+   * partidas ja tinham sido jogadas. E o que responde "quando isso mudou?"
+   * depois -- o app nao adivinha, ele anota (script 20).
+   */
+  eventos?: EventoDoPlay[] | null
   /**
    * Quantas duplas entram no mata-mata. Padrao 8 (= 16 jogadoras, quartas de
    * final). Com mais gente, as piores colocadas na fase de grupos ficam de

@@ -91,6 +91,7 @@ import { computeStreaks, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/s
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import {
+  type EventoDoPlay,
   dateLabel,
   plural,
   todayISO,
@@ -1095,6 +1096,16 @@ function descreverPodios(tamanhos: number[]): string {
 }
 
 /** Devolve a partida com uma jogadora trocada por outra. */
+/** Duplas que jogam pela 2ª vez numa partida, e se isso era do plano (grupo que nao fecha) ou veio de troca na mao. */
+type Repeticao = { duplas: string[]; planejada: boolean }
+
+/** "21h23", no fuso do aparelho. */
+function horaLocal(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 function trocarNaPartida(m: Match, sai: string, entra: string): Match {
   const troca = (id: string) => (id === sai ? entra : id)
   return {
@@ -1665,20 +1676,29 @@ function PlayDetail({
    */
   const duplasRepetidas = useMemo(() => {
     const vistas = new Map<string, string>() // dupla -> id da primeira partida
-    const porPartida = new Map<string, string[]>() // partida -> duplas que repetem
+    const porPartida = new Map<string, Repeticao>() // partida -> duplas que repetem
+    // o plano so repete dupla quando o grupo nao fecha (6, 7, 10, 11...). Num
+    // grupo de 8 toda repeticao veio de uma troca na mao -- e a explicacao
+    // precisa dizer isso, senao a organizadora le "e o que deixa todas com o
+    // mesmo numero" e conclui que o app quis assim (21/09)
+    const planejadaEm = (id: string) => {
+      const g = grupos?.find((x) => x.includes(id))
+      return repeticoesPorJogadora(g ? g.length : session.player_ids.length) > 0
+    }
     for (const m of matches) {
       for (const d of [m.team_a, m.team_b]) {
         const k = pairKey(d[0], d[1])
         if (vistas.has(k) && vistas.get(k) !== m.id) {
           const nomes = `${nameOf(d[0])} + ${nameOf(d[1])}`
-          porPartida.set(m.id, [...(porPartida.get(m.id) ?? []), nomes])
+          const antes = porPartida.get(m.id)
+          porPartida.set(m.id, { duplas: [...(antes?.duplas ?? []), nomes], planejada: (antes?.planejada ?? true) && planejadaEm(d[0]) })
         } else if (!vistas.has(k)) {
           vistas.set(k, m.id)
         }
       }
     }
     return porPartida
-  }, [matches, nameOf])
+  }, [matches, nameOf, grupos, session.player_ids.length])
 
   function setScore(m: Match, a: number | null, b: number | null, tie?: number | null) {
     // lancar o placar tambem encerra a partida: a quadra fica livre de novo
@@ -1824,7 +1844,8 @@ function PlayDetail({
       round: ultima + i + 1,
     }))
     await replaceSessionMatches(session.id, [...preservadas, ...novas])
-    await saveSession({ ...sessao, rounds: preservadas.length + novas.length })
+    const comRounds = { ...sessao, rounds: preservadas.length + novas.length }
+    await saveSession(silencioso ? comRounds : comEvento(comRounds, 'refazer', `Refazer a fila: ${novas.length} partida${novas.length === 1 ? '' : 's'} refeita${novas.length === 1 ? '' : 's'}`))
     if (!silencioso) {
       onToast(`${novas.length === 1 ? 'uma partida refeita' : `${novas.length} partidas refeitas`} 🔄`)
     }
@@ -1931,7 +1952,9 @@ function PlayDetail({
     const duos = session.duos
       ? session.duos.map((d) => d.map((id) => (id === sai && entra ? entra : id)) as [string, string])
       : session.duos
-    const nova: PlaySession = { ...session, player_ids, groups, duos }
+    const quem = sai && entra ? `${nameOf(sai)} saiu, ${nomeDeQuemEntra} entrou` : sai ? `${nameOf(sai)} saiu` : `${nomeDeQuemEntra} entrou`
+    const como = onde === 'lugar' ? 'no lugar dela' : onde === 'grupo' ? `no grupo ${grupo + 1}, fila refeita` : 'encaixe automático, fila refeita'
+    const nova: PlaySession = comEvento({ ...session, player_ids, groups, duos }, 'entra-sai', `Entra / sai: ${quem} (${como})`)
 
     if (onde === 'lugar' && sai && entra) {
       const trocadas = matches
@@ -1958,7 +1981,7 @@ function PlayDetail({
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
     })
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
-    await saveSession({ ...session, rounds: fila.length })
+    await saveSession(comEvento({ ...session, rounds: fila.length }, 'refazer-tudo', `Refazer tudo: ${fila.length} partidas novas`))
     onToast('Novas duplas geradas 🔄')
   }
 
@@ -2067,9 +2090,35 @@ function PlayDetail({
     onToast('Play finalizado! Pontos somados ao ranking do mês 🏆')
   }
 
+  /**
+   * O DIARIO DO PLAY: cada intervencao na mao fica anotada na sessao, com hora
+   * e quantas partidas ja tinham acontecido. Em 21/09 uma troca de jogadora
+   * deixou uma dupla repetida no fim da noite e ninguem sabia dizer quando a
+   * troca tinha sido feita -- o app nao guardava. Agora guarda.
+   */
+  function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string, round?: number): PlaySession {
+    const evento: EventoDoPlay = {
+      at: new Date().toISOString(),
+      tipo,
+      texto,
+      jogadas: matches.filter((m) => isPlayed(m)).length,
+      ...(round !== undefined ? { round } : {}),
+    }
+    return { ...sessao, eventos: [...(sessao.eventos ?? []), evento] }
+  }
+  function anotar(tipo: EventoDoPlay['tipo'], texto: string, round?: number) {
+    saveSession(comEvento(session, tipo, texto, round))
+  }
+
   /** Troca as ocupadas por quem esta livre, mantendo equilibrio e duplas novas. */
   function trocar(m: Match, sai: string, entra: string) {
     saveMatches([trocarNaPartida(m, sai, entra)])
+    const nova = trocarNaPartida(m, sai, entra)
+    anotar(
+      'troca',
+      `Trocar jogadora na ${m.round}ª: ${nameOf(sai)} → ${nameOf(entra)} (${nameOf(nova.team_a[0])} + ${nameOf(nova.team_a[1])} × ${nameOf(nova.team_b[0])} + ${nameOf(nova.team_b[1])})`,
+      m.round,
+    )
   }
 
   const editable = canEdit && !finished
@@ -2206,7 +2255,7 @@ function PlayDetail({
                       onToast(`A quadra ${session.courts} está em jogo — lance o placar antes de tirá-la`)
                       return
                     }
-                    saveSession({ ...session, courts: session.courts - 1 })
+                    saveSession(comEvento({ ...session, courts: session.courts - 1 }, 'quadra', `Quadra ${session.courts} tirada`))
                     onToast(`Agora são ${session.courts - 1} quadra${session.courts - 1 === 1 ? '' : 's'}`)
                   }}
                 >
@@ -2217,7 +2266,7 @@ function PlayDetail({
                 className="btn ghost sm"
                 title="Abriu mais uma quadra"
                 onClick={() => {
-                  saveSession({ ...session, courts: session.courts + 1 })
+                  saveSession(comEvento({ ...session, courts: session.courts + 1 }, 'quadra', `Quadra ${session.courts + 1} aberta`))
                   onToast(`Quadra ${session.courts + 1} aberta: já sugeri a próxima partida`)
                 }}
               >
@@ -2341,6 +2390,33 @@ function PlayDetail({
         editable={editable}
         onCorrigir={(m) => setCorrigindo(m)}
       />
+
+      {(session.eventos?.length ?? 0) > 0 && (
+        <div className="card">
+          <div className="section-title">🛠️ Intervenções nesta noite ({session.eventos?.length})</div>
+          <p className="tiny muted" style={{ margin: '0 0 8px' }}>
+            Tudo que foi feito na mão, com a hora e quantas partidas já tinham sido jogadas. É por aqui que se
+            descobre depois por que uma dupla repetiu ou alguém ficou com uma partida a menos.
+          </p>
+          <div className="stack" style={{ gap: 6 }}>
+            {[...(session.eventos ?? [])].reverse().map((e, i) => (
+              <div key={`${e.at}-${i}`} className="fila-linha">
+                <span className="fila-num">{horaLocal(e.at)}</span>
+                <div className="grow">
+                  <span className="fila-time">
+                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : '♻️'} {e.texto}
+                  </span>
+                  <span className="tiny muted">
+                    {e.jogadas === 0
+                      ? 'antes da primeira partida'
+                      : `com ${plural(e.jogadas, 'partida')} já jogada${e.jogadas === 1 ? '' : 's'}`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {editable && faltaFase && (
         <div className="card" style={{ borderColor: 'var(--marca)' }}>
@@ -3039,7 +3115,7 @@ function ListaDePartidas({
   jogos?: Map<string, number>
   grupoDe: Map<string, number>
   totalGrupos: number
-  repetidas: Map<string, string[]>
+  repetidas: Map<string, Repeticao>
   emQuadra: Set<string>
   /** A regra do empate de cada partida, para escrever o placar do tie. */
   desempateDe?: (m: Match) => Regra
@@ -3112,9 +3188,11 @@ function ListaDePartidas({
                   )}
                   {repetidas.has(m.id) && (
                     <span className="tiny muted">
-                      🔁 {(repetidas.get(m.id) as string[]).join(' e ')}{' '}
-                      {(repetidas.get(m.id) as string[]).length > 1 ? 'jogam' : 'joga'} pela 2ª vez
-                      — é o que deixa todas com o mesmo número de partidas
+                      🔁 {(repetidas.get(m.id) as Repeticao).duplas.join(' e ')}{' '}
+                      {(repetidas.get(m.id) as Repeticao).duplas.length > 1 ? 'jogam' : 'joga'} pela 2ª vez
+                      {(repetidas.get(m.id) as Repeticao).planejada
+                        ? ' — é o que deixa todas com o mesmo número de partidas'
+                        : ' — não estava no plano: veio de uma troca na mão. Refazer a fila compensa.'}
                     </span>
                   )}
                   {novatas.length > 0 && (
