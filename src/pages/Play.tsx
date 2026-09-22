@@ -2158,9 +2158,35 @@ function PlayDetail({
         <div className="row spread" style={{ alignItems: 'baseline' }}>
           <div className="section-title">🏐 Quadras agora</div>
           {editable && !finished && (
-            <button className="btn ghost sm" onClick={() => setMarcandoAusentes(true)}>
-              ⏳ Quem não chegou{ausentes.size > 0 ? ` (${ausentes.size})` : ''}
-            </button>
+            <div className="row" style={{ gap: 6 }}>
+              {/* uma quadra vagou no meio da noite: entra na hora e ja puxa a proxima
+                  da fila. Tirar so a ultima, e so vazia, para nao sumir com jogo em andamento */}
+              {session.courts > 1 && !emQuadra.has(session.courts) && (
+                <button
+                  className="btn ghost sm"
+                  title="Tirar a última quadra"
+                  onClick={() => {
+                    saveSession({ ...session, courts: session.courts - 1 })
+                    onToast(`Agora são ${session.courts - 1} quadra${session.courts - 1 === 1 ? '' : 's'}`)
+                  }}
+                >
+                  ➖ quadra
+                </button>
+              )}
+              <button
+                className="btn ghost sm"
+                title="Abriu mais uma quadra"
+                onClick={() => {
+                  saveSession({ ...session, courts: session.courts + 1 })
+                  onToast(`Quadra ${session.courts + 1} aberta: já sugeri a próxima partida`)
+                }}
+              >
+                ➕ quadra
+              </button>
+              <button className="btn ghost sm" onClick={() => setMarcandoAusentes(true)}>
+                ⏳ Quem não chegou{ausentes.size > 0 ? ` (${ausentes.size})` : ''}
+              </button>
+            </div>
           )}
         </div>
         {ausentes.size > 0 && (

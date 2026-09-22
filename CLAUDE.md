@@ -228,6 +228,9 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   fila deixa as partidas dela **para o fim**. Desmarcou, ela entra na frente: é quem
   está há mais tempo sem jogar. Fica só no aparelho (`CHAVE.ausentes`), como a hora
   de início. Se ela **não vem**, o caminho é o Entra / sai, não este.
+- **Quadra a mais no meio do play** ("➕ quadra" no card das quadras): só muda
+  `sessions.courts`; a quadra nova aparece livre e já puxa a próxima da fila. Tirar
+  só a última, e só vazia — reduzir com jogo em andamento sumiria com ele da tela.
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
   quadra parada e a troca de jogadoras.
