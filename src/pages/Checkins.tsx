@@ -363,6 +363,13 @@ function SecaoAtletas({
           {lista.map((p) => {
             const disp = disponibilidade(data, p.id, mes)
             const saldo = saldoDaAtleta(data, p.id)
+            // a menina ve so o que interessa a ela: onde ainda tem check-in e quais ja fez.
+            // A logistica (contas, planos, aulas, quem cobre quem) fica em "contas", para quem organiza
+            const arenas = disp.porLocal.filter((l) => l.aceita)
+            const feitos = data.checkins
+              .filter((c) => c.player_id === p.id && c.modo === 'checkin' && c.compareceu && idsDosDias.has(c.dia_id))
+              .map((c) => ({ c, dia: dias.find((d) => d.id === c.dia_id)! }))
+              .sort((a, b) => a.dia.date.localeCompare(b.dia.date))
             return (
               <div key={p.id} className="atleta-linha" style={{ opacity: p.active ? 1 : 0.55 }}>
                 <div className="row" style={{ alignItems: 'flex-start' }}>
@@ -379,31 +386,26 @@ function SecaoAtletas({
                         </button>
                       )}
                     </div>
-                    <div className="tiny" style={{ marginTop: 2 }}>
-                      🎟️ <span className="muted">livres para o play em {nomeDoMes(mes)}:</span>{' '}
-                      {disp.porLocal.map((l, i) => (
-                        <span key={l.local.id}>
-                          {i > 0 && <span className="muted"> · </span>}
-                          {nomeCurto(l.local.nome)} <strong className={l.disponiveis === 0 ? 'valor-neg' : undefined}>{l.aceita ? l.disponiveis : '—'}</strong>
-                        </span>
-                      ))}
-                      {disp.contas.length > 1 && <span className="muted"> · {plural(disp.contas.length, 'conta')}</span>}
+                    <div className="chips-scroll" style={{ marginTop: 6, padding: 0 }}>
+                      {arenas.length === 0 ? (
+                        <span className="tiny muted">sem check-in disponível em {nomeDoMes(mes)}</span>
+                      ) : (
+                        arenas.map((l) => (
+                          <span key={l.local.id} className={`chip disponivel ${l.disponiveis <= 0 ? 'zerado' : ''}`} title={`check-ins livres para o play em ${l.local.nome}`}>
+                            <strong>{l.disponiveis}</strong> {nomeCurto(l.local.nome)}
+                          </span>
+                        ))
+                      )}
                     </div>
-                    {disp.contas.map((u) => (
-                      <div key={u.conta.id} className="tiny muted" style={{ marginTop: 2 }}>
-                        {nomeDoTitular(u.conta, nameOf(p.id))} · {u.plano.nome}
-                        {aulasDaConta(u.conta).length > 0 && ` · aulas ${textoDasAulas(data, u.conta, u)}`}
-                        {u.notas.map((t) => <span key={t}> · {t}</span>)}
-                        <br />
-                        <LivresPorLocal uso={u} />
-                        <span className="muted"> · mês {u.usadosNoMes}/{u.tetoDoMes}</span>
-                      </div>
-                    ))}
-                    {disp.avisos.map((a) => (
+                    <div className="tiny muted" style={{ marginTop: 4 }}>
+                      {feitos.length === 0
+                        ? `nenhum check-in em ${nomeDoMes(mes)}`
+                        : <>✅ {feitos.map((f) => `${dateLabel(f.dia.date).slice(0, 5)} ${nomeCurto(data.checkinLocais.find((l) => l.id === f.c.local_id)?.nome ?? '')}`).join(' · ')}</>}
+                    </div>
+                    {podeEditar && disp.avisos.map((a) => (
                       <span key={a} className="hint aviso">⚠️ {a}</span>
                     ))}
                     <div className="tiny muted acoes-atleta">
-                      {saldo.lancamentos > 0 && <span>{plural(saldo.lancamentos, 'lançamento')}</span>}
                       <button className="linkish" onClick={() => onContas(p, 'contas')}>
                         {podeEditar ? 'contas' : 'ver contas'}
                       </button>

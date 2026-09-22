@@ -1297,3 +1297,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 /* a lista de dias: a linha inteira e o botao que abre o dia */
 .dia-linha { display: block; }
 .dia-linha.on { border-color: var(--pink); background: var(--pink-suave); }
+/* o que a menina ve nos check-ins: quantos sobram em cada arena, grande e pronto */
+.chip.disponivel { cursor: default; background: var(--teal-suave); border-color: transparent; color: var(--teal); padding: 5px 11px; }
+.chip.disponivel strong { font-size: 15px; }
+.chip.disponivel.zerado { background: var(--card-2); color: var(--muted); }
