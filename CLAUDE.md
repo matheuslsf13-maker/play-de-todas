@@ -142,14 +142,19 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   admitem sempre. Medido em 30 noites sem intervenção: 6, 7, 8, 9 numa quadra e
   6+7 em duas → **máximo 2 em todas**; 7+7 em duas → 3 em 6 de 30. Antes, 6+7 tinha
   alguém emendando 3 em 29 de 30 noites (e 4 em uma).
-- **Refazer a fila nunca some com uma dupla e completa até o plano, nunca além**:
-  a dupla que sobra sem adversária joga contra qualquer dupla livre do grupo
-  (marcada 🔁); depois, enquanto houver **quatro abaixo de `jogosDoRodizio`**, entra
-  uma partida com as quatro que menos jogaram — o teto é o do plano, então a noite
-  **nunca fica maior** do que nasceu. Medido: 7 com troca na 6ª → 14 partidas, 8 cada
-  (era 11, de 6 a 7). Em 14/09 o refazer tinha deixado Izabelle + Karla sem jogar e o
-  grupo de 6 a 8. Troca **entre grupos** ainda desequilibra (quem entra fica com uma a
-  mais no grupo dela): o Trocar mostra o mesmo grupo primeiro e avisa nas outras.
+- **Refazer a fila respeita o teto do plano em tudo**: uma dupla que falta só entra
+  se as **duas ainda têm vaga** (`resta > 0`); quem passou do plano por uma troca na
+  mão não entra em partida nova. A dupla que sobra sem adversária joga contra uma
+  rival do grupo com vaga (marcada 🔁; sem ninguém com vaga, uma rival no teto entra
+  de novo — a dupla que falta vale mais que a partida a mais); depois, enquanto
+  houver **quatro abaixo de `jogosDoRodizio`**, entra uma partida com as quatro que
+  menos jogaram. A noite **nunca fica maior** do que nasceu. Medido: 7 com troca na
+  6ª → 14 partidas, 8 cada; 21/09 (Beatriz no lugar da Vanessa na 12ª) → 14, 7 cada,
+  Vanessa + Maria Paula formada — o refazer antigo dava 15, com Maria Paula em 9. Em
+  14/09 o refazer tinha deixado Izabelle + Karla sem jogar. Troca **entre grupos**
+  ainda desequilibra: o Trocar mostra o mesmo grupo primeiro e avisa nas outras.
+  Quando uma troca deixa alguém com 2+ partidas de diferença no grupo, o card das
+  quadras mostra o banner **"a fila desandou"** com o Refazer ao lado (`desajuste`).
 - **O empate no fim é configurável** (`sessions.desempate`, `src/lib/desempate.ts`).
   São **três modos**, e o que muda é o que acontece no `alvo-1`x`alvo-1` (o 3x3):
   `alvo` (quem chegar primeiro leva), `vantagem` (“só vai a 2”, sem teto) e

@@ -1146,85 +1146,123 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
   if (opts.history) for (const [k, v] of opts.history.opponent) antes.set(k, v * hw)
 
   const dia: Confrontos = new Map()
-  const feitas = new Set<string>()
-  for (const m of opts.jogadas) {
-    marcarConfronto(m.team_a, m.team_b, dia)
-    feitas.add(pairKey(m.team_a[0], m.team_a[1]))
-    feitas.add(pairKey(m.team_b[0], m.team_b[1]))
-  }
+  for (const m of opts.jogadas) marcarConfronto(m.team_a, m.team_b, dia)
 
   const grupos = opts.groups?.length ? opts.groups : [opts.playerIds]
   const todas: PlannedMatch[] = []
   grupos.forEach((ids, gi) => {
+    if (ids.length < 4) return
+    const ctx: Contexto = { ratings: opts.ratings, entrosamento: opts.entrosamento, antes, dia }
+    const partidas: Partida[] = []
+    const noGrupo = new Set(ids)
+
+    // o que ja aconteceu hoje neste grupo: jogos de cada uma e vezes de cada dupla
+    const jogosHoje = new Map<string, number>()
+    const vezesJuntas = new Map<string, number>()
+    for (const m of opts.jogadas) {
+      if (!noGrupo.has(m.team_a[0])) continue
+      for (const id of jogadorasDaPartida(m)) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
+      for (const t of [m.team_a, m.team_b]) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
+    }
+    const totalDe = (id: string) => (jogosHoje.get(id) ?? 0) + partidas.filter((m) => jogadorasDaPartida(m).includes(id)).length
+    /*
+     * O TETO E O DO PLANO. Cada uma joga `jogosDoRodizio` vezes; quem passou
+     * disso por uma troca na mao fica onde esta e nao entra em mais nenhuma
+     * partida nova -- em 21/09 a Beatriz entrou no lugar da Vanessa numa
+     * partida, e o refazer antigo ainda a escalava para a dupla que "faltava"
+     * com a Lorena: ela fechou com 8, a Vanessa com 6 e a Maria Paula com 9.
+     */
+    const alvo = jogosDoRodizio(ids.length)
+    const resta = (id: string) => alvo - totalDe(id)
+    const registrar = (a: Duo, b: Duo, repetida: boolean) => {
+      partidas.push({ team_a: a, team_b: b, repetida })
+      marcarConfronto(a, b, ctx.dia)
+      for (const t of [a, b]) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
+    }
+
+    // as duplas que ainda nao se formaram hoje
     const faltando: Duo[] = []
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
-        if (!feitas.has(pairKey(ids[i], ids[j]))) faltando.push([ids[i], ids[j]])
+        if (!vezesJuntas.has(pairKey(ids[i], ids[j]))) faltando.push([ids[i], ids[j]])
       }
     }
-    if (faltando.length === 0) return
-    const ctx: Contexto = { ratings: opts.ratings, entrosamento: opts.entrosamento, antes, dia }
-    const { partidas, orfas } = emparelhar(shuffle(faltando), ctx)
+    // uma dupla so entra se as DUAS ainda tem vaga no plano
+    const cabe = (d: Duo) => resta(d[0]) > 0 && resta(d[1]) > 0
+    const tirar = (d: Duo) => {
+      const i = faltando.indexOf(d)
+      if (i >= 0) faltando.splice(i, 1)
+    }
     /*
-     * Dupla que sobrou sem adversaria NUNCA e descartada: e uma dupla que
-     * ainda nao aconteceu hoje, e sumir com ela deixa duas pessoas sem jogar
-     * juntas (foi o que aconteceu com Izabelle + Karla em 14/09). Se nenhuma
-     * dupla das partidas novas serve de rival, vale QUALQUER dupla do grupo que
-     * nao divida jogadora com ela -- uma dupla que ja jogou hoje joga de novo,
-     * marcada como repetida. E entre as rivais possiveis, quem jogou MENOS hoje
-     * vem primeiro: no meio da noite os numeros ja estao desiguais, e a partida
-     * extra deve ir para quem esta atras.
+     * A rival de uma dupla que sobrou: qualquer par do grupo que nao divida
+     * jogadora com ela. Primeiro quem ainda tem vaga; se ninguem tem, uma dupla
+     * ja no teto entra de novo (a dupla que falta vale mais que a partida a
+     * mais), mas so quando a propria dupla que sobrou ainda cabe. Entre as
+     * rivais possiveis, a que nunca jogou junta hoje e a que menos jogou.
      */
-    const jogosHoje = new Map<string, number>()
-    for (const m of opts.jogadas) for (const id of jogadorasDaPartida(m)) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
-    for (const orfa of orfas) {
-      let rival = escolherRival(partidas, orfa, ctx, jogosHoje)
-      if (!rival) {
-        const livres = ids.filter((id) => !orfa.includes(id))
-        let melhorCusto = Infinity
-        for (let i = 0; i < livres.length; i++) {
-          for (let j = i + 1; j < livres.length; j++) {
-            const d: Duo = [livres[i], livres[j]]
-            const c =
-              custoDoConfronto(d, orfa, ctx) +
-              W_REPETIDA * ((jogosHoje.get(d[0]) ?? 0) + (jogosHoje.get(d[1]) ?? 0))
-            if (c < melhorCusto) {
-              melhorCusto = c
-              rival = d
-            }
+    const melhorRival = (orfa: Duo, exigirVaga: boolean): Duo | null => {
+      let melhor: Duo | null = null
+      let melhorCusto = Infinity
+      const livres = ids.filter((id) => !orfa.includes(id) && (!exigirVaga || resta(id) > 0))
+      for (let i = 0; i < livres.length; i++) {
+        for (let j = i + 1; j < livres.length; j++) {
+          const d: Duo = [livres[i], livres[j]]
+          const c =
+            custoDoConfronto(d, orfa, ctx) +
+            W_REPETIDA * (vezesJuntas.get(pairKey(d[0], d[1])) ?? 0) +
+            W_BALANCE * (totalDe(d[0]) + totalDe(d[1]))
+          if (c < melhorCusto) {
+            melhorCusto = c
+            melhor = d
           }
         }
       }
-      if (!rival) continue // grupo com menos de 4: nao ha como
-      partidas.push({ team_a: orfa, team_b: rival, repetida: true })
-      marcarConfronto(orfa, rival, ctx.dia)
-      for (const id of rival) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
+      return melhor
     }
+
+    // 1. duplas que faltam, duas a duas: a mais presa (com menos rivais viaveis) primeiro
+    for (let volta = 0; volta < ids.length * ids.length; volta++) {
+      const viaveis = faltando.filter(cabe)
+      if (viaveis.length === 0) break
+      const graus = viaveis.map((d) => viaveis.filter((o) => o !== d && disjuntas(d, o)).length)
+      const iPresa = graus.indexOf(Math.min(...graus))
+      const a = viaveis[iPresa]
+      if (graus[iPresa] === 0) {
+        // nao combina com nenhuma outra que falta: joga contra uma rival do grupo
+        const rival = melhorRival(a, true) ?? melhorRival(a, false)
+        tirar(a)
+        if (rival) registrar(a, rival, (vezesJuntas.get(pairKey(rival[0], rival[1])) ?? 0) > 0)
+        continue
+      }
+      let b: Duo | null = null
+      let melhorC = Infinity
+      for (const o of viaveis) {
+        if (o === a || !disjuntas(a, o)) continue
+        const c = custoDoConfronto(a, o, ctx)
+        if (c < melhorC) {
+          melhorC = c
+          b = o
+        }
+      }
+      if (!b) break
+      tirar(a)
+      tirar(b)
+      registrar(a, b, false)
+    }
+    // o que sobrou em `faltando` sao duplas em que alguem ja esta no teto: ficam
+    // de fora de proposito -- formar a dupla custaria a noite maior para duas
+
     /*
      * TODAS JOGAM O MESMO TANTO, mesmo depois de refazer -- e o MESMO TANTO
-     * DO PLANO.
-     *
-     * Cobrir as duplas que faltavam usa o minimo de partidas, e isso deixava a
-     * noite mais curta para todo mundo (11 partidas onde o plano tinha 14) e
-     * quem entrou tarde uma ou duas atras. Entao o refazer completa: enquanto
-     * alguem estiver abaixo do que o rodizio do grupo daria (`jogosDoRodizio`)
-     * e houver quatro nessa situacao, entra uma partida com as quatro que menos
-     * jogaram -- duplas que ja se formaram hoje, marcadas como repetidas, na
-     * divisao que menos repete e mais equilibra. Quando nao da para fechar
-     * exato (sobram tres abaixo), o teto passa a ser a diferenca de 1.
+     * DO PLANO. Cobrir as duplas que faltavam usa o minimo de partidas; entao,
+     * enquanto houver quatro abaixo do plano, entra uma partida com as quatro
+     * que menos jogaram -- duplas que ja se formaram hoje, marcadas como
+     * repetidas, na divisao que menos repete e mais equilibra. Quando nao da
+     * para fechar exato (sobram tres abaixo), o teto passa a ser a diferenca de 1.
      */
-    const totalDe = (id: string) => (jogosHoje.get(id) ?? 0) + partidas.filter((m) => jogadorasDaPartida(m).includes(id)).length
-    const vezesJuntas = new Map<string, number>()
-    for (const m of [...opts.jogadas, ...partidas]) {
-      for (const t of [m.team_a, m.team_b]) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
-    }
-    // o teto e o do plano: o refazer nunca deixa a noite maior do que ela
-    // nasceu. Quem passou do plano por uma troca na mao fica onde esta; as
-    // outras sobem ate o plano, nunca alem
-    const alvo = jogosDoRodizio(ids.length)
     for (let volta = 0; volta < ids.length * 2; volta++) {
-      const abaixoDoAlvo = ids.filter((id) => totalDe(id) < alvo)
-      if (ids.length < 4 || abaixoDoAlvo.length < 4) break
+      const abaixoDoAlvo = ids.filter((id) => resta(id) > 0)
+      if (abaixoDoAlvo.length < 4) break
       const quatro = [...abaixoDoAlvo].sort((a, b) => totalDe(a) - totalDe(b)).slice(0, 4)
       const divisoes: [Duo, Duo][] = [
         [[quatro[0], quatro[1]], [quatro[2], quatro[3]]],
@@ -1241,9 +1279,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
           melhor = [a, b]
         }
       }
-      partidas.push({ team_a: melhor[0], team_b: melhor[1], repetida: true })
-      marcarConfronto(melhor[0], melhor[1], ctx.dia)
-      for (const t of melhor) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
+      registrar(melhor[0], melhor[1], true)
     }
     melhorarConfrontos(partidas, ctx)
     for (const p of partidas) todas.push({ ...p, grupo: gi })

@@ -1360,6 +1360,40 @@ function PlayDetail({
     return map
   }, [grupos])
 
+  /**
+   * O plano desandou? Uma troca feita na mao ("Trocar jogadora") muda so aquela
+   * partida: quem entrou fica com uma a mais, quem saiu com uma a menos, e a
+   * dupla que ela formou pode ja estar marcada para mais tarde -- foi assim
+   * que em 21/09 Beatriz + Maria Paula jogaram duas vezes enquanto Vanessa +
+   * Maria Paula nunca. O app nao refaz sozinho (a organizadora pode ter
+   * motivo), mas aponta o desajuste e oferece o Refazer na mesma linha.
+   */
+  const desajuste = useMemo(() => {
+    if (finished) return null
+    if (!matches.some((m) => m.score_a === null || m.score_b === null)) return null
+    const gruposDoPlano: string[][] = grupos && grupos.length > 1 ? grupos : [session.player_ids]
+    const avisos: string[] = []
+    for (const g of gruposDoPlano) {
+      const doGrupo = new Set(g)
+      const daqui = matches.filter((m) => doGrupo.has(m.team_a[0]) && (m.fase ?? 1) < 2)
+      if (daqui.length === 0) continue
+      // partidas por menina, jogadas + marcadas: o plano da o mesmo numero para todas
+      const jogos = new Map<string, number>(g.map((id) => [id, 0]))
+      for (const m of daqui) for (const id of [...m.team_a, ...m.team_b]) if (jogos.has(id)) jogos.set(id, (jogos.get(id) ?? 0) + 1)
+      const valores = [...jogos.entries()]
+      const max = Math.max(...valores.map(([, v]) => v))
+      const min = Math.min(...valores.map(([, v]) => v))
+      if (max - min >= 2) {
+        const mais = valores.filter(([, v]) => v === max).map(([id]) => nameOf(id)).join(', ')
+        const menos = valores.filter(([, v]) => v === min).map(([id]) => nameOf(id)).join(', ')
+        avisos.push(`${mais} fica com ${max} partidas e ${menos} com ${min}.`)
+      }
+      // (dupla repetida enquanto outra nunca se formou nao entra aqui: depois de uma
+      // troca pode ser inevitavel, e o aviso ficaria aceso para sempre)
+    }
+    return avisos.length > 0 ? avisos : null
+  }, [matches, finished, grupos, session.player_ids, nameOf])
+
   // sequencias que avancaram neste play (so existe depois de finalizado);
   // da maior para a menor, porque a maior e o destaque do texto e do banner
   const passos = useMemo(
@@ -2189,6 +2223,15 @@ function PlayDetail({
             </div>
           )}
         </div>
+        {editable && desajuste && (
+          <div className="banner warn row spread" style={{ marginBottom: 10, gap: 10 }}>
+            <span className="grow">
+              ⚖️ <strong>A fila desandou depois de uma troca:</strong> {desajuste.join(' ')}{' '}
+              O Refazer a fila troca só as partidas que faltam para compensar.
+            </span>
+            <button className="btn pink sm nowrap" onClick={() => void regenerarPendentes()}>🔄 Refazer a fila</button>
+          </div>
+        )}
         {ausentes.size > 0 && (
           <div className="banner warn" style={{ marginBottom: 10 }}>
             ⏳ <strong>Ainda não {ausentes.size === 1 ? 'chegou' : 'chegaram'}:</strong>{' '}
