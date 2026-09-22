@@ -2195,11 +2195,17 @@ function PlayDetail({
             <div className="row" style={{ gap: 6 }}>
               {/* uma quadra vagou no meio da noite: entra na hora e ja puxa a proxima
                   da fila. Tirar so a ultima, e so vazia, para nao sumir com jogo em andamento */}
-              {session.courts > 1 && !emQuadra.has(session.courts) && (
+              {session.courts > 1 && (
                 <button
                   className="btn ghost sm"
-                  title="Tirar a última quadra"
+                  disabled={emQuadra.has(session.courts)}
+                  title={emQuadra.has(session.courts) ? `A quadra ${session.courts} está em jogo: lance o placar antes de tirá-la` : 'Tirar a última quadra'}
                   onClick={() => {
+                    // conferido de novo aqui: a tela pode estar um passo atrasada em relacao ao banco
+                    if (emQuadra.has(session.courts)) {
+                      onToast(`A quadra ${session.courts} está em jogo — lance o placar antes de tirá-la`)
+                      return
+                    }
                     saveSession({ ...session, courts: session.courts - 1 })
                     onToast(`Agora são ${session.courts - 1} quadra${session.courts - 1 === 1 ? '' : 's'}`)
                   }}
