@@ -41,7 +41,6 @@ export type SessionStatus = 'open' | 'finished'
  */
 export type PlayFormat = 'todas' | 'grupos' | 'grupos-duplas'
 
-/** Um "Play de Todas": um dia de jogos. */
 export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra'
 
 export type EventoDoPlay = {
@@ -54,8 +53,11 @@ export type EventoDoPlay = {
   jogadas: number
   /** A partida mexida, quando houver (posicao na fila). */
   round?: number
+  /** Na troca: quem entrou (so as duplas dela mudam -- e o que separa a repeticao da troca da do plano). */
+  entra?: string
 }
 
+/** Um "Play de Todas": um dia de jogos. */
 export type PlaySession = {
   id: string
   date: string // YYYY-MM-DD

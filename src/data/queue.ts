@@ -10,6 +10,7 @@ import type {
   LancamentoDeCaixa,
   Match,
   MonthClosure,
+  EventoDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -23,6 +24,7 @@ export type WriteOp =
   | { id: string; type: 'savePlayer'; player: Player }
   | { id: string; type: 'deletePlayer'; playerId: string }
   | { id: string; type: 'saveSession'; session: PlaySession }
+  | { id: string; type: 'anotarNoPlay'; sessionId: string; evento: EventoDoPlay }
   | { id: string; type: 'deleteSession'; sessionId: string }
   | { id: string; type: 'saveMatches'; matches: Match[] }
   | { id: string; type: 'replaceSessionMatches'; sessionId: string; matches: Match[] }

@@ -1154,17 +1154,19 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
     if (ids.length < 4) return
     const ctx: Contexto = { ratings: opts.ratings, entrosamento: opts.entrosamento, antes, dia }
     const partidas: Partida[] = []
-    const noGrupo = new Set(ids)
 
-    // o que ja aconteceu hoje neste grupo: jogos de cada uma e vezes de cada dupla
-    const jogosHoje = new Map<string, number>()
+    // o que ja aconteceu hoje: jogos de cada uma e vezes de cada dupla. Conta
+    // TODAS as jogadas, nao so as "do grupo" pela primeira jogadora: a partida
+    // de quem ja saiu do play (ou de uma troca entre grupos) tambem aconteceu
+    // para as outras tres
+    const jogos = new Map<string, number>()
     const vezesJuntas = new Map<string, number>()
     for (const m of opts.jogadas) {
-      if (!noGrupo.has(m.team_a[0])) continue
-      for (const id of jogadorasDaPartida(m)) jogosHoje.set(id, (jogosHoje.get(id) ?? 0) + 1)
+      for (const id of jogadorasDaPartida(m)) jogos.set(id, (jogos.get(id) ?? 0) + 1)
       for (const t of [m.team_a, m.team_b]) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
     }
-    const totalDe = (id: string) => (jogosHoje.get(id) ?? 0) + partidas.filter((m) => jogadorasDaPartida(m).includes(id)).length
+    // jogadas + novas, atualizado por `registrar`
+    const totalDe = (id: string) => jogos.get(id) ?? 0
     /*
      * O TETO E O DO PLANO. Cada uma joga `jogosDoRodizio` vezes; quem passou
      * disso por uma troca na mao fica onde esta e nao entra em mais nenhuma
@@ -1177,6 +1179,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
     const registrar = (a: Duo, b: Duo, repetida: boolean) => {
       partidas.push({ team_a: a, team_b: b, repetida })
       marcarConfronto(a, b, ctx.dia)
+      for (const id of [...a, ...b]) jogos.set(id, (jogos.get(id) ?? 0) + 1)
       for (const t of [a, b]) vezesJuntas.set(pairKey(t[0], t[1]), (vezesJuntas.get(pairKey(t[0], t[1])) ?? 0) + 1)
     }
 

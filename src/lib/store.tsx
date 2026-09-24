@@ -16,6 +16,7 @@ import type {
   LancamentoDeCaixa,
   Match,
   MonthClosure,
+  EventoDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -38,6 +39,7 @@ type Ctx = {
   savePlayer: (p: Player) => void
   deletePlayer: (id: string) => void
   saveSession: (s: PlaySession) => void
+  anotarNoPlay: (sessionId: string, evento: EventoDoPlay) => void
   deleteSession: (id: string) => void
   saveMatches: (ms: Match[]) => void
   replaceSessionMatches: (sessionId: string, ms: Match[]) => void
@@ -86,6 +88,11 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
       }
     case 'saveSession':
       return { ...d, sessions: upsert(d.sessions, op.session) }
+    case 'anotarNoPlay':
+      return {
+        ...d,
+        sessions: d.sessions.map((s) => (s.id === op.sessionId ? { ...s, eventos: [...(s.eventos ?? []), op.evento] } : s)),
+      }
     case 'deleteSession':
       return {
         ...d,
@@ -370,6 +377,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       savePlayer: (player) => push({ id: uid(), type: 'savePlayer', player }),
       deletePlayer: (playerId) => push({ id: uid(), type: 'deletePlayer', playerId }),
       saveSession: (session) => push({ id: uid(), type: 'saveSession', session }),
+      anotarNoPlay: (sessionId, evento) => push({ id: uid(), type: 'anotarNoPlay', sessionId, evento }),
       deleteSession: (sessionId) => push({ id: uid(), type: 'deleteSession', sessionId }),
       saveMatches: (matches) => push({ id: uid(), type: 'saveMatches', matches }),
       replaceSessionMatches: (sessionId, matches) =>
@@ -448,6 +456,8 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.deletePlayer(op.playerId)
     case 'saveSession':
       return repo.saveSession(op.session)
+    case 'anotarNoPlay':
+      return repo.anotarNoPlay(op.sessionId, op.evento)
     case 'deleteSession':
       return repo.deleteSession(op.sessionId)
     case 'saveMatches':

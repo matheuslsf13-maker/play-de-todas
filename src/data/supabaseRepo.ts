@@ -11,6 +11,7 @@ import type {
   LancamentoDeCaixa,
   Match,
   MonthClosure,
+  EventoDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -171,6 +172,25 @@ export const supabaseRepo: Repo = {
   },
   async saveSession(s: PlaySession) {
     await upsertTolerante('sessions', s)
+  },
+  async anotarNoPlay(sessionId: string, evento: EventoDoPlay) {
+    // so a coluna do diario, lida na hora: gravar a sessao inteira a partir da
+    // copia deste aparelho desfaria o que outro aparelho acabou de mudar
+    // (uma quadra aberta, outra anotacao)
+    const sb = client()
+    const atual = await sb.from('sessions').select('eventos').eq('id', sessionId).maybeSingle()
+    if (atual.error) {
+      // sem o script 20 a coluna nao existe: o diario so nao fica gravado
+      if (/eventos/.test(atual.error.message)) {
+        avisosDoBanco.colunas.add('sessions.eventos')
+        return
+      }
+      throw atual.error
+    }
+    if (!atual.data) return
+    const eventos = Array.isArray(atual.data.eventos) ? atual.data.eventos : []
+    const { error } = await sb.from('sessions').update({ eventos: [...eventos, evento] }).eq('id', sessionId)
+    if (error) throw error
   },
   async deleteSession(id: string) {
     const sb = client()

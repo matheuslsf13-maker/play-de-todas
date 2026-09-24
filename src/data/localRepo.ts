@@ -10,6 +10,7 @@ import type {
   LancamentoDeCaixa,
   Match,
   MonthClosure,
+  EventoDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -91,6 +92,11 @@ export const localRepo: Repo = {
     const i = d.sessions.findIndex((x) => x.id === s.id)
     if (i >= 0) d.sessions[i] = s
     else d.sessions.push(s)
+    write(d)
+  },
+  async anotarNoPlay(sessionId: string, evento: EventoDoPlay) {
+    const d = read()
+    d.sessions = d.sessions.map((s) => (s.id === sessionId ? { ...s, eventos: [...(s.eventos ?? []), evento] } : s))
     write(d)
   },
   async deleteSession(id: string) {

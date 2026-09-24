@@ -10,6 +10,7 @@ import type {
   LancamentoDeCaixa,
   Match,
   MonthClosure,
+  EventoDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -21,6 +22,8 @@ export interface Repo {
   savePlayer(p: Player): Promise<void>
   deletePlayer(id: string): Promise<void>
   saveSession(s: PlaySession): Promise<void>
+  /** Acrescenta uma linha ao diario do play sem regravar o resto da sessao. */
+  anotarNoPlay(sessionId: string, evento: EventoDoPlay): Promise<void>
   deleteSession(id: string): Promise<void>
   saveMatches(ms: Match[]): Promise<void>
   deleteMatchesOfSession(sessionId: string): Promise<void>

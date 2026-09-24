@@ -1095,7 +1095,6 @@ function descreverPodios(tamanhos: number[]): string {
   return `${detalhe} (${chance}%)`
 }
 
-/** Devolve a partida com uma jogadora trocada por outra. */
 /** Duplas que jogam pela 2ª vez numa partida, e se isso era do plano (grupo que nao fecha) ou veio de troca na mao. */
 type Repeticao = { duplas: string[]; planejada: boolean }
 
@@ -1106,6 +1105,7 @@ function horaLocal(iso: string): string {
   return `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/** Devolve a partida com uma jogadora trocada por outra. */
 function trocarNaPartida(m: Match, sai: string, entra: string): Match {
   const troca = (id: string) => (id === sai ? entra : id)
   return {
@@ -1128,7 +1128,7 @@ function PlayDetail({
   onNext: (preset: Partial<PlaySession>) => void
   onToast: (m: string) => void
 }) {
-  const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, replaceSessionMatches } =
+  const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, replaceSessionMatches } =
     useStore()
   const [showRank, setShowRank] = useState(false)
   const [substituindo, setSubstituindo] = useState(false)
@@ -1385,19 +1385,21 @@ function PlayDetail({
     const gruposDoPlano: string[][] = grupos && grupos.length > 1 ? grupos : [session.player_ids]
     const avisos: string[] = []
     for (const g of gruposDoPlano) {
-      const doGrupo = new Set(g)
-      const daqui = matches.filter((m) => doGrupo.has(m.team_a[0]) && (m.fase ?? 1) < 2)
-      if (daqui.length === 0) continue
-      // partidas por menina, jogadas + marcadas: o plano da o mesmo numero para todas
+      // partidas por menina, jogadas + marcadas, em qualquer partida (a troca
+      // entre grupos tambem conta). O sinal e alguem PASSAR do plano -- quem
+      // entrou no lugar de outra ou chegou tarde fica abaixo naturalmente, e o
+      // Refazer nao teria como subir; ja quem passou, o Refazer tira das novas
+      const alvo = jogosDoRodizio(g.length)
       const jogos = new Map<string, number>(g.map((id) => [id, 0]))
-      for (const m of daqui) for (const id of [...m.team_a, ...m.team_b]) if (jogos.has(id)) jogos.set(id, (jogos.get(id) ?? 0) + 1)
+      for (const m of matches) {
+        if ((m.fase ?? 1) >= 2) continue
+        for (const id of jogadorasDaPartida(m)) if (jogos.has(id)) jogos.set(id, (jogos.get(id) ?? 0) + 1)
+      }
       const valores = [...jogos.entries()]
       const max = Math.max(...valores.map(([, v]) => v))
-      const min = Math.min(...valores.map(([, v]) => v))
-      if (max - min >= 2) {
+      if (alvo > 0 && max > alvo) {
         const mais = valores.filter(([, v]) => v === max).map(([id]) => nameOf(id)).join(', ')
-        const menos = valores.filter(([, v]) => v === min).map(([id]) => nameOf(id)).join(', ')
-        avisos.push(`${mais} fica com ${max} partidas e ${menos} com ${min}.`)
+        avisos.push(`${mais} fica com ${max} partidas, e o plano dá ${alvo}.`)
       }
       // (dupla repetida enquanto outra nunca se formou nao entra aqui: depois de uma
       // troca pode ser inevitavel, e o aviso ficaria aceso para sempre)
@@ -1675,30 +1677,43 @@ function PlayDetail({
    * partida a mais que as outras.
    */
   const duplasRepetidas = useMemo(() => {
-    const vistas = new Map<string, string>() // dupla -> id da primeira partida
+    const vistas = new Map<string, Match>() // dupla -> primeira partida
     const porPartida = new Map<string, Repeticao>() // partida -> duplas que repetem
-    // o plano so repete dupla quando o grupo nao fecha (6, 7, 10, 11...). Num
-    // grupo de 8 toda repeticao veio de uma troca na mao -- e a explicacao
-    // precisa dizer isso, senao a organizadora le "e o que deixa todas com o
-    // mesmo numero" e conclui que o app quis assim (21/09)
-    const planejadaEm = (id: string) => {
-      const g = grupos?.find((x) => x.includes(id))
+    /*
+     * A repeticao veio de uma troca na mao? Com diario (script 20), so quando
+     * a dupla tem quem ENTROU numa troca, em uma das duas partidas: a troca so
+     * muda as duplas de quem entra. O tamanho de hoje do grupo nao serve para
+     * isso -- um Entra / sai muda o tamanho e viraria as repeticoes do plano
+     * em "troca na mao". Sem diario (plays antigos), vale o tamanho: o plano
+     * so repete dupla quando o grupo nao fecha (6, 7, 10, 11...), e num grupo
+     * de 8 toda repeticao veio de uma troca (21/09).
+     */
+    const eventos = session.eventos ?? []
+    const trocas = eventos.filter((e) => e.tipo === 'troca' && e.round !== undefined && e.entra)
+    const planejada = (d: [string, string], m: Match, primeira: Match) => {
+      if (eventos.length > 0) {
+        return !trocas.some((t) => d.includes(t.entra as string) && (t.round === m.round || t.round === primeira.round))
+      }
+      const g = grupos?.find((x) => x.includes(d[0]))
       return repeticoesPorJogadora(g ? g.length : session.player_ids.length) > 0
     }
+    // so a fase 1: no mata-mata do grupos-duplas a dupla e fixa e joga toda partida junta
     for (const m of matches) {
+      if ((m.fase ?? 1) >= 2) continue
       for (const d of [m.team_a, m.team_b]) {
         const k = pairKey(d[0], d[1])
-        if (vistas.has(k) && vistas.get(k) !== m.id) {
+        const primeira = vistas.get(k)
+        if (primeira && primeira.id !== m.id) {
           const nomes = `${nameOf(d[0])} + ${nameOf(d[1])}`
           const antes = porPartida.get(m.id)
-          porPartida.set(m.id, { duplas: [...(antes?.duplas ?? []), nomes], planejada: (antes?.planejada ?? true) && planejadaEm(d[0]) })
-        } else if (!vistas.has(k)) {
-          vistas.set(k, m.id)
+          porPartida.set(m.id, { duplas: [...(antes?.duplas ?? []), nomes], planejada: (antes?.planejada ?? true) && planejada(d, m, primeira) })
+        } else if (!primeira) {
+          vistas.set(k, m)
         }
       }
     }
     return porPartida
-  }, [matches, nameOf, grupos, session.player_ids.length])
+  }, [matches, nameOf, grupos, session.player_ids.length, session.eventos])
 
   function setScore(m: Match, a: number | null, b: number | null, tie?: number | null) {
     // lancar o placar tambem encerra a partida: a quadra fica livre de novo
@@ -2096,18 +2111,11 @@ function PlayDetail({
    * deixou uma dupla repetida no fim da noite e ninguem sabia dizer quando a
    * troca tinha sido feita -- o app nao guardava. Agora guarda.
    */
-  function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string, round?: number): PlaySession {
-    const evento: EventoDoPlay = {
-      at: new Date().toISOString(),
-      tipo,
-      texto,
-      jogadas: matches.filter((m) => isPlayed(m)).length,
-      ...(round !== undefined ? { round } : {}),
-    }
-    return { ...sessao, eventos: [...(sessao.eventos ?? []), evento] }
+  function novoEvento(tipo: EventoDoPlay['tipo'], texto: string, extra?: Pick<EventoDoPlay, 'round' | 'entra'>): EventoDoPlay {
+    return { at: new Date().toISOString(), tipo, texto, jogadas: matches.filter((m) => isPlayed(m)).length, ...extra }
   }
-  function anotar(tipo: EventoDoPlay['tipo'], texto: string, round?: number) {
-    saveSession(comEvento(session, tipo, texto, round))
+  function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string): PlaySession {
+    return { ...sessao, eventos: [...(sessao.eventos ?? []), novoEvento(tipo, texto)] }
   }
 
   /** Troca as ocupadas por quem esta livre, mantendo equilibrio e duplas novas. */
@@ -2116,12 +2124,17 @@ function PlayDetail({
       onToast(`${nameOf(entra)} está em quadra agora — espere a partida dela acabar`)
       return
     }
-    saveMatches([trocarNaPartida(m, sai, entra)])
     const nova = trocarNaPartida(m, sai, entra)
-    anotar(
-      'troca',
-      `Trocar jogadora na ${m.round}ª: ${nameOf(sai)} → ${nameOf(entra)} (${nameOf(nova.team_a[0])} + ${nameOf(nova.team_a[1])} × ${nameOf(nova.team_b[0])} + ${nameOf(nova.team_b[1])})`,
-      m.round,
+    saveMatches([nova])
+    // so o diario: a troca nao mexe na sessao, e grava-la inteira daqui
+    // desfaria o que outro aparelho acabou de mudar nela
+    anotarNoPlay(
+      session.id,
+      novoEvento(
+        'troca',
+        `Trocar jogadora na ${m.round}ª: ${nameOf(sai)} → ${nameOf(entra)} (${nameOf(nova.team_a[0])} + ${nameOf(nova.team_a[1])} × ${nameOf(nova.team_b[0])} + ${nameOf(nova.team_b[1])})`,
+        { round: m.round, entra },
+      ),
     )
   }
 

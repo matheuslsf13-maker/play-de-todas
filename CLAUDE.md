@@ -153,8 +153,10 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   Vanessa + Maria Paula formada — o refazer antigo dava 15, com Maria Paula em 9. Em
   14/09 o refazer tinha deixado Izabelle + Karla sem jogar. Troca **entre grupos**
   ainda desequilibra: o Trocar mostra o mesmo grupo primeiro e avisa nas outras.
-  Quando uma troca deixa alguém com 2+ partidas de diferença no grupo, o card das
+  Quando uma troca deixa alguém **acima do plano** (`jogosDoRodizio`), o card das
   quadras mostra o banner **"a fila desandou"** com o Refazer ao lado (`desajuste`).
+  Ficar abaixo não acende: quem entrou no lugar de outra ou chegou tarde fica abaixo
+  naturalmente, e o Refazer não teria como subir.
 - **O play tem diário** (`sessions.eventos`, script 20): cada intervenção na mão —
   trocar jogadora, entra/sai, refazer a fila, refazer tudo, abrir/tirar quadra — fica
   anotada com hora, texto pronto e quantas partidas já tinham sido jogadas
@@ -162,7 +164,11 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   Em 21/09 ninguém sabia dizer quando a troca tinha sido feita; agora o banco sabe.
   E o texto do 🔁 distingue a repetição **do plano** (grupo de 6/7/10/11: "é o que
   deixa todas com o mesmo número") da que **veio de uma troca na mão** ("não estava no
-  plano… Refazer a fila compensa") — num grupo de 8 nunca há repetição planejada.
+  plano… Refazer a fila compensa"): com diário, é da troca quando a dupla tem quem
+  **entrou** numa troca (`EventoDoPlay.entra`) numa das duas partidas; sem diário (play
+  antigo), vale o tamanho do grupo. O 🔁 só olha a fase 1 — no mata-mata a dupla é fixa.
+  A troca anota no diário por `anotarNoPlay`, que grava **só** `eventos`: regravar a
+  sessão inteira a partir da cópia do aparelho desfaria o que outro aparelho mudou.
 - **O empate no fim é configurável** (`sessions.desempate`, `src/lib/desempate.ts`).
   São **três modos**, e o que muda é o que acontece no `alvo-1`x`alvo-1` (o 3x3):
   `alvo` (quem chegar primeiro leva), `vantagem` (“só vai a 2”, sem teto) e
