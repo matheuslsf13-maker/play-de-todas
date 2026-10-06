@@ -175,3 +175,50 @@ test('despausada ao entrar num play: apagar o play devolve a pausa', () => {
   x.pausas = [{ de: '2026-09-02', ate: '2026-09-08' }]
   assert.equal(pausaNaForca(d).get('x'), undefined)
 })
+
+import { passoDaSequencia, proximaSequencia } from '../src/lib/stats'
+
+test('passo: cada surpresa boa seguida aumenta o passo, ate o dobro', () => {
+  let q = proximaSequencia(undefined, 0.2)
+  const passos = [passoDaSequencia(q, 0.2)]
+  for (let i = 0; i < 5; i++) {
+    q = proximaSequencia(q, 0.2)
+    passos.push(passoDaSequencia(q, 0.2))
+  }
+  assert.deepEqual(passos, [24, 30, 36, 42, 48, 48])
+})
+
+test('passo: ir pior que o esperado custa o normal e zera a sequencia; o neutro nao mexe', () => {
+  let q = proximaSequencia(proximaSequencia(proximaSequencia(undefined, 0.2), 0.2), 0.2) // 3 boas: 36
+  assert.equal(passoDaSequencia(q, 0.2), 36)
+  // dentro do esperado (menos de 5% dos games): nao soma nem quebra
+  q = proximaSequencia(q, -0.03)
+  assert.equal(passoDaSequencia(q, -0.03), 24, 'perder do jeito esperado custa o normal')
+  assert.equal(passoDaSequencia(q, 0.2), 36, 'e a sequencia continua parada em 3')
+  // claramente pior: custa o normal e zera
+  q = proximaSequencia(q, -0.2)
+  assert.equal(passoDaSequencia(q, -0.2), 24)
+  q = proximaSequencia(q, 0.2)
+  assert.equal(passoDaSequencia(q, 0.2), 24, 'a proxima surpresa boa recomeca em 24')
+})
+
+test('passo que acelera: quem surpreende sobe mais rapido e a media continua em 1500', () => {
+  const d = base({ x: 1500, p: 1500, a: 1500, b: 1500 })
+  playCom(d, 's1', '2026-09-01', ['x', 'p', 'a', 'b'])
+  // x + p atropelam 3 vezes seguidas
+  for (let i = 0; i < 3; i++) d.matches.push(partida('s1', ['x', 'p'], ['a', 'b'], 4, 0))
+  // com o passo fixo seria: +12, depois menos (a nota ja subiu)
+  let fx = 1500
+  let fa = 1500
+  for (let i = 0; i < 3; i++) {
+    const esp = 1 / (1 + Math.pow(10, (fa - fx) / 400))
+    const delta = 24 * (1 - esp)
+    fx += delta
+    fa -= delta
+  }
+  const r = ratings(d)
+  const notaX = notaDeForca(r.get('x') as number)
+  assert.ok(notaX > Math.round(fx), `${notaX} > ${Math.round(fx)} (passo fixo)`)
+  const media = ['x', 'p', 'a', 'b'].reduce((t, id) => t + (1500 + ((r.get(id) as number) - 2) * 110), 0) / 4
+  assert.ok(Math.abs(media - 1500) < 0.01, `media ${media}`)
+})

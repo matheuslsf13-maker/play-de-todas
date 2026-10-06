@@ -82,6 +82,12 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   12 sextas com 16 jogadoras, que espalhou o grupo de −107 a +91. Abaixo de
   `JOGOS_PARA_FIRMAR` a nota sai marcada como **provisória**, e quem nunca jogou
   fica fora da lista.
+- **O passo acelera só para cima** (`proximaSequencia`/`passoDaSequencia` em `stats.ts`):
+  "surpresa" é fazer mais (ou menos) games que a conta esperava. Cada surpresa **boa**
+  seguida aumenta o passo de quem surpreendeu (24, 30, 36, 42, até 48); ir **claramente
+  pior** que o esperado (5% dos games) custa o passo normal e zera a sequência; dentro do
+  esperado não soma nem quebra. A derrota nunca acelera (ninguém afunda rápido). O que o
+  passo maior dá a mais sai, em pedaços, de todas que jogaram o play (a média fica em 1500).
 - **Quem falta perde força, devagar** (`calcularElo` em `stats.ts`): 1ª falta nada; da
   2ª seguida em diante, por play do ranking e aumentando a cada falta: acima de 1500
   −10%, −15%, −20%… até −30% da distância até 1500 (mín. 2); abaixo −2, −3, −4, depois

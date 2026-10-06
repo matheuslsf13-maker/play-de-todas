@@ -301,6 +301,35 @@ export function opponentStats(matches: Match[]): Map<string, Map<string, PairKey
 export const ELO_INICIAL = 1500
 /** Quanto uma partida move a nota. Entre 12 e 60 o resultado quase nao muda. */
 const ELO_K = 24
+
+/*
+ * O PASSO QUE ACELERA (so para cima).
+ *
+ * "Surpresa" e fazer mais (ou menos) games do que a conta esperava. Cada
+ * surpresa BOA seguida aumenta o passo de quem surpreendeu: 24, 30, 36, 42,
+ * ate 48 -- quem melhorou de verdade alcanca a forca real mais rapido. Ir
+ * CLARAMENTE pior que o esperado (5% dos games abaixo da conta) custa o passo
+ * normal, como sempre, e zera a sequencia; dentro do esperado nao soma nem
+ * quebra. A derrota nunca acelera: ninguem afunda rapido. Medido em 30
+ * temporadas simuladas (DECISOES.md): acerto igual, quem melhorou e alcancada
+ * ~1 play antes, a nota de quem esta estavel balanca um pouco mais (20 x 17).
+ */
+export type SequenciaDeSurpresas = { n: number; sinal: number }
+const SURPRESA_MINIMA = 0.05
+
+/** A sequencia depois desta partida. */
+export function proximaSequencia(q: SequenciaDeSurpresas | undefined, surpresa: number): SequenciaDeSurpresas {
+  const atual = q ?? { n: 0, sinal: 0 }
+  if (Math.abs(surpresa) < SURPRESA_MINIMA) return atual
+  const sinal = Math.sign(surpresa)
+  return { n: sinal === atual.sinal ? atual.n + 1 : 1, sinal }
+}
+
+/** O passo desta partida, com a sequencia JA atualizada por ela. */
+export function passoDaSequencia(q: SequenciaDeSurpresas, surpresa: number): number {
+  if (surpresa <= 0 || q.sinal <= 0) return ELO_K
+  return ELO_K * Math.min(1 + 0.25 * (Math.max(1, q.n) - 1), 2)
+}
 /** Quantos pontos de Elo valem 1 ponto na escala 0-4 que o resto do app usa. */
 const ELO_ESCALA = 110
 
@@ -371,11 +400,20 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
   const jaJogou = new Set<string>()
   const queda = new Map<string, QuedaPorFalta>()
   const jogadora = new Map(data.players.map((p) => [p.id, p]))
+  const sequencia = new Map<string, SequenciaDeSurpresas>()
 
   // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
   // naquele momento, entao os plays (e as partidas) entram em ordem cronologica
   for (const s of sessoes) {
     const jogos = (jogadasPorSessao.get(s.id) ?? []).sort((x, y) => x.round - y.round)
+    const mudanca = new Map<string, number>()
+    const mover = (id: string, surpresa: number) => {
+      const q = proximaSequencia(sequencia.get(id), surpresa)
+      sequencia.set(id, q)
+      const d = passoDaSequencia(q, surpresa) * surpresa
+      elo.set(id, nota(id) + d)
+      mudanca.set(id, (mudanca.get(id) ?? 0) + d)
+    }
     for (const m of jogos) {
       const ga = m.score_a as number
       const gb = m.score_b as number
@@ -385,10 +423,16 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
       const esperado = 1 / (1 + Math.pow(10, (forcaB - forcaA) / 400))
       // a margem conta, como na pontuacao do campeonato: 4x0 vale 1,00 e 4x3, 0,57
       const real = ga / (ga + gb)
-      const delta = ELO_K * (real - esperado)
-      for (const id of m.team_a) elo.set(id, nota(id) + delta)
-      for (const id of m.team_b) elo.set(id, nota(id) - delta)
+      const surpresa = real - esperado
+      for (const id of m.team_a) mover(id, surpresa)
+      for (const id of m.team_b) mover(id, -surpresa)
       for (const id of [...m.team_a, ...m.team_b]) jaJogou.add(id)
+    }
+    // soma zero: o que o passo maior deu a mais sai, em pedacinhos, de todas
+    // que jogaram este play -- senao a media sairia de 1500
+    if (mudanca.size > 0) {
+      const deriva = [...mudanca.values()].reduce((t, x) => t + x, 0) / mudanca.size
+      if (Math.abs(deriva) > 1e-9) for (const id of mudanca.keys()) elo.set(id, nota(id) - deriva)
     }
     const jogouAqui = acompanhar !== undefined && jogos.some((m) => [...m.team_a, ...m.team_b].includes(acompanhar))
     if (jogouAqui) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(nota(acompanhar as string)), jogou: true })

@@ -359,6 +359,21 @@ e `ELO_ESCALA = 110` (quantos pontos de Elo valem 1 ponto na escala 0–4 que o
 `pairing.ts` usa). **K não é sensível**: entre 12 e 60 a correlação final fica
 entre 0,90 e 0,93, então o ganho é do método e não de ajuste fino.
 
+**Passo que acelera (out/2026).** Proposta da organização: aumentar o passo de quem
+engata uma sequência. Medido em 30 temporadas (16 jogadoras, 12 plays), com uma menina
+que melhora +88 no 4º play (todas com todas / grupos):
+
+| | acerto no play 12 | balanço de quem não mudou | plays até alcançar quem melhorou |
+|---|---|---|---|
+| fixo 24 | 0,89 / 0,85 | 16,6 / 12,6 | 7,6 / 10,0 |
+| acelera nos dois lados | 0,87 / 0,86 | 24,0 / 18,0 | 7,2 / 8,6 |
+| **acelera só para cima** (adotado) | 0,90 / 0,85 | 20,3 / 15,6 | 6,3 / 9,0 |
+
+Nos dois lados é só um K maior disfarçado (o fixo 36 dá o mesmo). Só para cima mantém o
+acerto, alcança ~1 play antes e não faz ninguém afundar rápido — o custo é a nota de quem
+está estável balançar um pouco mais. Conta **surpresas** (games acima do esperado), não
+vitórias: vencer quem é mais fraca é o esperado e acelerar ali inflaria as fortes.
+
 O Elo também resolve sozinho o que a janela de "últimos 4 plays" resolvia — quem
 foi boa há um ano e anda perdendo devolve nota partida a partida — sem o corte
 seco, que jogava fora informação boa.
