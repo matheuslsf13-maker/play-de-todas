@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Avatar, Empty, Modal, StatBox } from '../components/ui'
 import {
   aplicarBye,
+  aplicarColocacao,
   aplicarByeNasDuplas,
   avgPoints,
   balance,
@@ -18,6 +19,7 @@ import {
   pontosDeBye,
   winRate,
 } from '../lib/stats'
+import { colocacaoNoRecorte } from '../lib/campeonato'
 import {
   JOGOS_PARA_ENTROSAMENTO,
   JOGOS_PARA_FIRMAR,
@@ -67,7 +69,8 @@ export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu
     // os pontos so das partidas que pontuam
     const stats = computeStatsComPontos(data.sessions, matches)
     const bye = pontosDeBye(data.sessions, matches).porJogadora
-    return aplicarBye(applyBonuses(stats, awards), bye)
+    // no campeonato os pontos saem da colocacao final, nao do placar
+    return aplicarColocacao(aplicarBye(applyBonuses(stats, awards), bye), colocacaoNoRecorte(data.sessions, matches))
   }, [data.sessions, matches, streaks, period])
 
   const comJogo = useMemo(

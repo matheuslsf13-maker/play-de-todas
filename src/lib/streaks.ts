@@ -1,14 +1,13 @@
 import {
   compararPeloCriterio,
   type CriterioDoDia,
-  DUPLAS_NO_PODIO,
   balance,
   computeStats,
   playedMatches,
-  rankDuplasDoDia,
   rankPlayers,
   type PlayerStat,
 } from './stats'
+import { podioDoMataMata } from './campeonato'
 import type { AppData, StreakChoice } from './types'
 import { monthOf, todayISO } from './types'
 
@@ -239,8 +238,9 @@ export function computeStreaks(data: AppData): Streaks {
     const rank = rankPlayers(computeStats(ms), nameOf, criterio)
     if (rank.length === 0) continue
 
-    // no grupos+duplas quem decide o dia e a DUPLA, e a chave ja disse tudo
-    const duplas = soFase2 ? rankDuplasDoDia(ms, nameOf, undefined, s.duos ?? undefined) : []
+    // no grupos+duplas quem decide o dia e a DUPLA, e a chave ja disse tudo --
+    // no campeonato, a chave de CADA categoria (cada uma tem o seu podio)
+    const mataMata = soFase2 ? podioDoMataMata(s, ms, nameOf) : null
 
     /*
      * CAMPEAS DO DIA (para os titulos e a arte do mes).
@@ -251,9 +251,8 @@ export function computeStreaks(data: AppData): Streaks {
      * quem perdeu a final. Nos outros formatos nao ha final: o dia e do
      * somatorio mesmo, e o empate exato divide o titulo.
      */
-    if (soFase2) {
-      const ouro = duplas.find((d) => d.medalha === 3)
-      winnersOf.set(s.id, ouro ? [ouro.a, ouro.b] : [])
+    if (mataMata) {
+      winnersOf.set(s.id, mataMata.campeas)
     } else {
       const top = rank[0]
       winnersOf.set(
@@ -274,8 +273,8 @@ export function computeStreaks(data: AppData): Streaks {
      * cada uma. Sao 6 de 16 num play tipico (37%), menos generoso que o modo
      * em grupos, onde 4 grupos de 4 ja levam 8 ao podio.
      */
-    const noPodio = soFase2
-      ? new Set(duplas.slice(0, DUPLAS_NO_PODIO).flatMap((d) => [d.a, d.b]))
+    const noPodio = mataMata
+      ? new Set(mataMata.podio)
       : new Set(podiosDoDia(rank, s.groups, criterio).flatMap((p) => p.rows.map((x) => x.player_id)))
     podiumOf.set(s.id, [...noPodio])
 

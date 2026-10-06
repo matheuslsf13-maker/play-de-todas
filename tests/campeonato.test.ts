@@ -355,3 +355,64 @@ test('a quadra da casa do grupo e a da categoria (grupo 1 da B na quadra 3)', ()
   assert.equal(r.get(3)?.id, pendentes[0].id)
   assert.equal(r.get(4)?.id, pendentes[1].id)
 })
+
+/* ---------------------------------------- pontos do mes e fogo do dia */
+import { pontosExtras } from '../src/lib/campeonato'
+import { computeStatsComPontos, pontosDeBye, pontuaveis } from '../src/lib/stats'
+import { computeStreaks } from '../src/lib/streaks'
+import { emptyData } from '../src/lib/types'
+
+const comSessao = (ms: Match[], id: string) => ms.map((m) => ({ ...m, session_id: id }))
+const finalB = fase(partida(['b1', 'b5'], ['b2', 'b6'], 4, 3), 2)
+const duos4: [string, string][] = [['a1', 'a5'], ['a2', 'a6'], ['b1', 'b5'], ['b2', 'b6']]
+
+test('com pontuacao, nenhuma partida pontua por games (nem a do mata-mata)', () => {
+  const s = camp({ duos: duos4, duplas_mm: 2 })
+  const ms = comSessao([...grupos1, finalA, finalB], 's')
+  assert.equal(pontuaveis([s], ms).length, 0)
+  assert.equal(computeStatsComPontos([s], ms).get('a1')?.points, 0)
+  assert.equal(pontosDeBye([s], ms).porJogadora.size, 0)
+})
+
+test('play antigo de grupos+duplas (sem pontuacao) pontua como antes', () => {
+  const s = camp({ duos: duos4, duplas_mm: 2, pontuacao: null, categorias: null })
+  const ms = comSessao([...grupos1, finalA], 's')
+  assert.deepEqual(pontuaveis([s], ms).map((m) => m.id), [finalA.id])
+  assert.equal(computeStatsComPontos([s], ms).get('a1')?.points, 2)
+})
+
+test('pontosExtras soma a colocacao dos plays que estao no recorte', () => {
+  const s = camp({ duos: duos4, duplas_mm: 2 })
+  const ms = comSessao([...grupos1, finalA, finalB], 's')
+  const p = pontosExtras([s, { ...s, id: 'outro' }], ms)
+  assert.equal(p.get('a1'), 16)
+  assert.equal(p.get('b2'), 12)
+  assert.equal(pontosExtras([s], []).size, 0)
+})
+
+test('fogo: o podio de CADA categoria segura o status', () => {
+  const data = emptyData()
+  data.players = G.flat().map((id) => ({ id, name: id, photo_url: null, active: true, created_at: '' }) as never)
+  const s = camp({ duos: duos4, duplas_mm: 2, status: 'finished' })
+  data.sessions = [s]
+  data.matches = comSessao([...grupos1, finalA, finalB], 's')
+  const podio = new Set(computeStreaks(data).podiumOf.get('s'))
+  for (const id of ['a1', 'a5', 'a2', 'a6', 'b1', 'b5', 'b2', 'b6']) assert.ok(podio.has(id), id)
+  assert.equal(podio.has('a3'), false)
+  assert.deepEqual([...(computeStreaks(data).winnersOf.get('s') ?? [])].sort(), ['a1', 'a5', 'b1', 'b5'])
+})
+
+import { colocacaoNoRecorte } from '../src/lib/campeonato'
+import { aplicarColocacao, computeStats } from '../src/lib/stats'
+
+test('colocacao entra nos pontos e na coluna propria (nao na do bye)', () => {
+  const s = camp({ duos: duos4, duplas_mm: 2 })
+  const ms = comSessao([...grupos1, finalA, finalB], 's')
+  const col = colocacaoNoRecorte([s], ms)
+  const st = aplicarColocacao(computeStatsComPontos([s], ms), col).get('a1')!
+  assert.equal(st.points, 16)
+  assert.equal(st.colocacao, 16)
+  assert.equal(st.bye, 0)
+  // quem nao tem partida no recorte nao ganha linha nova
+  assert.equal(aplicarColocacao(computeStats([]), col).size, 0)
+})

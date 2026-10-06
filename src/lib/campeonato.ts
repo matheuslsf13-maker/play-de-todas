@@ -12,7 +12,7 @@
  */
 import { duplasVivas, filaPorForca, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
-import { rankDuplasDoDia } from './stats'
+import { DUPLAS_NO_PODIO, pontosDeBye, rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, PlaySession } from './types'
 
 /** 'A', 'B', 'C'... */
@@ -364,4 +364,53 @@ export function quadrasEfetivas(
     }
   })
   return out.map((qs) => [...new Set(qs)].sort((a, b) => a - b))
+}
+
+/* ------------------------------------------------- mes e podio do dia */
+
+/**
+ * Os pontos do mes que nao saem do placar das partidas: o bye dos plays
+ * antigos de grupos+duplas e a colocacao dos que tem `pontuacao`. So contam
+ * os plays que aparecem em `matches` (o recorte do mes, ou do historico).
+ */
+export function pontosExtras(sessoes: PlaySession[], matches: Match[]): Map<string, number> {
+  const out = new Map(pontosDeBye(sessoes, matches).porJogadora)
+  for (const [id, p] of colocacaoNoRecorte(sessoes, matches)) out.set(id, (out.get(id) ?? 0) + p)
+  return out
+}
+
+/** Os pontos por colocacao dos plays que aparecem em `matches` (o recorte). */
+export function colocacaoNoRecorte(sessoes: PlaySession[], matches: Match[]): Map<string, number> {
+  const out = new Map<string, number>()
+  const noRecorte = new Set(matches.map((m) => m.session_id))
+  for (const s of sessoes) {
+    if (!noRecorte.has(s.id)) continue
+    const daqui = matches.filter((m) => m.session_id === s.id)
+    for (const [id, p] of pontosDeColocacao(s, daqui)) out.set(id, (out.get(id) ?? 0) + p)
+  }
+  return out
+}
+
+/**
+ * O podio do dia num grupos+duplas: as 3 duplas medalhistas DE CADA
+ * CATEGORIA (uma categoria so = o de sempre), e as campeas de cada uma.
+ * `ms` sao as partidas da fase 2 em diante, ja jogadas.
+ */
+export function podioDoMataMata(
+  s: PlaySession,
+  ms: Match[],
+  nameOf: (id: string) => string,
+): { podio: string[]; campeas: string[] } {
+  const podio: string[] = []
+  const campeas: string[] = []
+  categoriasDoPlay(s).forEach((_, ci) => {
+    const daqui = partidasDaCategoria(s, ci, ms)
+    if (daqui.length === 0) return
+    const duos = duosDaCategoria(s, ci)
+    const duplas = rankDuplasDoDia(daqui, nameOf, undefined, duos.length ? duos : undefined)
+    for (const d of duplas.slice(0, DUPLAS_NO_PODIO)) podio.push(d.a, d.b)
+    const ouro = duplas.find((d) => d.medalha === 3)
+    if (ouro) campeas.push(ouro.a, ouro.b)
+  })
+  return { podio, campeas }
 }

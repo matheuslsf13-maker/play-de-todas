@@ -15,6 +15,8 @@ export type PlayerStat = {
   bonus: number
   /** Pontos pagos por bye no mata-mata das duplas (ver `pontosDeBye`). */
   bye: number
+  /** Pontos pela colocacao final no campeonato (ja somados em `points`). */
+  colocacao?: number
 }
 
 export type PairKeyStat = {
@@ -80,8 +82,13 @@ export function pontuaveis(sessoes: PlaySession[], matches: Match[]): Match[] {
   const semFase1 = new Set(
     sessoes.filter((s) => s.format === 'grupos-duplas').map((s) => s.id),
   )
-  if (semFase1.size === 0) return matches
-  return matches.filter((m) => !semFase1.has(m.session_id) || (m.fase ?? 1) >= 2)
+  // com tabela de colocacao (`pontuacao`), NENHUMA partida pontua por games: os
+  // pontos do play saem da colocacao final (ver campeonato.ts)
+  const porColocacao = new Set(sessoes.filter((s) => s.pontuacao?.length).map((s) => s.id))
+  if (semFase1.size === 0 && porColocacao.size === 0) return matches
+  return matches.filter(
+    (m) => !porColocacao.has(m.session_id) && (!semFase1.has(m.session_id) || (m.fase ?? 1) >= 2),
+  )
 }
 
 /**
@@ -570,6 +577,8 @@ export function pontosDeBye(sessoes: PlaySession[], matches: Match[]): PontosDeB
 
   for (const s of sessoes) {
     if (s.format !== 'grupos-duplas' || !s.duos?.length) continue
+    // com pontos por colocacao o bye nao paga: a colocacao ja diz ate onde foi
+    if (s.pontuacao?.length) continue
     // a disputa de 3o fica de fora: ela divide a fase com a final e nao e uma
     // rodada da chave, entao nao ha bye para calcular nela
     const daChave = matches.filter(
@@ -631,6 +640,26 @@ export function aplicarBye(
     if (!s) continue
     s.points += pontos
     s.bye += pontos
+  }
+  return out
+}
+
+/**
+ * Soma os pontos por COLOCACAO (campeonato / grupos+duplas com `pontuacao`)
+ * em `points`, guardando a parte em `colocacao` para a tabela mostrar de onde
+ * vieram. Como o bye, so para quem tem linha (jogou no recorte).
+ */
+export function aplicarColocacao(
+  stats: Map<string, PlayerStat>,
+  colocacao: Map<string, number>,
+): Map<string, PlayerStat> {
+  const out = new Map<string, PlayerStat>()
+  for (const [id, st] of stats) out.set(id, { ...st })
+  for (const [id, pontos] of colocacao) {
+    const st = out.get(id)
+    if (!st) continue
+    st.points += pontos
+    st.colocacao = (st.colocacao ?? 0) + pontos
   }
   return out
 }

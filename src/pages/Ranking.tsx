@@ -6,6 +6,7 @@ import { POINTS_TABLE } from '../lib/scoring'
 import {
   balance,
   aplicarBye,
+  aplicarColocacao,
   computeStatsComPontos,
   playedMatches,
   pontosDeBye,
@@ -13,6 +14,7 @@ import {
   winRate,
   type PlayerStat,
 } from '../lib/stats'
+import { colocacaoNoRecorte } from '../lib/campeonato'
 
 /** Empate de verdade (mesmos pontos, saldo e vitorias) fica na mesma posicao. */
 function positionsOf(rows: PlayerStat[]): number[] {
@@ -101,7 +103,9 @@ export default function Ranking({
     // o bye do mata-mata paga pontos: quem passa direto joga uma partida a
     // menos e nao pode terminar o mes atras de quem precisou jogar
     const bye = pontosDeBye(data.sessions, ms).porJogadora
-    return rankPlayers(aplicarBye(applyBonuses(stats, awards), bye), nameOf)
+    // no campeonato os pontos saem da colocacao final, nao do placar
+    const colocacao = colocacaoNoRecorte(data.sessions, ms)
+    return rankPlayers(aplicarColocacao(aplicarBye(applyBonuses(stats, awards), bye), colocacao), nameOf)
   }, [data, activeMonth, historico, nameOf, streaks])
 
   const fire = comStatus
@@ -586,6 +590,8 @@ export function RankTable({
   // a coluna so aparece quando ha bye no recorte: nos plays sem chave
   // ela seria uma coluna de zeros ocupando largura no celular
   const showBye = rows.some((r) => r.bye > 0)
+  // idem para os pontos por colocacao do campeonato
+  const showColocacao = rows.some((r) => (r.colocacao ?? 0) > 0)
   const posicoes = positionsOf(rows)
   return (
     <div className="scroll-x">
@@ -597,6 +603,7 @@ export function RankTable({
             <th>Pts</th>
             {showBonus && <th>🔥</th>}
             {showBye && <th title="Pontos pagos por bye no mata-mata">🎫</th>}
+            {showColocacao && <th title="Pontos pela colocação no campeonato">🏅</th>}
             <th>J</th>
             <th>V</th>
             <th>D</th>
@@ -624,6 +631,11 @@ export function RankTable({
                 <td style={{ fontWeight: 800, color: 'var(--pink)' }}>{s.points}</td>
                 {showBonus && <td className="tiny" style={{ color: 'var(--orange)', fontWeight: 800 }}>{s.bonus > 0 ? `+${s.bonus}` : ''}</td>}
                 {showBye && <td className="tiny" style={{ color: 'var(--teal)', fontWeight: 800 }}>{s.bye > 0 ? `+${s.bye}` : ''}</td>}
+                {showColocacao && (
+                  <td className="tiny" style={{ color: 'var(--purple)', fontWeight: 800 }}>
+                    {(s.colocacao ?? 0) > 0 ? `+${s.colocacao}` : ''}
+                  </td>
+                )}
                 <td>{s.matches}</td>
                 <td>{s.wins}</td>
                 <td>{s.losses}</td>
