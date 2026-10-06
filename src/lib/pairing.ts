@@ -1697,6 +1697,8 @@ export function ordemPrevista(opts: {
   grupos?: string[][] | null
   /** Quem ainda nao chegou: as partidas dela vao para depois de todas as outras. */
   ausentes?: Set<string>
+  /** Quantas quadras o grupo enche ao mesmo tempo (a ordem considera as partidas em paralelo). */
+  quadras?: number
 }): Match[] {
   const e = estadoDaTela({ ...opts, jogos: new Map(), quadrasLivres: [1] })
   const ausentes = opts.ausentes ?? new Set<string>()
@@ -1708,19 +1710,23 @@ export function ordemPrevista(opts: {
   for (const parte of [semAusentes, comAusentes]) {
     if (parte.length === 0) continue
     const ordem =
-      parte.length <= LIMITE_ORDEM_EXATA ? ordemExata(parte, e) : ordemGulosa(parte, e)
+      parte.length <= LIMITE_ORDEM_EXATA ? ordemExata(parte, e) : ordemGulosa(parte, e, opts.quadras ?? 1)
     for (const m of ordem) avancar(e, [m])
     out.push(...ordem)
   }
   return out
 }
 
-function ordemGulosa(pendentes: Match[], e0: EstadoDaFila): Match[] {
+function ordemGulosa(pendentes: Match[], e0: EstadoDaFila, quadras = 1): Match[] {
   const e = clonar(e0)
   let restantes = pendentes.slice()
   const out: Match[] = []
   while (restantes.length > 0) {
-    const proxima = conjuntosCandidatos(restantes, new Set(), 1, e)[0]?.[0]
+    // com varias quadras, as ultimas (quadras - 1) escolhidas ainda estao
+    // jogando quando esta entra: as meninas delas nao podem estar nesta
+    const rolando = new Set(quadras > 1 ? out.slice(-(quadras - 1)).flatMap(jogadorasDaPartida) : [])
+    const proxima =
+      conjuntosCandidatos(restantes, rolando, 1, e)[0]?.[0] ?? conjuntosCandidatos(restantes, new Set(), 1, e)[0]?.[0]
     if (!proxima) break
     avancar(e, [proxima])
     out.push(proxima)

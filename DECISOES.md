@@ -116,6 +116,28 @@ As duplas são montadas pela pontuação acumulada, para os jogos ficarem parelh
   alguém que tinha acabado de sair, com 8 meninas ainda esperando a primeira
   partida; depois passou a chamar quatro que nunca tinham entrado**.
 
+## A fila mostrada é a que acontece (06/10/2026)
+
+Em 05/10 a organizadora terminava uma partida e entrava outra, não a escrita na fila.
+Três causas, todas consertadas:
+
+1. **A lista e a quadra usavam contas diferentes.** A lista (`ordemPrevista`) simulava
+   uma quadra só misturando os grupos; a quadra (`proximasDasQuadras`) escolhia o
+   melhor conjunto para as quadras livres. Agora a quadra **pega a primeira da fila do
+   grupo dela com as quatro livres** (`proximasPelaFila`, `src/lib/fila.ts`) — a lista é
+   a regra, não um palpite. Medido com noites simuladas (`tests/fila.test.ts`, 20 por
+   cenário, partidas de 8 a 20 min): **0 vezes** a quadra pegou outra que não a
+   primeira possível; ninguém emendou 3 em 6, 7, 8, 9, 6+6, 6+6+6 e 8+8 (igual ao
+   jeito antigo). Custo aceito: "todas com todas" com mais de 16 pendentes (ordem
+   gulosa) — 11 em 2 quadras, 6/20 noites com alguém emendando 3 contra 4/20.
+   Tentado e descartado: montar a lista simulando as quadras com o escolhedor antigo
+   (lento, e não melhorou).
+2. **"Quem não chegou" e a escolha na mão eram só do aparelho.** Agora ficam no play
+   (script 22) e chegam aos outros celulares pelo tempo real.
+3. **O Refazer foi apertado 9 vezes** num play que não precisava, e cada toque refazia
+   tudo. Agora ele só mexe no grupo em que a conta não fecha (`precisaRefazer`), e
+   depois de uma troca refaz **sozinho** — o aviso pedindo o Refazer saiu.
+
 ## A fila mostrada é previsão, não a ordem de geração
 
 A lista "Próximas na fila" mostrava as partidas na ordem em que foram geradas.

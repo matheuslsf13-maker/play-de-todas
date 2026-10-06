@@ -487,3 +487,16 @@ test('mescla de quadras do play (abrir/tirar quadra sem regravar o resto)', () =
   assert.equal(r.courts, 7)
   assert.deepEqual(r.duos, atual.duos)
 })
+
+test('mescla de quem nao chegou: marca e desmarca uma de cada vez', () => {
+  const atual = camp({ ausentes: ['a1'] })
+  assert.deepEqual(aplicarMescla(atual, { campo: 'ausentes', id: 'a2', ausente: true }).ausentes, ['a1', 'a2'])
+  assert.deepEqual(aplicarMescla(atual, { campo: 'ausentes', id: 'a1', ausente: false }).ausentes, [])
+  assert.deepEqual(aplicarMescla(atual, { campo: 'ausentes', id: 'a1', ausente: true }).ausentes, ['a1'])
+})
+
+test('mescla da partida escolhida na mao por quadra', () => {
+  const atual = camp({ escolhas: { '1': 'm1' } })
+  assert.deepEqual(aplicarMescla(atual, { campo: 'escolhas', quadra: '2', matchId: 'm9' }).escolhas, { '1': 'm1', '2': 'm9' })
+  assert.deepEqual(aplicarMescla(atual, { campo: 'escolhas', quadra: '1', matchId: null }).escolhas, {})
+})

@@ -87,6 +87,10 @@ export type MesclaDoPlay =
   | { campo: 'rounds'; minimo: number }
   /** quantas quadras o play tem (abrir/tirar quadra no meio do campeonato) */
   | { campo: 'courts'; valor: number }
+  /** quem ainda nao chegou: marca ou desmarca UMA menina */
+  | { campo: 'ausentes'; id: string; ausente: boolean }
+  /** a partida escolhida na mao para uma quadra (null = volta a sugestao do app) */
+  | { campo: 'escolhas'; quadra: string; matchId: string | null }
 
 /** Um "Play de Todas": um dia de jogos. */
 export type PlaySession = {
@@ -176,6 +180,14 @@ export type PlaySession = {
    * categoria que recebe. Sem escolha, vai para quem tem mais partidas por jogar.
    */
   quadras_cedidas?: Record<string, number> | null
+  /**
+   * Quem esta na lista mas ainda nao chegou (o "⏳ Quem nao chegou"). Era so
+   * do aparelho; em 05/10 uma organizadora marcou e o outro celular nao viu
+   * (script 22).
+   */
+  ausentes?: string[] | null
+  /** A partida escolhida na mao para cada quadra ("Trocar esta partida por outra"): quadra -> id. */
+  escolhas?: Record<string, string> | null
 }
 
 export type Match = {

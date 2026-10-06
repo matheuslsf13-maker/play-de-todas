@@ -32,14 +32,12 @@ import {
   type PlannedMatch,
   jogadorasDaPartida,
   ordemDeEspera,
-  ordemPrevista,
   jogosDoRodizio,
   parceirasDoRodizio,
   repeticoesPorJogadora,
   partidasDoRodizio,
   quadrasSimultaneas,
   planToMatches,
-  proximasDasQuadras,
   refazerFila,
 } from '../lib/pairing'
 import { normalizar } from '../lib/roster'
@@ -107,7 +105,9 @@ import {
 import { computeStreaks, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
+import { filaPorGrupo, precisaRefazer, proximasPelaFila } from '../lib/fila'
 import { hasSupabase, supabase } from '../lib/supabase'
+import { avisosDoBanco } from '../data/supabaseRepo'
 import {
   type DesempateDeGrupo,
   type EventoDoPlay,
@@ -1301,7 +1301,25 @@ function PlayDetail({
   const [arte, setArte] = useState<{ url: string; blob: Blob } | null>(null)
   const [gerando, setGerando] = useState(false)
   /** Partida escolhida na mao para uma quadra, no lugar da sugestao. */
-  const [manuais, setManuais] = useState<Record<number, string>>({})
+  /**
+   * A partida escolhida na mao para cada quadra ("Trocar esta partida por
+   * outra"). Fica no play (script 22), para o outro celular nao mostrar outra
+   * partida na mesma quadra; sem a coluna, so neste aparelho.
+   */
+  const [manuaisLocais, setManuaisLocais] = useState<Record<number, string>>({})
+  const manuais = useMemo<Record<number, string>>(
+    () => ('escolhas' in session && !avisosDoBanco.colunas.has('sessions.escolhas') ? (session.escolhas ?? {}) : manuaisLocais) as Record<number, string>,
+    [session, manuaisLocais],
+  )
+  function escolherNaMao(quadra: number, matchId: string | null) {
+    mesclarNoPlay(session.id, { campo: 'escolhas', quadra: String(quadra), matchId })
+    setManuaisLocais((prev) => {
+      const next = { ...prev }
+      if (matchId) next[quadra] = matchId
+      else delete next[quadra]
+      return next
+    })
+  }
   const [escolhendo, setEscolhendo] = useState<number | null>(null)
   const [corrigindo, setCorrigindo] = useState<Match | null>(null)
   /** A regra do empate deste play. Plays antigos nao tem: e `nenhum`. */
@@ -1668,41 +1686,6 @@ function PlayDetail({
     return map
   }, [grupos])
 
-  /**
-   * O plano desandou? Uma troca feita na mao ("Trocar jogadora") muda so aquela
-   * partida: quem entrou fica com uma a mais, quem saiu com uma a menos, e a
-   * dupla que ela formou pode ja estar marcada para mais tarde -- foi assim
-   * que em 21/09 Beatriz + Maria Paula jogaram duas vezes enquanto Vanessa +
-   * Maria Paula nunca. O app nao refaz sozinho (a organizadora pode ter
-   * motivo), mas aponta o desajuste e oferece o Refazer na mesma linha.
-   */
-  const desajuste = useMemo(() => {
-    if (finished) return null
-    if (!matches.some((m) => m.score_a === null || m.score_b === null)) return null
-    const gruposDoPlano: string[][] = grupos && grupos.length > 1 ? grupos : [session.player_ids]
-    const avisos: string[] = []
-    for (const g of gruposDoPlano) {
-      // partidas por menina, jogadas + marcadas, em qualquer partida (a troca
-      // entre grupos tambem conta). O sinal e alguem PASSAR do plano -- quem
-      // entrou no lugar de outra ou chegou tarde fica abaixo naturalmente, e o
-      // Refazer nao teria como subir; ja quem passou, o Refazer tira das novas
-      const alvo = jogosDoRodizio(g.length)
-      const jogos = new Map<string, number>(g.map((id) => [id, 0]))
-      for (const m of matches) {
-        if ((m.fase ?? 1) >= 2) continue
-        for (const id of jogadorasDaPartida(m)) if (jogos.has(id)) jogos.set(id, (jogos.get(id) ?? 0) + 1)
-      }
-      const valores = [...jogos.entries()]
-      const max = Math.max(...valores.map(([, v]) => v))
-      if (alvo > 0 && max > alvo) {
-        const mais = valores.filter(([, v]) => v === max).map(([id]) => nameOf(id)).join(', ')
-        avisos.push(`${mais} fica com ${max} partidas, e o plano dá ${alvo}.`)
-      }
-      // (dupla repetida enquanto outra nunca se formou nao entra aqui: depois de uma
-      // troca pode ser inevitavel, e o aviso ficaria aceso para sempre)
-    }
-    return avisos.length > 0 ? avisos : null
-  }, [matches, finished, grupos, session.player_ids, nameOf])
 
   // sequencias que avancaram neste play (so existe depois de finalizado);
   // da maior para a menor, porque a maior e o destaque do texto e do banner
@@ -1743,16 +1726,27 @@ function PlayDetail({
   // do banco (ver src/lib/emQuadra.ts)
   const [inicios, setInicios] = useState<Horarios>(() => loadInicios())
   const [fins, setFins] = useState<Horarios>(() => loadFins())
-  /** Quem ainda nao chegou: o app pula as partidas dela ate ser desmarcada. */
-  const [ausentes, setAusentes] = useState<Set<string>>(
+  /**
+   * Quem ainda nao chegou: o app pula as partidas dela ate ser desmarcada.
+   * Fica NO PLAY (script 22), para todos os celulares verem; sem a coluna, so
+   * neste aparelho, como antes.
+   */
+  const [ausentesLocais, setAusentesLocais] = useState<Set<string>>(
     () => new Set(loadAusentes()[session.id] ?? []),
+  )
+  const ausentesNoPlay = 'ausentes' in session && avisosDoBanco.colunas.has('sessions.ausentes') === false
+  const ausentes = useMemo(
+    () => (ausentesNoPlay ? new Set(session.ausentes ?? []) : ausentesLocais),
+    [ausentesNoPlay, session.ausentes, ausentesLocais],
   )
   const [marcandoAusentes, setMarcandoAusentes] = useState(false)
   function alternarAusente(id: string) {
-    setAusentes((prev) => {
+    const ausente = !ausentes.has(id)
+    mesclarNoPlay(session.id, { campo: 'ausentes', id, ausente })
+    setAusentesLocais((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (ausente) next.add(id)
+      else next.delete(id)
       saveAusentes({ ...loadAusentes(), [session.id]: [...next] })
       return next
     })
@@ -1791,12 +1785,22 @@ function PlayDetail({
     })
   }, [matches, inicios])
 
-  const iniciada = (m: Match) => !isPlayed(m) && !!(m.started_at ?? inicios[m.id])
+  /**
+   * O inicio guardado neste aparelho so vale por uns minutos: ele cobre a
+   * volta do banco atrasada logo depois do toque. Passado isso manda o banco --
+   * senao, quando OUTRO celular cancelava o inicio, este continuava mostrando a
+   * partida em quadra para sempre.
+   */
+  const inicioLocal = (id: string): string | null => {
+    const t = inicios[id]
+    return t && Date.now() - Date.parse(t) < 3 * 60 * 1000 ? t : null
+  }
+  const iniciada = (m: Match) => !isPlayed(m) && !!(m.started_at ?? inicioLocal(m.id))
 
   /** Hora em que a partida entrou em quadra (banco ou celular), se estiver rolando. */
   function inicioDe(m: Match): string | null {
     if (isPlayed(m)) return null
-    return m.started_at ?? inicios[m.id] ?? null
+    return m.started_at ?? inicioLocal(m.id) ?? null
   }
 
   const emJogo = useMemo(() => matches.filter(iniciada), [matches, inicios])
@@ -1936,59 +1940,74 @@ function PlayDetail({
   }
 
   /** Sugestao de proxima partida por quadra livre, respeitando escolhas na mao. */
+  /**
+   * As partidas como a tela as ve: com o inicio e o fim guardados neste
+   * aparelho quando o banco ainda nao devolveu (ver emQuadra.ts).
+   */
+  const matchesDaTela = useMemo(
+    () =>
+      matches.map((m) => {
+        const inicio = inicioDe(m)
+        const fim = m.ended_at ?? fins[m.id] ?? null
+        return inicio !== m.started_at || fim !== m.ended_at ? { ...m, started_at: inicio, ended_at: fim } : m
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [matches, inicios, fins],
+  )
+
+  /**
+   * A FILA DE CADA GRUPO -- a que a tela mostra E a que as quadras consomem
+   * (`proximasPelaFila`): a quadra que vaga pega a primeira partida da fila do
+   * grupo dela com as quatro livres. Em 05/10 a lista era uma previsao feita de
+   * um jeito e a quadra escolhia de outro, e a partida que entrava nao era a
+   * escrita. Medido em tests/fila.test.ts.
+   */
+  const filas = useMemo(
+    () =>
+      filaPorGrupo({
+        jogadoras: session.player_ids,
+        grupos: grupos ?? null,
+        matches: matchesDaTela,
+        ausentes,
+        quadras: session.courts,
+      }),
+    [session.player_ids, grupos, matchesDaTela, ausentes, session.courts],
+  )
+
+  /** Sugestao de proxima partida por quadra livre, respeitando escolhas na mao. */
   const proximas = useMemo(() => {
     const escolhidasNaMao = new Map<number, Match>()
-    const reservadas = new Set<string>()
     for (const q of quadrasLivres) {
       const id = manuais[q]
       const m = id ? pendentes.find((x) => x.id === id) : undefined
-      if (m) {
-        escolhidasNaMao.set(q, m)
-        reservadas.add(m.id)
-      }
+      // a escolha so vale se as quatro estiverem livres (ninguem em quadra)
+      if (m && jogadorasDaPartida(m).every((x) => !ocupadas.has(x))) escolhidasNaMao.set(q, m)
     }
     const restantes = quadrasLivres.filter((q) => !escolhidasNaMao.has(q))
-    const ocupadasComManuais = new Set(indisponiveis)
-    for (const m of escolhidasNaMao.values()) {
-      for (const id of jogadorasDaPartida(m)) ocupadasComManuais.add(id)
-    }
-    const livresDaFila = pendentes.filter((m) => !reservadas.has(m.id))
-    if (!quadrasDaCategoria) {
-      const auto = proximasDasQuadras({
-        pendentes: livresDaFila,
-        ocupadas: ocupadasComManuais,
-        espera,
-        jogos,
-        quadrasLivres: restantes,
-        seguidas,
-        jaFormadas,
-        jogadoras: session.player_ids,
-        grupos,
-      })
-      return new Map([...escolhidasNaMao, ...auto])
-    }
-    // CAMPEONATO: cada categoria escolhe nas quadras dela (mais as cedidas por
-    // quem ja terminou), so com as partidas dela; o grupo mora na sua quadra
+    const noite = { jogadoras: session.player_ids, grupos: grupos ?? null, matches: matchesDaTela, ausentes, quadras: session.courts }
+    const reservadas = [...escolhidasNaMao.values()]
     const out = new Map(escolhidasNaMao)
+    if (!quadrasDaCategoria) {
+      for (const [q, m] of proximasPelaFila(noite, restantes, undefined, filas, reservadas)) out.set(q, m)
+      return out
+    }
+    // CAMPEONATO: cada categoria nas quadras dela (mais as cedidas), com as
+    // filas dos grupos dela; o grupo mora na sua quadra
     cats.forEach((cat, ci) => {
       const livresDaCat = restantes.filter((q) => quadrasDaCategoria[ci]?.includes(q))
       if (livresDaCat.length === 0) return
-      const auto = proximasDasQuadras({
-        pendentes: livresDaFila.filter((m) => catDe(m) === ci),
-        ocupadas: ocupadasComManuais,
-        espera,
-        jogos,
-        quadrasLivres: livresDaCat,
-        seguidas,
-        jaFormadas,
-        jogadoras: cat.grupos.flatMap((g) => session.groups?.[g] ?? []),
-        grupos: cat.grupos.map((g) => session.groups?.[g] ?? []),
-        quadrasDaCasa: cat.quadras,
-      })
+      const auto = proximasPelaFila(
+        noite,
+        livresDaCat,
+        cat.quadras,
+        cat.grupos.map((g) => filas[g] ?? []),
+        [...reservadas, ...out.values()],
+      )
       for (const [q, m] of auto) out.set(q, m)
     })
     return out
-  }, [quadrasLivres, manuais, pendentes, indisponiveis, espera, jogos, seguidas, jaFormadas, session.player_ids, session.groups, grupos, quadrasDaCategoria, cats, catDe])
+  }, [quadrasLivres, manuais, pendentes, ocupadas, session.player_ids, grupos, matchesDaTela, ausentes, session.courts, filas, quadrasDaCategoria, cats])
+
 
   /**
    * Quem nao esta disponivel para esta partida: as que estao em quadra agora e
@@ -2011,27 +2030,17 @@ function PlayDetail({
   }, [ocupadas, proximas, session.player_ids, ausentes])
 
   /**
-   * A fila de verdade: o que sobra depois das quadras, na ordem em que deve
-   * acontecer. Sem isto a tela mostrava a ordem de geracao, e quem tinha
-   * acabado de jogar aparecia na frente de quem ainda nem tinha entrado.
+   * "Proximas na fila": o que sobra das filas dos grupos depois das quadras,
+   * intercalado pela posicao (a 1a de cada grupo, depois a 2a...), que e a
+   * ordem em que vao acontecendo.
    */
   const filaPrevista = useMemo(() => {
     const naQuadra = new Set([...proximas.values()].map((m) => m.id))
-    const comprometidas = new Set(indisponiveis)
-    for (const m of proximas.values()) {
-      for (const id of jogadorasDaPartida(m)) comprometidas.add(id)
-    }
-    return ordemPrevista({
-      pendentes: pendentes.filter((m) => !naQuadra.has(m.id)),
-      espera,
-      ocupadas: comprometidas,
-      jogadoras: session.player_ids,
-      seguidas,
-      jaFormadas,
-      grupos,
-      ausentes,
-    })
-  }, [pendentes, proximas, indisponiveis, espera, session.player_ids, seguidas, jaFormadas, grupos, ausentes])
+    const restos = filas.map((f) => f.filter((m) => !naQuadra.has(m.id)))
+    const out: Match[] = []
+    for (let k = 0; restos.some((f) => k < f.length); k++) for (const f of restos) if (f[k]) out.push(f[k])
+    return out
+  }, [filas, proximas])
 
   /**
    * As duplas que jogam duas vezes no dia, por partida.
@@ -2098,11 +2107,8 @@ function PlayDetail({
   function iniciar(m: Match, quadra: number) {
     const agora = new Date().toISOString()
     marcarInicio(m.id, agora)
-    setManuais((prev) => {
-      const next = { ...prev }
-      delete next[quadra]
-      return next
-    })
+    // a escolha na mao foi cumprida: a quadra volta a seguir a fila
+    if (manuais[quadra]) escolherNaMao(quadra, null)
     saveMatches([{ ...m, court: quadra, started_at: agora }])
   }
 
@@ -2204,20 +2210,43 @@ function PlayDetail({
    * Refaz so o que ainda nao aconteceu: junta as duplas que ainda faltam
    * formar e monta as partidas em cima do que ja foi jogado hoje.
    */
-  async function regenerarPendentes(sessao: PlaySession = session, silencioso = false) {
-    // so a fase de grupos que ainda nao comecou: o mata-mata (de qualquer
-    // categoria) fica como esta
-    const { naFila, preservadas } = separarParaRefazer(matches, iniciada)
-    if (naFila.length === 0 && !silencioso) {
+  async function regenerarPendentes(
+    sessao: PlaySession = session,
+    silencioso = false,
+    /** `base`: as partidas ja com a troca aplicada; `fixa`: a partida trocada, que fica. */
+    opcoes: { base?: Match[]; fixa?: string; automatico?: boolean } = {},
+  ) {
+    const base = opcoes.base ?? matches
+    const fixa = (m: Match) => iniciada(m) || m.id === opcoes.fixa
+    /*
+     * SO OS GRUPOS EM QUE A CONTA NAO FECHA (`precisaRefazer`). Grupo certinho
+     * fica como esta: em 05/10 o Refazer foi apertado 9 vezes num play que nao
+     * precisava, e cada toque desmontava o rodizio de 6 que evita alguem
+     * emendar 3 -- 14 das 18 meninas emendaram.
+     */
+    const gruposDoPlay = sessao.groups?.length ? sessao.groups : [sessao.player_ids]
+    const precisam = gruposDoPlay.filter((g) => {
+      const doGrupo = new Set(g)
+      return precisaRefazer(g, base.filter((m) => doGrupo.has(m.team_a[0])))
+    })
+    if (precisam.length === 0) {
+      if (!silencioso && !opcoes.automatico) onToast('A fila já está certa — nada para refazer ✅')
+      return
+    }
+    const quemRefaz = new Set(precisam.flat())
+    // so a fase de grupos que ainda nao comecou, e so dos grupos que precisam:
+    // o mata-mata (de qualquer categoria) e os outros grupos ficam como estao
+    const { naFila, preservadas } = separarParaRefazer(base, (m) => fixa(m) || !quemRefaz.has(m.team_a[0]))
+    if (naFila.length === 0 && !silencioso && !opcoes.automatico) {
       onToast('Não há partidas na fila para refazer')
       return
     }
     const fila = refazerFila({
-      playerIds: sessao.player_ids,
-      groups: sessao.groups ?? undefined,
-      // a partida EM QUADRA conta como acontecida: ela fica na lista, entao a
-      // fila nova nao pode formar aquelas duplas de novo nem repetir o confronto
-      jogadas: preservadas.filter((m) => isPlayed(m) || iniciada(m)),
+      playerIds: precisam.flat(),
+      groups: sessao.groups?.length ? precisam : undefined,
+      // a partida EM QUADRA (e a que acabou de ser trocada) conta como
+      // acontecida: ela fica, entao a fila nova nao forma aquelas duplas de novo
+      jogadas: preservadas.filter((m) => isPlayed(m) || fixa(m)),
       ratings: ratings(data, session.date),
       entrosamento: ajusteDeEntrosamento(data),
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
@@ -2238,10 +2267,20 @@ function PlayDetail({
       // so o total e o diario: regravar a sessao inteira daqui apagaria o que
       // outro celular mudou nela (duplas, desempates, quadras de outra categoria)
       mesclarNoPlay(session.id, { campo: 'rounds', minimo: preservadas.length + novas.length })
-      anotarNoPlay(session.id, novoEvento('refazer', `Refazer a fila: ${novas.length} partida${novas.length === 1 ? '' : 's'} refeita${novas.length === 1 ? '' : 's'}`))
+      anotarNoPlay(
+        session.id,
+        novoEvento(
+          'refazer',
+          `${opcoes.automatico ? 'Fila refeita sozinha depois da troca' : 'Refazer a fila'}: ${novas.length} partida${novas.length === 1 ? '' : 's'} refeita${novas.length === 1 ? '' : 's'}`,
+        ),
+      )
     }
     if (!silencioso) {
-      onToast(`${novas.length === 1 ? 'uma partida refeita' : `${novas.length} partidas refeitas`} 🔄`)
+      onToast(
+        opcoes.automatico
+          ? 'Fila refeita para compensar a troca 🔄'
+          : `${novas.length === 1 ? 'uma partida refeita' : `${novas.length} partidas refeitas`} 🔄`,
+      )
     }
   }
 
@@ -2512,8 +2551,21 @@ function PlayDetail({
       onToast(`${nameOf(entra)} está em quadra agora — espere a partida dela acabar`)
       return
     }
+    if (ausentes.has(entra)) {
+      onToast(`${nameOf(entra)} ainda não chegou — desmarque em "⏳ Quem não chegou" quando ela aparecer`)
+      return
+    }
     const nova = trocarNaPartida(m, sai, entra)
     saveMatches([nova])
+    // A FILA SE ARRUMA SOZINHA: a troca deixa uma com partida a mais e outra a
+    // menos; o app refaz o que ainda nao comecou daquele grupo, mantendo esta
+    // partida como ficou. Antes aparecia um aviso pedindo o Refazer, e
+    // ninguem quer jogar com a fila errada
+    void regenerarPendentes(session, false, {
+      base: matches.map((x) => (x.id === nova.id ? nova : x)),
+      fixa: nova.id,
+      automatico: true,
+    })
     // so o diario: a troca nao mexe na sessao, e grava-la inteira daqui
     // desfaria o que outro aparelho acabou de mudar nela
     anotarNoPlay(
@@ -2721,15 +2773,6 @@ function PlayDetail({
             </div>
           </div>
         )}
-        {editable && desajuste && (
-          <div className="banner warn row spread" style={{ marginBottom: 10, gap: 10 }}>
-            <span className="grow">
-              ⚖️ <strong>A fila desandou depois de uma troca:</strong> {desajuste.join(' ')}{' '}
-              O Refazer a fila troca só as partidas que faltam para compensar.
-            </span>
-            <button className="btn pink sm nowrap" onClick={() => void regenerarPendentes()}>🔄 Refazer a fila</button>
-          </div>
-        )}
         {ausentes.size > 0 && (
           <div className="banner warn" style={{ marginBottom: 10 }}>
             ⏳ <strong>Ainda não {ausentes.size === 1 ? 'chegou' : 'chegaram'}:</strong>{' '}
@@ -2841,7 +2884,7 @@ function PlayDetail({
       <ListaDePartidas
         titulo="⏭️ Próximas na fila"
         vazio="Nada na fila."
-        rodape="A ordem segue quem está fora há mais tempo, igual às quadras — não é a ordem em que as partidas foram geradas. As duplas não mudam."
+        rodape="É a ordem em que elas vão entrar: cada quadra que vaga pega a primeira do grupo dela com as quatro livres. Igual em todos os celulares."
         partidas={filtroCat === null || !ehCampeonato ? filaPrevista : filaPrevista.filter((m) => catDe(m) === filtroCat)}
         ausentes={ausentes}
         numerar
@@ -3018,7 +3061,7 @@ function PlayDetail({
           seguidas={seguidas}
           jaFormadas={jaFormadas}
           onEscolher={(m) => {
-            setManuais((prev) => ({ ...prev, [escolhendo]: m.id }))
+            escolherNaMao(escolhendo, m.id)
             setEscolhendo(null)
           }}
           onClose={() => setEscolhendo(null)}
@@ -3623,7 +3666,7 @@ function MatchCard({
       <div className="row" style={{ gap: 8, marginTop: 8 }}>
         <button className="btn ghost sm grow" onClick={() => setTrocando(true)}>🔄 Trocar jogadora</button>
         {!iniciada && onTrocarPartida && (
-          <button className="btn ghost sm grow" onClick={onTrocarPartida}>⏭️ Outra partida</button>
+          <button className="btn ghost sm grow" onClick={onTrocarPartida}>🔀 Trocar por outra partida</button>
         )}
       </div>
       {modalTroca}
@@ -4039,9 +4082,11 @@ function EscolherPartida({
   })
 
   return (
-    <Modal title={`Qual partida entra na quadra ${quadra}?`} onClose={onClose}>
+    <Modal title={`Trocar a partida da quadra ${quadra} por qual?`} onClose={onClose}>
       <p className="tiny muted" style={{ marginTop: 0 }}>
-        As de cima são as que têm as quatro meninas livres e esperando há mais tempo.
+        A fila já escolhe sozinha a próxima partida desta quadra — troque só se precisar (alguém
+        pediu para esperar, por exemplo). A troca aparece em todos os celulares. As de cima são as
+        que têm as quatro livres e esperando há mais tempo.
       </p>
       <div className="stack">
         {ordenadas.slice(0, 30).map((m) => {

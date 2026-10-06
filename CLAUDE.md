@@ -178,10 +178,12 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   Vanessa + Maria Paula formada — o refazer antigo dava 15, com Maria Paula em 9. Em
   14/09 o refazer tinha deixado Izabelle + Karla sem jogar. Troca **entre grupos**
   ainda desequilibra: o Trocar mostra o mesmo grupo primeiro e avisa nas outras.
-  Quando uma troca deixa alguém **acima do plano** (`jogosDoRodizio`), o card das
-  quadras mostra o banner **"a fila desandou"** com o Refazer ao lado (`desajuste`).
-  Ficar abaixo não acende: quem entrou no lugar de outra ou chegou tarde fica abaixo
-  naturalmente, e o Refazer não teria como subir.
+  **A fila se arruma sozinha depois de uma troca** (o banner "a fila desandou" saiu):
+  o Trocar jogadora refaz na hora o que falta daquele grupo, mantendo a partida
+  trocada. E o refazer (automático ou no botão) **só mexe nos grupos em que a conta
+  não fecha** (`precisaRefazer`: alguém fora de `jogosDoRodizio` ou dupla que nunca
+  se forma) — grupo certinho fica como está; em 05/10 o Refazer apertado 9 vezes num
+  play sem problema desmontou o rodízio de 6 e 14 de 18 meninas emendaram 3.
 - **O play tem diário** (`sessions.eventos`, script 20): cada intervenção na mão —
   trocar jogadora, entra/sai, refazer a fila, refazer tudo, abrir/tirar quadra — fica
   anotada com hora, texto pronto e quantas partidas já tinham sido jogadas
@@ -268,18 +270,28 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   esses contam na receita; perdoar uma dívida não conta.
 - **"⏳ Quem não chegou"** (no card das quadras): quem está na lista mas ainda não
   apareceu é marcada e o app **pula as partidas dela** ao sugerir a próxima — para a
-  escolha ela conta como se estivesse em quadra (`indisponiveis`), e a previsão da
-  fila deixa as partidas dela **para o fim**. Desmarcou, ela entra na frente: é quem
-  está há mais tempo sem jogar. Fica só no aparelho (`CHAVE.ausentes`), como a hora
-  de início. Se ela **não vem**, o caminho é o Entra / sai, não este.
+  escolha ela conta como se estivesse em quadra (`indisponiveis`), e a fila deixa as
+  partidas dela **para o fim**. Desmarcou, ela entra na frente: é quem está há mais
+  tempo sem jogar. **Fica no play** (`sessions.ausentes`, script 22), igual em todos
+  os celulares — em 05/10 era só do aparelho e o outro celular mostrava outra fila.
+  Se ela **não vem**, o caminho é o Entra / sai, não este.
+- **A fila mostrada é a que acontece** (`src/lib/fila.ts`): `filaPorGrupo` ordena as
+  pendentes de cada grupo e a quadra que vaga pega **a primeira da fila do grupo dela
+  com as quatro livres** (`proximasPelaFila`). Antes a lista era uma previsão feita de
+  um jeito e a quadra escolhia de outro. Medido em `tests/fila.test.ts` (noites
+  simuladas): fila furada 0x, e ninguém emenda 3 nos formatos em grupos (igual a
+  antes); só "todas com todas" com +16 pendentes perde um pouco (11 em 2 quadras: 6/20
+  noites contra 4/20) — a troca aceita por a lista ser a verdade. A escolha na mão
+  ("🔀 Trocar por outra partida") fica no play (`sessions.escolhas`, script 22). O
+  início guardado no aparelho só vale 3 minutos; depois manda o banco.
 - **Quadra a mais no meio do play** ("➕ quadra" no card das quadras): só muda
   `sessions.courts`; a quadra nova aparece livre e já puxa a próxima da fila. Tirar
   só a última, e só vazia — reduzir com jogo em andamento sumiria com ele da tela.
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
   quadra parada e a troca de jogadoras.
-- A lista "Próximas na fila" usa `ordemPrevista()`, não a ordem gravada: mostrar
-  a ordem de geração colocava na frente quem tinha acabado de sair da quadra.
+- A lista "Próximas na fila" é a fila de cada grupo (`filaPorGrupo`), intercalada
+  pela posição — não a ordem gravada, que colocava na frente quem tinha acabado de sair.
 - **O placar só é lançável depois de "▶️ Partida iniciada"** (botões de "venceu"
   desabilitados). Corrigir placar é o ✏️ da lista "Já jogadas", que abre um modal
   e **preserva o `ended_at`** — não devolve a partida para a fila.
