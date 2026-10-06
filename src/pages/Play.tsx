@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import ClassificacaoDosGrupos from '../components/ClassificacaoDosGrupos'
 import DesempateEmQuadra from '../components/DesempateEmQuadra'
 import DivisaoDoCampeonato from '../components/DivisaoDoCampeonato'
 import {
@@ -11,6 +12,7 @@ import {
   categoriasDoPlay,
   colocacoesDaCategoria,
   duosDaCategoria,
+  pontosDeColocacao,
   quadrasEfetivas,
   dividirEmCategorias,
   montarCategorias,
@@ -66,6 +68,8 @@ import {
   rankDuplasDoDia,
   rankPlayers,
   ratings,
+  aplicarColocacao,
+  computeStatsComPontos,
 } from '../lib/stats'
 import { buildDayPoster, buildDayPosterGrupos, type PosterRow } from '../lib/poster'
 import {
@@ -895,7 +899,7 @@ function NewPlay({
             <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={ranked} onChange={(e) => setRanked(e.target.checked)} />
               <span className="grow">
-                <strong>{ranked ? '🏆 Vale para o campeonato' : '🎈 Play avulso'}</strong>
+                <strong>{ranked ? '🏆 Vale para o ranking do mês' : '🎈 Play avulso'}</strong>
                 <span className="hint" style={{ marginTop: 2 }}>
                   {ranked
                     ? 'os pontos entram no ranking do mês e as sequências 🔥 correm normalmente'
@@ -1527,20 +1531,41 @@ function PlayDetail({
   )
 
   /** O podio do mata-mata, quando o play foi em grupos+duplas. */
-  const duplasDoDia = useMemo(
+  const duplasPorCategoria = useMemo(
     () =>
       soFase2
-        ? rankDuplasDoDia(partidasDaFase2, nameOf, byeDoDia.porDupla, session.duos ?? undefined)
+        ? cats.map((_, ci) => {
+            const duos = duosDaCategoria(session, ci)
+            return rankDuplasDoDia(
+              partidasDaFase2.filter((m) => catDe(m) === ci),
+              nameOf,
+              byeDoDia.porDupla,
+              duos.length ? duos : undefined,
+            )
+          })
         : [],
-    [soFase2, partidasDaFase2, nameOf, byeDoDia, session.duos],
+    [soFase2, cats, session, partidasDaFase2, nameOf, byeDoDia, catDe],
+  )
+  /** Os pontos por colocacao deste play (vazio sem tabela ou antes de alguma categoria terminar). */
+  const colocacaoDoDia = useMemo(() => pontosDeColocacao(session, matches), [session, matches])
+  /** CAMPEONATO: a categoria escolhida para o ranking, o texto e a arte (null = todas). */
+  const [catArte, setCatArte] = useState<number | null>(null)
+  /** O podio da chave no recorte escolhido (uma categoria so = o de sempre). */
+  const duplasDoDia = useMemo(
+    () => (catArte === null ? (duplasPorCategoria.length === 1 ? duplasPorCategoria[0] : []) : (duplasPorCategoria[catArte] ?? [])),
+    [duplasPorCategoria, catArte],
   )
 
   const dayRows = useMemo(() => {
     const todas = playedMatches(data, { sessionId: session.id })
     // a fase de grupos so serviu para formar as duplas; da fase 2 em diante conta
     const ms = soFase2 ? todas.filter((m) => (m.fase ?? 1) >= 2) : todas
+    // com tabela de colocacao os pontos do dia sao os da colocacao final
+    if (soFase2 && session.pontuacao?.length) {
+      return rankPlayers(aplicarColocacao(computeStatsComPontos([session], ms), pontosDeColocacao(session, todas)), nameOf)
+    }
     return rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia)
-  }, [data, session.id, nameOf, soFase2, criterioDoDia])
+  }, [data, session, nameOf, soFase2, criterioDoDia])
 
   /**
    * Como o dia e dividido para o podio.
@@ -1669,10 +1694,14 @@ function PlayDetail({
     () => (grupoArte === null ? podios : podios.filter((p) => p.grupo === grupoArte)),
     [podios, grupoArte],
   )
-  const rowsSel = useMemo(
-    () => (grupoArte === null ? dayRows : dayRows.filter((s) => grupoDe.get(s.player_id) === grupoArte)),
-    [dayRows, grupoDe, grupoArte],
-  )
+  const rowsSel = useMemo(() => {
+    if (ehCampeonato) {
+      return catArte === null
+        ? dayRows
+        : dayRows.filter((s) => categoriaDaJogadora(cats, session.groups, s.player_id) === catArte)
+    }
+    return grupoArte === null ? dayRows : dayRows.filter((s) => grupoDe.get(s.player_id) === grupoArte)
+  }, [dayRows, grupoDe, grupoArte, ehCampeonato, catArte, cats, session.groups])
   // o destaque e a maior sequencia entre quem esta neste recorte
   const award = useMemo(() => {
     const aqui = new Set(podiosSel.flatMap((p) => p.rows.map((x) => x.player_id)))
@@ -2071,17 +2100,23 @@ function PlayDetail({
        * duas -- o mesmo desenho ja usado para os grupos, que empilha blocos e
        * continua legivel no celular.
        */
-      if (soFase2 && duplasDoDia.length > 0) {
+      const recorte = ehCampeonato
+        ? cats.map((c, ci) => ({ c, linhas: duplasPorCategoria[ci] ?? [] })).filter((_, ci) => catArte === null || catArte === ci)
+        : [{ c: null, linhas: duplasDoDia }]
+      if (soFase2 && recorte.some((r) => r.linhas.length > 0)) {
         const porId = new Map(dayRows.map((s) => [s.player_id, s]))
         const titulos = ['Campeãs do dia', 'Vice-campeãs', '3º lugar']
-        const blocos = duplasDoDia.slice(0, 3).map((d, i) => ({
-          titulo: titulos[i],
-          medalha: i,
-          rows: [d.a, d.b]
-            .map((id) => porId.get(id))
-            .filter((s): s is PlayerStat => Boolean(s))
-            .map((s) => linhaDe(s, true)),
-        }))
+        const blocos = recorte.flatMap(({ c, linhas }) =>
+          linhas.slice(0, 3).map((d, i) => ({
+            // no campeonato cada bloco diz de que categoria e
+            titulo: c ? `${c.nome} · ${titulos[i]}` : titulos[i],
+            medalha: i,
+            rows: [d.a, d.b]
+              .map((id) => porId.get(id))
+              .filter((s): s is PlayerStat => Boolean(s))
+              .map((s) => linhaDe(s, true)),
+          })),
+        )
         const blob = await buildDayPosterGrupos(dateLabel(session.date), blocos, logo)
         setArte({ url: URL.createObjectURL(blob), blob })
         return
@@ -2450,15 +2485,25 @@ function PlayDetail({
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 19, fontWeight: 800 }}>{session.title}</div>
           <div className="small" style={{ fontWeight: 700, marginTop: 2 }}>
-            {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o campeonato'}
+            {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o ranking'}
             {' · '}
-            {FORMATOS.find((f) => f.valor === (session.format ?? 'todas'))?.rotulo ?? session.format}
+            {FORMATOS.find((f) => f.valor === (ehCampeonato ? 'campeonato' : (session.format ?? 'todas')))?.rotulo ?? session.format}
             {' · '}
-            {criterioDoDia === 'vitorias' ? 'dia por vitórias' : 'dia por pontos'}
+            {soFase2 && session.pontuacao?.length
+              ? 'pontos pela colocação'
+              : criterioDoDia === 'vitorias'
+                ? 'dia por vitórias'
+                : 'dia por pontos'}
           </div>
           <div className="small muted">
             {dateLabel(session.date)} · {session.player_ids.length} jogadoras · {session.courts} quadras
-            {grupos && grupos.length > 1 && ` · ${grupos.length} grupos`} · até {session.target} games
+            {ehCampeonato
+              ? ` · ${cats.length} categorias`
+              : grupos && grupos.length > 1
+                ? ` · ${grupos.length} grupos`
+                : ''}
+            {/* no grupos+duplas cada fase tem o seu alvo; o "ate N" unico enganaria */}
+            {!(soFase2 && session.alvos?.length) && ` · até ${session.target} games`}
           </div>
           <div className="tiny muted" style={{ marginTop: 2 }}>
             {explicarRegra(session.target, regraDoPlay)}
@@ -2929,8 +2974,9 @@ function PlayDetail({
 
       {showRank && (
         <Modal title={`Ranking do dia — ${dateLabel(session.date)}`} onClose={() => setShowRank(false)}>
+          {soFase2 && <ClassificacaoDosGrupos session={session} matches={matches} nameOf={nameOf} />}
           {dayRows.length === 0 ? (
-            <Empty>Nenhum placar lançado ainda.</Empty>
+            soFase2 ? null : <Empty>Nenhum placar lançado ainda.</Empty>
           ) : (
             <>
               {award && awardLevel && (
@@ -2941,7 +2987,29 @@ function PlayDetail({
                   {award.usouVida && ' (uma vida foi consumida para segurar o status hoje)'}
                 </div>
               )}
-              {soFase2 && <DuplasDoDia linhas={duplasDoDia} />}
+              {ehCampeonato && (
+                <div className="chips-scroll" style={{ marginBottom: 8 }}>
+                  <button className={`chip ${catArte === null ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(null)}>
+                    🏆 Todas
+                  </button>
+                  {cats.map((c, ci) => (
+                    <button key={ci} className={`chip ${catArte === ci ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(ci)}>
+                      Categoria {c.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {soFase2 &&
+                (ehCampeonato
+                  ? cats.map((c, ci) =>
+                      (catArte === null || catArte === ci) && (duplasPorCategoria[ci]?.length ?? 0) > 0 ? (
+                        <div key={ci}>
+                          <div className="section-title" style={{ fontSize: 13 }}>Categoria {c.nome}</div>
+                          <DuplasDoDia linhas={duplasPorCategoria[ci]} colocacao={colocacaoDoDia} />
+                        </div>
+                      ) : null,
+                    )
+                  : <DuplasDoDia linhas={duplasDoDia} colocacao={colocacaoDoDia} />)}
               {podios.length > 1 && (
                 <>
                   {/* O seletor manda em tudo: a tabela abaixo, o texto e a imagem.
@@ -3005,7 +3073,7 @@ function PlayDetail({
                       </div>
                     )
                   })}
-              {podios.length <= 1 && <RankTable rows={dayRows} fire={streaksDoDia} />}
+              {podios.length <= 1 && <RankTable rows={ehCampeonato ? rowsSel : dayRows} fire={streaksDoDia} />}
               {podios.length > 1 && (
                 <p className="tiny muted" style={{ marginTop: 10, marginBottom: 8 }}>
                   📤 O texto e a imagem saem com {grupoArte === null ? 'todos os grupos' : `só o grupo ${grupoArte}`},
@@ -3016,22 +3084,47 @@ function PlayDetail({
                 className="btn pink block"
                 style={{ marginTop: podios.length > 1 ? 0 : 12 }}
                 onClick={async () => {
-                  const ok = await shareOrCopy(
-                    dayRankingText({
-                      date: session.date,
-                      title: session.title,
-                      rows: rowsSel,
-                      nameOf,
-                      podios: podiosSel,
-                      duplas: soFase2 ? duplasDoDia : undefined,
-                      streaks: streaksDoDia,
-                      award,
-                    }),
-                  )
+                  // no campeonato sai um bloco por categoria, cada um carimbado
+                  const texto = ehCampeonato
+                    ? cats
+                        .map((c, ci) => ({ c, ci }))
+                        .filter(({ ci }) => catArte === null || catArte === ci)
+                        .map(({ c, ci }) => {
+                          const rows = dayRows.filter((x) => categoriaDaJogadora(cats, session.groups, x.player_id) === ci)
+                          return dayRankingText({
+                            date: session.date,
+                            title: `${session.title} · Categoria ${c.nome}`,
+                            rows,
+                            nameOf,
+                            podios: podiosDoDia(rows, null),
+                            duplas: duplasPorCategoria[ci],
+                            streaks: streaksDoDia,
+                          })
+                        })
+                        .join('\n\n')
+                    : dayRankingText({
+                        date: session.date,
+                        title: session.title,
+                        rows: rowsSel,
+                        nameOf,
+                        podios: podiosSel,
+                        duplas: soFase2 ? duplasDoDia : undefined,
+                        streaks: streaksDoDia,
+                        award,
+                      })
+                  const ok = await shareOrCopy(texto)
                   onToast(ok ? 'Ranking do dia copiado 💬' : 'Não consegui copiar')
                 }}
               >
-                💬 Texto {grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`} para o WhatsApp
+                💬 Texto{' '}
+                {ehCampeonato
+                  ? catArte === null
+                    ? 'de todas as categorias'
+                    : `da categoria ${cats[catArte].nome}`
+                  : grupoArte === null
+                    ? 'do dia'
+                    : `do grupo ${grupoArte}`}{' '}
+                para o WhatsApp
               </button>
               <button
                 className="btn purple block"
@@ -4008,8 +4101,16 @@ function descreverFase2(grupos: string[][], duplasMM: number): string {
  * um podio na tela que nao bate com o que vale para a sequencia seria bug
  * esperando para ser reportado.
  */
-function DuplasDoDia({ linhas }: { linhas: DuplaDoDia[] }) {
+function DuplasDoDia({
+  linhas,
+  colocacao,
+}: {
+  linhas: DuplaDoDia[]
+  /** Com tabela de colocacao, os pontos que cada uma leva (no lugar dos do placar). */
+  colocacao?: Map<string, number>
+}) {
   const { nameOf, playerById } = useStore()
+  const pontosDa = (d: DuplaDoDia) => (colocacao?.size ? (colocacao.get(d.a) ?? 0) : d.points)
   if (linhas.length === 0) return null
 
   const medalhas = ['🥇', '🥈', '🥉']
@@ -4039,7 +4140,7 @@ function DuplasDoDia({ linhas }: { linhas: DuplaDoDia[] }) {
                 · {d.wins}V {d.losses}D
               </span>
             </span>
-            <span className="nowrap" style={{ fontWeight: 800 }}>{d.points} pts</span>
+            <span className="nowrap" style={{ fontWeight: 800 }}>{pontosDa(d)} pts</span>
           </div>
         ))}
       </div>
@@ -4077,7 +4178,7 @@ function DuplasDoDia({ linhas }: { linhas: DuplaDoDia[] }) {
                 </td>
                 <td>{d.wins}</td>
                 <td>{d.losses}</td>
-                <td style={{ fontWeight: 800, color: 'var(--marca)' }}>{d.points}</td>
+                <td style={{ fontWeight: 800, color: 'var(--marca)' }}>{pontosDa(d)}</td>
                 <td>{d.saldo > 0 ? `+${d.saldo}` : d.saldo}</td>
               </tr>
             ))}
