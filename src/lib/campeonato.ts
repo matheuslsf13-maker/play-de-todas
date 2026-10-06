@@ -12,7 +12,7 @@
  */
 import { duplasVivas, filaPorForca, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
-import { DUPLAS_NO_PODIO, pontosDeBye, rankDuplasDoDia } from './stats'
+import { DUPLAS_NO_PODIO, pairKey, pontosDeBye, rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, MesclaDoPlay, PlaySession } from './types'
 
 /** 'A', 'B', 'C'... */
@@ -581,4 +581,25 @@ export function minutosRestantesDaChave(opts: {
     vivas = Math.ceil(vivas / 2)
   }
   return total
+}
+
+/**
+ * Os pontos por colocacao de cada DUPLA (chave `pairKey`), para a aba Dupla do
+ * Stats: no campeonato as partidas nao pontuam, e sem isto a dupla campea
+ * aparecia com 0.
+ */
+export function colocacaoPorDupla(sessoes: PlaySession[], matches: Match[]): Map<string, number> {
+  const out = new Map<string, number>()
+  const noRecorte = new Set(matches.map((m) => m.session_id))
+  for (const s of sessoes) {
+    if (!noRecorte.has(s.id) || !s.duos?.length) continue
+    const pontos = pontosDeColocacao(s, matches.filter((m) => m.session_id === s.id))
+    for (const [a, b] of s.duos) {
+      const p = pontos.get(a)
+      if (p === undefined) continue
+      const k = pairKey(a, b)
+      out.set(k, (out.get(k) ?? 0) + p)
+    }
+  }
+  return out
 }

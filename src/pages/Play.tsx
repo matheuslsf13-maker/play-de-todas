@@ -1170,6 +1170,14 @@ function duracaoEstimada(partidas: number, quadras: number, minutosPorPartida: n
   return formatarMinutos(Math.ceil(partidas / Math.max(1, quadras)) * Math.round(minutosPorPartida))
 }
 
+/** "Grupo 3" -- ou, no campeonato, "B · grupo 1". */
+function nomeDoGrupoNoPlay(session: PlaySession, i: number): string {
+  const cats = categoriasDoPlay(session)
+  if (cats.length <= 1) return `Grupo ${i + 1}`
+  const c = cats.find((x) => x.grupos.includes(i))
+  return c ? `${c.nome} · grupo ${c.grupos.indexOf(i) + 1}` : `Grupo ${i + 1}`
+}
+
 /** "45 min", "2h", "1h35". */
 function formatarMinutos(total: number): string {
   const min = Math.round(total)
@@ -2198,9 +2206,13 @@ function PlayDetail({
 
   async function salvarArte() {
     if (!arte) return
-    const sufixo = grupoArte === null ? '' : `-grupo${grupoArte}`
+    // no campeonato o recorte e a categoria; nos grupos, o grupo
+    const recorte = ehCampeonato
+      ? catArte === null ? null : `Categoria ${cats[catArte].nome}`
+      : grupoArte === null ? null : `Grupo ${grupoArte}`
+    const sufixo = recorte ? `-${recorte.toLowerCase().replace(/\s+/g, '')}` : ''
     const arquivo = new File([arte.blob], `play-${session.date}${sufixo}.png`, { type: 'image/png' })
-    const deQuem = grupoArte === null ? '' : ` · Grupo ${grupoArte}`
+    const deQuem = recorte ? ` · ${recorte}` : ''
     const resultado = await baixarOuCompartilhar(arquivo, `${session.title} — ${dateLabel(session.date)}${deQuem} 🏐`)
     if (resultado === 'baixou') onToast('Imagem salva 📸')
   }
@@ -2431,6 +2443,9 @@ function PlayDetail({
     anotarNoPlay(session.id, novoEvento('desempate', texto))
     onToast('Desempate anotado ✅')
   }
+
+  /** Montando duplas ou a proxima rodada agora: trava os botoes contra o toque duplo. */
+  const [montando, setMontando] = useState(false)
 
   /** A proxima posicao livre na fila: depois de TODAS as partidas, de todas as categorias. */
   const proximaPosicao = () => matches.reduce((t, m) => Math.max(t, m.round), 0) + 1
@@ -2671,7 +2686,16 @@ function PlayDetail({
         <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
           <button className="btn ghost sm" onClick={async () => {
             const ok = await shareOrCopy(
-              scheduleText(session.date, session.title, session.courts, matches, nameOf, grupos),
+              // na ORDEM DA FILA: em quadra, as proximas das quadras e o resto da fila
+              scheduleText(
+                session.date,
+                session.title,
+                session.courts,
+                [...emJogo, ...[...proximas.values()].filter((m) => !emJogo.some((x) => x.id === m.id)), ...filaPrevista],
+                nameOf,
+                grupos,
+                { nomeDoGrupo, jogadas: doneCount },
+              ),
             )
             onToast(ok ? 'Partidas copiadas 💬' : 'Não consegui copiar')
           }}>💬 Enviar partidas</button>
@@ -2830,6 +2854,10 @@ function PlayDetail({
         )}
         {matches.length === 0 ? (
           <Empty>Nenhuma partida gerada.</Empty>
+        ) : ehCampeonato && filtroCat !== null && porCategoria[filtroCat]?.terminou ? (
+          <Empty icon="🏆">
+            A categoria {cats[filtroCat].nome} terminou — as quadras dela foram para quem ainda está jogando.
+          </Empty>
         ) : (
           quadras.map((q) => {
             const atual = emQuadra.get(q)
@@ -2992,8 +3020,17 @@ function PlayDetail({
                 ))}
               <button
                 className="btn pink block"
-                disabled={c.podeGerarFase2 && c.desempates.length > 0}
-                onClick={() => void (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))}
+                disabled={montando || (c.podeGerarFase2 && c.desempates.length > 0)}
+                onClick={async () => {
+                  // um toque so: o segundo, antes de a tela atualizar, montaria a chave duas vezes
+                  if (montando) return
+                  setMontando(true)
+                  try {
+                    await (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))
+                  } finally {
+                    setMontando(false)
+                  }
+                }}
               >
                 {c.podeGerarFase2
                   ? `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
@@ -4525,7 +4562,9 @@ function SubstituirJogadora({
                   {onde === 'grupo' && (
                     <select className="select" style={{ marginTop: 6 }} value={grupo} onChange={(e) => setGrupo(Number(e.target.value))}>
                       {grupos.map((g, i) => (
-                        <option key={i} value={i}>Grupo {i + 1} · {g.length} jogadoras</option>
+                        <option key={i} value={i}>
+                          {nomeDoGrupoNoPlay(session, i)} · {g.length} jogadoras
+                        </option>
                       ))}
                     </select>
                   )}

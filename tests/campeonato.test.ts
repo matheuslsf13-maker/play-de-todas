@@ -537,3 +537,13 @@ test('tempo que falta na chave: semifinal em andamento, depois final + 3o', () =
   // campea definida
   assert.equal(minutosRestantesDaChave({ vivas: 1, pendentesNaRodada: 0, degrauAtual: 3, teveSemi: true, quadras: 2, minutos: [10, 12, 14, 16] }), 0)
 })
+
+import { colocacaoPorDupla } from '../src/lib/campeonato'
+
+test('a dupla do campeonato leva os pontos da colocacao dela', () => {
+  const s = camp({ duos: duos4, duplas_mm: 2 })
+  const ms = comSessao([...grupos1, finalA, finalB], 's')
+  const p = colocacaoPorDupla([s], ms)
+  assert.equal(p.get(['a1', 'a5'].sort().join('|')), 16)
+  assert.equal(p.get(['b2', 'b6'].sort().join('|')), 12)
+})

@@ -21,7 +21,7 @@ import {
   pontosDeBye,
   winRate,
 } from '../lib/stats'
-import { colocacaoNoRecorte } from '../lib/campeonato'
+import { colocacaoNoRecorte, colocacaoPorDupla } from '../lib/campeonato'
 import {
   JOGOS_PARA_ENTROSAMENTO,
   JOGOS_PARA_FIRMAR,
@@ -368,8 +368,12 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
   const duplas = useMemo(
     () => [
       ...aplicarByeNasDuplas(
-        duoStatsComPontos(dadosDoBye.sessions, matches),
-        pontosDeBye(dadosDoBye.sessions, matches).porDupla,
+        aplicarByeNasDuplas(
+          duoStatsComPontos(dadosDoBye.sessions, matches),
+          pontosDeBye(dadosDoBye.sessions, matches).porDupla,
+        ),
+        // no campeonato a dupla pontua pela colocacao, nao pelas partidas
+        colocacaoPorDupla(dadosDoBye.sessions, matches),
       ).values(),
     ],
     [matches, dadosDoBye.sessions],

@@ -1,7 +1,7 @@
 import type { DuplaDoDia, PlayerStat } from './stats'
 import { balance } from './stats'
 import { streakLevel, type PodioDoDia } from './streaks'
-import { dateLabel, monthLabel } from './types'
+import { dateLabel, monthLabel, plural } from './types'
 
 /**
  * Textos prontos para colar no grupo do WhatsApp.
@@ -217,37 +217,44 @@ export function scheduleText(
   date: string,
   title: string,
   courts: number,
-  partidas: { round: number; team_a: [string, string]; team_b: [string, string] }[],
+  /** As partidas que faltam, JA na ordem da fila (a que a quadra segue). */
+  partidas: { team_a: [string, string]; team_b: [string, string] }[],
   nameOf: (id: string) => string,
   grupos?: string[][] | null,
+  opcoes: {
+    /** "Grupo 2" -- ou, no campeonato, "B · grupo 1" (indice em `grupos`). */
+    nomeDoGrupo?: (i: number) => string
+    /** Quantas ja foram jogadas: o texto vira "proximas partidas". */
+    jogadas?: number
+  } = {},
 ): string {
   const emGrupos = Boolean(grupos && grupos.length > 1)
+  const nomeDoGrupo = opcoes.nomeDoGrupo ?? ((i: number) => `Grupo ${i + 1}`)
   const grupoDe = new Map<string, number>()
-  grupos?.forEach((g, i) => g.forEach((id) => grupoDe.set(id, i + 1)))
+  grupos?.forEach((g, i) => g.forEach((id) => grupoDe.set(id, i)))
+  const jogadas = opcoes.jogadas ?? 0
 
   const partes: string[] = [
     `🎾 *${title.toUpperCase()}*`,
-    `_${dateLabel(date)} · ${partidas.length} partidas · ${courts} quadra(s)_`,
+    `_${dateLabel(date)} · ${plural(partidas.length, jogadas ? 'partida por jogar' : 'partida', jogadas ? 'partidas por jogar' : 'partidas')} · ${plural(courts, 'quadra')}_`,
   ]
 
-  if (emGrupos) {
+  // os grupos so no comeco: no meio da noite todo mundo ja sabe o seu
+  if (emGrupos && !jogadas) {
     partes.push(
       '\n*👥 Os grupos*\n' +
-        (grupos as string[][])
-          .map((g, i) => `*Grupo ${i + 1}:* ${g.map(nameOf).join(', ')}`)
-          .join('\n'),
+        (grupos as string[][]).map((g, i) => `*${nomeDoGrupo(i)}:* ${g.map(nameOf).join(', ')}`).join('\n'),
     )
   }
 
   partes.push(
-    '\n*Ordem das partidas*\n' +
-      [...partidas]
-        .sort((a, b) => a.round - b.round)
-        .map((m) => {
+    `\n*${jogadas ? 'Próximas partidas' : 'Ordem das partidas'}*\n` +
+      partidas
+        .map((m, i) => {
           const g = grupoDe.get(m.team_a[0])
-          const tag = emGrupos && g ? `_[G${g}]_ ` : ''
+          const tag = emGrupos && g !== undefined ? `_[${nomeDoGrupo(g)}]_ ` : ''
           return (
-            `*${m.round}.* ${tag}${nameOf(m.team_a[0])} + ${nameOf(m.team_a[1])}\n` +
+            `*${i + 1}.* ${tag}${nameOf(m.team_a[0])} + ${nameOf(m.team_a[1])}\n` +
             `     ✖️ ${nameOf(m.team_b[0])} + ${nameOf(m.team_b[1])}`
           )
         })
