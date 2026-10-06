@@ -2629,7 +2629,8 @@ function PlayDetail({
               const total = notas.reduce((t, x) => t + x, 0)
               const media = Math.round(total / Math.max(1, g.length))
               return (
-                <div key={i} className={`grupo-box ${classeDoGrupo(i + 1)}`}>
+                // no campeonato a cor e a da CATEGORIA, a mesma das quadras dela
+                <div key={i} className={`grupo-box ${classeDoGrupo(ehCampeonato ? Math.max(0, cats.findIndex((c) => c.grupos.includes(i))) + 1 : i + 1)}`}>
                   <div className="grupo-nome">{nomeDoGrupo(i)} · {g.length} meninas</div>
                   <div className="tiny muted" style={{ marginBottom: 4 }}>
                     💪 força média <strong>{media}</strong>

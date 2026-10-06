@@ -1317,3 +1317,16 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 .match.g8 .rodada-tag { background: var(--g8); color: #fff; }
 /* no escuro as cores dos grupos sao claras: texto escuro por cima */
 :root[data-tema="escuro"] .match[class*=" g"] .rodada-tag { color: #14102a; }
+
+/* a borda INTEIRA do card na cor do grupo (no campeonato, da categoria): de
+   longe, na beira da quadra, a cor diz de quem e a quadra. Em quadra agora,
+   o fundo continua verde e a borda engrossa. */
+.match.g1, .match.g1.live, .match.g1.em-quadra { border-color: var(--g1); }
+.match.g2, .match.g2.live, .match.g2.em-quadra { border-color: var(--g2); }
+.match.g3, .match.g3.live, .match.g3.em-quadra { border-color: var(--g3); }
+.match.g4, .match.g4.live, .match.g4.em-quadra { border-color: var(--g4); }
+.match.g5, .match.g5.live, .match.g5.em-quadra { border-color: var(--g5); }
+.match.g6, .match.g6.live, .match.g6.em-quadra { border-color: var(--g6); }
+.match.g7, .match.g7.live, .match.g7.em-quadra { border-color: var(--g7); }
+.match.g8, .match.g8.live, .match.g8.em-quadra { border-color: var(--g8); }
+.match[class*=" g"].em-quadra { border-width: 2px; }

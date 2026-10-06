@@ -113,7 +113,8 @@ export default function DivisaoDoCampeonato({
                 </div>
                 <div className="stack" style={{ gap: 8 }}>
                   {grupos.map((g, gi) => (
-                    <div key={gi} className={`grupo-box ${classeDoGrupo(gi + 1)}`}>
+                    // a cor e a da categoria: a mesma que as quadras dela vao ter
+                    <div key={gi} className={`grupo-box ${classeDoGrupo(c + 1)}`}>
                       <div className="grupo-nome">
                         {nomeDaCategoria(c)} · grupo {gi + 1} · {plural(g.length, 'menina')} · {plural(partidasDoRodizio(g.length), 'partida')}
                       </div>
