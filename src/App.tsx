@@ -12,12 +12,18 @@ import { ProvedorDePerfil } from './components/NomeClicavel'
 
 type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
+/**
+ * `soAdmin`: so aparece para quem esta logada. Meninas (cadastro, pagamento)
+ * e Check-ins (contas de passe, dinheiro) sao da organizacao -- e as tabelas
+ * dos check-ins tambem so se leem logada (script 23), porque esconder a aba
+ * nao esconde o dado de quem tem a chave publica do site.
+ */
+const TABS: { id: Tab; label: string; icon: string; soAdmin?: boolean }[] = [
   { id: 'ranking', label: 'Ranking', icon: '🏆' },
   { id: 'play', label: 'Play', icon: '🎾' },
   { id: 'stats', label: 'Stats', icon: '📊' },
-  { id: 'players', label: 'Meninas', icon: '👯' },
-  { id: 'checkins', label: 'Check-ins', icon: '✅' },
+  { id: 'players', label: 'Meninas', icon: '👯', soAdmin: true },
+  { id: 'checkins', label: 'Check-ins', icon: '✅', soAdmin: true },
 ]
 
 /**
@@ -39,6 +45,9 @@ function abaSalva(): Tab {
 export default function App() {
   const { loading, error, online, canEdit, userEmail, signIn, signOut, sync, pendingCount } = useStore()
   const [tab, setTab] = useState<Tab>(abaSalva)
+  const abas = TABS.filter((t) => !t.soAdmin || canEdit)
+  // saiu da conta (ou a aba guardada e de administradora): volta para o Ranking
+  const abaVisivel: Tab = abas.some((t) => t.id === tab) ? tab : 'ranking'
   useEffect(() => {
     try {
       localStorage.setItem(CHAVE_DA_ABA, tab)
@@ -141,7 +150,7 @@ export default function App() {
         <div className="card"><div className="empty">Carregando…</div></div>
       ) : (
         <main>
-          {tab === 'ranking' && (
+          {abaVisivel === 'ranking' && (
             <ProvedorDePerfil value={abrirPerfil}>
               <Ranking
                 onToast={show}
@@ -150,12 +159,12 @@ export default function App() {
               />
             </ProvedorDePerfil>
           )}
-          {tab === 'play' && (
+          {abaVisivel === 'play' && (
             <Play onToast={show} abrir={abrirPlay} onAbriu={() => setAbrirPlay(null)} />
           )}
-          {tab === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
-          {tab === 'players' && <Players onToast={show} />}
-          {tab === 'checkins' && <Checkins onToast={show} />}
+          {abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
+          {abaVisivel === 'players' && <Players onToast={show} />}
+          {abaVisivel === 'checkins' && <Checkins onToast={show} />}
         </main>
       )}
 
@@ -181,8 +190,8 @@ export default function App() {
       </p>
 
       <nav className="tabbar">
-        {TABS.map((t) => (
-          <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+        {abas.map((t) => (
+          <button key={t.id} className={abaVisivel === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
             <span className="ic">{t.icon}</span>
             {t.label}
           </button>

@@ -261,7 +261,10 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   devido (positivo é crédito). *Regularizado* só com pagamento **e** check-in
   confirmados, como na planilha. **Dinheiro só logada**: `checkin_pagamentos` e
   `caixa` têm RLS `to authenticated` também no `select`, porque a chave anon é
-  pública — e por isso `statusDoCheckin` recebe `logada`. A receita dos plays é a
+  pública — e por isso `statusDoCheckin` recebe `logada`. Desde o script 23 **todas**
+  as tabelas dos check-ins (arenas, contas, dias, check-ins, planos) só se leem
+  logada, e as abas **Meninas** e **Check-ins** só aparecem para quem está logada
+  (`soAdmin` em `App.tsx`; a aba guardada cai no Ranking para visitante). A receita dos plays é a
   soma dos pagamentos; no `caixa` entram só receitas extras e saídas. Nada no banco
   recusa o que a tela aceitou (sem unique dia+atleta, FKs `set null`): uma escrita
   recusada travaria a fila de envio para sempre; a tela abre o lançamento existente
