@@ -664,7 +664,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
   const { data, nameOf, playerById } = useStore()
   const [modo, setModo] = useState<'individual' | 'duplas'>('individual')
 
-  const individuais = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
+  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca
+  const individuais = useMemo(() => rankingDeForca(data, nameOf).filter((l) => !l.pausada), [data, nameOf])
   const duplas = useMemo(
     () =>
       [...forcaDeDuplas(data).values()].sort(

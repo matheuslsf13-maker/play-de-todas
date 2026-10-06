@@ -1,4 +1,4 @@
-import { quedaPorFalta, ratings, type QuedaPorFalta } from './stats'
+import { pausaNaForca, quedaPorFalta, ratings, type QuedaPorFalta } from './stats'
 import type { AppData } from './types'
 
 /**
@@ -65,6 +65,8 @@ export type LinhaDeForca = {
   provisoria: boolean
   /** Esta faltando: faltas seguidas e quanto a nota ja caiu por elas (so com queda). */
   queda?: QuedaPorFalta
+  /** Fora do ranking da forca: pausada na mao, ou por 2 faltas seguidas. */
+  pausada?: 'manual' | 'faltas'
 }
 
 /** "−9 por 3 faltas seguidas", para a ficha e as listas. */
@@ -87,6 +89,7 @@ export function rankingDeForca(
 ): LinhaDeForca[] {
   const forcas = ratings(data, ate)
   const quedas = quedaPorFalta(data, ate)
+  const pausas = pausaNaForca(data)
   const jogos = new Map<string, number>()
   for (const m of data.matches) {
     if (m.score_a === null || m.score_b === null) continue
@@ -104,6 +107,7 @@ export function rankingDeForca(
         nivel: nivelDeForca(nota),
         provisoria: n < JOGOS_PARA_FIRMAR,
         queda: (quedas.get(p.id)?.perda ?? 0) > 0 ? quedas.get(p.id) : undefined,
+        pausada: pausas.get(p.id),
       }
     })
     .sort((a, b) => b.nota - a.nota || nameOf(a.player_id).localeCompare(nameOf(b.player_id), 'pt-BR'))

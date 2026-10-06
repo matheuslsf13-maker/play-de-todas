@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import GraficoDeForca from '../components/GraficoDeForca'
+import { normalizar } from '../lib/roster'
 import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
 import { NomesDaDupla } from '../components/NomeClicavel'
 import { Avatar, Empty, Modal, StatBox } from '../components/ui'
@@ -37,7 +38,7 @@ import {
 import { matchPoints } from '../lib/scoring'
 import { applyBonuses, computeStreaks, streakLevel, streakValue } from '../lib/streaks'
 import { useStore } from '../lib/store'
-import { dateLabel, monthLabel, monthOf, plural } from '../lib/types'
+import { dateLabel, monthLabel, monthOf, plural, todayISO } from '../lib/types'
 
 type Modo = 'jogadora' | 'duplas' | 'forca'
 
@@ -197,13 +198,24 @@ function PainelJogadora({
   // a forca e sempre do historico inteiro, mesmo com o periodo filtrado: ela
   // nao e desempenho do mes, e o que o app aprendeu sobre a jogadora ate hoje
   const forcas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
-  const posicaoNaForca = forcas.findIndex((l) => l.player_id === selected) + 1
-  const minhaForca = posicaoNaForca > 0 ? forcas[posicaoNaForca - 1] : null
-  const totalNaForca = forcas.length
+  // a posicao conta so quem esta no ranking; a pausada continua com a ficha
+  const noRanking = useMemo(() => forcas.filter((l) => !l.pausada), [forcas])
+  const minhaForca = forcas.find((l) => l.player_id === selected) ?? null
+  const posicaoNaForca = noRanking.findIndex((l) => l.player_id === selected) + 1
+  const totalNaForca = noRanking.length
 
   const partners = useMemo(() => partnerStats(matches), [matches])
   const opponents = useMemo(() => opponentStats(matches), [matches])
 
+  const [busca, setBusca] = useState('')
+  const achadas = useMemo(() => {
+    const q = normalizar(busca.trim())
+    if (!q) return []
+    return data.players
+      .filter((p) => normalizar(p.name).includes(q) || normalizar(p.nickname ?? '').includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .slice(0, 8)
+  }, [busca, data.players])
   const s = stats.get(selected) ?? emptyStat(selected)
   const meusPares = sortPairs(partners.get(selected))
   const meusRivais = sortPairs(opponents.get(selected))
@@ -230,6 +242,39 @@ function PainelJogadora({
           <button className="btn ghost sm" style={{ marginBottom: 8 }} onClick={onVoltar}>
             ‹ voltar para {nameOf(anterior)}
           </button>
+        )}
+        {/* BUSCA: com 30+ meninas, rolar a lista no celular cansa. Ignora acento e
+            maiuscula e acha pelo nome ou pelo apelido */}
+        <label className="field">
+          <span>🔎 Buscar menina</span>
+          <input
+            className="input"
+            type="search"
+            placeholder="Digite um pedaço do nome"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </label>
+        {achadas.length > 0 && (
+          <div className="row wrap" style={{ gap: 6, margin: '-4px 0 10px' }}>
+            {achadas.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`chip ${p.id === selected ? 'on' : 'off'}`}
+                style={{ flex: 'none' }}
+                onClick={() => {
+                  setPlayerId(p.id)
+                  setBusca('')
+                }}
+              >
+                {p.nickname?.trim() || p.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {busca.trim() !== '' && achadas.length === 0 && (
+          <p className="tiny muted" style={{ margin: '-4px 0 10px' }}>Nenhuma menina com “{busca}”.</p>
         )}
         <label className="field">
           <span>Jogadora</span>
@@ -278,7 +323,7 @@ function PainelJogadora({
                   {minhaForca.nivel.titulo}
                 </div>
                 <div className="tiny muted">
-                  {posicaoNaForca}ª mais forte de {totalNaForca}
+                  {minhaForca.pausada ? 'fora do ranking da força' : `${posicaoNaForca}ª mais forte de ${totalNaForca}`}
                   {minhaForca.provisoria && ' · nota provisória'}
                   {minhaForca.queda && ` · ${textoDaQueda(minhaForca.queda)}`}
                 </div>
@@ -292,6 +337,7 @@ function PainelJogadora({
               você ganhou. É ela que monta os grupos e escolhe as duplas. 1500 é a média do grupo.
             </p>
             <GraficoDeForca data={data} playerId={selected} />
+            <PausaDaJogadora id={selected} pausada={minhaForca.pausada} />
           </>
         ) : (
           <p className="tiny muted" style={{ margin: 0 }}>Ainda sem partidas para medir.</p>
@@ -701,7 +747,10 @@ function ForcaDaDupla({ f }: { f?: ForcaDeDupla }) {
  */
 function PainelForca() {
   const { data, nameOf, playerById } = useStore()
-  const linhas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
+  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca
+  const todasAsLinhas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
+  const linhas = useMemo(() => todasAsLinhas.filter((l) => !l.pausada), [todasAsLinhas])
+  const foraDoRanking = useMemo(() => todasAsLinhas.filter((l) => l.pausada), [todasAsLinhas])
 
   if (linhas.length === 0) {
     return (
@@ -730,6 +779,19 @@ function PainelForca() {
             <LinhaDaForca key={l.player_id} linha={l} pos={i + 1} maior={maior} nome={nameOf(l.player_id)} foto={playerById(l.player_id)} />
           ))}
         </div>
+        {foraDoRanking.length > 0 && (
+          <p className="tiny muted" style={{ marginBottom: 0 }}>
+            ⏸️ <strong>Fora do ranking agora:</strong>{' '}
+            {foraDoRanking.map((l, i) => (
+              <span key={l.player_id}>
+                {i > 0 && ', '}
+                <NomeClicavel id={l.player_id}>{nameOf(l.player_id)}</NomeClicavel>
+                {l.pausada === 'manual' ? ' (pausada)' : ' (2+ faltas seguidas)'}
+              </span>
+            ))}
+            . O perfil continua aberto; volta quando jogar de novo ou ao despausar.
+          </p>
+        )}
       </div>
 
       <div className="card">
@@ -807,5 +869,69 @@ function LinhaDaForca({
         {dif === 0 ? 'exatamente na média' : dif > 0 ? `+${dif} sobre a média` : `${dif} da média`}
       </div>
     </div>
+  )
+}
+
+/**
+ * PAUSAR quem vai ficar um tempo fora (viagem, lesao): sai do ranking da
+ * forca, o perfil continua aqui e a forca fica congelada -- as faltas nao
+ * derrubam a nota. Ao colocar no play, o app pergunta se e para despausar.
+ * Quem saiu do ranking por 2 faltas seguidas volta sozinha ao jogar, ou aqui.
+ */
+function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'faltas' }) {
+  const { data, canEdit, savePlayer, nameOf } = useStore()
+  const p = data.players.find((x) => x.id === id)
+  if (!p) return null
+  const hoje = todayISO()
+  const aberta = (p.pausas ?? []).find((x) => !x.ate)
+  function pausar() {
+    if (!p) return
+    if (!confirm(`Pausar ${nameOf(id)}? Ela sai do ranking da força e a força fica congelada até despausar.`)) return
+    savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
+  }
+
+  if (pausada === 'manual') {
+    return (
+      <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
+        ⏸️ <strong>Pausada</strong>
+        {aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força, com a força congelada.
+        {canEdit && (
+          <button
+            className="btn ghost sm block"
+            style={{ marginTop: 8 }}
+            onClick={() =>
+              savePlayer({ ...p, pausas: (p.pausas ?? []).map((x) => (x.ate ? x : { ...x, ate: hoje })) })
+            }
+          >
+            ▶️ Despausar {nameOf(id)}
+          </button>
+        )}
+      </div>
+    )
+  }
+  if (pausada === 'faltas') {
+    return (
+      <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
+        ⏸️ <strong>Fora do ranking da força</strong> por 2 ou mais faltas seguidas. Volta sozinha quando jogar
+        de novo.
+        {canEdit && (
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+            <button className="btn ghost sm grow" onClick={() => savePlayer({ ...p, reativada_em: hoje })}>
+              ▶️ Voltar ao ranking agora
+            </button>
+            {/* vai ficar mais tempo fora: a pausa na mao congela a forca, as faltas param de derrubar */}
+            <button className="btn ghost sm grow" onClick={pausar}>
+              ⏸️ Pausar
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+  if (!canEdit) return null
+  return (
+    <button className="btn ghost sm block" style={{ marginTop: 10 }} onClick={pausar}>
+      ⏸️ Pausar (vai ficar um tempo fora)
+    </button>
   )
 }

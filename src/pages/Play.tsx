@@ -356,7 +356,7 @@ function NewPlay({
   onCreated: (id: string) => void
   onToast: (m: string) => void
 }) {
-  const { data, saveSession, saveMatches, playerById, nameOf } = useStore()
+  const { data, saveSession, saveMatches, savePlayer, playerById, nameOf } = useStore()
   const [date, setDate] = useState(preset.date ?? todayISO())
   const [title, setTitle] = useState(preset.title ?? 'Play de Todas')
   const [courts, setCourts] = useState(preset.courts ?? 3)
@@ -556,7 +556,28 @@ function NewPlay({
    * alerta que confirma o pagamento ou corrige a categoria. Escalar direto
    * seria o portao existir so para quem monta o play no dedo.
    */
-  function aplicarLista(ids: string[]): number {
+  /** Pausada na mao agora (vai ficar um tempo fora): entrar no play pede para despausar. */
+  const estaPausada = (id: string) => (data.players.find((x) => x.id === id)?.pausas ?? []).some((x) => !x.ate)
+  function despausar(id: string) {
+    const p = data.players.find((x) => x.id === id)
+    if (!p) return
+    const hoje = todayISO()
+    savePlayer({ ...p, pausas: (p.pausas ?? []).map((x) => (x.ate ? x : { ...x, ate: hoje })) })
+  }
+
+  function aplicarLista(idsDaLista: string[]): number {
+    // quem esta pausada na lista colada: pergunta uma vez por todas
+    const pausadas = idsDaLista.filter(estaPausada)
+    let ids = idsDaLista
+    if (pausadas.length > 0) {
+      const nomes = pausadas.map(nameOf).join(', ')
+      if (confirm(`${nomes} ${pausadas.length === 1 ? 'está pausada' : 'estão pausadas'}. Despausar e colocar no play?`)) {
+        pausadas.forEach(despausar)
+      } else {
+        ids = idsDaLista.filter((id) => !pausadas.includes(id))
+        onToast(`${nomes} ${pausadas.length === 1 ? 'ficou' : 'ficaram'} de fora (pausada${pausadas.length === 1 ? '' : 's'})`)
+      }
+    }
     const liberadas: string[] = []
     const devendo: string[] = []
     for (const id of ids) {
@@ -577,13 +598,18 @@ function NewPlay({
 
   /** "Todas" tambem respeita o cadastro: entra quem esta liberada. */
   function selecionarTodas() {
-    setSelected(available.filter((p) => situacaoDoAtleta(p, data).liberado).map((p) => p.id))
+    // pausada (vai ficar um tempo fora) nao entra no "Todas": tocar nela pergunta
+    setSelected(available.filter((p) => situacaoDoAtleta(p, data).liberado && !estaPausada(p.id)).map((p) => p.id))
   }
 
   function toggle(id: string) {
     const jogadora = data.players.find((p) => p.id === id)
     const jaEscolhida = selected.includes(id)
     // desmarcar nunca pede nada; so entrar no play exige cadastro em dia
+    if (!jaEscolhida && jogadora && estaPausada(id)) {
+      if (!confirm(`${nameOf(id)} está pausada. Despausar e colocar no play?`)) return
+      despausar(id)
+    }
     if (!jaEscolhida && jogadora && !situacaoDoAtleta(jogadora, data).liberado) {
       setPendente(jogadora)
       return
@@ -734,6 +760,7 @@ function NewPlay({
                   <span className="nome-atleta">{p.nickname?.trim() || p.name}</span>
                   {!sit.liberado && <span style={{ color: 'var(--danger)' }}>●</span>}
                   {sit.alerta && <span title={sit.alerta}>⚠️</span>}
+                  {estaPausada(p.id) && <span title="pausada: tocar pergunta se é para despausar">⏸️</span>}
                 </button>
               )
             })}

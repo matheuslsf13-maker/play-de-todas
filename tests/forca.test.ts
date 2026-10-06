@@ -121,3 +121,38 @@ test('a queda acima de 1500 aumenta a cada falta e para em 30%', () => {
   const fator = [0.9, 0.85, 0.8, 0.75, 0.7, 0.7, 0.7].reduce((t, f) => t * f, 1)
   assert.ok(Math.abs(nota(d, 'x') - (1500 + inicio * fator)) <= 2, `${nota(d, 'x')} ~ ${1500 + inicio * fator}`)
 })
+
+import { pausaNaForca } from '../src/lib/stats'
+
+test('pausada na mao: as faltas nao derrubam a forca e ela sai do ranking', () => {
+  const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
+  playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s1', ['x', 'a'], ['b', 'c'], 4, 3))
+  const antes = nota(d, 'x')
+  ;(d.players.find((p) => p.id === 'x') as { pausas?: unknown }).pausas = [{ de: '2026-09-02', ate: null }]
+  for (let i = 2; i <= 5; i++) {
+    playCom(d, `s${i}`, `2026-09-0${i}`, ['a', 'b', 'c', 'd'])
+    d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
+  }
+  assert.equal(nota(d, 'x'), antes)
+  assert.equal(pausaNaForca(d).get('x'), 'manual')
+})
+
+test('2 faltas seguidas: sai do ranking da forca sozinha; reativar na mao traz de volta', () => {
+  const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
+  playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s1', ['x', 'a'], ['b', 'c'], 4, 3))
+  playCom(d, 's2', '2026-09-02', ['a', 'b', 'c', 'd'])
+  d.matches.push(partida('s2', ['a', 'b'], ['c', 'd'], 4, 3))
+  assert.equal(pausaNaForca(d).get('x'), undefined, '1 falta: continua no ranking')
+  playCom(d, 's3', '2026-09-03', ['a', 'b', 'c', 'd'])
+  d.matches.push(partida('s3', ['a', 'b'], ['c', 'd'], 4, 3))
+  assert.equal(pausaNaForca(d).get('x'), 'faltas')
+  ;(d.players.find((p) => p.id === 'x') as { reativada_em?: string }).reativada_em = '2026-09-03'
+  assert.equal(pausaNaForca(d).get('x'), undefined, 'reativada na mao: volta ao ranking')
+  // e jogando de novo, a contagem zera
+  playCom(d, 's4', '2026-09-04', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s4', ['x', 'a'], ['b', 'c'], 4, 3))
+  ;(d.players.find((p) => p.id === 'x') as { reativada_em?: string | null }).reativada_em = null
+  assert.equal(pausaNaForca(d).get('x'), undefined)
+})

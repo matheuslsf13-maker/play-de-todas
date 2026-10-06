@@ -332,7 +332,12 @@ const quedaAbaixo = (k: number) => Math.min(2 + (k - 2), 5)
 const QUEDA_ABAIXO_MAXIMA = 20
 
 /** Faltas seguidas e quanto a nota caiu por elas, de quem esta faltando agora. */
-export type QuedaPorFalta = { faltas: number; perda: number }
+export type QuedaPorFalta = {
+  faltas: number
+  perda: number
+  /** Faltas seguidas depois do "voltar ao ranking" na mao (todas, se nunca voltou). */
+  desdeReativacao: number
+}
 
 /** Um ponto do grafico de forca: a nota depois de um play (jogado, ou a falta que derrubou). */
 export type PontoDeForca = { date: string; sessionId: string; nota: number; jogou: boolean }
@@ -365,6 +370,10 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
   const nota = (id: string) => elo.get(id) ?? inicial.get(id) ?? ELO_INICIAL
   const jaJogou = new Set<string>()
   const queda = new Map<string, QuedaPorFalta>()
+  const jogadora = new Map(data.players.map((p) => [p.id, p]))
+  // pausada na mao naquela data: a falta nao conta (a forca fica congelada)
+  const pausadaEm = (id: string, date: string) =>
+    (jogadora.get(id)?.pausas ?? []).some((p) => p.de <= date && (!p.ate || date < p.ate))
 
   // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
   // naquele momento, entao os plays (e as partidas) entram em ordem cronologica
@@ -394,8 +403,11 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
         queda.delete(id)
         continue
       }
-      const q = queda.get(id) ?? { faltas: 0, perda: 0 }
+      if (pausadaEm(id, s.date)) continue
+      const q = queda.get(id) ?? { faltas: 0, perda: 0, desdeReativacao: 0 }
       q.faltas++
+      const reativada = jogadora.get(id)?.reativada_em
+      if (!reativada || s.date > reativada) q.desdeReativacao++
       if (q.faltas >= 2) {
         const atual = nota(id)
         const perda =
@@ -430,6 +442,20 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
   const out = new Map<string, number>()
   for (const p of data.players) {
     out.set(p.id, Math.max(0, FORCA_PADRAO + (nota(p.id) - ELO_INICIAL) / ELO_ESCALA))
+  }
+  return out
+}
+
+/**
+ * QUEM ESTA FORA DO RANKING DA FORCA (o perfil continua aberto):
+ *   - 'manual': pausada na mao, com a forca congelada (vai ficar um tempo fora);
+ *   - 'faltas': 2 faltas seguidas -- volta sozinha quando jogar, ou na mao.
+ */
+export function pausaNaForca(data: AppData): Map<string, 'manual' | 'faltas'> {
+  const out = new Map<string, 'manual' | 'faltas'>()
+  for (const p of data.players) if ((p.pausas ?? []).some((x) => !x.ate)) out.set(p.id, 'manual')
+  for (const [id, q] of calcularElo(data).queda) {
+    if (!out.has(id) && q.desdeReativacao >= 2) out.set(id, 'faltas')
   }
   return out
 }

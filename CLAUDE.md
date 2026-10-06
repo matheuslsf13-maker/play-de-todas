@@ -87,6 +87,13 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   −10%, −15%, −20%… até −30% da distância até 1500 (mín. 2); abaixo −2, −3, −4, depois
   −5, até −20 na sequência. Voltou, zera. Avulso não conta; quem nunca
   jogou não cai. A ficha e as listas mostram "−N por K faltas seguidas".
+- **Pausar uma menina** (`players.pausas`, `reativada_em`, script 24; `pausaNaForca`):
+  quem vai ficar um tempo fora é **pausada na ficha** (Stats): sai do ranking da força,
+  o perfil continua aberto e **a força fica congelada** (as faltas durante a pausa não
+  contam). Tocar nela ao montar um play pergunta "despausar e colocar no play?" (a lista
+  colada pergunta uma vez por todas; o "Todas" deixa as pausadas de fora). Além disso,
+  com **2 faltas seguidas** ela sai do ranking da força sozinha (a queda gradual continua)
+  e volta ao jogar, ou no "Voltar ao ranking agora" da ficha.
 - **A dupla tem força própria** (`forcaDeDuplas`, aba “🤝 Dupla”). Não é a média
   das duas — essa é só o **ponto de partida**. A partir dela, cada partida
   **daquela dupla** move a nota pela fórmula do Elo, então `nota − base` é o

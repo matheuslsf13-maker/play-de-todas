@@ -29,6 +29,17 @@ export type Player = {
    * nivel -- ver `ratings()`.
    */
   forca_inicial?: number | null
+  /**
+   * PAUSAS na mao (vai ficar um tempo fora): enquanto uma esta aberta (`ate`
+   * nulo) ela some do ranking da forca e as faltas nao derrubam a nota -- a
+   * forca fica congelada. Fechar a pausa traz tudo de volta (script 24).
+   */
+  pausas?: { de: string; ate: string | null }[] | null
+  /**
+   * "Voltar ao ranking" na mao depois da pausa automatica por faltas: so as
+   * faltas DEPOIS desta data contam para tirar de novo do ranking da forca.
+   */
+  reativada_em?: string | null
 }
 
 export type SessionStatus = 'open' | 'finished'
