@@ -16,6 +16,7 @@ import {
   quadrasEfetivas,
   separarParaRefazer,
   dividirEmCategorias,
+  esperamOTerceiroLugar,
   estimativaDaNoite,
   minutosRestantesDaChave,
   montarCategorias,
@@ -1619,14 +1620,25 @@ function PlayDetail({
     if (soFase2) {
       // categoria sem as duplas formadas: a fase 2 ainda vai escolher quem fica
       const vivasAgora = new Set(vivas.flat())
+      // quem perdeu a semifinal ainda joga o 3o lugar (montado junto com a final)
+      const terceiro = esperamOTerceiroLugar(session, matches)
       return session.player_ids.filter((id) => {
         const ci = Math.max(0, categoriaDaJogadora(cats, session.groups, id))
         if (!porCategoria[ci]?.duos.length) return false
-        return !comJogo.has(id) && !vivasAgora.has(id)
+        return !comJogo.has(id) && !vivasAgora.has(id) && !terceiro.has(id)
       })
     }
     return session.player_ids.filter((id) => !comJogo.has(id))
   }, [matches, soFase2, session.groups, session.player_ids, session.status, vivas, cats, porCategoria])
+
+  /** Perderam a semifinal e ainda nao jogaram o 3o lugar (que nasce junto com a final). */
+  const esperandoTerceiro = useMemo(() => {
+    if (!soFase2) return []
+    const t = esperamOTerceiroLugar(session, matches)
+    const comJogo = new Set(matches.filter((m) => !isPlayed(m)).flatMap(jogadorasDaPartida))
+    // quem ja tem o 3o lugar marcado aparece na fila, nao aqui
+    return session.player_ids.filter((id) => t.has(id) && !comJogo.has(id))
+  }, [soFase2, session, matches])
 
   const doneCount = matches.filter(isPlayed).length
   /** Quanto dura, em media, uma partida deste conjunto: no grupos+duplas cada fase tem alvo e regra proprios. */
@@ -2851,6 +2863,12 @@ function PlayDetail({
             {j.duplas.map((d) => `${nameOf(d[0])} + ${nameOf(d[1])}`).join(', ')}.
           </div>
         ))}
+        {!finished && esperandoTerceiro.length > 0 && (
+          <div className="banner info">
+            🥉 <strong>{esperandoTerceiro.length === 1 ? 'Espera' : 'Esperam'} o 3º lugar</strong> — joga junto com a final:{' '}
+            {esperandoTerceiro.map(nameOf).join(', ')}.
+          </div>
+        )}
         {jaPodemIr.length > 0 && (
           <div className="banner ok livres">
             🚪 <strong>

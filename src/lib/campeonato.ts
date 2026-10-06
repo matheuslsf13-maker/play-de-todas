@@ -10,7 +10,7 @@
  *
  * Desenho em docs/superpowers/specs/2026-10-06-campeonato-design.md.
  */
-import { duplasVivas, filaPorForca, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
+import { duplasQueEntraram, duplasVivas, filaPorForca, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
 import { DUPLAS_NO_PODIO, pairKey, pontosDeBye, rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, MesclaDoPlay, PlaySession } from './types'
@@ -601,5 +601,31 @@ export function colocacaoPorDupla(sessoes: PlaySession[], matches: Match[]): Map
       out.set(k, (out.get(k) ?? 0) + p)
     }
   }
+  return out
+}
+
+/**
+ * Quem perdeu a SEMIFINAL ainda nao terminou a noite: a disputa de 3o lugar so
+ * e montada junto com a final, depois das duas semis. Sem isto, quem perdia a
+ * primeira semi aparecia em "ja pode ir embora" (12/10, no teste da
+ * organizacao, a Ju ia jogar o 3o lugar). Libera quando o 3o lugar e lancado.
+ */
+export function esperamOTerceiroLugar(s: PlaySession, partidas: Match[]): Set<string> {
+  const out = new Set<string>()
+  categoriasDoPlay(s).forEach((_, ci) => {
+    const duos = duosDaCategoria(s, ci)
+    if (duos.length < 4) return
+    const daChave = partidasDaCategoria(s, ci, partidas).filter((m) => (m.fase ?? 1) >= 2)
+    if (daChave.some((m) => m.disputa_3o && isPlayed(m))) return
+    const fases = [...new Set(daChave.map((m) => m.fase as number))]
+    for (const f of fases) {
+      if (nomeDaRodada(duplasQueEntraram(duos, daChave, f)) !== 'Semifinal') continue
+      for (const m of daChave) {
+        if (m.fase !== f || m.disputa_3o || !isPlayed(m)) continue
+        const perdeu = (m.score_a as number) > (m.score_b as number) ? m.team_b : m.team_a
+        for (const id of perdeu) out.add(id)
+      }
+    }
+  })
   return out
 }

@@ -562,3 +562,21 @@ test('chave em andamento: sem podio e sem "caiu na final" antes da final', () =>
   assert.equal(perdeu.viva, false)
   assert.equal(perdeu.saiuEm, 'na semifinal')
 })
+
+import { esperamOTerceiroLugar } from '../src/lib/campeonato'
+
+test('quem perdeu a semifinal espera o 3o lugar ate ele ser jogado', () => {
+  const duos: [string, string][] = [['a1', 'a5'], ['a2', 'a6'], ['a3', 'a7'], ['a4', 'a8']]
+  const s = camp({ duos, categorias: [{ nome: 'A', grupos: [0, 1], quadras: [1, 2] }], groups: G.slice(0, 2), player_ids: G.slice(0, 2).flat() })
+  const semi1 = fase(partida(['a1', 'a5'], ['a4', 'a8'], 4, 1), 2)
+  const semi2 = { ...fase(partida(['a2', 'a6'], ['a3', 'a7'], 0, 0), 2), score_a: null, score_b: null }
+  // uma semi jogada: quem perdeu ainda vai jogar o 3o lugar
+  assert.deepEqual([...esperamOTerceiroLugar(s, [...grupos1.slice(0, 6), semi1, semi2])].sort(), ['a4', 'a8'])
+  // 3o lugar jogado: ninguem espera mais
+  const semi2j = { ...semi2, score_a: 4, score_b: 2 }
+  const terceiro = fase(partida(['a4', 'a8'], ['a3', 'a7'], 4, 3), 3, true)
+  assert.equal(esperamOTerceiroLugar(s, [...grupos1.slice(0, 6), semi1, semi2j, terceiro]).size, 0)
+  // chave sem semifinal (2 duplas): ninguem espera 3o lugar
+  const s2 = camp({ duos: [['a1', 'a5'], ['a2', 'a6']], categorias: [{ nome: 'A', grupos: [0, 1], quadras: [1, 2] }], groups: G.slice(0, 2), player_ids: G.slice(0, 2).flat() })
+  assert.equal(esperamOTerceiroLugar(s2, [...grupos1.slice(0, 6), fase(partida(['a1', 'a5'], ['a2', 'a6'], 4, 2), 2)]).size, 0)
+})
