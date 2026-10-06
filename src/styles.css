@@ -1304,3 +1304,16 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 .chip.disponivel { cursor: default; background: var(--teal-suave); border-color: transparent; color: var(--teal); padding: 5px 11px; }
 .chip.disponivel strong { font-size: 15px; }
 .chip.disponivel.zerado { background: var(--card-2); color: var(--muted); }
+
+/* a etiqueta da rodada/grupo do card acompanha a cor do grupo -- no campeonato,
+   a da categoria -- para a quadra ser reconhecida de longe */
+.match.g1 .rodada-tag { background: var(--g1); color: #fff; }
+.match.g2 .rodada-tag { background: var(--g2); color: #fff; }
+.match.g3 .rodada-tag { background: var(--g3); color: #fff; }
+.match.g4 .rodada-tag { background: var(--g4); color: #fff; }
+.match.g5 .rodada-tag { background: var(--g5); color: #fff; }
+.match.g6 .rodada-tag { background: var(--g6); color: #fff; }
+.match.g7 .rodada-tag { background: var(--g7); color: #fff; }
+.match.g8 .rodada-tag { background: var(--g8); color: #fff; }
+/* no escuro as cores dos grupos sao claras: texto escuro por cima */
+:root[data-tema="escuro"] .match[class*=" g"] .rodada-tag { color: #14102a; }

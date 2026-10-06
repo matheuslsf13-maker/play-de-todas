@@ -1389,13 +1389,21 @@ function PlayDetail({
     return c ? `${c.nome} · grupo ${c.grupos.indexOf(i) + 1}` : `Grupo ${i + 1}`
   }
 
-  /** O que a quadra mostra: no campeonato, a categoria e o grupo (ou a rodada). */
+  /** CAMPEONATO: categoria de cada menina (1 = A), para colorir as listas como os grupos. */
+  const categoriaDe = useMemo(() => {
+    const map = new Map<string, number>()
+    if (ehCampeonato) for (const id of session.player_ids) map.set(id, Math.max(0, categoriaDaJogadora(cats, session.groups, id)) + 1)
+    return map
+  }, [ehCampeonato, session.player_ids, session.groups, cats])
+
+  /** O que a quadra mostra: no campeonato, o grupo (ou a rodada); a categoria vai na etiqueta. */
   const rotuloDaQuadra = (m: Match): string => {
     if (!ehCampeonato) return rotuloDaPartida(m)
     const cat = cats[catDe(m)]
-    if ((m.fase ?? 1) >= 2) return `${cat.nome} · ${rotuloDaPartida(m)}`
+    // a letra da categoria ja vai na etiqueta colorida ao lado do numero da quadra
+    if ((m.fase ?? 1) >= 2) return rotuloDaPartida(m)
     const g = (session.groups ?? []).findIndex((x) => x.includes(m.team_a[0]))
-    return `${cat.nome} · grupo ${cat.grupos.indexOf(g) + 1}`
+    return `grupo ${cat.grupos.indexOf(g) + 1}`
   }
 
   /**
@@ -2807,8 +2815,10 @@ function PlayDetail({
                 inicio={inicioDe(m)}
                 ocupadas={ocupadasFora(m)}
                 jogando={ocupadas}
-                grupo={ehCampeonato || (m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])}
-                totalGrupos={grupos?.length ?? 1}
+                // no campeonato a cor do card e a da CATEGORIA, com a letra dela
+                grupo={ehCampeonato ? catDe(m) + 1 : (m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])}
+                totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
+                nomeDaTag={ehCampeonato ? cats[catDe(m)].nome : undefined}
                 repetida={(m.fase ?? 1) < 2 && duplasRepetidas.has(m.id)}
                 espera={espera}
                 onScore={setScore}
@@ -2835,8 +2845,9 @@ function PlayDetail({
         ausentes={ausentes}
         numerar
         jogos={jogos}
-        grupoDe={grupoDe}
-        totalGrupos={grupos?.length ?? 1}
+        grupoDe={ehCampeonato ? categoriaDe : grupoDe}
+        totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
+        nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
         repetidas={duplasRepetidas}
         desempateDe={regraDe}
         emQuadra={ocupadas}
@@ -2846,8 +2857,9 @@ function PlayDetail({
         titulo={`✅ Já jogadas (${jogadas.length})`}
         vazio="Nenhum placar lançado ainda."
         partidas={[...jogadas].reverse()}
-        grupoDe={grupoDe}
-        totalGrupos={grupos?.length ?? 1}
+        grupoDe={ehCampeonato ? categoriaDe : grupoDe}
+        totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
+        nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
         repetidas={duplasRepetidas}
         desempateDe={regraDe}
         emQuadra={ocupadas}
@@ -2999,8 +3011,9 @@ function PlayDetail({
           partidas={pendentes}
           ocupadas={indisponiveis}
           espera={espera}
-          grupoDe={grupoDe}
-          totalGrupos={grupos?.length ?? 1}
+          grupoDe={ehCampeonato ? categoriaDe : grupoDe}
+          totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
+          nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
           seguidas={seguidas}
           jaFormadas={jaFormadas}
           onEscolher={(m) => {
@@ -3308,9 +3321,10 @@ export function classeDoGrupo(grupo?: number | null): string {
   return grupo ? `g${((grupo - 1) % 8) + 1}` : ''
 }
 
-function GrupoTag({ grupo, total }: { grupo?: number; total: number }) {
+function GrupoTag({ grupo, total, nome }: { grupo?: number; total: number; nome?: string }) {
   if (!grupo || total <= 1) return null
-  return <span className={`grupo-tag ${classeDoGrupo(grupo)}`}>G{grupo}</span>
+  // no campeonato a cor e a letra sao da CATEGORIA (A, B, C...)
+  return <span className={`grupo-tag ${classeDoGrupo(grupo)}`}>{nome ?? `G${grupo}`}</span>
 }
 
 function Duo({ ids, ocupadas }: { ids: [string, string]; ocupadas?: Set<string> }) {
@@ -3347,6 +3361,7 @@ function MatchCard({
   jogando,
   grupo,
   totalGrupos,
+  nomeDaTag,
   repetida,
   espera,
   jogadorasDoPlay,
@@ -3372,6 +3387,8 @@ function MatchCard({
   jogando: Set<string>
   grupo?: number
   totalGrupos: number
+  /** Etiqueta da quadra no campeonato: a letra da categoria (A, B, C...). */
+  nomeDaTag?: string
   repetida: boolean
   espera: Map<string, number>
   jogadorasDoPlay: string[]
@@ -3410,7 +3427,7 @@ function MatchCard({
   const cabecalho = (
     <div className="match-head">
       <span>
-        Quadra {quadra} <GrupoTag grupo={grupo} total={totalGrupos} />
+        Quadra {quadra} <GrupoTag grupo={grupo} total={totalGrupos} nome={nomeDaTag} />
         {rodada && <span className="rodada-tag">{rodada}</span>}
         {repetida && (
           <span
@@ -3623,6 +3640,7 @@ function ListaDePartidas({
   jogos,
   grupoDe,
   totalGrupos,
+  nomesDosGrupos,
   repetidas,
   emQuadra,
   ausentes,
@@ -3644,6 +3662,8 @@ function ListaDePartidas({
   jogos?: Map<string, number>
   grupoDe: Map<string, number>
   totalGrupos: number
+  /** Campeonato: `grupoDe` traz a categoria (1 = A) e a etiqueta mostra a letra. */
+  nomesDosGrupos?: string[]
   repetidas: Map<string, Repeticao>
   emQuadra: Set<string>
   /** A regra do empate de cada partida, para escrever o placar do tie. */
@@ -3687,7 +3707,11 @@ function ListaDePartidas({
               <div key={m.id} className="fila-linha">
                 <span className="fila-num">
                   {numerar ? `${i + 1}ª` : m.round}
-                  <GrupoTag grupo={(m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])} total={totalGrupos} />
+                  <GrupoTag
+                    grupo={nomesDosGrupos || (m.fase ?? 1) < 2 ? grupoDe.get(m.team_a[0]) : undefined}
+                    total={totalGrupos}
+                    nome={nomesDosGrupos?.[(grupoDe.get(m.team_a[0]) ?? 1) - 1]}
+                  />
                 </span>
                 <span className="grow" style={{ minWidth: 0 }}>
                   <span className={`fila-time${jogada && aWin ? ' venceu' : ''}`}>
@@ -3983,6 +4007,7 @@ function EscolherPartida({
   espera,
   grupoDe,
   totalGrupos,
+  nomesDosGrupos,
   seguidas,
   jaFormadas,
   onEscolher,
@@ -3998,6 +4023,8 @@ function EscolherPartida({
   espera: Map<string, number>
   grupoDe: Map<string, number>
   totalGrupos: number
+  /** Campeonato: `grupoDe` traz a categoria (1 = A) e a etiqueta mostra a letra. */
+  nomesDosGrupos?: string[]
   onEscolher: (m: Match) => void
   onClose: () => void
 }) {
@@ -4025,7 +4052,11 @@ function EscolherPartida({
             <button key={m.id} className="duo-row" onClick={() => onEscolher(m)} disabled={presas.length > 0}>
               <span className="fila-num">
                 {m.round}
-                <GrupoTag grupo={(m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])} total={totalGrupos} />
+                <GrupoTag
+                  grupo={nomesDosGrupos || (m.fase ?? 1) < 2 ? grupoDe.get(m.team_a[0]) : undefined}
+                  total={totalGrupos}
+                  nome={nomesDosGrupos?.[(grupoDe.get(m.team_a[0]) ?? 1) - 1]}
+                />
               </span>
               <span className="grow" style={{ minWidth: 0 }}>
                 {(repetida || terceira.length > 0) && (
