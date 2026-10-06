@@ -17,6 +17,7 @@ import {
   separarParaRefazer,
   dividirEmCategorias,
   estimativaDaNoite,
+  minutosRestantesDaChave,
   montarCategorias,
 } from '../lib/campeonato'
 import ImportarLista from '../components/ImportarLista'
@@ -86,7 +87,6 @@ import {
   placarDoTie,
   placarDeGamesValido,
   pontosDoPerdedorNoTie,
-  pontosDoVencedorNoTie,
   tieValido,
   lerRegra,
   type Modo,
@@ -1883,6 +1883,52 @@ function PlayDetail({
     const i = quadrasDaCategoria.findIndex((qs) => qs.includes(q))
     return i < 0 ? null : i
   }
+  /**
+   * QUANTO FALTA A NOITE, com o play rolando. Nos modos com fases conta
+   * tambem o mata-mata que ainda nem foi montado, rodada por rodada, com o alvo
+   * e o desempate de cada fase; no campeonato, por categoria (elas jogam ao
+   * mesmo tempo, a noite acaba com a mais longa).
+   */
+  const restanteDaNoite = useMemo(() => {
+    if (finished) return null
+    const falta = matches.filter((m) => !isPlayed(m)).length
+    if (!soFase2) {
+      return {
+        minutos: Math.ceil(falta / Math.max(1, session.courts)) * minutosMedios(matches.filter((m) => !isPlayed(m))),
+        falta,
+        categorias: [] as { nome: string; minutos: number; situacao: string }[],
+      }
+    }
+    const minutos = [0, 1, 2, 3].map((d) =>
+      minutosDaPartida(session.alvos?.[d] ?? session.target, lerRegra(session.desempates?.[d] ?? session.desempate)),
+    )
+    const categorias = porCategoria.map((c) => {
+      const q = Math.max(1, quadrasDaCategoria?.[c.ci]?.length ?? session.courts)
+      let t = Math.ceil(c.daFase1.filter((m) => !isPlayed(m)).length / q) * minutos[0]
+      if (!c.duos.length) {
+        // o mata-mata ainda nao existe: entra a chave inteira
+        t += estimativaDaNoite({
+          grupos: [c.cat.grupos.map((g) => session.groups?.[g]?.length ?? 0)],
+          quadras: [q],
+          duplasMM: session.duplas_mm ?? 8,
+          minutos,
+        }).categorias[0].mataMata
+      } else {
+        t += minutosRestantesDaChave({
+          vivas: c.vivas.length,
+          pendentesNaRodada: c.daUltimaRodada.filter((m) => !isPlayed(m)).length,
+          degrauAtual: c.daUltimaRodada[0] ? degrauDe(c.daUltimaRodada[0]) : 3,
+          teveSemi: c.duos.length >= 4,
+          quadras: q,
+          minutos,
+        })
+      }
+      return { nome: c.cat.nome, minutos: c.terminou ? 0 : t, situacao: situacaoDaCategoria(c) }
+    })
+    return { minutos: Math.max(0, ...categorias.map((c) => c.minutos)), falta, categorias }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished, matches, soFase2, session, porCategoria, quadrasDaCategoria])
+
   /** Quadra que mudou de dona: de qual categoria era e para qual foi. */
   const cessaoDa = (q: number): { de: number; para: number } | null => {
     if (!quadrasDaCategoria) return null
@@ -2572,20 +2618,49 @@ function PlayDetail({
           {matches.length > 0 && (
             <div className="tiny" style={{ marginTop: 6, fontWeight: 700 }}>
               🎾 Cada menina joga <strong>{jogosPorPessoa}</strong>
+              {soFase2 ? ' na fase de grupos' : ''}
               {' · '}
-              {finished
+              {finished || !restanteDaNoite
                 ? `noite de ${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`
-                : doneCount === 0
-                  ? `noite de uns ${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`
-                  : `faltam ${matches.length - doneCount} partidas, uns ${duracaoEstimada(
-                      matches.length - doneCount,
-                      session.courts,
-                      minutosMedios(matches.filter((m) => !isPlayed(m))),
+                : doneCount === 0 && emJogo.length === 0
+                  ? // antes da primeira partida, "termina as" seria contado a partir de agora
+                    `noite de uns ${formatarMinutos(restanteDaNoite.minutos)}${soFase2 ? ', contando o mata-mata' : ''}`
+                  : `${restanteDaNoite.falta > 0 ? `faltam ${plural(restanteDaNoite.falta, 'partida')}` : 'falta montar a próxima fase'}${
+                      soFase2 ? ' e o que vem do mata-mata' : ''
+                    }, uns ${formatarMinutos(restanteDaNoite.minutos)} — termina por volta das ${horaLocal(
+                      new Date(Date.now() + restanteDaNoite.minutos * 60000).toISOString(),
                     )}`}
-              <span className="muted" style={{ fontWeight: 500 }}>
-                {' '}(uns {Math.round(minutosMedios(matches))} min por partida, com os games de quem perde e o desempate)
-              </span>
             </div>
+          )}
+          {/* COMO VAI A NOITE: o resumo da criacao, para consultar com o play rolando */}
+          {!finished && restanteDaNoite && (
+            <details className="como-vai" style={{ marginTop: 6 }}>
+              <summary className="tiny" style={{ fontWeight: 700, cursor: 'pointer' }}>📋 Como vai a noite</summary>
+              <div className="stack tiny" style={{ gap: 4, marginTop: 6 }}>
+                {restanteDaNoite.categorias.length > 1 &&
+                  restanteDaNoite.categorias.map((c) => (
+                    <div key={c.nome}>
+                      <strong>Categoria {c.nome}</strong> · {c.situacao}
+                      {c.minutos > 0 ? ` · falta uns ${formatarMinutos(c.minutos)}` : ''}
+                    </div>
+                  ))}
+                <div>
+                  ⏱️ Uns {Math.round(minutosMedios(matches))} min por partida, contando os games de quem perde e o desempate
+                  {soFase2 ? ' (cada fase tem o seu alvo e o seu desempate)' : ''}.
+                </div>
+                <div>
+                  🏆{' '}
+                  {session.ranked === false
+                    ? 'Play avulso: não soma no ranking do mês nem mexe no 🔥.'
+                    : soFase2 && session.pontuacao?.length
+                      ? `Pontos do mês pela colocação final${ehCampeonato ? ', em cada categoria' : ''}: ${session.pontuacao.join(' / ')} (campeã, vice, 3º, semifinal, quartas, grupos).`
+                      : soFase2
+                        ? 'O mata-mata pontua pelos games; o pódio é da chave.'
+                        : 'Quem vence leva os games que fez menos os da adversária (mínimo 1). O dia é por vitórias.'}
+                </div>
+                <div>🔥 {soFase2 ? 'O pódio da chave (campeã, vice e 3º) segura o status.' : grupos && grupos.length > 1 ? 'O pódio de cada grupo segura o status.' : 'O top 3 segura o status.'}</div>
+              </div>
+            </details>
           )}
         </div>
         <div className="grid3" style={{ marginTop: 12 }}>
@@ -3399,10 +3474,6 @@ function MatchCard({
 }) {
   const { nameOf } = useStore()
   const [winner, setWinner] = useState<'a' | 'b' | null>(null)
-  /** Escolheu o placar em games decidido no tie; falta o placar do tie. */
-  const [noTie, setNoTie] = useState<{ venceu: number; perdeu: number } | null>(null)
-  /** Abriu os campos para digitar um placar que os botoes nao cobrem. */
-  const [digitando, setDigitando] = useState(false)
   const [trocando, setTrocando] = useState(false)
   const noTime = jogadorasDaPartida(match)
   // com um grupo so a cor nao diz nada; com varios e o que identifica a quadra
@@ -3451,64 +3522,10 @@ function MatchCard({
     )
   }
 
-  // o tie tem placar proprio, entao ele e um passo a parte
-  if (winner && noTie) {
-    const loserIds = winner === 'a' ? match.team_b : match.team_a
-    return (
-      <div className={`match live ${corDoGrupo}`}>
-        <div className="match-head">
-          <span>Quadra {quadra}</span>
-          <button className="linkish" onClick={() => setNoTie(null)}>‹ voltar</button>
-        </div>
-        <div className="ask" style={{ marginTop: 0 }}>
-          Quantos pontos <strong>{nameOf(loserIds[0])} + {nameOf(loserIds[1])}</strong> fez no tie?
-        </div>
-        <div className="games-row">
-          {pontosDoPerdedorNoTie(desempate).map((p) => (
-            <button
-              key={p}
-              className="game-btn"
-              title={`${pontosDoVencedorNoTie(desempate, p)}x${p}`}
-              onClick={() => {
-                const a = winner === 'a' ? noTie.venceu : noTie.perdeu
-                const b = winner === 'a' ? noTie.perdeu : noTie.venceu
-                setNoTie(null)
-                setWinner(null)
-                onScore(match, a, b, p)
-              }}
-            >
-              {pontosDoVencedorNoTie(desempate, p) === desempate.tie
-                ? p
-                : placarDoTie(desempate, p)}
-            </button>
-          ))}
-          <button className="game-btn manual" onClick={() => setDigitando(true)}>✏️</button>
-        </div>
-
-        {digitando && (
-          <PlacarManual
-            vencedora="Venceu o tie"
-            perdedora="Perdeu o tie"
-            valida={(a, b) => tieValido(desempate, a, b)}
-            explica={(a, b) => explicarTieInvalido(desempate, a, b)}
-            onCancelar={() => setDigitando(false)}
-            onConfirmar={(_v, perdeu) => {
-              const a = winner === 'a' ? noTie.venceu : noTie.perdeu
-              const b = winner === 'a' ? noTie.perdeu : noTie.venceu
-              setDigitando(false)
-              setNoTie(null)
-              setWinner(null)
-              onScore(match, a, b, perdeu)
-            }}
-          />
-        )}
-      </div>
-    )
-  }
-
-  // ---- passo 2: quantos games a perdedora fez ----
+  // ---- passo 2: como terminou (placar inteiro, do lado de quem venceu) ----
   if (winner) {
-    const loserIds = winner === 'a' ? match.team_b : match.team_a
+    const vencedoras = winner === 'a' ? match.team_a : match.team_b
+    const perdedoras = winner === 'a' ? match.team_b : match.team_a
     return (
       <div className={`match live ${corDoGrupo}`}>
         <div className="match-head">
@@ -3516,63 +3533,20 @@ function MatchCard({
           <button className="linkish" onClick={() => setWinner(null)}>‹ voltar</button>
         </div>
         <div className="team win">
-          <Duo ids={winner === 'a' ? match.team_a : match.team_b} />
-          <span className="score-box">
-            {desempate.modo !== 'alvo' && !desempate.tieDireto ? `${target}+` : target}
-          </span>
+          <Duo ids={vencedoras} />
+          <span className="score-box">🏆</span>
         </div>
-        <div className="ask">Quantos games <strong>{nameOf(loserIds[0])} + {nameOf(loserIds[1])}</strong> fez?</div>
-        <div className="games-row">
-          {gamesDoPerdedor(target, desempate).map((n) => {
-            const venceu = gamesDoVencedor(target, desempate, n)
-            return (
-              <button
-                key={n}
-                className={`game-btn${decidiuNoTie(target, desempate, n) ? ' no-tie' : ''}`}
-                title={
-                  decidiuNoTie(target, desempate, n)
-                    ? `${venceu}x${n}, decidida no tie`
-                    : `${venceu}x${n}`
-                }
-                onClick={() => {
-                  // o tie tem placar proprio: pergunta antes de gravar
-                  if (decidiuNoTie(target, desempate, n)) {
-                    setNoTie({ venceu, perdeu: n })
-                    return
-                  }
-                  setWinner(null)
-                  if (winner === 'a') onScore(match, venceu, n)
-                  else onScore(match, n, venceu)
-                }}
-              >
-                {decidiuNoTie(target, desempate, n)
-                  ? '🎯 tie'
-                  : venceu === target
-                    ? n
-                    : `${venceu}x${n}`}
-              </button>
-            )
-          })}
-          {desempate.modo === 'vantagem' && (
-            <button className="game-btn manual" onClick={() => setDigitando(true)}>✏️</button>
-          )}
-        </div>
-
-        {digitando && (
-          <PlacarManual
-            vencedora={(winner === 'a' ? match.team_a : match.team_b).map(nameOf).join(' + ')}
-            perdedora={loserIds.map(nameOf).join(' + ')}
-            valida={(a, b) => placarDeGamesValido(target, desempate, a, b)}
-            explica={(a, b) => explicarGamesInvalido(target, desempate, a, b)}
-            onCancelar={() => setDigitando(false)}
-            onConfirmar={(venceu, perdeu) => {
-              setDigitando(false)
-              setWinner(null)
-              if (winner === 'a') onScore(match, venceu, perdeu)
-              else onScore(match, perdeu, venceu)
-            }}
-          />
-        )}
+        <ComoTerminou
+          alvo={target}
+          regra={desempate}
+          vencedora={vencedoras.map(nameOf).join(' + ')}
+          perdedora={perdedoras.map(nameOf).join(' + ')}
+          onLancar={(venceu, perdeu, tie) => {
+            setWinner(null)
+            if (winner === 'a') onScore(match, venceu, perdeu, tie)
+            else onScore(match, perdeu, venceu, tie)
+          }}
+        />
       </div>
     )
   }
@@ -3797,76 +3771,24 @@ function CorrigirPlacar({
 }) {
   const { nameOf } = useStore()
   const [winner, setWinner] = useState<'a' | 'b' | null>(null)
-  const [noTie, setNoTie] = useState<{ venceu: number; perdeu: number } | null>(null)
-
-  // o tie tem placar proprio, entao ele e um passo a parte
-  if (winner && noTie) {
-    const perdedoras = winner === 'a' ? match.team_b : match.team_a
-    return (
-      <Modal title="Quantos pontos no tie?" onClose={onClose}>
-        <button className="btn ghost sm" style={{ marginBottom: 10 }} onClick={() => setNoTie(null)}>
-          ‹ voltar
-        </button>
-        <div className="ask" style={{ marginTop: 0 }}>
-          Quantos pontos <strong>{nameOf(perdedoras[0])} + {nameOf(perdedoras[1])}</strong> fez no tie?
-        </div>
-        <div className="games-row">
-          {pontosDoPerdedorNoTie(desempate).map((p) => (
-            <button
-              key={p}
-              className="game-btn"
-              title={`${pontosDoVencedorNoTie(desempate, p)}x${p}`}
-                onClick={() =>
-                  winner === 'a'
-                    ? onScore(noTie.venceu, noTie.perdeu, p)
-                    : onScore(noTie.perdeu, noTie.venceu, p)
-                }
-            >
-              {pontosDoVencedorNoTie(desempate, p) === desempate.tie
-                ? p
-                : placarDoTie(desempate, p)}
-            </button>
-          ))}
-        </div>
-      </Modal>
-    )
-  }
 
   if (winner) {
+    const vencedoras = winner === 'a' ? match.team_a : match.team_b
     const perdedoras = winner === 'a' ? match.team_b : match.team_a
     return (
-      <Modal title="Quantos games a perdedora fez?" onClose={onClose}>
+      <Modal title="Corrigir o placar" onClose={onClose}>
         <button className="btn ghost sm" style={{ marginBottom: 10 }} onClick={() => setWinner(null)}>
           ‹ trocar quem venceu
         </button>
-        <div className="ask" style={{ marginTop: 0 }}>
-          <strong>{nameOf(perdedoras[0])} + {nameOf(perdedoras[1])}</strong>
-        </div>
-        <div className="games-row">
-          {gamesDoPerdedor(target, desempate).map((n) => {
-            const venceu = gamesDoVencedor(target, desempate, n)
-            return (
-              <button
-                key={n}
-                className={`game-btn${decidiuNoTie(target, desempate, n) ? ' no-tie' : ''}`}
-                title={`${venceu}x${n}`}
-                onClick={() => {
-                  if (decidiuNoTie(target, desempate, n)) {
-                    setNoTie({ venceu, perdeu: n })
-                    return
-                  }
-                  winner === 'a' ? onScore(venceu, n) : onScore(n, venceu)
-                }}
-              >
-                {decidiuNoTie(target, desempate, n)
-                  ? '🎯 tie'
-                  : venceu === target
-                    ? n
-                    : `${venceu}x${n}`}
-              </button>
-            )
-          })}
-        </div>
+        <ComoTerminou
+          alvo={target}
+          regra={desempate}
+          vencedora={vencedoras.map(nameOf).join(' + ')}
+          perdedora={perdedoras.map(nameOf).join(' + ')}
+          onLancar={(venceu, perdeu, tie) =>
+            winner === 'a' ? onScore(venceu, perdeu, tie) : onScore(perdeu, venceu, tie)
+          }
+        />
       </Modal>
     )
   }
@@ -4292,6 +4214,118 @@ function DuplasDoDia({
  * notaria depois. Por isso o botao so libera quando o placar fecha com a
  * regra, e a frase diz qual seria o certo.
  */
+/**
+ * COMO TERMINOU? -- o placar inteiro em cada botao, do lado de quem venceu.
+ *
+ * Antes eram duas perguntas pelo lado da PERDEDORA ("quantos games ela fez?",
+ * depois "quantos pontos no tie?"), com botoes misturando so o numero dela e o
+ * placar inteiro -- e na quadra todo mundo pensa "foi 5x4, tie 7x5". Agora: os
+ * placares possiveis pela regra (4x0 ... 5x3, 5x4 🎯); tocou no do tie, a
+ * linha do tie aparece logo abaixo (7x0 ... 7x5, 8x6...). O ✏️ digita qualquer
+ * placar, para o tie que se arrastou alem dos botoes.
+ */
+function ComoTerminou({
+  alvo,
+  regra,
+  vencedora,
+  perdedora,
+  onLancar,
+}: {
+  alvo: number
+  regra: Regra
+  /** "Ana + Bia" */
+  vencedora: string
+  perdedora: string
+  onLancar: (doVencedor: number, doPerdedor: number, tieDoPerdedor: number | null) => void
+}) {
+  const [noTie, setNoTie] = useState<{ venceu: number; perdeu: number } | null>(null)
+  const [digitando, setDigitando] = useState<'games' | 'tie' | null>(null)
+
+  function escolher(venceu: number, perdeu: number) {
+    // decidida no tie: o tie tem placar proprio, pergunta antes de gravar
+    if (decidiuNoTie(alvo, regra, perdeu)) {
+      setNoTie({ venceu, perdeu })
+      setDigitando(null)
+      return
+    }
+    onLancar(venceu, perdeu, null)
+  }
+
+  return (
+    <div>
+      <div className="ask" style={{ marginTop: 0 }}>
+        Como terminou? <span className="muted">(placar de <strong>{vencedora}</strong>)</span>
+      </div>
+      <div className="games-row">
+        {gamesDoPerdedor(alvo, regra).map((n) => {
+          const venceu = gamesDoVencedor(alvo, regra, n)
+          const tie = decidiuNoTie(alvo, regra, n)
+          const marcado = noTie?.perdeu === n
+          return (
+            <button
+              key={n}
+              className={`game-btn${tie ? ' no-tie' : ''}${marcado ? ' marcado' : ''}`}
+              title={tie ? `empatou em ${n}x${n} e foi para o tie: fica ${venceu}x${n}` : `${venceu}x${n}`}
+              onClick={() => escolher(venceu, n)}
+            >
+              {/* o do tie mostra o EMPATE que levou a ele: "7x6" fazia parecer que o 7 veio antes */}
+              {tie ? `${n}x${n} → tie` : `${venceu}x${n}`}
+            </button>
+          )
+        })}
+        <button className="game-btn manual" onClick={() => setDigitando(digitando === 'games' ? null : 'games')}>
+          ✏️
+        </button>
+      </div>
+
+      {digitando === 'games' && (
+        <PlacarManual
+          vencedora={vencedora}
+          perdedora={perdedora}
+          valida={(a, b) => placarDeGamesValido(alvo, regra, a, b)}
+          explica={(a, b) => explicarGamesInvalido(alvo, regra, a, b)}
+          onCancelar={() => setDigitando(null)}
+          onConfirmar={(venceu, perdeu) => escolher(venceu, perdeu)}
+        />
+      )}
+
+      {noTie && (
+        <>
+          <div className="ask">
+            🎯 Foi para o tie no {noTie.perdeu}x{noTie.perdeu}: quem venceu o tie venceu a partida (fica{' '}
+            {noTie.venceu}x{noTie.perdeu}). <strong>Placar do tie</strong>{' '}
+            <span className="muted">(de {vencedora})</span>:
+          </div>
+          <div className="games-row">
+            {pontosDoPerdedorNoTie(regra).map((p) => (
+              <button
+                key={p}
+                className="game-btn"
+                onClick={() => onLancar(noTie.venceu, noTie.perdeu, p)}
+              >
+                {placarDoTie(regra, p)}
+              </button>
+            ))}
+            <button className="game-btn manual" onClick={() => setDigitando(digitando === 'tie' ? null : 'tie')}>
+              ✏️
+            </button>
+          </div>
+          {digitando === 'tie' && (
+            <PlacarManual
+              vencedora="Venceu o tie"
+              perdedora="Perdeu o tie"
+              valida={(a, b) => tieValido(regra, a, b)}
+              explica={(a, b) => explicarTieInvalido(regra, a, b)}
+              onCancelar={() => setDigitando(null)}
+              onConfirmar={(_v, perdeu) => onLancar(noTie.venceu, noTie.perdeu, perdeu)}
+            />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 function PlacarManual({
   vencedora,
   perdedora,

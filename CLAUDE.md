@@ -300,6 +300,14 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   quadra parada e a troca de jogadoras.
 - A lista "Próximas na fila" é a fila de cada grupo (`filaPorGrupo`), intercalada
   pela posição — não a ordem gravada, que colocava na frente quem tinha acabado de sair.
+- **"Como terminou?"** (`ComoTerminou` em Play.tsx): depois de tocar em quem venceu, os
+  botões trazem o **placar inteiro, do lado de quem venceu** (`6x0 … 6x4 7x5 6x6 → tie`);
+  o do tie mostra o **empate** que levou a ele (com "7x6" parecia que o 7 vinha antes) e
+  abre logo abaixo a linha do tie (`7x0 … 7x5 8x6 9x7…`). O ✏️ digita qualquer placar,
+  nos games e no tie. Antes eram duas perguntas pelo lado da perdedora. Serve também o
+  ✏️ de corrigir. A tela do play mostra quanto falta e a hora prevista do fim, contando o
+  mata-mata ainda não montado (`estimativaDaNoite`, `minutosRestantesDaChave`), e um
+  "📋 Como vai a noite" recolhido.
 - **O placar só é lançável depois de "▶️ Partida iniciada"** (botões de "venceu"
   desabilitados). Corrigir placar é o ✏️ da lista "Já jogadas", que abre um modal
   e **preserva o `ended_at`** — não devolve a partida para a fila.

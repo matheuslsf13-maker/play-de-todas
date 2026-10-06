@@ -546,3 +546,39 @@ export function estimativaDaNoite(opts: {
   })
   return { categorias, total: Math.max(0, ...categorias.map((c) => c.grupos + c.mataMata)) }
 }
+
+/**
+ * Quanto falta na chave de uma categoria, com o play rolando: o que resta da
+ * rodada atual e as rodadas seguintes, cada uma com os minutos da sua fase
+ * (`minutos` = [grupos, duplas fixas, semifinal, final]); a final leva junto o
+ * 3o lugar quando houve semifinal.
+ */
+export function minutosRestantesDaChave(opts: {
+  /** Duplas que ainda nao perderam (inclusive as que estao jogando agora). */
+  vivas: number
+  /** Partidas da rodada atual ainda sem placar. */
+  pendentesNaRodada: number
+  /** 1 duplas fixas, 2 semifinal, 3 final: da rodada atual. */
+  degrauAtual: number
+  /** A chave teve (ou vai ter) semifinal: a final leva junto o 3o lugar. */
+  teveSemi: boolean
+  quadras: number
+  minutos: number[]
+}): number {
+  const q = Math.max(1, opts.quadras)
+  const m = (degrau: number) => opts.minutos[degrau] ?? 0
+  let total = 0
+  let vivas = opts.vivas
+  if (opts.pendentesNaRodada > 0) {
+    total += Math.ceil(opts.pendentesNaRodada / q) * m(opts.degrauAtual)
+    vivas -= opts.pendentesNaRodada
+  }
+  while (vivas > 1) {
+    const nome = nomeDaRodada(vivas)
+    const degrau = nome === 'Final' ? 3 : nome === 'Semifinal' ? 2 : 1
+    const jogos = Math.floor(vivas / 2) + (nome === 'Final' && opts.teveSemi ? 1 : 0)
+    total += Math.ceil(jogos / q) * m(degrau)
+    vivas = Math.ceil(vivas / 2)
+  }
+  return total
+}

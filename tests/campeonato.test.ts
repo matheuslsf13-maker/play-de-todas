@@ -524,3 +524,16 @@ test('tempo: com uma quadra, a final e o 3o lugar vao em sequencia', () => {
   // semi: 2 jogos numa quadra = 20; final + 3o = 20
   assert.equal(e.categorias[0].mataMata, 40)
 })
+
+import { minutosRestantesDaChave } from '../src/lib/campeonato'
+
+test('tempo que falta na chave: semifinal em andamento, depois final + 3o', () => {
+  // 4 vivas, 2 semis por jogar, 2 quadras: semi (1 rodada) + final e 3o juntos
+  assert.equal(minutosRestantesDaChave({ vivas: 4, pendentesNaRodada: 2, degrauAtual: 2, teveSemi: true, quadras: 2, minutos: [10, 12, 14, 16] }), 14 + 16)
+  // uma semi ja lancada: 3 vivas, 1 semi por jogar
+  assert.equal(minutosRestantesDaChave({ vivas: 3, pendentesNaRodada: 1, degrauAtual: 2, teveSemi: true, quadras: 2, minutos: [10, 12, 14, 16] }), 14 + 16)
+  // entre rodadas (semis acabaram, final ainda nao montada)
+  assert.equal(minutosRestantesDaChave({ vivas: 2, pendentesNaRodada: 0, degrauAtual: 3, teveSemi: true, quadras: 1, minutos: [10, 12, 14, 16] }), 32)
+  // campea definida
+  assert.equal(minutosRestantesDaChave({ vivas: 1, pendentesNaRodada: 0, degrauAtual: 3, teveSemi: true, quadras: 2, minutos: [10, 12, 14, 16] }), 0)
+})

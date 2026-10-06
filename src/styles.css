@@ -1348,3 +1348,6 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   text-underline-offset: 3px;
 }
 .nome-link:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; border-radius: 4px; }
+
+/* o placar escolhido que foi para o tie fica marcado enquanto se escolhe o tie */
+.game-btn.marcado { background: var(--pink); border-color: var(--pink); color: var(--sempre-escuro); }
