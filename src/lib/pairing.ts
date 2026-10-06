@@ -117,7 +117,7 @@ export function tamanhosDosGrupos(jogadoras: number, grupos: number): number[] {
  * Embaralhar ANTES de ordenar e o truque: o sort e estavel, entao quem tem nota
  * diferente vai para o lugar certo e so as empatadas ficam na ordem sorteada.
  */
-function filaPorForca(
+export function filaPorForca(
   playerIds: string[],
   ratings: Map<string, number>,
   semente?: number,
