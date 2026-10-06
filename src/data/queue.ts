@@ -11,6 +11,7 @@ import type {
   Match,
   MonthClosure,
   EventoDoPlay,
+  MesclaDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -25,6 +26,7 @@ export type WriteOp =
   | { id: string; type: 'deletePlayer'; playerId: string }
   | { id: string; type: 'saveSession'; session: PlaySession }
   | { id: string; type: 'anotarNoPlay'; sessionId: string; evento: EventoDoPlay }
+  | { id: string; type: 'mesclarNoPlay'; sessionId: string; mescla: MesclaDoPlay }
   | { id: string; type: 'deleteSession'; sessionId: string }
   | { id: string; type: 'saveMatches'; matches: Match[] }
   | { id: string; type: 'replaceSessionMatches'; sessionId: string; matches: Match[] }

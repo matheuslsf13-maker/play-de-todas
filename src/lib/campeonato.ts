@@ -13,7 +13,7 @@
 import { duplasVivas, filaPorForca, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
 import { DUPLAS_NO_PODIO, pontosDeBye, rankDuplasDoDia } from './stats'
-import type { Categoria, DesempateDeGrupo, Match, PlaySession } from './types'
+import type { Categoria, DesempateDeGrupo, Match, MesclaDoPlay, PlaySession } from './types'
 
 /** 'A', 'B', 'C'... */
 export function nomeDaCategoria(i: number): string {
@@ -374,19 +374,24 @@ export function quadrasEfetivas(
   terminou: boolean[],
   pendentes: number[],
   cedidas?: Record<string, number> | null,
+  /** Total de quadras do play: as que passam das fixas (aberta com "➕ quadra") entram como cedidas. */
+  totalQuadras?: number,
 ): number[][] {
   const out = cats.map((c, i) => (terminou[i] ? [] : c.quadras.slice()))
   const ativas = cats.map((_, i) => i).filter((i) => !terminou[i])
   if (ativas.length === 0) return cats.map((c) => c.quadras.slice())
   const maisCheia = ativas.reduce((melhor, i) => ((pendentes[i] ?? 0) > (pendentes[melhor] ?? 0) ? i : melhor), ativas[0])
+  const ceder = (q: number) => {
+    const escolhida = cedidas?.[String(q)]
+    const destino = escolhida !== undefined && ativas.includes(escolhida) ? escolhida : maisCheia
+    out[destino].push(q)
+  }
   cats.forEach((c, i) => {
-    if (!terminou[i]) return
-    for (const q of c.quadras) {
-      const escolhida = cedidas?.[String(q)]
-      const destino = escolhida !== undefined && ativas.includes(escolhida) ? escolhida : maisCheia
-      out[destino].push(q)
-    }
+    if (terminou[i]) c.quadras.forEach(ceder)
   })
+  // quadra aberta no meio do campeonato nao e de categoria nenhuma
+  const fixas = new Set(cats.flatMap((c) => c.quadras))
+  for (let q = 1; q <= (totalQuadras ?? 0); q++) if (!fixas.has(q)) ceder(q)
   return out.map((qs) => [...new Set(qs)].sort((a, b) => a - b))
 }
 
@@ -437,4 +442,42 @@ export function podioDoMataMata(
     if (ouro) campeas.push(ouro.a, ouro.b)
   })
   return { podio, campeas }
+}
+
+/* ------------------------------------------- escritas que nao atropelam */
+
+/** Aplica uma mudanca pontual sobre a sessao (a do banco, de preferencia). */
+export function aplicarMescla(s: PlaySession, m: MesclaDoPlay): PlaySession {
+  switch (m.campo) {
+    case 'duos': {
+      const tirar = new Set(m.tirar)
+      const ficam = (s.duos ?? []).filter((d) => !tirar.has(d[0]) && !tirar.has(d[1]))
+      return { ...s, duos: [...ficam, ...m.por] }
+    }
+    case 'desempates_grupo': {
+      const mesmo = (d: DesempateDeGrupo) => d.grupo === m.d.grupo && mesmoConjunto(d.ordem, m.d.ordem)
+      return { ...s, desempates_grupo: [...(s.desempates_grupo ?? []).filter((d) => !mesmo(d)), m.d] }
+    }
+    case 'quadras_cedidas':
+      return { ...s, quadras_cedidas: { ...(s.quadras_cedidas ?? {}), [m.quadra]: m.categoria } }
+    case 'rounds':
+      return { ...s, rounds: Math.max(s.rounds ?? 0, m.minimo) }
+    case 'courts':
+      return { ...s, courts: Math.max(1, m.valor) }
+  }
+}
+
+/**
+ * O que o "Refazer a fila" pode refazer: so a fase de grupos que ainda nao
+ * comecou. O mata-mata nao e fila de rodizio -- as duplas e a chave ja estao
+ * decididas -- e no campeonato a chave de uma categoria convive com os grupos
+ * de outra: refaze-la apagaria uma semifinal sem nada para por no lugar.
+ */
+export function separarParaRefazer(
+  matches: Match[],
+  iniciada: (m: Match) => boolean,
+): { naFila: Match[]; preservadas: Match[] } {
+  const naFila = matches.filter((m) => (m.fase ?? 1) === 1 && !isPlayed(m) && !iniciada(m))
+  const fora = new Set(naFila.map((m) => m.id))
+  return { naFila, preservadas: matches.filter((m) => !fora.has(m.id)) }
 }

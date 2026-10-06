@@ -11,6 +11,7 @@ import type {
   Match,
   MonthClosure,
   EventoDoPlay,
+  MesclaDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -19,6 +20,7 @@ import { emptyData } from '../lib/types'
 import { LOCAIS_INICIAIS, PLANOS_INICIAIS } from '../lib/checkins'
 import { CHAVE } from '../lib/chaves'
 import type { Repo } from './repo'
+import { aplicarMescla } from '../lib/campeonato'
 
 const KEY = CHAVE.dados
 
@@ -92,6 +94,11 @@ export const localRepo: Repo = {
     const i = d.sessions.findIndex((x) => x.id === s.id)
     if (i >= 0) d.sessions[i] = s
     else d.sessions.push(s)
+    write(d)
+  },
+  async mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay) {
+    const d = read()
+    d.sessions = d.sessions.map((s) => (s.id === sessionId ? aplicarMescla(s, mescla) : s))
     write(d)
   },
   async anotarNoPlay(sessionId: string, evento: EventoDoPlay) {

@@ -12,11 +12,13 @@ import type {
   Match,
   MonthClosure,
   EventoDoPlay,
+  MesclaDoPlay,
   PlaySession,
   Player,
   StreakChoice,
 } from '../lib/types'
 import type { Repo } from './repo'
+import { aplicarMescla } from '../lib/campeonato'
 
 /**
  * Algo nao coube no banco porque uma migracao ainda nao rodou.
@@ -84,7 +86,7 @@ async function upsertTolerante<T extends object>(tabela: string, dados: T | T[])
     if (!coluna || !(coluna in lista[0])) throw error
     for (const item of lista) delete item[coluna]
     avisosDoBanco.colunas.add(`${tabela}.${coluna}`)
-    if (/categoria|pago_mes|pago_avulso/.test(coluna)) avisosDoBanco.pagamento = true
+    if (/^(categoria|pago_mes|pago_avulso)$/.test(coluna)) avisosDoBanco.pagamento = true
   }
   throw new Error(`Nao consegui gravar em ${tabela} depois de varias tentativas`)
 }
@@ -172,6 +174,24 @@ export const supabaseRepo: Repo = {
   },
   async saveSession(s: PlaySession) {
     await upsertTolerante('sessions', s)
+  },
+  async mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay) {
+    // le a sessao como esta no banco AGORA e grava so a coluna mexida: um
+    // celular atrasado nao apaga o que outro fez (duplas de outra categoria,
+    // desempates, quadras cedidas)
+    const sb = client()
+    const atual = await sb.from('sessions').select('*').eq('id', sessionId).maybeSingle()
+    if (atual.error) throw atual.error
+    if (!atual.data) return
+    const coluna = mescla.campo
+    if (!(coluna in atual.data)) {
+      // sem o script 21 a coluna nao existe: fica so na tela deste aparelho
+      avisosDoBanco.colunas.add(`sessions.${coluna}`)
+      return
+    }
+    const nova = aplicarMescla(atual.data as PlaySession, mescla)
+    const { error } = await sb.from('sessions').update({ [coluna]: nova[coluna] }).eq('id', sessionId)
+    if (error) throw error
   },
   async anotarNoPlay(sessionId: string, evento: EventoDoPlay) {
     // so a coluna do diario, lida na hora: gravar a sessao inteira a partir da

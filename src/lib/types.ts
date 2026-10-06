@@ -70,6 +70,24 @@ export type Categoria = { nome: string; grupos: number[]; quadras: number[] }
  */
 export type DesempateDeGrupo = { grupo: number; ordem: string[]; como: 'simples' | 'par-impar'; at: string }
 
+/**
+ * Uma mudanca PONTUAL na sessao, aplicada sobre o que esta no banco agora (e
+ * nao sobre a copia do aparelho). No campeonato cada categoria pode ter a sua
+ * organizadora: gravar a sessao inteira a partir de um celular atrasado
+ * apagaria as duplas, os desempates e as quadras cedidas das outras.
+ */
+export type MesclaDoPlay =
+  /** troca as duplas de quem esta em `tirar` (a categoria) pelas novas */
+  | { campo: 'duos'; tirar: string[]; por: [string, string][] }
+  /** grava um desempate, no lugar do anterior do mesmo grupo e conjunto */
+  | { campo: 'desempates_grupo'; d: DesempateDeGrupo }
+  /** manda uma quadra para uma categoria */
+  | { campo: 'quadras_cedidas'; quadra: string; categoria: number }
+  /** o total de partidas so cresce: fica o maior */
+  | { campo: 'rounds'; minimo: number }
+  /** quantas quadras o play tem (abrir/tirar quadra no meio do campeonato) */
+  | { campo: 'courts'; valor: number }
+
 /** Um "Play de Todas": um dia de jogos. */
 export type PlaySession = {
   id: string

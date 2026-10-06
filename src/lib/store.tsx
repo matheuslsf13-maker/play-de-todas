@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { localRepo } from '../data/localRepo'
 import { loadCache, loadQueue, saveCache, saveQueue, type WriteOp } from '../data/queue'
 import type { Repo } from '../data/repo'
+import { aplicarMescla } from './campeonato'
 import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
 import type {
@@ -17,6 +18,7 @@ import type {
   Match,
   MonthClosure,
   EventoDoPlay,
+  MesclaDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -40,6 +42,7 @@ type Ctx = {
   deletePlayer: (id: string) => void
   saveSession: (s: PlaySession) => void
   anotarNoPlay: (sessionId: string, evento: EventoDoPlay) => void
+  mesclarNoPlay: (sessionId: string, mescla: MesclaDoPlay) => void
   deleteSession: (id: string) => void
   saveMatches: (ms: Match[]) => void
   replaceSessionMatches: (sessionId: string, ms: Match[]) => void
@@ -88,6 +91,8 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
       }
     case 'saveSession':
       return { ...d, sessions: upsert(d.sessions, op.session) }
+    case 'mesclarNoPlay':
+      return { ...d, sessions: d.sessions.map((s) => (s.id === op.sessionId ? aplicarMescla(s, op.mescla) : s)) }
     case 'anotarNoPlay':
       return {
         ...d,
@@ -378,6 +383,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deletePlayer: (playerId) => push({ id: uid(), type: 'deletePlayer', playerId }),
       saveSession: (session) => push({ id: uid(), type: 'saveSession', session }),
       anotarNoPlay: (sessionId, evento) => push({ id: uid(), type: 'anotarNoPlay', sessionId, evento }),
+      mesclarNoPlay: (sessionId, mescla) => push({ id: uid(), type: 'mesclarNoPlay', sessionId, mescla }),
       deleteSession: (sessionId) => push({ id: uid(), type: 'deleteSession', sessionId }),
       saveMatches: (matches) => push({ id: uid(), type: 'saveMatches', matches }),
       replaceSessionMatches: (sessionId, matches) =>
@@ -458,6 +464,8 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.saveSession(op.session)
     case 'anotarNoPlay':
       return repo.anotarNoPlay(op.sessionId, op.evento)
+    case 'mesclarNoPlay':
+      return repo.mesclarNoPlay(op.sessionId, op.mescla)
     case 'deleteSession':
       return repo.deleteSession(op.sessionId)
     case 'saveMatches':

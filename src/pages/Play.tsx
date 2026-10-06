@@ -14,6 +14,7 @@ import {
   duosDaCategoria,
   pontosDeColocacao,
   quadrasEfetivas,
+  separarParaRefazer,
   dividirEmCategorias,
   montarCategorias,
 } from '../lib/campeonato'
@@ -106,7 +107,7 @@ import {
 import { computeStreaks, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
-import { hasSupabase } from '../lib/supabase'
+import { hasSupabase, supabase } from '../lib/supabase'
 import {
   type DesempateDeGrupo,
   type EventoDoPlay,
@@ -575,11 +576,15 @@ function NewPlay({
 
   async function create() {
     // sem o script 21 o banco descartaria as categorias e a tabela de pontos
-    // calado, e o campeonato viraria um grupos+duplas comum. Da para saber antes:
-    // com a coluna existindo, toda sessao carregada traz a chave (nula ou nao)
-    if (emDuplas && hasSupabase && data.sessions.length > 0 && data.sessions.every((x) => !('categorias' in x))) {
-      onToast('Antes, rode o script 21-campeonato.sql no Supabase (pasta supabase/)')
-      return
+    // calado, e o campeonato viraria um grupos+duplas comum. Pergunta ao banco
+    // antes (a copia local nao serve: um play criado agora traz a chave mesmo
+    // sem a coluna existir la)
+    if (emDuplas && hasSupabase && supabase) {
+      const { error } = await supabase.from('sessions').select('categorias, pontuacao, desempates_grupo, quadras_cedidas').limit(1)
+      if (error) {
+        onToast('Antes, rode o script 21-campeonato.sql no Supabase (pasta supabase/)')
+        return
+      }
     }
     if (emCampeonato && selected.length < nCategorias * gruposPorCategoria * 4) {
       onToast('Faltam meninas para essas categorias -- cada grupo precisa de pelo menos 4')
@@ -1289,7 +1294,7 @@ function PlayDetail({
   onNext: (preset: Partial<PlaySession>) => void
   onToast: (m: string) => void
 }) {
-  const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, replaceSessionMatches } =
+  const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, mesclarNoPlay, replaceSessionMatches } =
     useStore()
   const [showRank, setShowRank] = useState(false)
   const [substituindo, setSubstituindo] = useState(false)
@@ -1577,7 +1582,9 @@ function PlayDetail({
     const ms = soFase2 ? todas.filter((m) => (m.fase ?? 1) >= 2) : todas
     // com tabela de colocacao os pontos do dia sao os da colocacao final
     if (soFase2 && session.pontuacao?.length) {
-      return rankPlayers(aplicarColocacao(computeStatsComPontos([session], ms), pontosDeColocacao(session, todas)), nameOf)
+      // todas as partidas do dia (tambem as dos grupos): quem nao entrou na chave
+      // aparece com os pontos de "fase de grupos" quando a categoria fecha
+      return rankPlayers(aplicarColocacao(computeStatsComPontos([session], todas), pontosDeColocacao(session, todas)), nameOf)
     }
     return rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia)
   }, [data, session, nameOf, soFase2, criterioDoDia])
@@ -1883,18 +1890,28 @@ function PlayDetail({
    * CAMPEONATO: as quadras que cada categoria usa agora -- as fixas dela, e as
    * de quem ja terminou tudo (para a categoria escolhida, ou a com mais jogo).
    */
-  const quadrasDaCategoria = useMemo(
-    () =>
-      ehCampeonato
-        ? quadrasEfetivas(
-            cats,
-            porCategoria.map((c) => c.terminou),
-            porCategoria.map((c) => c.porJogar),
-            session.quadras_cedidas,
-          )
-        : null,
-    [ehCampeonato, cats, porCategoria, session.quadras_cedidas],
-  )
+  const quadrasDaCategoria = useMemo(() => {
+    if (!ehCampeonato) return null
+    const base = quadrasEfetivas(
+      cats,
+      porCategoria.map((c) => c.terminou),
+      porCategoria.map((c) => c.porJogar),
+      session.quadras_cedidas,
+      session.courts,
+    )
+    // quadra com jogo em andamento e de quem esta jogando nela: a conta de
+    // "quem tem mais jogo" muda a cada rodada, e a partida nao pode mudar de
+    // categoria (nem sumir do filtro de quem cuida dela) no meio do jogo
+    for (const [q, m] of emQuadra) {
+      const dona = catDe(m)
+      base.forEach((qs, i) => {
+        const k = qs.indexOf(q)
+        if (k >= 0 && i !== dona) qs.splice(k, 1)
+      })
+      if (base[dona] && !base[dona].includes(q)) base[dona].push(q)
+    }
+    return base.map((qs) => [...qs].sort((a, b) => a - b))
+  }, [ehCampeonato, cats, porCategoria, session.quadras_cedidas, session.courts, emQuadra, catDe])
   /** CAMPEONATO: de qual categoria a quadra e agora (null fora do campeonato). */
   const donaDa = (q: number): number | null => {
     if (!quadrasDaCategoria) return null
@@ -1906,7 +1923,8 @@ function PlayDetail({
     if (!quadrasDaCategoria) return null
     const de = cats.findIndex((c) => c.quadras.includes(q))
     const para = quadrasDaCategoria.findIndex((qs) => qs.includes(q))
-    return de >= 0 && para >= 0 && de !== para ? { de, para } : null
+    // de = -1: quadra aberta a mais no meio do campeonato, de nenhuma categoria
+    return para >= 0 && de !== para ? { de, para } : null
   }
 
   /** Sugestao de proxima partida por quadra livre, respeitando escolhas na mao. */
@@ -2179,7 +2197,9 @@ function PlayDetail({
    * formar e monta as partidas em cima do que ja foi jogado hoje.
    */
   async function regenerarPendentes(sessao: PlaySession = session, silencioso = false) {
-    const naFila = matches.filter((m) => !isPlayed(m) && !iniciada(m))
+    // so a fase de grupos que ainda nao comecou: o mata-mata (de qualquer
+    // categoria) fica como esta
+    const { naFila, preservadas } = separarParaRefazer(matches, iniciada)
     if (naFila.length === 0 && !silencioso) {
       onToast('Não há partidas na fila para refazer')
       return
@@ -2189,13 +2209,12 @@ function PlayDetail({
       groups: sessao.groups ?? undefined,
       // a partida EM QUADRA conta como acontecida: ela fica na lista, entao a
       // fila nova nao pode formar aquelas duplas de novo nem repetir o confronto
-      jogadas: matches.filter((m) => isPlayed(m) || iniciada(m)),
+      jogadas: preservadas.filter((m) => isPlayed(m) || iniciada(m)),
       ratings: ratings(data, session.date),
       entrosamento: ajusteDeEntrosamento(data),
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
       historyWeight: 1,
     })
-    const preservadas = matches.filter((m) => isPlayed(m) || iniciada(m))
     // a fila nova entra depois da ultima posicao ja usada, para nao haver duas
     // partidas com o mesmo numero na lista
     const ultima = preservadas.reduce((n, m) => Math.max(n, m.round), 0)
@@ -2204,8 +2223,15 @@ function PlayDetail({
       round: ultima + i + 1,
     }))
     await replaceSessionMatches(session.id, [...preservadas, ...novas])
-    const comRounds = { ...sessao, rounds: preservadas.length + novas.length }
-    await saveSession(silencioso ? comRounds : comEvento(comRounds, 'refazer', `Refazer a fila: ${novas.length} partida${novas.length === 1 ? '' : 's'} refeita${novas.length === 1 ? '' : 's'}`))
+    if (silencioso) {
+      // veio do Entra / sai, que ja grava a sessao nova inteira (grupos e presenca mudaram)
+      await saveSession({ ...sessao, rounds: preservadas.length + novas.length })
+    } else {
+      // so o total e o diario: regravar a sessao inteira daqui apagaria o que
+      // outro celular mudou nela (duplas, desempates, quadras de outra categoria)
+      mesclarNoPlay(session.id, { campo: 'rounds', minimo: preservadas.length + novas.length })
+      anotarNoPlay(session.id, novoEvento('refazer', `Refazer a fila: ${novas.length} partida${novas.length === 1 ? '' : 's'} refeita${novas.length === 1 ? '' : 's'}`))
+    }
     if (!silencioso) {
       onToast(`${novas.length === 1 ? 'uma partida refeita' : `${novas.length} partidas refeitas`} 🔄`)
     }
@@ -2341,19 +2367,22 @@ function PlayDetail({
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
     })
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
-    await saveSession(comEvento({ ...session, rounds: fila.length }, 'refazer-tudo', `Refazer tudo: ${fila.length} partidas novas`))
+    // a noite recomeca do zero: duplas, desempates e quadras cedidas tambem
+    await saveSession(
+      comEvento(
+        { ...session, rounds: fila.length, duos: null, desempates_grupo: null, quadras_cedidas: null },
+        'refazer-tudo',
+        `Refazer tudo: ${fila.length} partidas novas`,
+      ),
+    )
     onToast('Novas duplas geradas 🔄')
   }
 
   /** Grava o desempate decidido em quadra (substitui o do mesmo conjunto de empatadas). */
   function salvarDesempate(grupo: number, ordem: string[], como: DesempateDeGrupo['como']) {
-    const mesmo = (d: DesempateDeGrupo) => d.grupo === grupo && [...d.ordem].sort().join('|') === [...ordem].sort().join('|')
-    const desempates_grupo = [
-      ...(session.desempates_grupo ?? []).filter((d) => !mesmo(d)),
-      { grupo, ordem, como, at: new Date().toISOString() },
-    ]
+    mesclarNoPlay(session.id, { campo: 'desempates_grupo', d: { grupo, ordem, como, at: new Date().toISOString() } })
     const texto = `Desempate (${como === 'simples' ? 'simples 1x1' : 'par ou ímpar'}): ${ordem.map((id, i) => `${i + 1}ª ${nameOf(id)}`).join(', ')}`
-    saveSession(comEvento({ ...session, desempates_grupo }, 'desempate', texto))
+    anotarNoPlay(session.id, novoEvento('desempate', texto))
     onToast('Desempate anotado ✅')
   }
 
@@ -2385,9 +2414,11 @@ function PlayDetail({
     const fila = jogos.map(([a, b]) => ({ team_a: a, team_b: b, grupo: 0, fase: 2 }))
     const inicio = proximaPosicao()
     const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: inicio + i }))
-    // as duplas das outras categorias ficam como estao; as desta entram no fim
-    const outras = (session.duos ?? []).filter((d) => Math.max(0, categoriaDaJogadora(cats, session.groups, d[0])) !== ci)
-    await saveSession({ ...session, duos: [...outras, ...duos], rounds: matches.length + novas.length })
+    // so as duplas DESTA categoria, sobre o que esta no banco: outro celular
+    // pode ter acabado de formar as de outra categoria
+    const daCategoria = c.cat.grupos.flatMap((g) => session.groups?.[g] ?? [])
+    mesclarNoPlay(session.id, { campo: 'duos', tirar: daCategoria, por: duos })
+    mesclarNoPlay(session.id, { campo: 'rounds', minimo: matches.length + novas.length })
     await saveMatches(novas)
     onToast(
       `${ehCampeonato ? `Categoria ${c.cat.nome} — ` : ''}${nomeDaRodada(duos.length)}: ${duos.length} duplas` +
@@ -2438,13 +2469,15 @@ function PlayDetail({
     }
     const inicio = proximaPosicao()
     const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: inicio + i }))
-    await saveSession({ ...session, rounds: matches.length + novas.length })
+    mesclarNoPlay(session.id, { campo: 'rounds', minimo: matches.length + novas.length })
     await saveMatches(novas)
     onToast(`${ehCampeonato ? `Categoria ${c.cat.nome} — ` : ''}${nomeDaRodada(c.vivas.length)} montada 🥅`)
   }
 
   async function finish() {
     if (doneCount < matches.length && !confirm(`Ainda faltam ${matches.length - doneCount} partidas sem placar. Finalizar mesmo assim?`)) return
+    // categoria que nao fechou a chave fica sem podio, sem fogo e sem pontos de colocacao
+    if (faltaFase && !confirm(`${ehCampeonato ? 'Uma categoria ainda' : 'O play ainda'} tem fase pela frente (duplas ou próxima rodada). Sem ela não há pódio${session.pontuacao?.length ? ' nem pontos de colocação' : ''}. Finalizar mesmo assim?`)) return
     await saveSession({ ...session, status: 'finished' })
     // o credito da avulsa vale por UM play: finalizado, ela volta a dever
     for (const p of consumirAvulsos(session.player_ids, data)) await savePlayer(p)
@@ -2618,7 +2651,7 @@ function PlayDetail({
             <div className="row" style={{ gap: 6 }}>
               {/* uma quadra vagou no meio da noite: entra na hora e ja puxa a proxima
                   da fila. Tirar so a ultima, e so vazia, para nao sumir com jogo em andamento */}
-              {session.courts > 1 && (
+              {session.courts > 1 && (!ehCampeonato || !cats.some((c) => c.quadras.includes(session.courts))) && (
                 <button
                   className="btn ghost sm"
                   disabled={emQuadra.has(session.courts)}
@@ -2629,7 +2662,9 @@ function PlayDetail({
                       onToast(`A quadra ${session.courts} está em jogo — lance o placar antes de tirá-la`)
                       return
                     }
-                    saveSession(comEvento({ ...session, courts: session.courts - 1 }, 'quadra', `Quadra ${session.courts} tirada`))
+                    // so o numero de quadras: no campeonato outro celular pode ter mexido no resto
+                    mesclarNoPlay(session.id, { campo: 'courts', valor: session.courts - 1 })
+                    anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${session.courts} tirada`))
                     onToast(`Agora são ${session.courts - 1} quadra${session.courts - 1 === 1 ? '' : 's'}`)
                   }}
                 >
@@ -2640,7 +2675,9 @@ function PlayDetail({
                 className="btn ghost sm"
                 title="Abriu mais uma quadra"
                 onClick={() => {
-                  saveSession(comEvento({ ...session, courts: session.courts + 1 }, 'quadra', `Quadra ${session.courts + 1} aberta`))
+                  // no campeonato a quadra nova e "cedida": vai para a categoria com mais jogo
+                  mesclarNoPlay(session.id, { campo: 'courts', valor: session.courts + 1 })
+                  anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${session.courts + 1} aberta`))
                   onToast(`Quadra ${session.courts + 1} aberta: já sugeri a próxima partida`)
                 }}
               >
@@ -2724,7 +2761,7 @@ function PlayDetail({
             const aviso = cessao && editable && (
               <div className="tiny muted row wrap" style={{ gap: 6, margin: '0 0 6px' }}>
                 <span>
-                  Quadra {q} · cedida pela {cats[cessao.de].nome} → <strong>{cats[cessao.para].nome}</strong>
+                  Quadra {q} · {cessao.de < 0 ? 'quadra a mais' : `cedida pela ${cats[cessao.de].nome}`} → <strong>{cats[cessao.para].nome}</strong>
                 </span>
                 {porCategoria
                   .filter((c) => !c.terminou && c.ci !== cessao.para)
@@ -2733,14 +2770,14 @@ function PlayDetail({
                       key={c.ci}
                       className="chip off"
                       style={{ padding: '2px 8px', fontSize: 11 }}
-                      onClick={() => saveSession({ ...session, quadras_cedidas: { ...(session.quadras_cedidas ?? {}), [String(q)]: c.ci } })}
+                      onClick={() => mesclarNoPlay(session.id, { campo: 'quadras_cedidas', quadra: String(q), categoria: c.ci })}
                     >
                       para a {c.cat.nome}
                     </button>
                   ))}
               </div>
             )
-            if (filtroCat !== null && quadrasDaCategoria && !quadrasDaCategoria[filtroCat]?.includes(q)) return null
+            if (filtroCat !== null && quadrasDaCategoria && !quadrasDaCategoria[filtroCat]?.includes(q) && !(m && catDe(m) === filtroCat)) return null
             if (!m) {
               return (
                 <div key={q}>
@@ -2779,7 +2816,9 @@ function PlayDetail({
                 onCancelarInicio={() => cancelarInicio(m)}
                 onTrocar={(sai, entra) => trocar(m, sai, entra)}
                 onTrocarPartida={pendentes.length > 1 ? () => setEscolhendo(q) : undefined}
-                jogadorasDoPlay={session.player_ids}
+                // no campeonato a troca e dentro da categoria: uma menina de outra
+                // categoria levaria a partida (e o rodizio) para a categoria dela
+                jogadorasDoPlay={ehCampeonato ? cats[catDe(m)].grupos.flatMap((g) => session.groups?.[g] ?? []) : session.player_ids}
                 mesmoGrupo={grupos?.find((g) => g.includes(m.team_a[0])) ?? null}
               />
               </div>
@@ -3020,11 +3059,11 @@ function PlayDetail({
                       (catArte === null || catArte === ci) && (duplasPorCategoria[ci]?.length ?? 0) > 0 ? (
                         <div key={ci}>
                           <div className="section-title" style={{ fontSize: 13 }}>Categoria {c.nome}</div>
-                          <DuplasDoDia linhas={duplasPorCategoria[ci]} colocacao={colocacaoDoDia} />
+                          <DuplasDoDia linhas={duplasPorCategoria[ci]} colocacao={colocacaoDoDia} porColocacao={Boolean(session.pontuacao?.length)} />
                         </div>
                       ) : null,
                     )
-                  : <DuplasDoDia linhas={duplasDoDia} colocacao={colocacaoDoDia} />)}
+                  : <DuplasDoDia linhas={duplasDoDia} colocacao={colocacaoDoDia} porColocacao={Boolean(session.pontuacao?.length)} />)}
               {podios.length > 1 && (
                 <>
                   {/* O seletor manda em tudo: a tabela abaixo, o texto e a imagem.
@@ -4121,13 +4160,17 @@ function descreverFase2(grupos: string[][], duplasMM: number): string {
 function DuplasDoDia({
   linhas,
   colocacao,
+  porColocacao,
 }: {
   linhas: DuplaDoDia[]
   /** Com tabela de colocacao, os pontos que cada uma leva (no lugar dos do placar). */
   colocacao?: Map<string, number>
+  /** O play pontua por colocacao: antes de a categoria fechar, ainda nao ha pontos. */
+  porColocacao?: boolean
 }) {
   const { nameOf, playerById } = useStore()
-  const pontosDa = (d: DuplaDoDia) => (colocacao?.size ? (colocacao.get(d.a) ?? 0) : d.points)
+  const pontosDa = (d: DuplaDoDia): number | string =>
+    porColocacao ? (colocacao?.get(d.a) ?? '—') : d.points
   if (linhas.length === 0) return null
 
   const medalhas = ['🥇', '🥈', '🥉']

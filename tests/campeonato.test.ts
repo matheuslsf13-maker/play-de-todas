@@ -435,3 +435,55 @@ test('ajuste para categoria ou grupo que nao existe mais e ignorado', () => {
   const e = [[['a', 'b', 'c', 'd', 'e'], ['f', 'g', 'h', 'i']]]
   assert.deepEqual(aplicarMovidasNoCampeonato(e, { a: { c: 3, g: 0 }, b: { c: 0, g: 5 } }), e)
 })
+
+/* ------------------------------------------ correcoes da revisao final */
+import { aplicarMescla, separarParaRefazer } from '../src/lib/campeonato'
+
+test('refazer a fila so mexe na fase de grupos: o mata-mata de outra categoria fica', () => {
+  const semi = { ...fase(partida(['c1', 'c2'], ['c3', 'c4'], 0, 0), 2), score_a: null, score_b: null }
+  const grupoA = { ...partida(['a1', 'a2'], ['a3', 'a4'], 0, 0), score_a: null, score_b: null }
+  const jogada = partida(['a1', 'a3'], ['a2', 'a4'], 4, 1)
+  const { naFila, preservadas } = separarParaRefazer([semi, grupoA, jogada], () => false)
+  assert.deepEqual(naFila.map((m) => m.id), [grupoA.id])
+  assert.deepEqual(preservadas.map((m) => m.id).sort(), [semi.id, jogada.id].sort())
+})
+
+test('refazer: partida iniciada da fase de grupos fica', () => {
+  const g = { ...partida(['a1', 'a2'], ['a3', 'a4'], 0, 0), score_a: null, score_b: null }
+  const { naFila, preservadas } = separarParaRefazer([g], (m) => m.id === g.id)
+  assert.equal(naFila.length, 0)
+  assert.equal(preservadas.length, 1)
+})
+
+test('mescla de duplas: troca so as da categoria, as das outras ficam', () => {
+  const atual = camp({ duos: [['b1', 'b5'], ['b2', 'b6']] })
+  const r = aplicarMescla(atual, { campo: 'duos', tirar: G[0].concat(G[1]), por: [['a1', 'a5'], ['a2', 'a6']] })
+  assert.deepEqual(r.duos, [['b1', 'b5'], ['b2', 'b6'], ['a1', 'a5'], ['a2', 'a6']])
+})
+
+test('mescla de desempate: substitui o do mesmo conjunto, mantem os outros', () => {
+  const d1 = { grupo: 0, ordem: ['a1', 'a2'], como: 'simples' as const, at: '1' }
+  const d2 = { grupo: 2, ordem: ['b1', 'b2'], como: 'simples' as const, at: '1' }
+  const atual = camp({ desempates_grupo: [d1, d2] })
+  const r = aplicarMescla(atual, { campo: 'desempates_grupo', d: { grupo: 0, ordem: ['a2', 'a1'], como: 'par-impar', at: '2' } })
+  assert.deepEqual(r.desempates_grupo, [d2, { grupo: 0, ordem: ['a2', 'a1'], como: 'par-impar', at: '2' }])
+})
+
+test('mescla de quadra cedida e de rounds', () => {
+  const atual = camp({ quadras_cedidas: { '5': 0 }, rounds: 30 })
+  assert.deepEqual(aplicarMescla(atual, { campo: 'quadras_cedidas', quadra: '6', categoria: 1 }).quadras_cedidas, { '5': 0, '6': 1 })
+  assert.equal(aplicarMescla(atual, { campo: 'rounds', minimo: 28 }).rounds, 30)
+  assert.equal(aplicarMescla(atual, { campo: 'rounds', minimo: 33 }).rounds, 33)
+})
+
+test('quadra a mais (fora das categorias) vai para quem tem mais jogo', () => {
+  assert.deepEqual(quadrasEfetivas(tres, [false, false, false], [3, 7, 2], null, 7), [[1, 2], [3, 4, 7], [5, 6]])
+  assert.deepEqual(quadrasEfetivas(tres, [false, false, false], [3, 7, 2], { '7': 2 }, 7), [[1, 2], [3, 4], [5, 6, 7]])
+})
+
+test('mescla de quadras do play (abrir/tirar quadra sem regravar o resto)', () => {
+  const atual = camp({ courts: 6, duos: [['b1', 'b5'], ['b2', 'b6']] })
+  const r = aplicarMescla(atual, { campo: 'courts', valor: 7 })
+  assert.equal(r.courts, 7)
+  assert.deepEqual(r.duos, atual.duos)
+})

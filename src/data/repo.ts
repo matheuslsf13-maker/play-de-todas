@@ -11,6 +11,7 @@ import type {
   Match,
   MonthClosure,
   EventoDoPlay,
+  MesclaDoPlay,
   PlaySession,
   Player,
   StreakChoice,
@@ -24,6 +25,8 @@ export interface Repo {
   saveSession(s: PlaySession): Promise<void>
   /** Acrescenta uma linha ao diario do play sem regravar o resto da sessao. */
   anotarNoPlay(sessionId: string, evento: EventoDoPlay): Promise<void>
+  /** Uma mudanca pontual (duplas de uma categoria, desempate, quadra cedida), sobre o que esta gravado agora. */
+  mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay): Promise<void>
   deleteSession(id: string): Promise<void>
   saveMatches(ms: Match[]): Promise<void>
   deleteMatchesOfSession(sessionId: string): Promise<void>

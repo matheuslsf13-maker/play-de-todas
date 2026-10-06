@@ -52,8 +52,10 @@ export default function DivisaoDoCampeonato({
   const precisa = nCategorias * gruposPorCategoria * 4
   const media = (g: string[]) =>
     Math.round(g.reduce((t, id) => t + notaDeForca(forca.get(id) ?? 2), 0) / Math.max(1, g.length))
-  /** Primeira quadra de cada categoria: as quadras sao numeradas em sequencia. */
-  const inicio = qtdQuadras.map((_, c) => qtdQuadras.slice(0, c).reduce((t, n) => t + n, 0) + 1)
+  /** Quantas quadras cada categoria usa de fato: nao passa do que os grupos dela enchem juntos. */
+  const usadas = estrutura.map((gs, c) => Math.min(qtdQuadras[c] ?? 1, Math.max(1, quadrasSimultaneas(gs.map((g) => g.length)))))
+  /** Primeira quadra de cada categoria: as quadras sao numeradas em sequencia (como sao gravadas). */
+  const inicio = usadas.map((_, c) => usadas.slice(0, c).reduce((t, n) => t + n, 0) + 1)
 
   return (
     <div className="card">
@@ -85,7 +87,7 @@ export default function DivisaoDoCampeonato({
             const cabem = Math.max(1, quadrasSimultaneas(tamanhos))
             const qtd = qtdQuadras[c] ?? 1
             const de = inicio[c]
-            const ate = de + qtd - 1
+            const ate = de + Math.min(qtd, cabem) - 1
             return (
               <div key={c} className="toggle-card">
                 <div className="row spread" style={{ alignItems: 'baseline' }}>
@@ -103,7 +105,7 @@ export default function DivisaoDoCampeonato({
                     onChange={(v) => setQtdQuadras(qtdQuadras.map((x, k) => (k === c ? v : x)))}
                   />
                   <em className={`hint${qtd > cabem ? ' aviso' : ''}`}>
-                    {qtd === 1 ? `quadra ${de}` : `quadras ${de} a ${ate}`}
+                    {de === ate ? `quadra ${de}` : `quadras ${de} a ${ate}`}
                     {qtd > cabem
                       ? ` — com ${plural(grupos.length, 'grupo')} só ${cabem === 1 ? 'uma joga' : `${cabem} jogam`} por vez; ${plural(qtd - cabem, 'quadra')} ficaria parada`
                       : ''}
