@@ -333,3 +333,35 @@ export function pontosDeColocacao(s: PlaySession, partidas: Match[]): Map<string
   })
   return out
 }
+
+/* ------------------------------------------------ quadras por categoria */
+
+/**
+ * As quadras que cada categoria usa AGORA.
+ *
+ * Cada categoria tem as suas fixas. Quando uma termina TUDO (final jogada), as
+ * dela vao para quem ainda joga, para ninguem esperar com quadra vazia ao lado:
+ * para a categoria escolhida na mao (`cedidas`, por quadra) ou, sem escolha,
+ * para a que tem mais partidas por jogar. Esperando formar as duplas ela ainda
+ * nao terminou -- vai jogar -- e a quadra fica com ela.
+ */
+export function quadrasEfetivas(
+  cats: Categoria[],
+  terminou: boolean[],
+  pendentes: number[],
+  cedidas?: Record<string, number> | null,
+): number[][] {
+  const out = cats.map((c, i) => (terminou[i] ? [] : c.quadras.slice()))
+  const ativas = cats.map((_, i) => i).filter((i) => !terminou[i])
+  if (ativas.length === 0) return cats.map((c) => c.quadras.slice())
+  const maisCheia = ativas.reduce((melhor, i) => ((pendentes[i] ?? 0) > (pendentes[melhor] ?? 0) ? i : melhor), ativas[0])
+  cats.forEach((c, i) => {
+    if (!terminou[i]) return
+    for (const q of c.quadras) {
+      const escolhida = cedidas?.[String(q)]
+      const destino = escolhida !== undefined && ativas.includes(escolhida) ? escolhida : maisCheia
+      out[destino].push(q)
+    }
+  })
+  return out.map((qs) => [...new Set(qs)].sort((a, b) => a - b))
+}

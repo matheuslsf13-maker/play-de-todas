@@ -307,3 +307,51 @@ test('sem pontuacao ou play avulso: nenhum ponto de colocacao', () => {
   assert.equal(pontosDeColocacao(camp({ duos, pontuacao: null }), [...grupos1, finalA]).size, 0)
   assert.equal(pontosDeColocacao(camp({ duos, ranked: false }), [...grupos1, finalA]).size, 0)
 })
+
+/* ------------------------------------------------ quadras por categoria */
+import { quadrasEfetivas } from '../src/lib/campeonato'
+
+const tres = [
+  { nome: 'A', grupos: [0, 1], quadras: [1, 2] },
+  { nome: 'B', grupos: [2, 3], quadras: [3, 4] },
+  { nome: 'C', grupos: [4, 5], quadras: [5, 6] },
+]
+
+test('cada categoria com as suas quadras enquanto ninguem terminou', () => {
+  assert.deepEqual(quadrasEfetivas(tres, [false, false, false], [3, 7, 2]), [[1, 2], [3, 4], [5, 6]])
+})
+
+test('categoria terminada cede para a que tem mais partidas por jogar', () => {
+  assert.deepEqual(quadrasEfetivas(tres, [false, false, true], [3, 7, 0]), [[1, 2], [3, 4, 5, 6], []])
+})
+
+test('cessao escolhida na mao vale por quadra', () => {
+  assert.deepEqual(quadrasEfetivas(tres, [false, false, true], [3, 7, 0], { '5': 0 }), [[1, 2, 5], [3, 4, 6], []])
+})
+
+test('cessao para categoria que tambem terminou e ignorada', () => {
+  assert.deepEqual(quadrasEfetivas(tres, [true, false, true], [0, 7, 0], { '5': 0 }), [[], [1, 2, 3, 4, 5, 6], []])
+})
+
+test('todas terminadas: cada uma fica com as suas', () => {
+  assert.deepEqual(quadrasEfetivas(tres, [true, true, true], [0, 0, 0]), [[1, 2], [3, 4], [5, 6]])
+})
+
+import { proximasDasQuadras } from '../src/lib/pairing'
+
+test('a quadra da casa do grupo e a da categoria (grupo 1 da B na quadra 3)', () => {
+  const g0 = partida(['b1', 'b2'], ['b3', 'b4'], 0, 0)
+  const g1 = partida(['b5', 'b6'], ['b7', 'b8'], 0, 0)
+  const pendentes = [g0, g1].map((m) => ({ ...m, score_a: null, score_b: null }))
+  const r = proximasDasQuadras({
+    pendentes,
+    ocupadas: new Set(),
+    espera: new Map(),
+    jogos: new Map(),
+    quadrasLivres: [4, 3],
+    grupos: [G[2], G[3]],
+    quadrasDaCasa: [3, 4],
+  })
+  assert.equal(r.get(3)?.id, pendentes[0].id)
+  assert.equal(r.get(4)?.id, pendentes[1].id)
+})

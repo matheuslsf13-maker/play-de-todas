@@ -1395,6 +1395,12 @@ export type EscolhaOpts = {
   jogadoras?: string[]
   /** Os grupos do play, quando ha. */
   grupos?: string[][] | null
+  /**
+   * A quadra da casa de cada grupo (mesmo indice de `grupos`). No campeonato
+   * o grupo 1 da categoria B mora na quadra 3, nao na 1. Ausente = grupo i na
+   * quadra i + 1.
+   */
+  quadrasDaCasa?: number[]
 }
 
 /** O estado da fila a partir do que a tela sabe agora. */
@@ -1635,7 +1641,7 @@ export function proximasDasQuadras(opts: EscolhaOpts): Map<number, Match> {
       melhor = c
     }
   })
-  return atribuirQuadras(melhor, quadrasLivres, e.grupos)
+  return atribuirQuadras(melhor, quadrasLivres, e.grupos, opts.quadrasDaCasa)
 }
 
 /**
@@ -1650,13 +1656,14 @@ function atribuirQuadras(
   escolhidas: Match[],
   quadrasLivres: number[],
   grupos: string[][] | null,
+  quadrasDaCasa?: number[],
 ): Map<number, Match> {
   const out = new Map<number, Match>()
   const sobrando: Match[] = []
   for (const m of escolhidas) {
     // a partida nao guarda o grupo: ele sai de quem esta nela
     const indice = grupos ? grupos.findIndex((g) => g.includes(m.team_a[0])) : 0
-    const casa = Math.max(0, indice) + 1
+    const casa = quadrasDaCasa?.[Math.max(0, indice)] ?? Math.max(0, indice) + 1
     if (quadrasLivres.includes(casa) && !out.has(casa)) out.set(casa, m)
     else sobrando.push(m)
   }
