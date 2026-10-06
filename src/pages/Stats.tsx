@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import GraficoDeForca from '../components/GraficoDeForca'
+import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
 import { Avatar, Empty, Modal, StatBox } from '../components/ui'
 import {
   aplicarBye,
@@ -38,7 +40,10 @@ import { dateLabel, monthLabel, monthOf, plural } from '../lib/types'
 
 type Modo = 'jogadora' | 'duplas' | 'forca'
 
-export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu?: () => void } = {}) {
+export default function Stats({
+  abrir,
+  onAbriu,
+}: { abrir?: Modo | { jogadora: string } | null; onAbriu?: () => void } = {}) {
   const { data } = useStore()
 
   const months = useMemo(() => {
@@ -46,16 +51,23 @@ export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu
     return [...set].sort().reverse()
   }, [data.sessions])
 
-  const [modo, setModo] = useState<Modo>(abrir ?? 'jogadora')
+  const [modo, setModo] = useState<Modo>(typeof abrir === 'string' ? abrir : 'jogadora')
+  const [period, setPeriod] = useState<string>('all')
+  const [playerId, setPlayerId] = useState<string>(abrir && typeof abrir === 'object' ? abrir.jogadora : '')
+  /** As fichas abertas antes desta, para o "voltar". */
+  const [anteriores, setAnteriores] = useState<string[]>([])
 
-  // chegou de outra tela pedindo uma aba especifica (a Força, do Ranking)
+  // chegou de outra tela pedindo uma aba (a Força) ou a ficha de uma menina (o Ranking)
   useEffect(() => {
     if (!abrir) return
-    setModo(abrir)
+    if (typeof abrir === 'string') setModo(abrir)
+    else {
+      setModo('jogadora')
+      setPlayerId(abrir.jogadora)
+      setAnteriores([])
+    }
     onAbriu?.()
   }, [abrir, onAbriu])
-  const [period, setPeriod] = useState<string>('all')
-  const [playerId, setPlayerId] = useState<string>('')
 
   const matches = useMemo(
     // o mes acompanha o ranking (so os plays que valem); o historico traz tudo,
@@ -88,8 +100,22 @@ export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu
     )
   }
 
+  /** Tocar num nome dentro do Stats abre a ficha dela, guardando a anterior para o "voltar". */
+  const abrirJogadora = (id: string) => {
+    if (id === selected && modo === 'jogadora') return
+    setAnteriores((a) => [...a, selected])
+    setPlayerId(id)
+    setModo('jogadora')
+    window.scrollTo(0, 0)
+  }
+  const anterior = anteriores[anteriores.length - 1]
+  function voltar() {
+    setAnteriores((a) => a.slice(0, -1))
+    if (anterior) setPlayerId(anterior)
+  }
+
   return (
-    <>
+    <ProvedorDePerfil value={abrirJogadora}>
       <div className="card">
         <div className="segmented">
           <button className={modo === 'jogadora' ? 'on' : ''} onClick={() => setModo('jogadora')}>
@@ -129,6 +155,8 @@ export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu
         <PainelJogadora
           selected={selected}
           setPlayerId={setPlayerId}
+          anterior={anterior}
+          onVoltar={voltar}
           matches={matches}
           stats={stats}
           streaks={streaks}
@@ -137,7 +165,7 @@ export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu
       ) : (
         <PainelDuplas matches={matches} />
       )}
-    </>
+    </ProvedorDePerfil>
   )
 }
 
@@ -146,6 +174,8 @@ export default function Stats({ abrir, onAbriu }: { abrir?: Modo | null; onAbriu
 function PainelJogadora({
   selected,
   setPlayerId,
+  anterior,
+  onVoltar,
   matches,
   stats,
   streaks,
@@ -153,6 +183,9 @@ function PainelJogadora({
 }: {
   selected: string
   setPlayerId: (id: string) => void
+  /** A ficha aberta antes desta (tocando num nome), para voltar. */
+  anterior?: string
+  onVoltar?: () => void
   matches: ReturnType<typeof playedMatches>
   stats: ReturnType<typeof computeStats>
   streaks: ReturnType<typeof computeStreaks>
@@ -192,6 +225,11 @@ function PainelJogadora({
   return (
     <>
       <div className="card">
+        {anterior && (
+          <button className="btn ghost sm" style={{ marginBottom: 8 }} onClick={onVoltar}>
+            ‹ voltar para {nameOf(anterior)}
+          </button>
+        )}
         <label className="field">
           <span>Jogadora</span>
           <select className="select" value={selected} onChange={(e) => setPlayerId(e.target.value)}>
@@ -208,7 +246,7 @@ function PainelJogadora({
           <div className="grow">
             <div style={{ fontSize: 19, fontWeight: 800 }} className="ellipsis">{nameOf(selected)}</div>
             <div className="small muted">
-              {s.days} play(s) · {avgPoints(s).toFixed(2)} pontos por partida
+              {plural(s.days, 'play')} · {avgPoints(s).toFixed(2)} pontos por partida
             </div>
             {nivel && (
               <div className="tiny" style={{ color: 'var(--pink)', fontWeight: 800, marginTop: 2 }}>
@@ -252,6 +290,7 @@ function PainelJogadora({
               Não é o ranking do mês: a força atravessa o ano e mede <strong>de quem</strong>{' '}
               você ganhou. É ela que monta os grupos e escolhe as duplas. 1500 é a média do grupo.
             </p>
+            <GraficoDeForca data={data} playerId={selected} />
           </>
         ) : (
           <p className="tiny muted" style={{ margin: 0 }}>Ainda sem partidas para medir.</p>
@@ -586,7 +625,7 @@ function Destaque({
       <Avatar player={playerById(par.other_id)} size={34} />
       <div className="grow">
         <div className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '.5px', fontWeight: 700 }}>{rotulo}</div>
-        <div style={{ fontWeight: 700 }} className="ellipsis">{nameOf(par.other_id)}</div>
+        <NomeClicavel id={par.other_id} className="ellipsis"><strong>{nameOf(par.other_id)}</strong></NomeClicavel>
         <div className="tiny muted">{detalhe}</div>
       </div>
     </div>
@@ -611,7 +650,7 @@ function TabelaPares({ linhas, primeira }: { linhas: PairKeyStat[]; primeira: st
               <td>
                 <div className="row" style={{ gap: 8 }}>
                   <Avatar player={playerById(p.other_id)} size={26} />
-                  <span className="ellipsis">{nameOf(p.other_id)}</span>
+                  <NomeClicavel id={p.other_id} className="ellipsis">{nameOf(p.other_id)}</NomeClicavel>
                 </div>
               </td>
               <td>{p.matches}</td>
@@ -734,7 +773,7 @@ function LinhaDaForca({
       <div className="row" style={{ gap: 8 }}>
         <span className={`rank-pos top${pos}`} style={{ fontWeight: 800, minWidth: 22 }}>{pos}</span>
         <Avatar player={foto} size={28} />
-        <span className="grow ellipsis">{nome}</span>
+        <NomeClicavel id={linha.player_id} className="grow ellipsis">{nome}</NomeClicavel>
         <span className="nowrap tiny" style={{ color: linha.nivel.cor, fontWeight: 800 }}>
           {linha.nivel.emoji} {linha.nivel.titulo}
         </span>

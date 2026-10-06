@@ -39,6 +39,7 @@ import {
 } from '../lib/streaks'
 import { forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
+import { NomeClicavel } from '../components/NomeClicavel'
 import { dateLabel, monthLabel, monthOf, todayISO, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
@@ -252,7 +253,7 @@ export default function Ranking({
                 return (
                   <div className={`slot p${pos}`} key={s.player_id}>
                     <Avatar player={playerById(s.player_id)} size={pos === 1 ? 66 : 52} />
-                    <div className="nm ellipsis">{nameOf(s.player_id)}</div>
+                    <NomeClicavel id={s.player_id} className="nm ellipsis">{nameOf(s.player_id)}</NomeClicavel>
                     <div className="base">
                       <div className="pos">{pos}º</div>
                       <div className="pts">{s.points} pts</div>
@@ -620,7 +621,7 @@ export function RankTable({
                 <td>
                   <div className="row" style={{ gap: 8 }}>
                     <Avatar player={playerById(s.player_id)} size={28} />
-                    <span className="ellipsis">{nameOf(s.player_id)}</span>
+                    <NomeClicavel id={s.player_id} className="ellipsis">{nameOf(s.player_id)}</NomeClicavel>
                     {fire && (fire.get(s.player_id) ?? 0) >= 2 && (
                       <span className="nowrap" title={`${fire.get(s.player_id)} vitórias seguidas`}>
                         {streakLevel(fire.get(s.player_id) as number)?.emoji}

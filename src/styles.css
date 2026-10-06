@@ -1330,3 +1330,21 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 .match.g7, .match.g7.live, .match.g7.em-quadra { border-color: var(--g7); }
 .match.g8, .match.g8.live, .match.g8.em-quadra { border-color: var(--g8); }
 .match[class*=" g"].em-quadra { border-width: 2px; }
+
+/* nome que abre a ficha da menina (Ranking e Stats): parece texto, com um
+   sublinhado discreto que diz "da para tocar" */
+.nome-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  min-width: 0;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--muted);
+  text-underline-offset: 3px;
+}
+.nome-link:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; border-radius: 4px; }

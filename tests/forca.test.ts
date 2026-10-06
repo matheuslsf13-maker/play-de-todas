@@ -31,7 +31,7 @@ function playCom(d: AppData, id: string, date: string, quem: string[], ranked = 
 
 const nota = (d: AppData, id: string) => notaDeForca(ratings(d).get(id) as number)
 
-test('forte que falta: 1a falta nada, depois 10% da distancia por play', () => {
+test('forte que falta: 1a falta nada, depois 10%, 15%, 20%... da distancia por play', () => {
   const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
   // x jogou no play 1 (uma partida que quase nao mexe: 4x3 contra iguais)
   playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
@@ -43,8 +43,8 @@ test('forte que falta: 1a falta nada, depois 10% da distancia por play', () => {
     d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
   }
   const dist = depoisDoJogo - 1500
-  // 3 faltas: a 1a nao conta, a 2a e a 3a tiram 10% cada
-  const esperado = 1500 + dist * 0.9 * 0.9
+  // 3 faltas: a 1a nao conta, a 2a tira 10% e a 3a, 15% (vai aumentando)
+  const esperado = 1500 + dist * 0.9 * 0.85
   assert.ok(Math.abs(nota(d, 'x') - esperado) <= 1, `${nota(d, 'x')} ~ ${esperado}`)
   assert.deepEqual(quedaPorFalta(d).get('x')?.faltas, 3)
 })
@@ -85,4 +85,39 @@ test('play avulso nao conta como falta, e quem nunca jogou nao cai', () => {
   }
   assert.equal(nota(d, 'x'), depois)
   assert.equal(nota(d, 'z'), 1600)
+})
+
+import { historicoDeForca } from '../src/lib/stats'
+
+test('historico da forca: um ponto por play jogado, e as faltas que derrubaram a nota', () => {
+  const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
+  playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s1', ['x', 'a'], ['b', 'c'], 4, 0))
+  for (let i = 2; i <= 3; i++) {
+    playCom(d, `s${i}`, `2026-09-0${i}`, ['a', 'b', 'c', 'd'])
+    d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
+  }
+  playCom(d, 's4', '2026-09-04', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s4', ['x', 'b'], ['a', 'c'], 2, 4))
+  const h = historicoDeForca(d, 'x')
+  assert.deepEqual(h.map((p) => [p.sessionId, p.jogou]), [['s1', true], ['s3', false], ['s4', true]])
+  // a nota do s3 (falta que contou) e menor que a do s1
+  assert.ok(h[1].nota < h[0].nota)
+  // ponto de partida, para o grafico comecar de algum lugar
+  assert.equal(historicoDeForca(d, 'x', true)[0].nota, 1560)
+})
+
+test('a queda acima de 1500 aumenta a cada falta e para em 30%', () => {
+  const d = base({ x: 1600, a: 1500, b: 1500, c: 1500, d: 1500 })
+  playCom(d, 's01', '2026-08-01', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s01', ['x', 'a'], ['b', 'c'], 4, 3))
+  const inicio = nota(d, 'x') - 1500
+  for (let i = 2; i <= 9; i++) {
+    const dd = String(i).padStart(2, '0')
+    playCom(d, `s${dd}`, `2026-08-${dd}`, ['a', 'b', 'c', 'd'])
+    d.matches.push(partida(`s${dd}`, ['a', 'b'], ['c', 'd'], 4, 3))
+  }
+  // 8 faltas, a 1a nao conta: 2a..8a -> 10, 15, 20, 25, 30, 30, 30 %
+  const fator = [0.9, 0.85, 0.8, 0.75, 0.7, 0.7, 0.7].reduce((t, f) => t * f, 1)
+  assert.ok(Math.abs(nota(d, 'x') - (1500 + inicio * fator)) <= 2, `${nota(d, 'x')} ~ ${1500 + inicio * fator}`)
 })

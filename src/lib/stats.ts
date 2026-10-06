@@ -313,23 +313,32 @@ export const FORCA_PADRAO = 2
  * Uma estreante que joga um play muito bem e some ficava com a nota alta
  * parada -- e ao voltar caia no grupo das melhores, tirando a vaga de quem
  * joga toda semana. A primeira falta nao muda nada (todo mundo falta uma vez);
- * da segunda seguida em diante, a cada play do ranking:
- *   - acima de 1500 perde 10% da distancia ate 1500 (no minimo 2): 1560 vira
- *     1554, 1549, 1544... -- a nota de quem some vai voltando para o meio;
- *   - abaixo de 1500 perde menos, 2 por play, ate -20 na mesma sequencia de
- *     faltas: a fraca que some nao sobe, mas tambem nao afunda.
+ * da segunda seguida em diante, a cada play do ranking, e AUMENTANDO a cada
+ * falta (quem some de vez perde mais rapido que quem faltou duas):
+ *   - acima de 1500 perde 10% da distancia ate 1500 na 2a falta, 15% na 3a,
+ *     20% na 4a... ate 30% (no minimo 2): 1560 vira 1554, 1546, 1537, 1527...
+ *     -- a nota de quem some vai voltando para o meio;
+ *   - abaixo de 1500 perde menos: 2 na 2a falta, 3 na 3a, 4, e depois 5 por
+ *     play, ate -20 na mesma sequencia: a fraca que some nao sobe, mas tambem
+ *     nao afunda.
  * Voltou a jogar, a contagem zera e as partidas mandam de novo. Play avulso
  * nao conta como falta. Quem nunca jogou nao cai (o app nao sabe nada dela).
  */
-const QUEDA_ACIMA = 0.1
+/** Fracao da distancia ate 1500 que sai na k-esima falta seguida (k >= 2). */
+const quedaAcima = (k: number) => Math.min(0.1 + 0.05 * (k - 2), 0.3)
 const QUEDA_MINIMA = 2
-const QUEDA_ABAIXO = 2
+/** Pontos que saem na k-esima falta seguida abaixo de 1500 (k >= 2). */
+const quedaAbaixo = (k: number) => Math.min(2 + (k - 2), 5)
 const QUEDA_ABAIXO_MAXIMA = 20
 
 /** Faltas seguidas e quanto a nota caiu por elas, de quem esta faltando agora. */
 export type QuedaPorFalta = { faltas: number; perda: number }
 
-function calcularElo(data: AppData, upToDate?: string) {
+/** Um ponto do grafico de forca: a nota depois de um play (jogado, ou a falta que derrubou). */
+export type PontoDeForca = { date: string; sessionId: string; nota: number; jogou: boolean }
+
+function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
+  const historico: PontoDeForca[] = []
   const sessoes = [...data.sessions]
     .filter((s) => !upToDate || s.date <= upToDate)
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
@@ -375,6 +384,8 @@ function calcularElo(data: AppData, upToDate?: string) {
       for (const id of m.team_b) elo.set(id, nota(id) - delta)
       for (const id of [...m.team_a, ...m.team_b]) jaJogou.add(id)
     }
+    const jogouAqui = acompanhar !== undefined && jogos.some((m) => [...m.team_a, ...m.team_b].includes(acompanhar))
+    if (jogouAqui) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(nota(acompanhar as string)), jogou: true })
     // so play do ranking, que aconteceu, conta como falta
     if (s.ranked === false || jogos.length === 0) continue
     const presentes = new Set(s.player_ids)
@@ -389,15 +400,27 @@ function calcularElo(data: AppData, upToDate?: string) {
         const atual = nota(id)
         const perda =
           atual > ELO_INICIAL
-            ? Math.max(QUEDA_MINIMA, (atual - ELO_INICIAL) * QUEDA_ACIMA)
-            : Math.max(0, Math.min(QUEDA_ABAIXO, QUEDA_ABAIXO_MAXIMA - q.perda))
+            ? Math.max(QUEDA_MINIMA, (atual - ELO_INICIAL) * quedaAcima(q.faltas))
+            : Math.max(0, Math.min(quedaAbaixo(q.faltas), QUEDA_ABAIXO_MAXIMA - q.perda))
         elo.set(id, atual - perda)
         q.perda += perda
+        if (id === acompanhar && perda > 0) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(atual - perda), jogou: false })
       }
       queda.set(id, q)
     }
   }
-  return { nota, queda }
+  return { nota, queda, historico, inicial: (id: string) => inicial.get(id) ?? ELO_INICIAL }
+}
+
+/**
+ * A FORCA DE UMA MENINA AO LONGO DO TEMPO, para o grafico do perfil: um ponto
+ * por play que ela jogou (a nota depois dele) e os plays que ela faltou e que
+ * derrubaram a nota. `comInicio` poe na frente o ponto de partida.
+ */
+export function historicoDeForca(data: AppData, id: string, comInicio = false): PontoDeForca[] {
+  const { historico, inicial } = calcularElo(data, undefined, id)
+  if (!comInicio || historico.length === 0) return historico
+  return [{ date: historico[0].date, sessionId: 'inicio', nota: Math.round(inicial(id)), jogou: false }, ...historico]
 }
 
 export function ratings(data: AppData, upToDate?: string): Map<string, number> {

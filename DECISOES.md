@@ -366,9 +366,10 @@ seco, que jogava fora informação boa.
 **Quem falta perde força, devagar (06/10/2026).** Antes a nota de quem faltava ficava
 parada — e uma estreante que jogou muito bem um play e sumiu voltava semanas depois
 direto para o grupo das melhores, tirando a vaga de quem joga toda semana. Agora a 1ª
-falta não muda nada; da 2ª seguida em diante, a cada play do ranking, **acima de 1500
-perde 10% da distância até 1500** (no mínimo 2: 1560 → 1554 → 1549 → 1544…) e **abaixo
-de 1500 perde 2, até −20 na sequência** — a organização não quis que a fraca que some
+falta não muda nada; da 2ª seguida em diante, a cada play do ranking, **aumentando a
+cada falta**: **acima de 1500 perde 10% da distância até 1500 na 2ª, 15% na 3ª, 20% na
+4ª… até 30%** (no mínimo 2: 1560 → 1554 → 1546 → 1537 → 1527…) e **abaixo de 1500 perde
+2, 3, 4 e depois 5 por play, até −20 na sequência** — a organização não quis que a fraca que some
 subisse, nem que afundasse. Voltou, a contagem zera. Play avulso não conta. Quem nunca
 jogou não cai. A ficha mostra "−9 por 3 faltas seguidas" (`quedaPorFalta`, `textoDaQueda`).
 Detalhe: com a queda o Elo deixa de ser estritamente soma zero (a média de quem falta

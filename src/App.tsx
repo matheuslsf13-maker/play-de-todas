@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BotaoInstalar } from './components/InstalarApp'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
@@ -8,6 +8,7 @@ import Play from './pages/Play'
 import Players from './pages/Players'
 import Ranking from './pages/Ranking'
 import Stats from './pages/Stats'
+import { ProvedorDePerfil } from './components/NomeClicavel'
 
 type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
@@ -46,7 +47,12 @@ export default function App() {
     }
   }, [tab])
   /** Aba de Stats pedida por outra tela (o “ver a força” do Ranking). */
-  const [abrirStats, setAbrirStats] = useState<'jogadora' | 'duplas' | 'forca' | null>(null)
+  const [abrirStats, setAbrirStats] = useState<'jogadora' | 'duplas' | 'forca' | { jogadora: string } | null>(null)
+  /** Tocar no nome de uma menina (no Ranking) abre a ficha dela no Stats. */
+  const abrirPerfil = useCallback((id: string) => {
+    setAbrirStats({ jogadora: id })
+    setTab('stats')
+  }, [])
   const [abrirPlay, setAbrirPlay] = useState<string | null>(null)
   const primeiraRenderizacao = useRef(true)
 
@@ -136,11 +142,13 @@ export default function App() {
       ) : (
         <main>
           {tab === 'ranking' && (
-            <Ranking
-              onToast={show}
-              onAbrirPlay={(id) => { setAbrirPlay(id); setTab('play') }}
-              onVerForca={() => { setAbrirStats('forca'); setTab('stats') }}
-            />
+            <ProvedorDePerfil value={abrirPerfil}>
+              <Ranking
+                onToast={show}
+                onAbrirPlay={(id) => { setAbrirPlay(id); setTab('play') }}
+                onVerForca={() => { setAbrirStats('forca'); setTab('stats') }}
+              />
+            </ProvedorDePerfil>
           )}
           {tab === 'play' && (
             <Play onToast={show} abrir={abrirPlay} onAbriu={() => setAbrirPlay(null)} />
