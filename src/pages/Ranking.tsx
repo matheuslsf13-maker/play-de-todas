@@ -332,7 +332,7 @@ export default function Ranking({
                   <Avatar player={playerById(f.player_id)} size={max ? 46 : 38} />
                   <div className="grow">
                     <div style={{ fontWeight: 800 }} className="ellipsis">
-                      {nameOf(f.player_id)} {lvl?.emoji}
+                      <NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel> {lvl?.emoji}
                     </div>
                     <div className="tiny muted">
                       {lvl?.title} · {f.streak} semanas seguidas no pódio
@@ -372,7 +372,7 @@ export default function Ranking({
                   <Avatar player={playerById(d.player_id)} size={40} />
                   <div className="grow">
                     <div style={{ fontWeight: 800 }} className="ellipsis">
-                      {nameOf(d.player_id)} {lvl?.emoji}
+                      <NomeClicavel id={d.player_id}>{nameOf(d.player_id)}</NomeClicavel> {lvl?.emoji}
                     </div>
                     <div className="tiny muted">
                       {lvl?.title} · {d.streak} semanas · vale <strong>{d.value} pts</strong>
@@ -706,7 +706,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                     {i + 1}
                   </span>
                   <Avatar player={playerById(l.player_id)} size={28} />
-                  <span className="grow ellipsis">{nameOf(l.player_id)}</span>
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <NomeClicavel id={l.player_id} className="ellipsis">{nameOf(l.player_id)}</NomeClicavel>
+                  </span>
                   <span className="nowrap tiny" style={{ color: l.nivel.cor, fontWeight: 800 }}>
                     {l.nivel.emoji}
                   </span>
