@@ -289,6 +289,12 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   no saldo fora de um play é um **acerto** (`checkin_acertos`, script 17): `valor`
   é o efeito no saldo e `dinheiro` diz se entrou/saiu dinheiro de verdade — só
   esses contam na receita; perdoar uma dívida não conta.
+  **Check-in de crédito** (script 25, `creditosDeCheckin`, `gastaCheckin`): não veio mas
+  **fez o check-in no app** (`credito_checkin`) → a arena recebeu, a cota do mês é gasta e
+  ela fica com 1 check-in de crédito **naquela arena**; no lançamento seguinte "Usar o de
+  DD/MM" (`credito_de`) leva conta e arena do crédito e **não gasta cota**. O relatório da
+  arena lista os dois dias ("não veio (vira crédito)" e "crédito do check-in de DD/MM").
+  O relatório e a planilha usam o **nome do cadastro**, não o apelido: é o nome que a arena tem.
 - **"⏳ Quem não chegou"** (no card das quadras): quem está na lista mas ainda não
   apareceu é marcada e o app **pula as partidas dela** ao sugerir a próxima — para a
   escolha ela conta como se estivesse em quadra (`indisponiveis`), e a fila deixa as

@@ -369,6 +369,34 @@ export function statusDoCheckin(c: Checkin, pag: CheckinPagamento | undefined, l
   return checkinOk && Boolean(pag?.pagamento_confirmado) ? 'regularizado' : 'verificar'
 }
 
+/* ----------------------------------------------------- check-in de credito */
+
+/**
+ * O lancamento gastou um check-in do app? Veio com check-in (e nao pelo
+ * credito), ou nao veio mas fez o check-in -- esse virou credito.
+ */
+export function gastaCheckin(c: Checkin): boolean {
+  if (c.modo !== 'checkin') return false
+  return c.compareceu ? !c.credito_de : Boolean(c.credito_checkin)
+}
+
+export type CreditoDeCheckin = { checkin: Checkin; dia: CheckinDia | undefined }
+
+/**
+ * Os check-ins de credito que a menina ainda tem: fez o check-in, nao foi, e
+ * nenhum lancamento usou ainda. `semCheckinId`: o lancamento sendo editado (o
+ * credito que ele usa volta a aparecer para ele).
+ */
+export function creditosDeCheckin(data: AppData, playerId: string, semCheckinId?: string): CreditoDeCheckin[] {
+  const usados = new Set(
+    data.checkins.filter((c) => c.credito_de && c.id !== semCheckinId).map((c) => c.credito_de as string),
+  )
+  return data.checkins
+    .filter((c) => c.player_id === playerId && c.modo === 'checkin' && !c.compareceu && c.credito_checkin && !usados.has(c.id))
+    .map((c) => ({ checkin: c, dia: data.checkinDias.find((d) => d.id === c.dia_id) }))
+    .sort((a, b) => (a.dia?.date ?? '').localeCompare(b.dia?.date ?? ''))
+}
+
 /* --------------------------------------------------------- disponibilidade */
 
 export type ComplementoRecebido = {
@@ -464,7 +492,7 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
     aulasDaConta(c).filter((a) => a.local_id === l.id).reduce((t, a) => t + a.por_semana, 0)
   const playsEm = (c: CheckinConta, l: CheckinLocal) =>
     data.checkins.filter((x) => {
-      if (x.modo !== 'checkin' || !x.compareceu || x.local_id !== l.id) return false
+      if (!gastaCheckin(x) || x.local_id !== l.id) return false
       const dia = dias.get(x.dia_id)
       if (!dia || monthOf(dia.date) !== mes) return false
       return contaDoCheckin(data, x).id === c.id
@@ -632,7 +660,9 @@ export function relatorioDasArenas(
   const blocos: BlocoDoRelatorio[] = []
   const linhasDe = (localId: string | null): LinhaDoRelatorio[] =>
     data.checkins
-      .filter((c) => c.modo === 'checkin' && c.compareceu && (c.local_id ?? null) === localId && porId.has(c.dia_id))
+      // o check-in que virou credito foi feito na arena; e o dia em que ela usa o
+      // credito a arena precisa saber, porque nao ha check-in novo
+      .filter((c) => (gastaCheckin(c) || (c.compareceu && c.credito_de)) && (c.local_id ?? null) === localId && porId.has(c.dia_id))
       .map((c) => {
         const dia = porId.get(c.dia_id) as CheckinDia
         const conta = contaDoCheckin(data, c)
@@ -643,7 +673,11 @@ export function relatorioDasArenas(
           local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',
           atleta: atleta === '—' ? '(atleta removida)' : atleta,
           titular: nomeDoTitular(conta, atleta),
-          app: rotuloDoTipo(appDaConta(data, conta)),
+          app: !c.compareceu
+            ? `${rotuloDoTipo(appDaConta(data, conta))} · não veio (vira crédito)`
+            : c.credito_de
+              ? `crédito do check-in de ${dataDoCredito(data, c.credito_de)}`
+              : rotuloDoTipo(appDaConta(data, conta)),
           modo: c.modo,
           compareceu: c.compareceu,
           confirmado: c.checkin_confirmado,
@@ -660,6 +694,12 @@ export function relatorioDasArenas(
     if (semLocal.length > 0) blocos.push({ local: null, linhas: semLocal })
   }
   return { periodo: periodoDoFiltro(f), blocos, total: blocos.reduce((t, b) => t + b.linhas.length, 0) }
+}
+
+function dataDoCredito(data: AppData, checkinId: string): string {
+  const c = data.checkins.find((x) => x.id === checkinId)
+  const dia = c ? data.checkinDias.find((d) => d.id === c.dia_id) : undefined
+  return dia ? dateLabel(dia.date) : 'outro dia'
 }
 
 /** Texto para o WhatsApp: so *negrito* e _italico_, uma linha por check-in. */

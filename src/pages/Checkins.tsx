@@ -39,6 +39,8 @@ import {
   type LinhaDoResumo,
   type UsoDaConta,
   type UsoNoLocal,
+  creditosDeCheckin,
+  gastaCheckin,
 } from '../lib/checkins'
 import { planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
 import { normalizar } from '../lib/roster'
@@ -367,7 +369,7 @@ function SecaoAtletas({
             // A logistica (contas, planos, aulas, quem cobre quem) fica em "contas", para quem organiza
             const arenas = disp.porLocal.filter((l) => l.aceita)
             const feitos = data.checkins
-              .filter((c) => c.player_id === p.id && c.modo === 'checkin' && c.compareceu && idsDosDias.has(c.dia_id))
+              .filter((c) => c.player_id === p.id && (gastaCheckin(c) || (c.compareceu && c.credito_de)) && idsDosDias.has(c.dia_id))
               .map((c) => ({ c, dia: dias.find((d) => d.id === c.dia_id)! }))
               .sort((a, b) => a.dia.date.localeCompare(b.dia.date))
             return (
@@ -400,8 +402,18 @@ function SecaoAtletas({
                     <div className="tiny muted" style={{ marginTop: 4 }}>
                       {feitos.length === 0
                         ? `nenhum check-in em ${nomeDoMes(mes)}`
-                        : <>✅ {feitos.map((f) => `${dateLabel(f.dia.date).slice(0, 5)} ${nomeCurto(data.checkinLocais.find((l) => l.id === f.c.local_id)?.nome ?? '')}`).join(' · ')}</>}
+                        : <>✅ {feitos.map((f) => `${dateLabel(f.dia.date).slice(0, 5)} ${nomeCurto(data.checkinLocais.find((l) => l.id === f.c.local_id)?.nome ?? '')}${!f.c.compareceu ? ' (não veio)' : f.c.credito_de ? ' (crédito)' : ''}`).join(' · ')}</>}
                     </div>
+                    {(() => {
+                      const cred = creditosDeCheckin(data, p.id)
+                      if (cred.length === 0) return null
+                      return (
+                        <div className="tiny" style={{ marginTop: 2, color: 'var(--verde)', fontWeight: 700 }}>
+                          🎟️ {plural(cred.length, 'check-in de crédito', 'check-ins de crédito')}:{' '}
+                          {cred.map((c) => `${c.dia ? dateLabel(c.dia.date).slice(0, 5) : '?'} ${nomeCurto(data.checkinLocais.find((l) => l.id === c.checkin.local_id)?.nome ?? '')}`).join(' · ')}
+                        </div>
+                      )
+                    })()}
                     {podeEditar && disp.avisos.map((a) => (
                       <span key={a} className="hint aviso">⚠️ {a}</span>
                     ))}
@@ -490,7 +502,11 @@ function LinhaDeLancamento({
         </span>
         <span className="tiny muted">
           {!checkin.compareceu
-            ? 'pagou e não veio: o valor vira crédito'
+            ? checkin.credito_checkin
+              ? `não veio, mas fez o check-in em ${local}: vira 1 check-in de crédito`
+              : 'pagou e não veio: o valor vira crédito'
+            : checkin.credito_de
+              ? `veio pelo check-in de crédito · ${local}` + (checkin.checkin_confirmado ? '' : ' · a confirmar com a arena')
             : checkin.modo === 'checkin'
               ? `${titular !== nome ? `conta de ${titular} · ` : ''}${rotuloDoTipo(appDaConta(data, conta))} · ${local}` +
                 (checkin.checkin_confirmado ? '' : ' · check-in a confirmar')
@@ -611,7 +627,9 @@ function SecaoArenas({ mes, onToast }: { mes: string; onToast: (m: string) => vo
   const [locais, setLocais] = useState<string[] | null>(null)
 
   const filtro: FiltroDoRelatorio = porPeriodo ? { mes: null, de, ate, locais } : { mes, de: null, ate: null, locais }
-  const rel = relatorioDasArenas(data, filtro, nameOf)
+  // o relatorio vai para a arena, que confere pelo NOME DO CADASTRO (o da conta
+  // no app), nao pelo apelido do grupo
+  const rel = relatorioDasArenas(data, filtro, (id) => nomeDoCadastro(data, id, nameOf))
   const ativos = data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)
 
   function alternar(id: string) {
@@ -818,7 +836,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
           className="btn teal block"
           style={{ marginTop: 10 }}
           onClick={async () => {
-            const planilhas = planilhasCompletas(data, nameOf, tudo ? null : mes)
+            const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
             const arquivo = new File([gerarXlsx(planilhas)], `controle-play-de-todas-${tudo ? 'tudo' : mes}.xlsx`, {
               type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             })
@@ -1295,7 +1313,8 @@ function ContasModal({
                     <>
                       <span className="fila-time">
                         <b>{rotuloDoDia(m.dia, data.sessions)}</b>
-                        {!m.checkin.compareceu && <span className="muted"> · não veio</span>}
+                        {!m.checkin.compareceu && <span className="muted"> · não veio{m.checkin.credito_checkin ? ' (check-in vira crédito)' : ''}</span>}
+                        {m.checkin.compareceu && m.checkin.credito_de && <span className="muted"> · check-in de crédito</span>}
                       </span>
                       <span className="tiny muted">
                         {m.checkin.modo === 'checkin' ? 'check-in' : 'integral'} · devia {formatarReais(m.devido)} · pagou {formatarReais(m.pago)}
@@ -1881,6 +1900,10 @@ function LancarModal({
   const [modo, setModo] = useState<CheckinModo>(existente?.modo ?? 'checkin')
   const [compareceu, setCompareceu] = useState(existente?.compareceu ?? true)
   const [checkinConfirmado, setCheckinConfirmado] = useState(existente?.checkin_confirmado ?? false)
+  /** Nao veio, mas fez o check-in no app: vira um check-in de credito. */
+  const [creditoCheckin, setCreditoCheckin] = useState(existente?.credito_checkin ?? false)
+  /** Veio pelo check-in de credito deste lancamento. */
+  const [creditoDe, setCreditoDe] = useState<string | null>(existente?.credito_de ?? null)
   const [pagamentoConfirmado, setPagamentoConfirmado] = useState(pagExistente?.pagamento_confirmado ?? false)
   const [valorPago, setValorPago] = useState(pagExistente ? textoDoValor(pagExistente.valor_pago) : '')
   const [pagoEditado, setPagoEditado] = useState(Boolean(pagExistente))
@@ -1905,10 +1928,12 @@ function LancarModal({
   // os livres que importam sao os da arena escolhida: a cota e por local
   const noLocal = usoDaEscolhida ? livresNoLocal(usoDaEscolhida, localId) : undefined
   // ao editar, o proprio lancamento ja esta descontado: devolve ele e tira o de agora
-  const jaContado = Boolean(
-    existente && existente.modo === 'checkin' && existente.compareceu && contaDoCheckin(data, existente).id === contaEscolhida?.id,
-  )
-  const contaAgora = modo === 'checkin' && compareceu
+  const jaContado = Boolean(existente && gastaCheckin(existente) && contaDoCheckin(data, existente).id === contaEscolhida?.id)
+  // os check-ins de credito dela (o que este lancamento usa conta como dele)
+  const creditos = playerId ? creditosDeCheckin(data, playerId, existente?.id) : []
+  const usandoCredito = modo === 'checkin' && compareceu && creditoDe !== null
+  const creditoUsado = creditos.find((c) => c.checkin.id === creditoDe)
+  const contaAgora = modo === 'checkin' && (compareceu ? !usandoCredito : creditoCheckin)
   const livresDepois = noLocal ? noLocal.disponiveis + (jaContado ? 1 : 0) - (contaAgora ? 1 : 0) : null
 
   // o palpite: a conta com check-ins livres, a arena padrao dela, e o modo
@@ -1939,6 +1964,15 @@ function LancarModal({
     setModo(escolha ? 'checkin' : 'integral')
     setPrefeito(true)
   }, [prefeito, playerId, dia, disp, data, locais])
+
+  function usarCredito(id: string | null) {
+    setCreditoDe(id)
+    const c = creditos.find((x) => x.checkin.id === id)?.checkin
+    if (c) {
+      setContaId(c.conta_id)
+      setLocalId(c.local_id)
+    }
+  }
 
   // trocar de conta leva a arena padrao dela junto
   function escolherConta(c: CheckinConta) {
@@ -1987,6 +2021,8 @@ function LancarModal({
       modo,
       compareceu,
       checkin_confirmado: modo === 'checkin' ? checkinConfirmado : false,
+      credito_checkin: modo === 'checkin' && !compareceu ? creditoCheckin : false,
+      credito_de: usandoCredito ? creditoDe : null,
       created_at: existente?.created_at ?? new Date().toISOString(),
     })
     saveCheckinPagamento({
@@ -2064,7 +2100,33 @@ function LancarModal({
               </div>
             </div>
 
-            {modo === 'checkin' && (
+            {modo === 'checkin' && compareceu && (creditos.length > 0 || creditoDe) && (
+              <div className="field">
+                <span>🎟️ Check-in de crédito</span>
+                <div className="chips-scroll">
+                  <button className={`chip ${creditoDe === null ? 'on' : ''}`} onClick={() => usarCredito(null)}>
+                    Check-in novo
+                  </button>
+                  {creditos.map((c) => (
+                    <button
+                      key={c.checkin.id}
+                      className={`chip ${creditoDe === c.checkin.id ? 'on' : ''}`}
+                      onClick={() => usarCredito(c.checkin.id)}
+                    >
+                      Usar o de {c.dia ? dateLabel(c.dia.date).slice(0, 5) : '?'} ·{' '}
+                      {nomeCurto(data.checkinLocais.find((l) => l.id === c.checkin.local_id)?.nome ?? '')}
+                    </button>
+                  ))}
+                </div>
+                <p className="tiny muted" style={{ margin: '4px 0 0' }}>
+                  {usandoCredito
+                    ? `Ela fez o check-in em ${creditoUsado?.dia ? dateLabel(creditoUsado.dia.date) : 'outro dia'} e não foi: hoje vem por ele, sem check-in novo (não gasta cota). A parte em dinheiro continua.`
+                    : `Ela tem ${plural(creditos.length, 'check-in de crédito', 'check-ins de crédito')} (fez o check-in e não foi). Toque para usar e não gastar um novo.`}
+                </p>
+              </div>
+            )}
+
+            {modo === 'checkin' && !usandoCredito && (
               <>
                 <div className="field">
                   <span>Conta usada</span>
@@ -2115,10 +2177,28 @@ function LancarModal({
               </>
             )}
 
+            {usandoCredito && (
+              <label className="toggle-card row">
+                <input type="checkbox" checked={checkinConfirmado} onChange={(e) => setCheckinConfirmado(e.target.checked)} />
+                <span className="grow"><strong>Arena confirmou</strong><span className="tiny muted" style={{ display: 'block' }}>a arena aceitou o check-in de crédito</span></span>
+              </label>
+            )}
+
             <label className="toggle-card row" style={compareceu ? { borderColor: 'var(--line)', background: 'var(--card-2)' } : undefined}>
               <input type="checkbox" checked={!compareceu} onChange={(e) => setCompareceu(!e.target.checked)} />
               <span className="grow"><strong>Não compareceu</strong><span className="tiny muted" style={{ display: 'block' }}>não deve nada; o que pagou vira crédito</span></span>
             </label>
+            {!compareceu && modo === 'checkin' && (
+              <label className="toggle-card row" style={creditoCheckin ? undefined : { borderColor: 'var(--line)', background: 'var(--card-2)' }}>
+                <input type="checkbox" checked={creditoCheckin} onChange={(e) => setCreditoCheckin(e.target.checked)} />
+                <span className="grow">
+                  <strong>🎟️ Fez o check-in no app</strong>
+                  <span className="tiny muted" style={{ display: 'block' }}>
+                    a arena recebeu por ele: vira 1 check-in de crédito para o próximo play (gasta a cota deste mês)
+                  </span>
+                </span>
+              </label>
+            )}
 
             <div className="grid2">
               <label className="field">
@@ -2197,4 +2277,9 @@ function LancarModal({
       </div>
     </Modal>
   )
+}
+
+/** O nome completo do cadastro (nao o apelido): e o que as arenas e a planilha usam. */
+function nomeDoCadastro(data: AppData, id: string, nameOf: (id: string) => string): string {
+  return data.players.find((p) => p.id === id)?.name.trim() || nameOf(id)
 }

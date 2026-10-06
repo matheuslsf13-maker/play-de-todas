@@ -387,6 +387,13 @@ export type Checkin = {
   compareceu: boolean
   /** A arena confirmou o check-in (a coluna "Check-in Confirmado" da planilha). */
   checkin_confirmado: boolean
+  /**
+   * Nao veio, mas FEZ o check-in no app: a arena recebeu por ele, entao vira
+   * um check-in de credito naquela arena (script 25).
+   */
+  credito_checkin?: boolean | null
+  /** Veio usando o check-in de credito deste lancamento (nao gasta cota nova). */
+  credito_de?: string | null
   created_at: string
 }
 
