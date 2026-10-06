@@ -2,7 +2,7 @@ import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar, Empty, Modal } from '../components/ui'
 import ImportarLista from '../components/ImportarLista'
-import { nivelDeForca, notaDeForca, rankingDeForca } from '../lib/forca'
+import { nivelDeForca, notaDeForca, rankingDeForca, textoDaQueda } from '../lib/forca'
 import {
   CATEGORIAS,
   categoriaDe,
@@ -245,6 +245,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                         </span>
                         <span className="muted"> · força {f.nota}</span>
                         {f.provisoria && <span className="muted"> (provisória)</span>}
+                        {f.queda && <span className="muted"> · {textoDaQueda(f.queda)}</span>}
                       </div>
                     )
                   })()}

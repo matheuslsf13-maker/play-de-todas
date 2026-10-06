@@ -307,25 +307,38 @@ const ELO_ESCALA = 110
 /** Nota de quem ainda nao jogou: a media do grupo. */
 export const FORCA_PADRAO = 2
 
-export function ratings(data: AppData, upToDate?: string): Map<string, number> {
-  const sessao = new Map(data.sessions.map((s) => [s.id, s]))
+/*
+ * QUEM FALTA PERDE FORCA, DEVAGAR.
+ *
+ * Uma estreante que joga um play muito bem e some ficava com a nota alta
+ * parada -- e ao voltar caia no grupo das melhores, tirando a vaga de quem
+ * joga toda semana. A primeira falta nao muda nada (todo mundo falta uma vez);
+ * da segunda seguida em diante, a cada play do ranking:
+ *   - acima de 1500 perde 10% da distancia ate 1500 (no minimo 2): 1560 vira
+ *     1554, 1549, 1544... -- a nota de quem some vai voltando para o meio;
+ *   - abaixo de 1500 perde menos, 2 por play, ate -20 na mesma sequencia de
+ *     faltas: a fraca que some nao sobe, mas tambem nao afunda.
+ * Voltou a jogar, a contagem zera e as partidas mandam de novo. Play avulso
+ * nao conta como falta. Quem nunca jogou nao cai (o app nao sabe nada dela).
+ */
+const QUEDA_ACIMA = 0.1
+const QUEDA_MINIMA = 2
+const QUEDA_ABAIXO = 2
+const QUEDA_ABAIXO_MAXIMA = 20
 
-  // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
-  // naquele momento, entao as partidas entram em ordem cronologica
-  const jogos = playedMatches(data)
-    .filter((m) => {
-      const s = sessao.get(m.session_id)
-      return Boolean(s) && (!upToDate || (s as PlaySession).date <= upToDate)
-    })
-    .sort((x, y) => {
-      const sx = sessao.get(x.session_id) as PlaySession
-      const sy = sessao.get(y.session_id) as PlaySession
-      return (
-        sx.date.localeCompare(sy.date) ||
-        sx.created_at.localeCompare(sy.created_at) ||
-        x.round - y.round
-      )
-    })
+/** Faltas seguidas e quanto a nota caiu por elas, de quem esta faltando agora. */
+export type QuedaPorFalta = { faltas: number; perda: number }
+
+function calcularElo(data: AppData, upToDate?: string) {
+  const sessoes = [...data.sessions]
+    .filter((s) => !upToDate || s.date <= upToDate)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
+  const jogadasPorSessao = new Map<string, Match[]>()
+  for (const m of playedMatches(data)) {
+    const lista = jogadasPorSessao.get(m.session_id)
+    if (lista) lista.push(m)
+    else jogadasPorSessao.set(m.session_id, [m])
+  }
 
   /*
    * DE ONDE CADA PESSOA PARTE
@@ -341,21 +354,54 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
   )
   const elo = new Map<string, number>()
   const nota = (id: string) => elo.get(id) ?? inicial.get(id) ?? ELO_INICIAL
+  const jaJogou = new Set<string>()
+  const queda = new Map<string, QuedaPorFalta>()
 
-  for (const m of jogos) {
-    const ga = m.score_a as number
-    const gb = m.score_b as number
-    if (ga + gb === 0) continue
-    const forcaA = (nota(m.team_a[0]) + nota(m.team_a[1])) / 2
-    const forcaB = (nota(m.team_b[0]) + nota(m.team_b[1])) / 2
-    const esperado = 1 / (1 + Math.pow(10, (forcaB - forcaA) / 400))
-    // a margem conta, como na pontuacao do campeonato: 4x0 vale 1,00 e 4x3, 0,57
-    const real = ga / (ga + gb)
-    const delta = ELO_K * (real - esperado)
-    for (const id of m.team_a) elo.set(id, nota(id) + delta)
-    for (const id of m.team_b) elo.set(id, nota(id) - delta)
+  // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
+  // naquele momento, entao os plays (e as partidas) entram em ordem cronologica
+  for (const s of sessoes) {
+    const jogos = (jogadasPorSessao.get(s.id) ?? []).sort((x, y) => x.round - y.round)
+    for (const m of jogos) {
+      const ga = m.score_a as number
+      const gb = m.score_b as number
+      if (ga + gb === 0) continue
+      const forcaA = (nota(m.team_a[0]) + nota(m.team_a[1])) / 2
+      const forcaB = (nota(m.team_b[0]) + nota(m.team_b[1])) / 2
+      const esperado = 1 / (1 + Math.pow(10, (forcaB - forcaA) / 400))
+      // a margem conta, como na pontuacao do campeonato: 4x0 vale 1,00 e 4x3, 0,57
+      const real = ga / (ga + gb)
+      const delta = ELO_K * (real - esperado)
+      for (const id of m.team_a) elo.set(id, nota(id) + delta)
+      for (const id of m.team_b) elo.set(id, nota(id) - delta)
+      for (const id of [...m.team_a, ...m.team_b]) jaJogou.add(id)
+    }
+    // so play do ranking, que aconteceu, conta como falta
+    if (s.ranked === false || jogos.length === 0) continue
+    const presentes = new Set(s.player_ids)
+    for (const id of jaJogou) {
+      if (presentes.has(id)) {
+        queda.delete(id)
+        continue
+      }
+      const q = queda.get(id) ?? { faltas: 0, perda: 0 }
+      q.faltas++
+      if (q.faltas >= 2) {
+        const atual = nota(id)
+        const perda =
+          atual > ELO_INICIAL
+            ? Math.max(QUEDA_MINIMA, (atual - ELO_INICIAL) * QUEDA_ACIMA)
+            : Math.max(0, Math.min(QUEDA_ABAIXO, QUEDA_ABAIXO_MAXIMA - q.perda))
+        elo.set(id, atual - perda)
+        q.perda += perda
+      }
+      queda.set(id, q)
+    }
   }
+  return { nota, queda }
+}
 
+export function ratings(data: AppData, upToDate?: string): Map<string, number> {
+  const { nota } = calcularElo(data, upToDate)
   // devolve na escala 0-4 (a mesma da media de pontos), para os pesos do
   // emparelhamento em pairing.ts continuarem valendo
   const out = new Map<string, number>()
@@ -363,6 +409,11 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
     out.set(p.id, Math.max(0, FORCA_PADRAO + (nota(p.id) - ELO_INICIAL) / ELO_ESCALA))
   }
   return out
+}
+
+/** Quem esta faltando agora: quantas faltas seguidas e quanto a nota caiu por elas. */
+export function quedaPorFalta(data: AppData, upToDate?: string): Map<string, QuedaPorFalta> {
+  return calcularElo(data, upToDate).queda
 }
 
 /** Historico de parcerias/confrontos, para evitar repetir duplas. */

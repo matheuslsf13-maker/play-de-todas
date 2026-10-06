@@ -82,6 +82,10 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   12 sextas com 16 jogadoras, que espalhou o grupo de −107 a +91. Abaixo de
   `JOGOS_PARA_FIRMAR` a nota sai marcada como **provisória**, e quem nunca jogou
   fica fora da lista.
+- **Quem falta perde força, devagar** (`calcularElo` em `stats.ts`): 1ª falta nada; da
+  2ª seguida em diante, por play do ranking, acima de 1500 −10% da distância até 1500
+  (mín. 2), abaixo −2 até −20 na sequência. Voltou, zera. Avulso não conta; quem nunca
+  jogou não cai. A ficha e as listas mostram "−N por K faltas seguidas".
 - **A dupla tem força própria** (`forcaDeDuplas`, aba “🤝 Dupla”). Não é a média
   das duas — essa é só o **ponto de partida**. A partir dela, cada partida
   **daquela dupla** move a nota pela fórmula do Elo, então `nota − base` é o

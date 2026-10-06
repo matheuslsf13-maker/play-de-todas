@@ -27,6 +27,7 @@ import {
   forcaDeDuplas,
   nivelDeForca,
   rankingDeForca,
+  textoDaQueda,
   type ForcaDeDupla,
   type LinhaDeForca,
 } from '../lib/forca'
@@ -240,6 +241,7 @@ function PainelJogadora({
                 <div className="tiny muted">
                   {posicaoNaForca}ª mais forte de {totalNaForca}
                   {minhaForca.provisoria && ' · nota provisória'}
+                  {minhaForca.queda && ` · ${textoDaQueda(minhaForca.queda)}`}
                 </div>
               </div>
               <span style={{ fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
@@ -754,6 +756,7 @@ function LinhaDaForca({
       <div className="tiny muted">
         {linha.jogos} {linha.jogos === 1 ? 'partida' : 'partidas'}
         {linha.provisoria && ' · nota provisória'}
+        {linha.queda && ` · ${textoDaQueda(linha.queda)}`}
         {' · '}
         {dif === 0 ? 'exatamente na média' : dif > 0 ? `+${dif} sobre a média` : `${dif} da média`}
       </div>

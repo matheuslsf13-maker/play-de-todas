@@ -361,8 +361,18 @@ entre 0,90 e 0,93, então o ganho é do método e não de ajuste fino.
 
 O Elo também resolve sozinho o que a janela de "últimos 4 plays" resolvia — quem
 foi boa há um ano e anda perdendo devolve nota partida a partida — sem o corte
-seco, que jogava fora informação boa. E quem falta fica com a **nota parada**,
-que é o certo: sem jogo, sem informação nova.
+seco, que jogava fora informação boa.
+
+**Quem falta perde força, devagar (06/10/2026).** Antes a nota de quem faltava ficava
+parada — e uma estreante que jogou muito bem um play e sumiu voltava semanas depois
+direto para o grupo das melhores, tirando a vaga de quem joga toda semana. Agora a 1ª
+falta não muda nada; da 2ª seguida em diante, a cada play do ranking, **acima de 1500
+perde 10% da distância até 1500** (no mínimo 2: 1560 → 1554 → 1549 → 1544…) e **abaixo
+de 1500 perde 2, até −20 na sequência** — a organização não quis que a fraca que some
+subisse, nem que afundasse. Voltou, a contagem zera. Play avulso não conta. Quem nunca
+jogou não cai. A ficha mostra "−9 por 3 faltas seguidas" (`quedaPorFalta`, `textoDaQueda`).
+Detalhe: com a queda o Elo deixa de ser estritamente soma zero (a média de quem falta
+desce um pouco); o efeito é pequeno e é o que foi pedido.
 
 > **Estreante.** Começa na média do grupo (nota 2,00), não no fim da fila. Com
 > grupos por nível isso a coloca no meio da tabela, não no grupo dos iniciantes.
