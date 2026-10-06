@@ -88,17 +88,17 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   −5, até −20 na sequência. Voltou, zera. Avulso não conta; quem nunca
   jogou não cai. A ficha e as listas mostram "−N por K faltas seguidas".
 - **Pausar uma menina** (`players.pausas`, `reativada_em`, script 24; `pausaNaForca`):
-  quem vai ficar um tempo fora é **pausada na ficha** (Stats): sai do ranking da força,
+  quem vai ficar um tempo fora é **pausada na aba Meninas** (o Stats só mostra): sai do ranking da força,
   o perfil continua aberto e **as faltas continuam baixando a força**, como as de todo
   mundo (a pausa só tira do ranking). Tocar nela ao montar um play pergunta "despausar e colocar no play?" (a lista
   colada pergunta uma vez por todas; o "Todas" deixa as pausadas de fora). Além disso,
   com **2 faltas seguidas** ela sai do ranking da força sozinha (a queda gradual continua)
-  e volta ao jogar, ou no "Voltar ao ranking agora" da ficha.
+  e volta ao jogar, ou no "▶️ Despausar" da aba Meninas (o mesmo botão para as duas pausas).
   Despausar ao montar o play só vale **quando o play é criado** (`pausas[].play` guarda o
   id dele): desistir de montar ou **apagar o play** devolve a pausa sozinha (`pausaAberta`).
   Não confundir com **inativa** (o "Inativar" da aba Meninas, `players.active`): essa some
-  da hora de montar o play. A aba Meninas tem o ⏸️ Pausar / ▶️ Despausar / ▶️ Voltar ao
-  ranking em cada linha (quem já está pausada pelas faltas não tem Pausar) e filtros (ativas, inativas, ⏸️ pausadas — na mão ou pelas faltas,
+  da hora de montar o play. A aba Meninas tem o ⏸️ Pausar / ▶️ Despausar
+  em cada linha (quem já está pausada pelas faltas não tem Pausar) e filtros (ativas, inativas, ⏸️ pausadas — na mão ou pelas faltas,
   📉 faltando, 💸 devendo, sem jogos, sem foto, cadastro, nível) e ordena por nome, força
   ou faltas; os filtros ficam guardados no aparelho (`play-de-todas:meninas-filtro`).
 - **A dupla tem força própria** (`forcaDeDuplas`, aba “🤝 Dupla”). Não é a média

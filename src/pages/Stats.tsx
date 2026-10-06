@@ -22,7 +22,6 @@ import {
   playedMatches,
   pontosDeBye,
   winRate,
-  fecharPausa,
 } from '../lib/stats'
 import { colocacaoNoRecorte, colocacaoPorDupla } from '../lib/campeonato'
 import {
@@ -39,7 +38,7 @@ import {
 import { matchPoints } from '../lib/scoring'
 import { applyBonuses, computeStreaks, streakLevel, streakValue } from '../lib/streaks'
 import { useStore } from '../lib/store'
-import { dateLabel, monthLabel, monthOf, plural, todayISO } from '../lib/types'
+import { dateLabel, monthLabel, monthOf, plural } from '../lib/types'
 
 type Modo = 'jogadora' | 'duplas' | 'forca'
 
@@ -874,60 +873,22 @@ function LinhaDaForca({
 }
 
 /**
- * PAUSAR quem vai ficar um tempo fora (viagem, lesao): sai do ranking da
- * forca e o perfil continua aqui. As faltas continuam derrubando a nota, como
- * as de todo mundo. Ao colocar no play, o app pergunta se e para despausar.
- * Quem saiu do ranking por 2 faltas seguidas volta sozinha ao jogar, ou aqui.
+ * A PAUSA, so para acompanhar: o Stats mostra, quem pausa e despausa e a aba
+ * Meninas (la e onde o perfil se edita). Pausada na mao ou por 2 faltas
+ * seguidas: fora do ranking da forca, e as faltas continuam baixando a nota.
  */
 function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'faltas' }) {
-  const { data, canEdit, savePlayer, nameOf } = useStore()
+  const { data } = useStore()
   const p = data.players.find((x) => x.id === id)
-  if (!p) return null
-  const hoje = todayISO()
+  if (!p || !pausada) return null
   const sessoes = new Set(data.sessions.map((s) => s.id))
   const aberta = (p.pausas ?? []).find((x) => !x.ate || (x.play && !sessoes.has(x.play)))
-  function pausar() {
-    if (!p) return
-    if (!confirm(`Pausar ${nameOf(id)}? Ela sai do ranking da força até despausar (as faltas continuam baixando a força).`)) return
-    savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
-  }
-
-  if (pausada === 'manual') {
-    return (
-      <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
-        ⏸️ <strong>Pausada</strong>
-        {aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam
-        baixando a força, como as de todo mundo.
-        {canEdit && (
-          <button
-            className="btn ghost sm block"
-            style={{ marginTop: 8 }}
-            onClick={() => savePlayer(fecharPausa(data, p, hoje))}
-          >
-            ▶️ Despausar {nameOf(id)}
-          </button>
-        )}
-      </div>
-    )
-  }
-  if (pausada === 'faltas') {
-    return (
-      <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
-        ⏸️ <strong>Pausada</strong> por 2 ou mais faltas seguidas — fora do ranking da força. Volta sozinha quando jogar
-        de novo.
-        {canEdit && (
-          // ja esta pausada pelas faltas: pausar de novo seria pausar quem ja esta pausada
-          <button className="btn ghost sm block" style={{ marginTop: 8 }} onClick={() => savePlayer({ ...p, reativada_em: hoje })}>
-            ▶️ Voltar ao ranking agora
-          </button>
-        )}
-      </div>
-    )
-  }
-  if (!canEdit) return null
   return (
-    <button className="btn ghost sm block" style={{ marginTop: 10 }} onClick={pausar}>
-      ⏸️ Pausar (vai ficar um tempo fora)
-    </button>
+    <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
+      ⏸️ <strong>Pausada</strong>
+      {pausada === 'manual'
+        ? `${aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam baixando a força, como as de todo mundo.`
+        : ' por 2 ou mais faltas seguidas — fora do ranking da força. Volta sozinha quando jogar de novo.'}
+    </div>
   )
 }

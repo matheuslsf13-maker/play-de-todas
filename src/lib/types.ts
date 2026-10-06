@@ -41,7 +41,7 @@ export type Player = {
     play?: string | null
   }[] | null
   /**
-   * "Voltar ao ranking" na mao depois da pausa automatica por faltas: so as
+   * "Despausar" na mao depois da pausa automatica por faltas: so as
    * faltas DEPOIS desta data contam para tirar de novo do ranking da forca.
    */
   reativada_em?: string | null

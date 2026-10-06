@@ -53,7 +53,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
     return m
   }, [data])
 
-  // pausada na ficha (Stats) e quem esta faltando: as duas coisas que tiram
+  // pausada (na mao ou pelas faltas) e quem esta faltando: as duas coisas que tiram
   // do ranking da forca. Quem nunca jogou tambem pode estar pausada.
   const pausas = useMemo(() => pausaNaForca(data), [data])
   const faltas = useMemo(() => quedaPorFalta(data), [data])
@@ -425,10 +425,10 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                         return (
                           <button
                             className="btn ghost sm"
-                            title="pausada por 2 faltas seguidas: volta sozinha ao jogar"
+                            title="pausada por 2 faltas seguidas: volta ao ranking agora (ou sozinha ao jogar)"
                             onClick={() => void savePlayer({ ...p, reativada_em: hoje })}
                           >
-                            ▶️ Voltar ao ranking
+                            ▶️ Despausar
                           </button>
                         )
                       }
