@@ -188,3 +188,122 @@ test('dois empates separados no mesmo grupo, cada um com o seu desempate', () =>
   assert.deepEqual(r.linhas.slice(0, 4).map((l) => l.id), ['B', 'A', 'D', 'C'])
   assert.deepEqual(r.pendente.map((b) => [...b].sort()), [['E', 'F']])
 })
+
+/* ------------------------------- colocacao, duplas por categoria e pontos */
+import {
+  PONTUACAO_PADRAO,
+  categoriaTerminou,
+  colocacoesDaCategoria,
+  duosDaCategoria,
+  partidasDaCategoria,
+  pontosDeColocacao,
+} from '../src/lib/campeonato'
+import { duplasDaFase2 } from '../src/lib/pairing'
+import type { PlaySession } from '../src/lib/types'
+
+/** Fase de grupos de um grupo de 4 [w, x, y, z] sem empate: w 3V; x 1V 4p; y 1V 3p; z 1V 2p. */
+const faseDeGrupos = ([w, x, y, z]: string[]) => [
+  partida([w, x], [y, z], 4, 0),
+  partida([w, y], [x, z], 4, 1),
+  partida([w, z], [x, y], 4, 2),
+]
+const fase = (m: Match, f: number, disputa3o = false): Match => ({ ...m, fase: f, disputa_3o: disputa3o })
+
+const G = [
+  ['a1', 'a2', 'a3', 'a4'],
+  ['a5', 'a6', 'a7', 'a8'],
+  ['b1', 'b2', 'b3', 'b4'],
+  ['b5', 'b6', 'b7', 'b8'],
+]
+const camp = (extra: Partial<PlaySession> = {}): PlaySession => ({
+  id: 's',
+  date: '2026-10-12',
+  title: 'Campeonato',
+  courts: 4,
+  rounds: 0,
+  target: 4,
+  player_ids: G.flat(),
+  status: 'open',
+  created_at: '',
+  format: 'grupos-duplas',
+  groups: G,
+  categorias: [
+    { nome: 'A', grupos: [0, 1], quadras: [1, 2] },
+    { nome: 'B', grupos: [2, 3], quadras: [3, 4] },
+  ],
+  pontuacao: PONTUACAO_PADRAO,
+  ranked: true,
+  ...extra,
+})
+const grupos1 = G.flatMap(faseDeGrupos)
+
+test('colocacoes da categoria: posicao no grupo, grupo dentro da categoria', () => {
+  const { colocacoes, pendentes } = colocacoesDaCategoria(camp(), 1, grupos1)
+  assert.equal(pendentes.length, 0)
+  assert.deepEqual(
+    colocacoes.map((c) => [c.id, c.grupo, c.posicao]),
+    [['b1', 0, 1], ['b2', 0, 2], ['b3', 0, 3], ['b4', 0, 4], ['b5', 1, 1], ['b6', 1, 2], ['b7', 1, 3], ['b8', 1, 4]],
+  )
+  // 1a com 1a
+  assert.deepEqual(duplasDaFase2(colocacoes, 8), [['b1', 'b5'], ['b2', 'b6'], ['b3', 'b7'], ['b4', 'b8']])
+})
+
+test('empate pendente aparece por grupo (indice global)', () => {
+  const empate = [
+    partida(['b1', 'b2'], ['b3', 'b4'], 4, 1),
+    partida(['b1', 'b3'], ['b2', 'b4'], 4, 2),
+    partida(['b2', 'b3'], ['b1', 'b4'], 4, 2),
+  ]
+  // troca as 3 partidas do grupo de b1 por um empate entre b1 e b2
+  const ms = [...grupos1.filter((m) => m.team_a[0] !== 'b1'), ...empate]
+  const { pendentes } = colocacoesDaCategoria(camp(), 1, ms)
+  assert.deepEqual(pendentes.map((p) => [p.grupo, [...p.ids].sort()]), [[2, ['b1', 'b2']]])
+})
+
+test('duplas e partidas por categoria', () => {
+  const s = camp({ duos: [['a1', 'a5'], ['b1', 'b5'], ['a2', 'a6'], ['b2', 'b6']] })
+  assert.deepEqual(duosDaCategoria(s, 0), [['a1', 'a5'], ['a2', 'a6']])
+  assert.deepEqual(duosDaCategoria(s, 1), [['b1', 'b5'], ['b2', 'b6']])
+  assert.equal(partidasDaCategoria(s, 0, grupos1).length, 6)
+})
+
+const finalA = fase(partida(['a1', 'a5'], ['a2', 'a6'], 4, 2), 2)
+
+test('categoria termina quando a final e lancada', () => {
+  const s = camp({ duos: [['a1', 'a5'], ['a2', 'a6'], ['b1', 'b5'], ['b2', 'b6']], duplas_mm: 2 })
+  const semFinal = [...grupos1, { ...finalA, score_a: null, score_b: null }]
+  assert.equal(categoriaTerminou(s, 0, semFinal), false)
+  assert.equal(categoriaTerminou(s, 0, [...grupos1, finalA]), true)
+  assert.equal(categoriaTerminou(s, 1, [...grupos1, finalA]), false)
+})
+
+test('pontos por colocacao: campea, vice e quem ficou nos grupos', () => {
+  const s = camp({ duos: [['a1', 'a5'], ['a2', 'a6'], ['b1', 'b5'], ['b2', 'b6']], duplas_mm: 2 })
+  const p = pontosDeColocacao(s, [...grupos1, finalA])
+  assert.equal(p.get('a1'), 16)
+  assert.equal(p.get('a5'), 16)
+  assert.equal(p.get('a2'), 12)
+  assert.equal(p.get('a3'), 3)
+  assert.equal(p.get('a8'), 3)
+  // a categoria B nao terminou: ninguem dela pontua ainda
+  assert.equal(p.has('b1'), false)
+})
+
+test('pontos com semifinal: 3o lugar e semifinalista', () => {
+  const duos: [string, string][] = [['a1', 'a5'], ['a2', 'a6'], ['a3', 'a7'], ['a4', 'a8']]
+  const s = camp({ duos, categorias: [{ nome: 'A', grupos: [0, 1], quadras: [1, 2] }], groups: G.slice(0, 2), player_ids: G.slice(0, 2).flat() })
+  const ms = [
+    ...grupos1.slice(0, 6),
+    fase(partida(['a1', 'a5'], ['a4', 'a8'], 4, 0), 2),
+    fase(partida(['a2', 'a6'], ['a3', 'a7'], 4, 3), 2),
+    fase(partida(['a1', 'a5'], ['a2', 'a6'], 4, 1), 3),
+  ]
+  const p = pontosDeColocacao(s, ms)
+  assert.deepEqual(['a1', 'a2', 'a3', 'a4'].map((id) => p.get(id)), [16, 12, 10, 8])
+})
+
+test('sem pontuacao ou play avulso: nenhum ponto de colocacao', () => {
+  const duos: [string, string][] = [['a1', 'a5'], ['a2', 'a6'], ['b1', 'b5'], ['b2', 'b6']]
+  assert.equal(pontosDeColocacao(camp({ duos, pontuacao: null }), [...grupos1, finalA]).size, 0)
+  assert.equal(pontosDeColocacao(camp({ duos, ranked: false }), [...grupos1, finalA]).size, 0)
+})

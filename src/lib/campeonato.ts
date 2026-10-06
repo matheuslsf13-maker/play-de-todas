@@ -10,8 +10,9 @@
  *
  * Desenho em docs/superpowers/specs/2026-10-06-campeonato-design.md.
  */
-import { filaPorForca } from './pairing'
+import { duplasVivas, filaPorForca, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
+import { rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, PlaySession } from './types'
 
 /** 'A', 'B', 'C'... */
@@ -238,4 +239,97 @@ export function classificarGrupo(
 
 function mesmoConjunto(a: string[], b: string[]): boolean {
   return a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|')
+}
+
+/* ------------------------------------- categorias na fase 2 e pontuacao */
+
+/**
+ * Pontos do mes por colocacao, na ordem
+ * [campea, vice, 3o lugar, semifinal, quartas ou antes, fase de grupos].
+ * O titulo sempre vale mais: pela diferenca de games a vice podia somar mais
+ * que a campea (venceu a semi de 4x0 e perdeu a final; a campea venceu as
+ * duas de 4x3).
+ */
+export const PONTUACAO_PADRAO: number[] = [16, 12, 10, 8, 6, 3]
+
+/** As partidas da categoria (a categoria sai de quem joga, como o grupo). */
+export function partidasDaCategoria(s: PlaySession, cat: number, partidas: Match[]): Match[] {
+  const cats = categoriasDoPlay(s)
+  return partidas.filter((m) => categoriaDaPartida(cats, s.groups, m) === cat)
+}
+
+/** As duplas fixas da categoria, na ordem gravada (a ordem e a forca na chave). */
+export function duosDaCategoria(s: PlaySession, cat: number): [string, string][] {
+  const cats = categoriasDoPlay(s)
+  return (s.duos ?? []).filter((d) => categoriaDaJogadora(cats, s.groups, d[0]) === cat)
+}
+
+/**
+ * Como cada menina da categoria terminou a fase de grupos, no formato que
+ * `duplasDaFase2` usa. `Colocacao.grupo` e o grupo DENTRO da categoria (e o
+ * que impede dupla do mesmo grupo); `pendentes` traz o indice GLOBAL do grupo,
+ * que e o que o desempate grava.
+ */
+export function colocacoesDaCategoria(
+  s: PlaySession,
+  cat: number,
+  partidas: Match[],
+): { colocacoes: Colocacao[]; pendentes: { grupo: number; ids: string[] }[] } {
+  const c = categoriasDoPlay(s)[cat]
+  const colocacoes: Colocacao[] = []
+  const pendentes: { grupo: number; ids: string[] }[] = []
+  if (!c) return { colocacoes, pendentes }
+  c.grupos.forEach((gi, k) => {
+    const grupo = s.groups?.[gi] ?? []
+    const doGrupo = new Set(grupo)
+    const ms = partidas.filter((m) => (m.fase ?? 1) === 1 && doGrupo.has(m.team_a[0]))
+    const desempates = (s.desempates_grupo ?? []).filter((d) => d.grupo === gi)
+    const { linhas, pendente } = classificarGrupo(grupo, ms, desempates)
+    for (const l of linhas) {
+      colocacoes.push({ id: l.id, grupo: k, posicao: l.posicao, pontos: l.pontos, saldo: l.saldo })
+    }
+    for (const ids of pendente) pendentes.push({ grupo: gi, ids })
+  })
+  return { colocacoes, pendentes }
+}
+
+/** A categoria acabou: duplas formadas, nada sem placar e no maximo uma dupla sem derrota. */
+export function categoriaTerminou(s: PlaySession, cat: number, partidas: Match[]): boolean {
+  const duos = duosDaCategoria(s, cat)
+  if (duos.length < 2) return false
+  const daqui = partidasDaCategoria(s, cat, partidas)
+  if (daqui.some((m) => !isPlayed(m))) return false
+  return duplasVivas(duos, daqui.filter((m) => (m.fase ?? 1) >= 2)).length <= 1
+}
+
+/**
+ * PONTOS POR COLOCACAO de um play (vazio sem `pontuacao` ou em play avulso).
+ *
+ * So entram as categorias que TERMINARAM: antes da final ninguem sabe quem e
+ * campea. A ordem e a do podio da chave (`rankDuplasDoDia`): ouro, prata, o
+ * bronze (melhor semifinalista ou quem venceu o 3o lugar), a outra
+ * semifinalista, quem caiu antes, e quem nem entrou na chave.
+ */
+export function pontosDeColocacao(s: PlaySession, partidas: Match[]): Map<string, number> {
+  const out = new Map<string, number>()
+  const tabela = s.pontuacao
+  if (!tabela?.length || s.ranked === false || s.format !== 'grupos-duplas') return out
+  const valor = (i: number) => tabela[i] ?? 0
+  const cats = categoriasDoPlay(s)
+  cats.forEach((c, ci) => {
+    if (!categoriaTerminou(s, ci, partidas)) return
+    const duos = duosDaCategoria(s, ci)
+    const daChave = partidasDaCategoria(s, ci, partidas).filter((m) => (m.fase ?? 1) >= 2 && isPlayed(m))
+    const ordem = rankDuplasDoDia(daChave, (id) => id, undefined, duos)
+    ordem.forEach((d, p) => {
+      const semi = d.saiuEm === 'na semifinal'
+      const indice = d.medalha === 3 ? 0 : d.medalha === 2 ? 1 : p === 2 && (d.bronze || semi) ? 2 : semi ? 3 : 4
+      out.set(d.a, valor(indice))
+      out.set(d.b, valor(indice))
+    })
+    for (const gi of c.grupos) {
+      for (const id of s.groups?.[gi] ?? []) if (!out.has(id)) out.set(id, valor(5))
+    }
+  })
+  return out
 }
