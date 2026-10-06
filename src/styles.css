@@ -1372,3 +1372,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   color: var(--marca);
   border-bottom: 1px dashed var(--line);
 }
+
+/* dupla em lista: os dois nomes aparecem sempre (ver NomesDaDupla) */
+.dupla-nomes { display: block; min-width: 0; }
+.dupla-nome { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }

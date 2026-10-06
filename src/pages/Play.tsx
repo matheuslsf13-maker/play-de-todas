@@ -3,6 +3,7 @@ import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import ClassificacaoDosGrupos from '../components/ClassificacaoDosGrupos'
 import DesempateEmQuadra from '../components/DesempateEmQuadra'
 import DivisaoDoCampeonato from '../components/DivisaoDoCampeonato'
+import { NomesDaDupla } from '../components/NomeClicavel'
 import {
   PONTUACAO_PADRAO,
   aplicarMovidasNoCampeonato,
@@ -4244,8 +4245,8 @@ function DuplasDoDia({
             <Avatar player={playerById(d.a)} size={30} />
             <Avatar player={playerById(d.b)} size={30} />
             <span className="grow" style={{ minWidth: 0 }}>
-              <strong className="ellipsis" style={{ display: 'block' }}>
-                {nameOf(d.a)} + {nameOf(d.b)}
+              <strong>
+                <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
               </strong>
               <span className="tiny muted">
                 {d.medalha === 3
@@ -4292,9 +4293,7 @@ function DuplasDoDia({
                     <Avatar player={playerById(d.a)} size={24} />
                     <Avatar player={playerById(d.b)} size={24} />
                     <span className="grow" style={{ minWidth: 0 }}>
-                      <span className="ellipsis" style={{ display: 'block' }}>
-                        {nameOf(d.a)} + {nameOf(d.b)}
-                      </span>
+                      <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
                       {!temCampea && <span className="tiny muted">{situacao(d)}</span>}
                     </span>
                   </div>

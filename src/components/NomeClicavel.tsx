@@ -32,3 +32,18 @@ export function NomeClicavel({ id, children, className }: { id: string; children
     </button>
   )
 }
+
+/**
+ * "Ana + Bia" sem perder ninguem: cada nome fica inteiro na sua linha e so o
+ * nome que SOZINHO nao cabe e cortado com "...". Cortar a dupla inteira numa
+ * linha so escondia a parceira quando o primeiro nome era comprido.
+ */
+export function NomesDaDupla({ a, b, nomeDe }: { a: string; b: string; nomeDe: (id: string) => string }) {
+  return (
+    <span className="dupla-nomes">
+      <span className="dupla-nome">{nomeDe(a)}</span>
+      <span className="muted"> + </span>
+      <span className="dupla-nome">{nomeDe(b)}</span>
+    </span>
+  )
+}

@@ -40,6 +40,7 @@ import {
 import { forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
 import { NomeClicavel } from '../components/NomeClicavel'
+import { NomesDaDupla } from '../components/NomeClicavel'
 import { dateLabel, monthLabel, monthOf, todayISO, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
@@ -723,8 +724,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   </span>
                   <Avatar player={playerById(d.a)} size={24} />
                   <Avatar player={playerById(d.b)} size={24} />
-                  <span className="grow ellipsis">
-                    {nameOf(d.a)} + {nameOf(d.b)}
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
                   </span>
                   {d.entrosamento !== 0 && (
                     <span className="nowrap tiny muted">

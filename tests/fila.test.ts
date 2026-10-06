@@ -152,3 +152,22 @@ test('troca na mao (uma a mais, outra a menos) precisa refazer', () => {
   )
   assert.equal(precisaRefazer(ids, trocado), true)
 })
+
+test('mata-mata: a dupla fixa junta meninas de grupos diferentes e mesmo assim entra na fila', () => {
+  const grupos = [['a1', 'a2', 'a3', 'a4'], ['a5', 'a6', 'a7', 'a8']]
+  const jogadas = planToMatches('s', gerarFila({ playerIds: grupos.flat(), ratings: new Map(), groups: grupos })).map((m) => ({
+    ...m,
+    score_a: 4,
+    score_b: 1,
+    ended_at: new Date(1000 * m.round).toISOString(),
+  }))
+  const semis = planToMatches('s', [
+    { team_a: ['a1', 'a5'], team_b: ['a4', 'a8'], grupo: 0, fase: 2 },
+    { team_a: ['a2', 'a6'], team_b: ['a3', 'a7'], grupo: 0, fase: 2 },
+  ]).map((m, i) => ({ ...m, id: `semi${i}`, round: 100 + i }))
+  const n: Noite = { jogadoras: grupos.flat(), grupos, matches: [...jogadas, ...semis], quadras: 2 }
+  const filas = filaPorGrupo(n)
+  assert.equal(filas.flat().filter((m) => m.id.startsWith('semi')).length, 2, 'as duas semis estao na fila')
+  const quadras = proximasPelaFila(n, [1, 2], undefined, filas)
+  assert.equal(quadras.size, 2, 'as duas quadras recebem uma semi')
+})

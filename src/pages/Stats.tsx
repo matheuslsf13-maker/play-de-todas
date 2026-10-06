@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import GraficoDeForca from '../components/GraficoDeForca'
 import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
+import { NomesDaDupla } from '../components/NomeClicavel'
 import { Avatar, Empty, Modal, StatBox } from '../components/ui'
 import {
   aplicarBye,
@@ -447,7 +448,9 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
                     <Avatar player={playerById(d.b)} size={30} />
                   </span>
                   <span className="grow" style={{ minWidth: 0 }}>
-                    <span className="duo-nomes ellipsis">{nameOf(d.a)} + {nameOf(d.b)}</span>
+                    <span className="duo-nomes">
+                      <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
+                    </span>
                     <span className="mini-barra"><i style={{ width: `${Math.round(pct * 100)}%` }} /></span>
                     <span className="tiny muted">{plural(d.matches, 'jogo')} · {d.wins}V {d.losses}D · {d.points} pts</span>
                     <ForcaDaDupla f={forcas.get(d.key)} />
