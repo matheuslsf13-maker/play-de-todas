@@ -31,8 +31,8 @@ export type Player = {
   forca_inicial?: number | null
   /**
    * PAUSAS na mao (vai ficar um tempo fora): enquanto uma esta aberta (`ate`
-   * nulo) ela some do ranking da forca e as faltas nao derrubam a nota -- a
-   * forca fica congelada. Fechar a pausa traz tudo de volta (script 24).
+   * nulo) ela some do ranking da forca. As faltas continuam derrubando a nota,
+   * como as de todo mundo. Fechar a pausa traz ela de volta ao ranking (script 24).
    */
   pausas?: { de: string; ate: string | null }[] | null
   /**

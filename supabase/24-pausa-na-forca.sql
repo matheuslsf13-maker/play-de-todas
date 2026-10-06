@@ -4,8 +4,8 @@
 --  Rode o arquivo INTEIRO no SQL Editor. Pode rodar de novo.
 --
 --  Quem vai ficar um tempo fora (viagem, lesao) pode ser PAUSADA na ficha:
---  some do ranking da forca, o perfil continua aberto e as faltas nao
---  derrubam a nota enquanto durar a pausa. Ao colocar no play, o app pergunta
+--  some do ranking da forca e o perfil continua aberto (as faltas continuam
+--  baixando a forca, como as de todo mundo). Ao colocar no play, o app pergunta
 --  se e para despausar. `reativada_em` guarda o "voltar ao ranking" na mao
 --  depois da pausa automatica por 2 faltas seguidas.
 -- ============================================================
@@ -14,7 +14,7 @@ alter table public.players add column if not exists pausas jsonb;
 alter table public.players add column if not exists reativada_em text;
 
 comment on column public.players.pausas is
-  'pausas na mao: [{de, ate}] (ate nulo = pausada agora); forca congelada e fora do ranking da forca';
+  'pausas na mao: [{de, ate}] (ate nulo = pausada agora); fora do ranking da forca';
 comment on column public.players.reativada_em is
   'voltou ao ranking da forca na mao (so faltas depois disto contam para a pausa automatica)';
 

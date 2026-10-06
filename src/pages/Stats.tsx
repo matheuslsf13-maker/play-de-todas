@@ -874,8 +874,8 @@ function LinhaDaForca({
 
 /**
  * PAUSAR quem vai ficar um tempo fora (viagem, lesao): sai do ranking da
- * forca, o perfil continua aqui e a forca fica congelada -- as faltas nao
- * derrubam a nota. Ao colocar no play, o app pergunta se e para despausar.
+ * forca e o perfil continua aqui. As faltas continuam derrubando a nota, como
+ * as de todo mundo. Ao colocar no play, o app pergunta se e para despausar.
  * Quem saiu do ranking por 2 faltas seguidas volta sozinha ao jogar, ou aqui.
  */
 function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'faltas' }) {
@@ -886,7 +886,7 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
   const aberta = (p.pausas ?? []).find((x) => !x.ate)
   function pausar() {
     if (!p) return
-    if (!confirm(`Pausar ${nameOf(id)}? Ela sai do ranking da força e a força fica congelada até despausar.`)) return
+    if (!confirm(`Pausar ${nameOf(id)}? Ela sai do ranking da força até despausar (as faltas continuam baixando a força).`)) return
     savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
   }
 
@@ -894,7 +894,8 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
     return (
       <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
         ⏸️ <strong>Pausada</strong>
-        {aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força, com a força congelada.
+        {aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam
+        baixando a força, como as de todo mundo.
         {canEdit && (
           <button
             className="btn ghost sm block"
@@ -919,7 +920,7 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
             <button className="btn ghost sm grow" onClick={() => savePlayer({ ...p, reativada_em: hoje })}>
               ▶️ Voltar ao ranking agora
             </button>
-            {/* vai ficar mais tempo fora: a pausa na mao congela a forca, as faltas param de derrubar */}
+            {/* vai ficar mais tempo fora: a pausa na mao a mantem fora do ranking mesmo depois de voltar ao jogo */}
             <button className="btn ghost sm grow" onClick={pausar}>
               ⏸️ Pausar
             </button>

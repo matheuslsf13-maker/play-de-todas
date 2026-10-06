@@ -89,8 +89,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   jogou não cai. A ficha e as listas mostram "−N por K faltas seguidas".
 - **Pausar uma menina** (`players.pausas`, `reativada_em`, script 24; `pausaNaForca`):
   quem vai ficar um tempo fora é **pausada na ficha** (Stats): sai do ranking da força,
-  o perfil continua aberto e **a força fica congelada** (as faltas durante a pausa não
-  contam). Tocar nela ao montar um play pergunta "despausar e colocar no play?" (a lista
+  o perfil continua aberto e **as faltas continuam baixando a força**, como as de todo
+  mundo (a pausa só tira do ranking). Tocar nela ao montar um play pergunta "despausar e colocar no play?" (a lista
   colada pergunta uma vez por todas; o "Todas" deixa as pausadas de fora). Além disso,
   com **2 faltas seguidas** ela sai do ranking da força sozinha (a queda gradual continua)
   e volta ao jogar, ou no "Voltar ao ranking agora" da ficha.

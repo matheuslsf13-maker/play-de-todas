@@ -124,7 +124,7 @@ test('a queda acima de 1500 aumenta a cada falta e para em 30%', () => {
 
 import { pausaNaForca } from '../src/lib/stats'
 
-test('pausada na mao: as faltas nao derrubam a forca e ela sai do ranking', () => {
+test('pausada na mao: sai do ranking, mas as faltas continuam derrubando a forca', () => {
   const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
   playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
   d.matches.push(partida('s1', ['x', 'a'], ['b', 'c'], 4, 3))
@@ -134,7 +134,10 @@ test('pausada na mao: as faltas nao derrubam a forca e ela sai do ranking', () =
     playCom(d, `s${i}`, `2026-09-0${i}`, ['a', 'b', 'c', 'd'])
     d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
   }
-  assert.equal(nota(d, 'x'), antes)
+  // 4 faltas (a 1a nao conta): cai como quem nao esta pausada
+  const dist = antes - 1500
+  const esperado = 1500 + dist * 0.9 * 0.85 * 0.8
+  assert.ok(Math.abs(nota(d, 'x') - esperado) <= 1, `${nota(d, 'x')} ~ ${esperado}`)
   assert.equal(pausaNaForca(d).get('x'), 'manual')
 })
 

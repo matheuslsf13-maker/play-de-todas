@@ -371,9 +371,6 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
   const jaJogou = new Set<string>()
   const queda = new Map<string, QuedaPorFalta>()
   const jogadora = new Map(data.players.map((p) => [p.id, p]))
-  // pausada na mao naquela data: a falta nao conta (a forca fica congelada)
-  const pausadaEm = (id: string, date: string) =>
-    (jogadora.get(id)?.pausas ?? []).some((p) => p.de <= date && (!p.ate || date < p.ate))
 
   // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
   // naquele momento, entao os plays (e as partidas) entram em ordem cronologica
@@ -403,7 +400,6 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
         queda.delete(id)
         continue
       }
-      if (pausadaEm(id, s.date)) continue
       const q = queda.get(id) ?? { faltas: 0, perda: 0, desdeReativacao: 0 }
       q.faltas++
       const reativada = jogadora.get(id)?.reativada_em
@@ -448,7 +444,8 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
 
 /**
  * QUEM ESTA FORA DO RANKING DA FORCA (o perfil continua aberto):
- *   - 'manual': pausada na mao, com a forca congelada (vai ficar um tempo fora);
+ *   - 'manual': pausada na mao (vai ficar um tempo fora) -- as faltas continuam
+ *     derrubando a forca como as de todo mundo; a pausa so tira do ranking;
  *   - 'faltas': 2 faltas seguidas -- volta sozinha quando jogar, ou na mao.
  */
 export function pausaNaForca(data: AppData): Map<string, 'manual' | 'faltas'> {
