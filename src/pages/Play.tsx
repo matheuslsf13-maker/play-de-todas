@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import DesempateEmQuadra from '../components/DesempateEmQuadra'
 import DivisaoDoCampeonato from '../components/DivisaoDoCampeonato'
 import {
   PONTUACAO_PADRAO,
   aplicarMovidasNoCampeonato,
+  categoriaDaJogadora,
+  categoriaDaPartida,
+  categoriaTerminou,
+  categoriasDoPlay,
+  colocacoesDaCategoria,
+  duosDaCategoria,
+  quadrasEfetivas,
   dividirEmCategorias,
   montarCategorias,
 } from '../lib/campeonato'
@@ -18,7 +26,6 @@ import {
   gerarFila,
   nomeDaRodada,
   rodadaDoMataMata,
-  type Colocacao,
   type PlannedMatch,
   jogadorasDaPartida,
   ordemDeEspera,
@@ -46,7 +53,6 @@ import {
 } from '../lib/emQuadra'
 import {
   aplicarBye,
-  balance,
   buildHistory,
   computeStats,
   type CriterioDoDia,
@@ -97,6 +103,7 @@ import { computeStreaks, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/s
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import {
+  type DesempateDeGrupo,
   type EventoDoPlay,
   dateLabel,
   plural,
@@ -1292,6 +1299,11 @@ function PlayDetail({
   )
 
   const soFase2 = session.format === 'grupos-duplas'
+  /** As categorias do campeonato; sem elas, uma so (o grupos+duplas de sempre). */
+  const cats = useMemo(() => categoriasDoPlay(session), [session])
+  const ehCampeonato = cats.length > 1
+  /** A categoria de uma partida (sai de quem joga nela, como o grupo). */
+  const catDe = useCallback((m: Match) => Math.max(0, categoriaDaPartida(cats, session.groups, m)), [cats, session.groups])
 
   /**
    * Quantos pontos fecham ESTA partida.
@@ -1317,10 +1329,13 @@ function PlayDetail({
   /** O nome da rodada da partida (Final, Semifinal, Quartas de final...). */
   const rodadaDe = (m: Match): string => {
     const fase = m.fase ?? 1
-    const entraram = duplasQueEntraram(session.duos ?? [], matches, fase)
+    // a rodada e da chave da categoria da partida: cada uma tem a sua
+    const ci = catDe(m)
+    const daCategoria = matches.filter((x) => catDe(x) === ci)
+    const entraram = duplasQueEntraram(duosDaCategoria(session, ci), daCategoria, fase)
     if (entraram > 0) return nomeDaRodada(entraram)
     // sem as duplas gravadas (play antigo) sobra contar os jogos da fase
-    const jogos = matches.filter((x) => (x.fase ?? 1) === fase && !x.disputa_3o).length
+    const jogos = daCategoria.filter((x) => (x.fase ?? 1) === fase && !x.disputa_3o).length
     return jogos === 1 ? 'Final' : jogos === 2 ? 'Semifinal' : nomeDaRodada(jogos * 2)
   }
 
@@ -1350,40 +1365,105 @@ function PlayDetail({
     return nome === 'Final' ? '🏆 Final' : nome.replace(' de final', '')
   }
 
+  /** O que a quadra mostra: no campeonato, a categoria e o grupo (ou a rodada). */
+  const rotuloDaQuadra = (m: Match): string => {
+    if (!ehCampeonato) return rotuloDaPartida(m)
+    const cat = cats[catDe(m)]
+    if ((m.fase ?? 1) >= 2) return `${cat.nome} · ${rotuloDaPartida(m)}`
+    const g = (session.groups ?? []).findIndex((x) => x.includes(m.team_a[0]))
+    return `${cat.nome} · grupo ${cat.grupos.indexOf(g) + 1}`
+  }
+
+  /**
+   * CAMPEONATO: quem cuida de uma categoria so ve as quadras e a fila dela.
+   * E preferencia de quem olha, nao estado do play: fica no aparelho.
+   */
+  const chaveDoFiltro = `play-de-todas:filtro-categoria:${session.id}`
+  const [filtroCat, setFiltroCatState] = useState<number | null>(() => {
+    try {
+      const v = localStorage.getItem(chaveDoFiltro)
+      return v === null ? null : Number(v)
+    } catch {
+      return null
+    }
+  })
+  function setFiltroCat(v: number | null) {
+    setFiltroCatState(v)
+    try {
+      if (v === null) localStorage.removeItem(chaveDoFiltro)
+      else localStorage.setItem(chaveDoFiltro, String(v))
+    } catch {
+      /* sem armazenamento: o filtro so nao fica lembrado */
+    }
+  }
+
   const alvoDe = (m: Match) => {
     const alvos = session.alvos
     if (!alvos?.length) return session.target
     return alvos[degrauDe(m)] ?? session.target
   }
 
-  const daFase1 = useMemo(() => matches.filter((m) => (m.fase ?? 1) === 1), [matches])
-  const daFase2 = useMemo(() => matches.filter((m) => (m.fase ?? 1) === 2), [matches])
-  /** Todas as partidas do mata-mata (fase 2 em diante), por rodada. */
-  const doMataMata = useMemo(() => matches.filter((m) => (m.fase ?? 1) >= 2), [matches])
-  const ultimaFase = doMataMata.reduce((t, m) => Math.max(t, m.fase ?? 1), 1)
-  // a disputa de 3o fica de fora: ela nao gera proxima rodada nem decide
-  // quem segue vivo na chave
-  const daUltimaRodada = doMataMata.filter(
-    (m) => (m.fase ?? 1) === ultimaFase && !m.disputa_3o,
-  )
-  /** Quem ainda nao perdeu. Uma dupla so = ja tem campea. */
-  const vivas = useMemo(
-    () => (session.duos?.length ? duplasVivas(session.duos, doMataMata) : []),
-    [session.duos, doMataMata],
-  )
-  /** A fase 1 acabou e a 2 ainda nao nasceu: e a hora de formar as duplas. */
-  const podeGerarFase2 =
-    soFase2 && daFase2.length === 0 && daFase1.length > 0 && daFase1.every(isPlayed)
-  /** A rodada atual acabou e ainda ha mais de uma dupla viva. */
-  const podeGerarRodada =
-    soFase2 &&
-    daFase2.length > 0 &&
-    daUltimaRodada.length > 0 &&
-    daUltimaRodada.every(isPlayed) &&
-    vivas.length > 1
-  const rotuloDaProxima = vivas.length > 1 ? nomeDaRodada(vivas.length) : ''
   /**
-   * QUEM JÁ PASSOU, ENQUANTO A RODADA AINDA CORRE
+   * A CHAVE DE CADA CATEGORIA.
+   *
+   * No campeonato cada categoria tem a sua fase de grupos, as suas duplas e o
+   * seu mata-mata, e anda no seu ritmo: a C pode estar na final enquanto a A
+   * ainda joga os grupos. Sem categorias o play e uma so -- o grupos+duplas de
+   * sempre -- e tudo abaixo vale do mesmo jeito.
+   */
+  const porCategoria = useMemo(
+    () =>
+      cats.map((cat, ci) => {
+        const daqui = matches.filter((m) => catDe(m) === ci)
+        const daFase1 = daqui.filter((m) => (m.fase ?? 1) === 1)
+        const daFase2 = daqui.filter((m) => (m.fase ?? 1) === 2)
+        /** Todas as partidas do mata-mata (fase 2 em diante), por rodada. */
+        const doMataMata = daqui.filter((m) => (m.fase ?? 1) >= 2)
+        const ultimaFase = doMataMata.reduce((t, m) => Math.max(t, m.fase ?? 1), 1)
+        // a disputa de 3o fica de fora: ela nao gera proxima rodada nem decide
+        // quem segue vivo na chave
+        const daUltimaRodada = doMataMata.filter((m) => (m.fase ?? 1) === ultimaFase && !m.disputa_3o)
+        const duos = duosDaCategoria(session, ci)
+        /** Quem ainda nao perdeu. Uma dupla so = ja tem campea. */
+        const vivas = duos.length ? duplasVivas(duos, doMataMata) : []
+        /** A fase 1 acabou e a 2 ainda nao nasceu: e a hora de formar as duplas. */
+        const podeGerarFase2 =
+          soFase2 && daFase2.length === 0 && daFase1.length > 0 && daFase1.every(isPlayed)
+        /** Empates em tudo que so a quadra resolve (simples 1x1 ou par ou impar). */
+        const desempates = podeGerarFase2 ? colocacoesDaCategoria(session, ci, matches).pendentes : []
+        /** A rodada atual acabou e ainda ha mais de uma dupla viva. */
+        const podeGerarRodada =
+          soFase2 &&
+          daFase2.length > 0 &&
+          daUltimaRodada.length > 0 &&
+          daUltimaRodada.every(isPlayed) &&
+          vivas.length > 1
+        return {
+          cat,
+          ci,
+          daqui,
+          daFase1,
+          daFase2,
+          doMataMata,
+          ultimaFase,
+          daUltimaRodada,
+          duos,
+          vivas,
+          podeGerarFase2,
+          desempates,
+          podeGerarRodada,
+          rotuloDaProxima: vivas.length > 1 ? nomeDaRodada(vivas.length) : '',
+          terminou: soFase2 && categoriaTerminou(session, ci, matches),
+          porJogar: daqui.filter((m) => !isPlayed(m)).length,
+        }
+      }),
+    [cats, matches, catDe, session, soFase2],
+  )
+  /** Todas as duplas ainda vivas, de todas as categorias. */
+  const vivas = useMemo(() => porCategoria.flatMap((c) => c.vivas), [porCategoria])
+
+  /**
+   * QUEM JÁ PASSOU, ENQUANTO A RODADA AINDA CORRE (por categoria)
    *
    * Com bye ou com a partida já lançada, a dupla está classificada e
    * ninguém precisa esperar o resto da rodada para saber -- nem ela, que quer
@@ -1394,31 +1474,48 @@ function PlayDetail({
    * final, que não tem próxima.
    */
   const jaClassificadas = useMemo(() => {
-    if (!soFase2 || !session.duos?.length || !daUltimaRodada.length) return null
+    if (!soFase2) return []
     const chave = (d: readonly string[]) => [...d].sort().join('|')
-    const jogando = new Set<string>()
-    for (const m of daUltimaRodada) {
-      if (isPlayed(m)) continue
-      jogando.add(chave(m.team_a))
-      jogando.add(chave(m.team_b))
+    const out: { categoria: string; duplas: [string, string][]; onde: string }[] = []
+    for (const c of porCategoria) {
+      if (!c.duos.length || !c.daUltimaRodada.length) continue
+      const jogando = new Set<string>()
+      for (const m of c.daUltimaRodada) {
+        if (isPlayed(m)) continue
+        jogando.add(chave(m.team_a))
+        jogando.add(chave(m.team_b))
+      }
+      // rodada inteira lançada: quem avisa aí é o cartão da próxima fase
+      if (!jogando.size) continue
+      const passaram = c.vivas.filter((d) => !jogando.has(chave(d)))
+      if (!passaram.length) continue
+      // quantas entraram nesta rodada = as vivas mais as já eliminadas nela
+      const entraram = c.vivas.length + c.daUltimaRodada.filter(isPlayed).length
+      const restarao = entraram - c.daUltimaRodada.length
+      if (restarao <= 1) continue
+      const nome = nomeDaRodada(restarao).toLowerCase()
+      out.push({
+        categoria: ehCampeonato ? c.cat.nome : '',
+        duplas: passaram,
+        onde: /^(quartas|oitavas)/.test(nome) ? `nas ${nome}` : `na ${nome}`,
+      })
     }
-    // rodada inteira lançada: quem avisa aí é o cartão da próxima fase
-    if (!jogando.size) return null
-    const passaram = vivas.filter((d) => !jogando.has(chave(d)))
-    if (!passaram.length) return null
-    // quantas entraram nesta rodada = as vivas mais as já eliminadas nela
-    const entraram = vivas.length + daUltimaRodada.filter(isPlayed).length
-    const restarao = entraram - daUltimaRodada.length
-    if (restarao <= 1) return null
-    const nome = nomeDaRodada(restarao).toLowerCase()
-    return {
-      duplas: passaram,
-      onde: /^(quartas|oitavas)/.test(nome) ? `nas ${nome}` : `na ${nome}`,
-    }
-  }, [soFase2, session.duos, daUltimaRodada, vivas])
+    return out
+  }, [soFase2, porCategoria, ehCampeonato])
 
   /** Ha um proximo passo obrigatorio antes de encerrar o play? */
-  const faltaFase = podeGerarFase2 || podeGerarRodada
+  const faltaFase = porCategoria.some((c) => c.podeGerarFase2 || c.podeGerarRodada)
+
+  /** Onde a categoria esta: "grupos 4/6", "semifinal", "terminou 🏆". */
+  const situacaoDaCategoria = (c: (typeof porCategoria)[number]): string => {
+    if (c.terminou) return 'terminou 🏆'
+    if (c.daFase2.length === 0) {
+      const jogadas = c.daFase1.filter(isPlayed).length
+      return jogadas === c.daFase1.length ? 'grupos ✔ — formar duplas' : `grupos ${jogadas}/${c.daFase1.length}`
+    }
+    const naQuadra = c.daUltimaRodada.find((m) => !isPlayed(m)) ?? c.daUltimaRodada[0]
+    return naQuadra ? rotuloDaPartida(naQuadra).replace('🏆 ', '').toLowerCase() : 'mata-mata'
+  }
 
   /** O que decide o ranking deste dia: gravado no play, para nao mudar depois. */
   const criterioDoDia: CriterioDoDia = session.criterio_dia ?? 'pontos'
@@ -1478,13 +1575,16 @@ function PlayDetail({
       for (const id of jogadorasDaPartida(m)) comJogo.add(id)
     }
     if (soFase2) {
-      // sem as duplas formadas, a fase 2 ainda vai escolher quem fica
-      if (!session.duos?.length) return []
+      // categoria sem as duplas formadas: a fase 2 ainda vai escolher quem fica
       const vivasAgora = new Set(vivas.flat())
-      return session.player_ids.filter((id) => !comJogo.has(id) && !vivasAgora.has(id))
+      return session.player_ids.filter((id) => {
+        const ci = Math.max(0, categoriaDaJogadora(cats, session.groups, id))
+        if (!porCategoria[ci]?.duos.length) return false
+        return !comJogo.has(id) && !vivasAgora.has(id)
+      })
     }
     return session.player_ids.filter((id) => !comJogo.has(id))
-  }, [matches, soFase2, session.duos, session.player_ids, session.status, vivas])
+  }, [matches, soFase2, session.groups, session.player_ids, session.status, vivas, cats, porCategoria])
 
   const doneCount = matches.filter(isPlayed).length
   /** Quanto dura, em media, uma partida deste conjunto: no grupos+duplas cada fase tem alvo e regra proprios. */
@@ -1735,6 +1835,35 @@ function PlayDetail({
     return map
   }, [emJogo])
   const quadrasLivres = quadras.filter((q) => !emQuadra.has(q))
+  /**
+   * CAMPEONATO: as quadras que cada categoria usa agora -- as fixas dela, e as
+   * de quem ja terminou tudo (para a categoria escolhida, ou a com mais jogo).
+   */
+  const quadrasDaCategoria = useMemo(
+    () =>
+      ehCampeonato
+        ? quadrasEfetivas(
+            cats,
+            porCategoria.map((c) => c.terminou),
+            porCategoria.map((c) => c.porJogar),
+            session.quadras_cedidas,
+          )
+        : null,
+    [ehCampeonato, cats, porCategoria, session.quadras_cedidas],
+  )
+  /** CAMPEONATO: de qual categoria a quadra e agora (null fora do campeonato). */
+  const donaDa = (q: number): number | null => {
+    if (!quadrasDaCategoria) return null
+    const i = quadrasDaCategoria.findIndex((qs) => qs.includes(q))
+    return i < 0 ? null : i
+  }
+  /** Quadra que mudou de dona: de qual categoria era e para qual foi. */
+  const cessaoDa = (q: number): { de: number; para: number } | null => {
+    if (!quadrasDaCategoria) return null
+    const de = cats.findIndex((c) => c.quadras.includes(q))
+    const para = quadrasDaCategoria.findIndex((qs) => qs.includes(q))
+    return de >= 0 && para >= 0 && de !== para ? { de, para } : null
+  }
 
   /** Sugestao de proxima partida por quadra livre, respeitando escolhas na mao. */
   const proximas = useMemo(() => {
@@ -1753,19 +1882,43 @@ function PlayDetail({
     for (const m of escolhidasNaMao.values()) {
       for (const id of jogadorasDaPartida(m)) ocupadasComManuais.add(id)
     }
-    const auto = proximasDasQuadras({
-      pendentes: pendentes.filter((m) => !reservadas.has(m.id)),
-      ocupadas: ocupadasComManuais,
-      espera,
-      jogos,
-      quadrasLivres: restantes,
-      seguidas,
-      jaFormadas,
-      jogadoras: session.player_ids,
-      grupos,
+    const livresDaFila = pendentes.filter((m) => !reservadas.has(m.id))
+    if (!quadrasDaCategoria) {
+      const auto = proximasDasQuadras({
+        pendentes: livresDaFila,
+        ocupadas: ocupadasComManuais,
+        espera,
+        jogos,
+        quadrasLivres: restantes,
+        seguidas,
+        jaFormadas,
+        jogadoras: session.player_ids,
+        grupos,
+      })
+      return new Map([...escolhidasNaMao, ...auto])
+    }
+    // CAMPEONATO: cada categoria escolhe nas quadras dela (mais as cedidas por
+    // quem ja terminou), so com as partidas dela; o grupo mora na sua quadra
+    const out = new Map(escolhidasNaMao)
+    cats.forEach((cat, ci) => {
+      const livresDaCat = restantes.filter((q) => quadrasDaCategoria[ci]?.includes(q))
+      if (livresDaCat.length === 0) return
+      const auto = proximasDasQuadras({
+        pendentes: livresDaFila.filter((m) => catDe(m) === ci),
+        ocupadas: ocupadasComManuais,
+        espera,
+        jogos,
+        quadrasLivres: livresDaCat,
+        seguidas,
+        jaFormadas,
+        jogadoras: cat.grupos.flatMap((g) => session.groups?.[g] ?? []),
+        grupos: cat.grupos.map((g) => session.groups?.[g] ?? []),
+        quadrasDaCasa: cat.quadras,
+      })
+      for (const [q, m] of auto) out.set(q, m)
     })
-    return new Map([...escolhidasNaMao, ...auto])
-  }, [quadrasLivres, manuais, pendentes, indisponiveis, espera, jogos, seguidas, jaFormadas, session.player_ids, grupos])
+    return out
+  }, [quadrasLivres, manuais, pendentes, indisponiveis, espera, jogos, seguidas, jaFormadas, session.player_ids, session.groups, grupos, quadrasDaCategoria, cats, catDe])
 
   /**
    * Quem nao esta disponivel para esta partida: as que estao em quadra agora e
@@ -2142,35 +2295,37 @@ function PlayDetail({
     onToast('Novas duplas geradas 🔄')
   }
 
-  async function gerarFase2() {
-    const gruposDoPlay = session.groups
-    if (!gruposDoPlay || gruposDoPlay.length < 2) {
-      onToast('Este play não tem grupos')
+  /** Grava o desempate decidido em quadra (substitui o do mesmo conjunto de empatadas). */
+  function salvarDesempate(grupo: number, ordem: string[], como: DesempateDeGrupo['como']) {
+    const mesmo = (d: DesempateDeGrupo) => d.grupo === grupo && [...d.ordem].sort().join('|') === [...ordem].sort().join('|')
+    const desempates_grupo = [
+      ...(session.desempates_grupo ?? []).filter((d) => !mesmo(d)),
+      { grupo, ordem, como, at: new Date().toISOString() },
+    ]
+    const texto = `Desempate (${como === 'simples' ? 'simples 1x1' : 'par ou ímpar'}): ${ordem.map((id, i) => `${i + 1}ª ${nameOf(id)}`).join(', ')}`
+    saveSession(comEvento({ ...session, desempates_grupo }, 'desempate', texto))
+    onToast('Desempate anotado ✅')
+  }
+
+  /** A proxima posicao livre na fila: depois de TODAS as partidas, de todas as categorias. */
+  const proximaPosicao = () => matches.reduce((t, m) => Math.max(t, m.round), 0) + 1
+
+  /**
+   * FORMAR AS DUPLAS de uma categoria: 1a com 1a, pela classificacao de cada
+   * grupo (vitorias, pontos, saldo, confronto justo e o desempate em quadra).
+   * Com empate pendente nao forma: a organizadora decide em quadra antes.
+   */
+  async function gerarFase2(ci: number) {
+    const c = porCategoria[ci]
+    if (!c || c.cat.grupos.length < 2) {
+      onToast('Esta categoria não tem grupos')
       return
     }
-    // classificacao dentro de cada grupo, so com as partidas da fase 1
-    const colocacoes: Colocacao[] = []
-    gruposDoPlay.forEach((g, gi) => {
-      const doGrupo = new Set(g)
-      const ms = daFase1.filter((m) => doGrupo.has(m.team_a[0]))
-      const base = rankPlayers(computeStats(ms), nameOf).filter((r) => doGrupo.has(r.player_id))
-      // `rankPlayers` ja ordena por pontos, diferenca de games e vitorias. O que
-      // ele nao tem e o CONFRONTO DIRETO, que so faz sentido dentro do grupo:
-      // empatado em tudo, fica na frente quem venceu quando as duas se
-      // enfrentaram. O alfabetico continua como ultimo recurso, para a ordem
-      // nunca depender do acaso.
-      const rank = desempatarNoConfronto(base, ms)
-      rank.forEach((r, k) => {
-        colocacoes.push({
-          id: r.player_id,
-          grupo: gi,
-          posicao: k + 1,
-          pontos: r.points,
-          saldo: r.wins - r.losses,
-        })
-      })
-    })
-
+    const { colocacoes, pendentes } = colocacoesDaCategoria(session, ci, matches)
+    if (pendentes.length > 0) {
+      onToast('Antes, decida o empate em quadra (simples ou par ou ímpar)')
+      return
+    }
     const duos = duplasDaFase2(colocacoes, session.duplas_mm ?? 8)
     if (duos.length < 2) {
       onToast('Poucas duplas para o mata-mata')
@@ -2178,31 +2333,33 @@ function PlayDetail({
     }
     const { byes, jogos } = rodadaDoMataMata(duos)
     const fila = jogos.map(([a, b]) => ({ team_a: a, team_b: b, grupo: 0, fase: 2 }))
-    const novas = planToMatches(session.id, fila).map((m, i) => ({
-      ...m,
-      round: daFase1.length + i + 1,
-    }))
-    await saveSession({ ...session, duos, rounds: daFase1.length + novas.length })
+    const inicio = proximaPosicao()
+    const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: inicio + i }))
+    // as duplas das outras categorias ficam como estao; as desta entram no fim
+    const outras = (session.duos ?? []).filter((d) => Math.max(0, categoriaDaJogadora(cats, session.groups, d[0])) !== ci)
+    await saveSession({ ...session, duos: [...outras, ...duos], rounds: matches.length + novas.length })
     await saveMatches(novas)
     onToast(
-      `${nomeDaRodada(duos.length)}: ${duos.length} duplas` +
+      `${ehCampeonato ? `Categoria ${c.cat.nome} — ` : ''}${nomeDaRodada(duos.length)}: ${duos.length} duplas` +
         (byes.length ? `, ${byes.length} de bye 🤝` : ' 🤝'),
     )
   }
 
   /**
-   * A proxima rodada do mata-mata: quem nao perdeu segue, na ordem de forca.
+   * A proxima rodada do mata-mata de uma categoria: quem nao perdeu segue, na
+   * ordem de forca.
    *
    * Os byes da primeira rodada nao precisam ser guardados: quem nunca perdeu
    * esta vivo, e `duplasVivas` deduz isso das partidas ja lancadas.
    */
-  async function gerarProximaRodada() {
-    if (vivas.length < 2) {
+  async function gerarProximaRodada(ci: number) {
+    const c = porCategoria[ci]
+    if (!c || c.vivas.length < 2) {
       onToast('O mata-mata já tem campeã')
       return
     }
-    const { jogos } = rodadaDoMataMata(vivas)
-    const fase = ultimaFase + 1
+    const { jogos } = rodadaDoMataMata(c.vivas)
+    const fase = c.ultimaFase + 1
     const fila: PlannedMatch[] = jogos.map(([a, b]) => ({ team_a: a, team_b: b, grupo: 0, fase }))
 
     /*
@@ -2213,8 +2370,8 @@ function PlayDetail({
      * essa partida como se a fase tivesse duas rodadas. Roda em paralelo com
      * a final, na quadra ao lado, entao nao alonga a noite.
      */
-    if (vivas.length === 2) {
-      const perdedoras = daUltimaRodada
+    if (c.vivas.length === 2) {
+      const perdedoras = c.daUltimaRodada
         .filter(isPlayed)
         .map((m) =>
           ((m.score_a as number) > (m.score_b as number) ? m.team_b : m.team_a) as [string, string],
@@ -2229,13 +2386,11 @@ function PlayDetail({
         })
       }
     }
-    const novas = planToMatches(session.id, fila).map((m, i) => ({
-      ...m,
-      round: matches.length + i + 1,
-    }))
+    const inicio = proximaPosicao()
+    const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: inicio + i }))
     await saveSession({ ...session, rounds: matches.length + novas.length })
     await saveMatches(novas)
-    onToast(`${nomeDaRodada(vivas.length)} montada 🥅`)
+    onToast(`${ehCampeonato ? `Categoria ${c.cat.nome} — ` : ''}${nomeDaRodada(c.vivas.length)} montada 🥅`)
   }
 
   async function finish() {
@@ -2437,6 +2592,29 @@ function PlayDetail({
             </div>
           )}
         </div>
+        {ehCampeonato && (
+          <div className="stack" style={{ gap: 6, marginBottom: 10 }}>
+            <div className="row wrap" style={{ gap: 6 }}>
+              {porCategoria.map((c) => (
+                <span key={c.ci} className="chip off" style={{ flex: 'none', cursor: 'default' }}>
+                  <strong>{c.cat.nome}</strong>
+                  <span className="tiny">{situacaoDaCategoria(c)}</span>
+                </span>
+              ))}
+            </div>
+            <div className="row wrap" style={{ gap: 6 }}>
+              <span className="tiny muted">Ver:</span>
+              <button className={`chip ${filtroCat === null ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setFiltroCat(null)}>
+                Todas
+              </button>
+              {cats.map((c, ci) => (
+                <button key={ci} className={`chip ${filtroCat === ci ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setFiltroCat(ci)}>
+                  {c.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {editable && desajuste && (
           <div className="banner warn row spread" style={{ marginBottom: 10, gap: 10 }}>
             <span className="grow">
@@ -2454,15 +2632,16 @@ function PlayDetail({
             na frente.
           </div>
         )}
-        {jaClassificadas && (
-          <div className="banner ok classificadas">
+        {jaClassificadas.map((j) => (
+          <div key={j.categoria || 'unica'} className="banner ok classificadas">
             🎟️ <strong>
-              {jaClassificadas.duplas.length === 1 ? 'Já está' : 'Já estão'} {jaClassificadas.onde}
+              {j.categoria && `Categoria ${j.categoria}: `}
+              {j.duplas.length === 1 ? 'Já está' : 'Já estão'} {j.onde}
             </strong>{' '}
             {'—'}{' '}
-            {jaClassificadas.duplas.map((d) => `${nameOf(d[0])} + ${nameOf(d[1])}`).join(', ')}.
+            {j.duplas.map((d) => `${nameOf(d[0])} + ${nameOf(d[1])}`).join(', ')}.
           </div>
-        )}
+        ))}
         {jaPodemIr.length > 0 && (
           <div className="banner ok livres">
             🚪 <strong>
@@ -2479,32 +2658,59 @@ function PlayDetail({
             const atual = emQuadra.get(q)
             const proxima = proximas.get(q)
             const m = atual ?? proxima
+            const cessao = cessaoDa(q)
+            // quadra cedida por categoria que ja terminou: de onde veio, para quem foi,
+            // e chips para a organizadora mandar para outra (vale em todos os celulares)
+            const aviso = cessao && editable && (
+              <div className="tiny muted row wrap" style={{ gap: 6, margin: '0 0 6px' }}>
+                <span>
+                  Quadra {q} · cedida pela {cats[cessao.de].nome} → <strong>{cats[cessao.para].nome}</strong>
+                </span>
+                {porCategoria
+                  .filter((c) => !c.terminou && c.ci !== cessao.para)
+                  .map((c) => (
+                    <button
+                      key={c.ci}
+                      className="chip off"
+                      style={{ padding: '2px 8px', fontSize: 11 }}
+                      onClick={() => saveSession({ ...session, quadras_cedidas: { ...(session.quadras_cedidas ?? {}), [String(q)]: c.ci } })}
+                    >
+                      para a {c.cat.nome}
+                    </button>
+                  ))}
+              </div>
+            )
+            if (filtroCat !== null && quadrasDaCategoria && !quadrasDaCategoria[filtroCat]?.includes(q)) return null
             if (!m) {
               return (
+                <div key={q}>
+                {aviso}
                 <QuadraEsperando
                   key={q}
                   quadra={q}
-                  restam={pendentes.length}
-                  livres={livresAgora}
+                  restam={donaDa(q) === null ? pendentes.length : pendentes.filter((x) => catDe(x) === donaDa(q)).length}
+                  livres={donaDa(q) === null ? livresAgora : livresAgora.filter((id) => categoriaDaJogadora(cats, session.groups, id) === donaDa(q))}
                   editable={editable}
                   grupoDe={grupoDe}
                 />
+                </div>
               )
             }
             return (
+              <div key={m.id}>
+              {aviso}
               <MatchCard
-                key={m.id}
                 match={m}
                 quadra={q}
                 target={alvoDe(m)}
                 desempate={regraDe(m)}
-                rodada={rotuloDaPartida(m)}
+                rodada={rotuloDaQuadra(m)}
                 editable={editable}
                 iniciada={!!atual}
                 inicio={inicioDe(m)}
                 ocupadas={ocupadasFora(m)}
                 jogando={ocupadas}
-                grupo={(m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])}
+                grupo={ehCampeonato || (m.fase ?? 1) >= 2 ? undefined : grupoDe.get(m.team_a[0])}
                 totalGrupos={grupos?.length ?? 1}
                 repetida={(m.fase ?? 1) < 2 && duplasRepetidas.has(m.id)}
                 espera={espera}
@@ -2516,6 +2722,7 @@ function PlayDetail({
                 jogadorasDoPlay={session.player_ids}
                 mesmoGrupo={grupos?.find((g) => g.includes(m.team_a[0])) ?? null}
               />
+              </div>
             )
           })
         )}
@@ -2525,7 +2732,7 @@ function PlayDetail({
         titulo="⏭️ Próximas na fila"
         vazio="Nada na fila."
         rodape="A ordem segue quem está fora há mais tempo, igual às quadras — não é a ordem em que as partidas foram geradas. As duplas não mudam."
-        partidas={filaPrevista}
+        partidas={filtroCat === null || !ehCampeonato ? filaPrevista : filaPrevista.filter((m) => catDe(m) === filtroCat)}
         ausentes={ausentes}
         numerar
         jogos={jogos}
@@ -2577,28 +2784,42 @@ function PlayDetail({
         </div>
       )}
 
-      {editable && faltaFase && (
-        <div className="card" style={{ borderColor: 'var(--marca)' }}>
-          <div className="section-title" style={{ marginTop: 0 }}>
-            ⏭️ O play ainda tem fase pela frente
-          </div>
-          <p className="tiny muted" style={{ marginTop: 0 }}>
-            {podeGerarFase2
-              ? 'A fase de grupos acabou. O próximo passo é formar as duplas fixas e montar a chave do mata-mata — só depois disso o play tem pódio.'
-              : `A rodada terminou e ainda há ${vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
-          </p>
-          <button
-            className="btn pink block"
-            onClick={() => void (podeGerarFase2 ? gerarFase2() : gerarProximaRodada())}
-          >
-            {podeGerarFase2
-              ? '🤝 Montar as duplas e a chave'
-              : vivas.length === 2
-                ? '🥅 Montar final e 3º lugar'
-                : `🥅 Montar ${rotuloDaProxima.toLowerCase()}`}
-          </button>
-        </div>
-      )}
+      {editable &&
+        porCategoria
+          .filter((c) => c.podeGerarFase2 || c.podeGerarRodada)
+          .map((c) => (
+            <div key={c.ci} className="card" style={{ borderColor: 'var(--marca)' }}>
+              <div className="section-title" style={{ marginTop: 0 }}>
+                ⏭️ {ehCampeonato ? `Categoria ${c.cat.nome}: ainda tem fase pela frente` : 'O play ainda tem fase pela frente'}
+              </div>
+              <p className="tiny muted" style={{ marginTop: 0 }}>
+                {c.podeGerarFase2
+                  ? `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                  : `A rodada terminou e ainda há ${c.vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
+              </p>
+              {c.podeGerarFase2 &&
+                c.desempates.map((d) => (
+                  <DesempateEmQuadra
+                    key={`${d.grupo}-${d.ids.join('|')}`}
+                    titulo={`${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`}
+                    ids={d.ids}
+                    nameOf={nameOf}
+                    onSalvar={(ordem, como) => salvarDesempate(d.grupo, ordem, como)}
+                  />
+                ))}
+              <button
+                className="btn pink block"
+                disabled={c.podeGerarFase2 && c.desempates.length > 0}
+                onClick={() => void (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))}
+              >
+                {c.podeGerarFase2
+                  ? `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                  : c.vivas.length === 2
+                    ? '🥅 Montar final e 3º lugar'
+                    : `🥅 Montar ${c.rotuloDaProxima.toLowerCase()}`}
+              </button>
+            </div>
+          ))}
 
       {editable && (
         <button className={`btn ${faltaFase ? 'ghost' : 'teal'} block`} onClick={() => void finish()}>
@@ -3779,47 +4000,6 @@ function descreverFase2(grupos: string[][], duplasMM: number): string {
   )
 }
 
-/**
- * Confronto direto, como ultimo criterio antes do alfabetico.
- *
- * Vale so dentro do grupo: na fase de grupos cada uma joga COM todas, entao duas
- * empatadas quase sempre ja se enfrentaram -- de lados opostos, com parceiros
- * diferentes. Quem levou a melhor nesses jogos fica na frente.
- *
- * Nao mexe em quem ja estava separado por pontos, diferenca de games ou
- * vitorias: so reordena blocos que empataram nos tres.
- */
-function desempatarNoConfronto(rank: PlayerStat[], ms: Match[]): PlayerStat[] {
-  const iguais = (a: PlayerStat, b: PlayerStat) =>
-    a.points === b.points && balance(a) === balance(b) && a.wins === b.wins
-
-  /** Saldo de games de `a` nas partidas em que enfrentou `b`. */
-  const direto = (a: string, b: string): number => {
-    let saldo = 0
-    for (const m of ms) {
-      if (m.score_a === null || m.score_b === null) continue
-      const aEmA = m.team_a.includes(a)
-      const bEmA = m.team_a.includes(b)
-      if (aEmA === bEmA) continue // mesmo lado (ou fora): nao foi confronto
-      saldo += aEmA ? m.score_a - m.score_b : m.score_b - m.score_a
-    }
-    return saldo
-  }
-
-  const out: PlayerStat[] = []
-  let i = 0
-  while (i < rank.length) {
-    let j = i + 1
-    while (j < rank.length && iguais(rank[i], rank[j])) j++
-    const bloco = rank.slice(i, j)
-    if (bloco.length > 1) {
-      bloco.sort((x, y) => direto(y.player_id, x.player_id) - direto(x.player_id, y.player_id))
-    }
-    out.push(...bloco)
-    i = j
-  }
-  return out
-}
 
 /**
  * O mata-mata do dia: o podio e a campanha de cada dupla.
