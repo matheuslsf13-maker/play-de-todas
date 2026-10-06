@@ -257,17 +257,20 @@ function cabecalho(
       c.font = '800 26px system-ui, Segoe UI, Arial, sans-serif'
       c.fillStyle = 'rgba(255,255,255,.6)'
       c.letterSpacing = '5px'
-      c.fillText(chapeu.toUpperCase(), W / 2, y - 16)
+      // 24 acima da faixa: com 16 o titulo encostava nela
+      c.fillText(chapeu.toUpperCase(), W / 2, y - 24)
       c.letterSpacing = '0px'
     }
   }
 
   if (logo) {
-    // com o logo, ele fala por si: o nome do camp sai do texto
-    // 232 e o teto: acima disso a faixa desce e a coroa do 1o lugar bate nela
-    const lado = 232
-    c.drawImage(logo, W / 2 - lado / 2, 10, lado, lado)
-    escreverFaixa(chapeu ? 280 : 258)
+    // com o logo, ele fala por si: o nome do camp sai do texto. Menor que
+    // antes (232) para sobrar ar entre logo, titulo e faixa -- a faixa nao
+    // pode descer, senao a coroa do 1o lugar bate nela
+    const lado = 194
+    const topo = 18
+    discoDoLogo(c, logo, W / 2, topo + lado / 2, lado / 2)
+    escreverFaixa(chapeu ? 280 : 252)
     return
   }
 
@@ -290,6 +293,29 @@ function cabecalho(
 
   // faixa do mes
   escreverFaixa(208)
+}
+
+/**
+ * O logo e um disco branco com o desenho um pouco para a direita (o miolo vai
+ * de x 38 a 361 num quadrado de 384: centro em 199,5, nao 192). Desenhado
+ * direto, parecia torto. Aqui o disco e nosso e o desenho entra centrado nele.
+ */
+function discoDoLogo(c: CanvasRenderingContext2D, logo: HTMLImageElement, cx: number, cy: number, raio: number) {
+  const escala = (raio * 2) / logo.width
+  // o miolo do desenho, em fracao da imagem (medido no logo.png)
+  const desvioX = (199.5 / 384 - 0.5) * logo.width * escala
+  const desvioY = (191.5 / 384 - 0.5) * logo.height * escala
+  c.save()
+  c.shadowColor = 'rgba(0,0,0,.35)'
+  c.shadowBlur = 24
+  c.beginPath()
+  c.arc(cx, cy, raio, 0, Math.PI * 2)
+  c.fillStyle = '#fff'
+  c.fill()
+  c.shadowColor = 'transparent'
+  c.clip()
+  c.drawImage(logo, cx - raio - desvioX, cy - raio - desvioY, raio * 2, raio * 2)
+  c.restore()
 }
 
 function podio(
