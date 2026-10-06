@@ -903,7 +903,14 @@ function NewPlay({
                 <Stepper value={duplasMM} min={2} max={16} onChange={setDuplasMM} />
                 <em className="hint">
                   {emCampeonato
-                    ? `na categoria A: ${descreverFase2(estrutura[0] ?? [], duplasMM)}`
+                    ? (() => {
+                        // a mesma regra vale para todas: se as categorias tem o mesmo
+                        // tamanho, uma frase so; senao, uma por categoria
+                        const porCat = estrutura.map((c) => descreverFase2(c, duplasMM))
+                        return porCat.every((t) => t === porCat[0])
+                          ? `em cada categoria: ${porCat[0] ?? ''}`
+                          : porCat.map((t, i) => `${String.fromCharCode(65 + i)}: ${t}`).join(' · ')
+                      })()
                     : descreverFase2(grupos, duplasMM)}
                 </em>
               </div>
