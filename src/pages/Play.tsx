@@ -1369,6 +1369,13 @@ function PlayDetail({
     return nome === 'Final' ? '🏆 Final' : nome.replace(' de final', '')
   }
 
+  /** "Grupo 3" -- ou, no campeonato, "B · grupo 1". */
+  const nomeDoGrupo = (i: number): string => {
+    if (!ehCampeonato) return `Grupo ${i + 1}`
+    const c = cats.find((x) => x.grupos.includes(i))
+    return c ? `${c.nome} · grupo ${c.grupos.indexOf(i) + 1}` : `Grupo ${i + 1}`
+  }
+
   /** O que a quadra mostra: no campeonato, a categoria e o grupo (ou a rodada). */
   const rotuloDaQuadra = (m: Match): string => {
     if (!ehCampeonato) return rotuloDaPartida(m)
@@ -2574,7 +2581,7 @@ function PlayDetail({
               const media = Math.round(total / Math.max(1, g.length))
               return (
                 <div key={i} className={`grupo-box ${classeDoGrupo(i + 1)}`}>
-                  <div className="grupo-nome">Grupo {i + 1} · {g.length} meninas</div>
+                  <div className="grupo-nome">{nomeDoGrupo(i)} · {g.length} meninas</div>
                   <div className="tiny muted" style={{ marginBottom: 4 }}>
                     💪 força média <strong>{media}</strong>
                     {' · '}
@@ -3089,6 +3096,8 @@ function PlayDetail({
                     ? cats
                         .map((c, ci) => ({ c, ci }))
                         .filter(({ ci }) => catArte === null || catArte === ci)
+                        // categoria que ainda nao tem resultado no mata-mata nao entra no texto
+                        .filter(({ ci }) => dayRows.some((x) => categoriaDaJogadora(cats, session.groups, x.player_id) === ci))
                         .map(({ c, ci }) => {
                           const rows = dayRows.filter((x) => categoriaDaJogadora(cats, session.groups, x.player_id) === ci)
                           return dayRankingText({
