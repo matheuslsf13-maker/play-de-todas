@@ -10,7 +10,7 @@
  *
  * Desenho em docs/superpowers/specs/2026-10-06-campeonato-design.md.
  */
-import { duplasVivas, filaPorForca, type Colocacao } from './pairing'
+import { duplasVivas, filaPorForca, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
 import { DUPLAS_NO_PODIO, pontosDeBye, rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, MesclaDoPlay, PlaySession } from './types'
@@ -490,4 +490,59 @@ export function separarParaRefazer(
   const naFila = matches.filter((m) => (m.fase ?? 1) === 1 && !isPlayed(m) && !iniciada(m))
   const fora = new Set(naFila.map((m) => m.id))
   return { naFila, preservadas: matches.filter((m) => !fora.has(m.id)) }
+}
+
+/* ------------------------------------------------- quanto tempo a noite */
+
+/**
+ * QUANTO DURA A NOITE num play com fases (grupos + duplas, campeonato).
+ *
+ * Antes a estimativa contava so a fase de grupos e a noite parecia uma hora
+ * mais curta do que era. Aqui entram as rodadas do mata-mata, cada uma com os
+ * games e o desempate da sua fase (`minutos` = [grupos, duplas fixas,
+ * semifinal, final], em minutos por partida), nas quadras da categoria; a
+ * disputa de 3o corre junto com a final quando ha duas quadras. As categorias
+ * jogam ao mesmo tempo: a noite e a mais longa delas.
+ */
+export function estimativaDaNoite(opts: {
+  /** Tamanho dos grupos de cada categoria. */
+  grupos: number[][]
+  /** Quantas quadras cada categoria tem. */
+  quadras: number[]
+  /** Quantas duplas entram no mata-mata (por categoria). */
+  duplasMM: number
+  minutos: number[]
+}): { categorias: { grupos: number; mataMata: number }[]; total: number } {
+  const rodadasDe = (partidas: number, quadras: number) => Math.ceil(partidas / Math.max(1, quadras))
+  const categorias = opts.grupos.map((tamanhos, c) => {
+    const q = Math.max(1, opts.quadras[c] ?? 1)
+    // fase de grupos: os grupos dividem as quadras da categoria, mas nenhum
+    // anda mais rapido do que o proprio rodizio deixa
+    const porGrupo = tamanhos.map((t) => partidasDoRodizio(t))
+    const total = porGrupo.reduce((a, b) => a + b, 0)
+    const lentoDoGrupo = Math.max(0, ...tamanhos.map((t, i) => rodadasDe(porGrupo[i], quadrasSimultaneas([t]) || 1)))
+    const grupos = Math.max(rodadasDe(total, q), lentoDoGrupo) * (opts.minutos[0] ?? 0)
+
+    // mata-mata: rodada por rodada, com o alvo e o desempate de cada fase
+    const meninas = tamanhos.reduce((a, b) => a + b, 0)
+    const duplas = Math.min(Math.floor(meninas / 2), Math.max(2, opts.duplasMM))
+    let mataMata = 0
+    if (duplas >= 2) {
+      const chave = 2 ** Math.ceil(Math.log2(duplas))
+      let entram = duplas
+      // na primeira rodada as melhores passam de bye e nao jogam
+      let jogos = (duplas - (chave - duplas)) / 2
+      while (entram > 1) {
+        const nome = nomeDaRodada(entram)
+        const degrau = nome === 'Final' ? 3 : nome === 'Semifinal' ? 2 : 1
+        // a final leva junto a disputa de 3o (quando houve semifinal)
+        const naRodada = nome === 'Final' && duplas >= 4 ? jogos + 1 : jogos
+        mataMata += rodadasDe(naRodada, q) * (opts.minutos[degrau] ?? 0)
+        entram = entram === duplas ? chave / 2 : entram / 2
+        jogos = entram / 2
+      }
+    }
+    return { grupos, mataMata }
+  })
+  return { categorias, total: Math.max(0, ...categorias.map((c) => c.grupos + c.mataMata)) }
 }

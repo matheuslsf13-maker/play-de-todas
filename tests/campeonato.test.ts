@@ -500,3 +500,27 @@ test('mescla da partida escolhida na mao por quadra', () => {
   assert.deepEqual(aplicarMescla(atual, { campo: 'escolhas', quadra: '2', matchId: 'm9' }).escolhas, { '1': 'm1', '2': 'm9' })
   assert.deepEqual(aplicarMescla(atual, { campo: 'escolhas', quadra: '1', matchId: null }).escolhas, {})
 })
+
+/* ---------------------------------------------- tempo da noite com fases */
+import { estimativaDaNoite } from '../src/lib/campeonato'
+
+test('tempo: grupos + mata-mata (semi e final com 3o lugar em paralelo)', () => {
+  // 8 meninas, 2 grupos de 4, 2 quadras: grupos 3 rodadas; 4 duplas -> semi (2 jogos) e final + 3o
+  const e = estimativaDaNoite({ grupos: [[4, 4]], quadras: [2], duplasMM: 8, minutos: [10, 12, 14, 16] })
+  assert.equal(e.categorias[0].grupos, 30)
+  assert.equal(e.categorias[0].mataMata, 14 + 16)
+  assert.equal(e.total, 60)
+})
+
+test('tempo: categorias correm em paralelo, a noite e a mais longa', () => {
+  const e = estimativaDaNoite({ grupos: [[4, 4], [6, 6]], quadras: [2, 2], duplasMM: 8, minutos: [10, 10, 10, 10] })
+  // B: grupos de 6 = 9 partidas cada, 1 quadra por grupo -> 90; 6 duplas: preliminar 2 jogos, semi 2, final+3o
+  assert.ok(e.total >= e.categorias[1].grupos + e.categorias[1].mataMata - 0.001)
+  assert.equal(e.total, Math.max(...e.categorias.map((c) => c.grupos + c.mataMata)))
+})
+
+test('tempo: com uma quadra, a final e o 3o lugar vao em sequencia', () => {
+  const e = estimativaDaNoite({ grupos: [[4, 4]], quadras: [1], duplasMM: 8, minutos: [10, 10, 10, 10] })
+  // semi: 2 jogos numa quadra = 20; final + 3o = 20
+  assert.equal(e.categorias[0].mataMata, 40)
+})

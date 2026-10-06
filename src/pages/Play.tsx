@@ -16,6 +16,7 @@ import {
   quadrasEfetivas,
   separarParaRefazer,
   dividirEmCategorias,
+  estimativaDaNoite,
   montarCategorias,
 } from '../lib/campeonato'
 import ImportarLista from '../components/ImportarLista'
@@ -526,6 +527,20 @@ function NewPlay({
   const jogosMax = Math.max(...tamanhos.map(jogosDoRodizio))
   const repetem = Math.max(...tamanhos.map(repeticoesPorJogadora))
   const restPorVez = selected.length - effCourts * 4
+  /**
+   * Com fases (grupos + duplas, campeonato), o tempo conta tambem o mata-mata,
+   * rodada por rodada, com os games e o desempate de cada fase -- antes so a
+   * fase de grupos entrava, e a noite parecia bem mais curta.
+   */
+  const tempoComFases = useMemo(() => {
+    if (!emDuplas || selected.length < 8) return null
+    return estimativaDaNoite({
+      grupos: emCampeonato ? estrutura.map((c) => c.map((g) => g.length)) : [tamanhos],
+      quadras: emCampeonato ? quadrasDoCampeonato.map((q) => q.length) : [effCourts],
+      duplasMM,
+      minutos: alvos.map((a, i) => minutosDaPartida(a, lerRegra(desempates[i] ?? 'nenhum'))),
+    })
+  }, [emDuplas, emCampeonato, selected.length, estrutura, tamanhos, quadrasDoCampeonato, effCourts, duplasMM, alvos, desempates])
 
   /** Quem foi tocada mas esta devendo: abre o alerta que resolve na hora. */
   const [pendente, setPendente] = useState<Player | null>(null)
@@ -723,20 +738,6 @@ function NewPlay({
           </div>
         )}
 
-        {selected.length >= 4 && (
-          <div className="banner info" style={{ marginTop: 14, marginBottom: 0 }}>
-            Com <strong>{selected.length} jogadoras</strong> dá para usar <strong>{plural(effCourts, 'quadra')}</strong> ao mesmo tempo
-            {restPorVez > 0
-              ? ` (${restPorVez} esperam a vez${grupos.length > 1 ? ', revezando dentro do próprio grupo' : ''}, e entra sempre quem está fora há mais tempo)`
-              : ' (todas jogam ao mesmo tempo)'}.
-            {effCourts < courts && ' Ajustei o número de quadras para caber todo mundo.'}
-            <br />
-            Para equilibrar as duplas e dividir os grupos, o app não usa o ranking do mês:
-            usa uma nota própria em que <strong>vencer quem está jogando melhor vale mais</strong>{' '}
-            do que vencer quem está jogando pior. Ela se atualiza a cada partida, então quem
-            está em alta sobe de grupo sozinha — e a virada do mês não desequilibra nada.
-          </div>
-        )}
       </div>
 
       <div className="card">
@@ -957,152 +958,10 @@ function NewPlay({
                     ? 'com menos de 8 confirmadas não dá para dividir: vai sair um grupo só'
                     : `com ${selected.length} confirmadas o app monta ${descreverGrupos(tamanhos)} — grupo 1 com quem está jogando melhor`}
                 </em>
-                {selected.length >= 8 && (
-                  <>
-                    <em className="hint" style={{ marginTop: 4 }}>
-                      🔥 Cada grupo tem o seu pódio, e quem sobe segura a sequência:{' '}
-                      <strong>{descreverPodios(tamanhos)}</strong>. Grupos menores deixam o status
-                      fácil demais.
-                    </em>
-                    <em className="hint" style={{ marginTop: 4 }}>
-                      🪑 {descreverFolga(tamanhos)}
-                    </em>
-                  </>
-                )}
               </div>
             </div>
           )}
 
-          {selected.length >= 4 && (
-            <div className="banner info" style={{ marginTop: 8, marginBottom: 8 }}>
-              🎾 Cada menina joga{' '}
-              <strong>
-                {jogosMin === jogosMax ? `${jogosMin} partidas` : `${jogosMin} a ${jogosMax} partidas`}
-              </strong>{' '}
-              esta noite — {totalPartidas} no total, em {effCourts}{' '}
-              {effCourts === 1 ? 'quadra' : 'quadras'}: uns{' '}
-              <strong>{duracaoEstimada(totalPartidas, effCourts, minutosDaNoite)}</strong>{' '}
-              a uns {Math.round(minutosDaNoite)} min por partida, contando os games de quem perde
-              {regraDaNoite.modo === 'alvo' ? '' : ' e o desempate'}.
-            </div>
-          )}
-          <p className="tiny muted" style={{ margin: '2px 2px 0' }}>
-            {selected.length < 4 ? (
-              'Escolha as jogadoras abaixo para o app calcular as partidas.'
-            ) : (
-              <>
-                <strong>{totalPartidas} partidas</strong> no total, entrando conforme as quadras vagam.
-                Cada uma faz dupla com{' '}
-                <strong>
-                  {parceirasMin === parceirasMax
-                    ? `as outras ${parceirasMin}`
-                    : `${parceirasMin} a ${parceirasMax} parceiras`}
-                </strong>
-                , exatamente uma vez com cada, e joga{' '}
-                <strong>
-                  {jogosMin === jogosMax ? `${jogosMin} partidas` : `${jogosMin} a ${jogosMax} partidas`}
-                </strong>{' '}
-                — o mesmo tanto para todas.
-                {repetem > 0 && (
-                  <>
-                    {' '}
-                    Como as duplas não fecham em partidas inteiras, cada uma repete{' '}
-                    <strong>{repetem === 1 ? '1 parceira' : `${repetem} parceiras`}</strong> — a
-                    mesma quantidade para todas, para ninguém jogar a mais que as outras.
-                  </>
-                )}
-              </>
-            )}{' '}
-            {emDuplas && ranked ? (
-              <>Os pontos do mês saem da <strong>colocação final</strong>, pela tabela acima.</>
-            ) : (
-              <>
-                Quem vence leva <strong>os games que fez menos os da adversária</strong> em pontos
-                (mínimo 1), e quem perde não pontua.
-              </>
-            )}
-          </p>
-
-          {!emCampeonato && selected.length >= 4 && effCourts < courts && travadoPorGrupo && (
-            <div className="banner err" style={{ margin: '10px 0 0' }}>
-              🏐 <strong>Não dá para usar {courts} quadras com {descreverGrupos(tamanhos)}.</strong>{' '}
-              Cada partida precisa de <strong>quatro meninas do mesmo grupo</strong>, então um grupo
-              de {Math.min(...tamanhos)} só enche{' '}
-              {Math.floor(Math.min(...tamanhos) / 4) === 1
-                ? 'uma quadra'
-                : `${Math.floor(Math.min(...tamanhos) / 4)} quadras`}{' '}
-              por vez — mesmo tendo {selected.length} jogadoras no total.
-              <br />
-              Vou montar o play com <strong>{plural(effCourts, 'quadra')}</strong>, e{' '}
-              <strong>{restPorVez} ficam de fora</strong> por vez, revezando dentro do próprio
-              grupo. Um grupo precisa de <strong>8 meninas para alimentar 2 quadras</strong>, 12
-              para 3, e assim por diante — então, para usar as {courts}, aumente o tamanho do grupo.
-            </div>
-          )}
-
-          {!emCampeonato && selected.length >= 4 && effCourts < courts && !travadoPorGrupo && (
-            <div className="banner err" style={{ margin: '10px 0 0' }}>
-              🏐 <strong>Não dá para usar {courts} quadras com {selected.length} jogadoras.</strong>{' '}
-              Cada quadra ocupa 4 meninas ao mesmo tempo, então {courts} quadras precisam de{' '}
-              <strong>{courts * 4} jogadoras</strong> jogando juntas —{' '}
-              {courts * 4 - selected.length === 1
-                ? 'falta 1 jogadora'
-                : `faltam ${courts * 4 - selected.length} jogadoras`}.
-              <br />
-              Vou montar o play com <strong>{plural(effCourts, 'quadra')}</strong>
-              {restPorVez > 0 && <>, revezando quem fica de fora</>}.
-            </div>
-          )}
-
-          {!emCampeonato && selected.length >= 4 && effCourts === courts && restPorVez === 0 && (
-            <div className="banner warn" style={{ margin: '10px 0 0' }}>
-              🪑 Com <strong>{selected.length} jogadoras em {plural(effCourts, 'quadra')}</strong> todas
-              jogam ao mesmo tempo e <strong>ninguém fica de fora</strong> — nem para descansar.
-              <br />
-              {/* o motivo muda conforme o grupo alimenta uma quadra ou varias:
-                  com grupos de 4 cada grupo fica na sua quadra e nao espera
-                  ninguem, so nao para de jogar */}
-              {grupos.length > 1 && tamanhos.every((t) => t === 4) ? (
-                <>
-                  Num grupo de 4 <strong>não existe revezamento</strong>: são sempre as mesmas quatro
-                  meninas, jogando as 3 partidas do grupo uma atrás da outra. Cada grupo fica na sua
-                  quadra, então ninguém espera — mas ninguém respira também.
-                </>
-              ) : effCourts === 1 ? (
-                <>
-                  São sempre as mesmas quatro, jogando uma partida atrás da outra até o rodízio
-                  acabar.
-                </>
-              ) : (
-                <>
-                  E as quadras nunca terminam juntas: a que acabar primeiro vai esperar, porque as
-                  quatro meninas da próxima partida ainda estão jogando.
-                </>
-              )}
-              <br />
-              {grupos.length > 1 ? (
-                <>
-                  <strong>Grupos de 5, 9 ou 13</strong> são os melhores dos dois mundos: todas jogam
-                  o mesmo tanto, nenhuma dupla repete, e sempre sobra alguém para entrar no lugar de
-                  quem acabou de sair. Usar uma quadra a menos também resolve.
-                </>
-              ) : (
-                <>
-                  Com pelo menos <strong>4 de folga</strong> ({effCourts * 4 + 4} jogadoras para{' '}
-                  {effCourts} quadras) o rodízio anda sozinho e todo mundo descansa entre um jogo e
-                  outro.
-                </>
-              )}
-            </div>
-          )}
-
-          {format === 'todas' && totalPartidas > 40 && (
-            <div className="banner warn" style={{ margin: '10px 0 0' }}>
-              ⏱️ São <strong>{totalPartidas} partidas</strong> e cada uma joga {jogosMax} vezes —
-              pode ser longo para uma noite só. O modo <strong>em grupos</strong> resolve isso:
-              com grupos de 8 cada menina joga 7 partidas.
-            </div>
-          )}
 
           {(format === 'grupos' || format === 'grupos-duplas') && grupos.length > 1 && (
             <div className="stack" style={{ marginTop: 4 }}>
@@ -1186,6 +1045,95 @@ function NewPlay({
         />
       )}
 
+      {selected.length >= 4 && !(emDuplas && tamanhos.some((t) => t < 4)) && (
+        <div className="card">
+          <div className="section-title">📋 Como vai ser a noite</div>
+          <div className="stack" style={{ gap: 6 }}>
+            {/* as partidas: quantas por menina, o total e quanto tempo */}
+            <div className="small">
+              🎾 {emDuplas ? 'Na fase de grupos, cada' : 'Cada'} menina joga{' '}
+              <strong>
+                {jogosMin === jogosMax ? `${jogosMin} partidas` : `${jogosMin} a ${jogosMax} partidas`}
+              </strong>{' '}
+              ({totalPartidas} no total)
+              {emDuplas && tempoComFases ? (
+                <>
+                  ; depois as duplas fixas vão para o mata-mata. ⏱️ Grupos uns{' '}
+                  {formatarMinutos(Math.max(...tempoComFases.categorias.map((c) => c.grupos)))}, mata-mata uns{' '}
+                  {formatarMinutos(Math.max(...tempoComFases.categorias.map((c) => c.mataMata)))} —{' '}
+                  <strong>a noite toda, uns {formatarMinutos(tempoComFases.total)}</strong>
+                  {emCampeonato ? ' (as categorias jogam ao mesmo tempo)' : ''}.
+                </>
+              ) : (
+                <>
+                  , uns <strong>{duracaoEstimada(totalPartidas, effCourts, minutosDaNoite)}</strong>.
+                </>
+              )}
+            </div>
+            {/* as duplas */}
+            <div className="small">
+              🤝 Faz dupla com{' '}
+              {parceirasMin === parceirasMax ? `as outras ${parceirasMin}` : `${parceirasMin} a ${parceirasMax} parceiras`}
+              {grupos.length > 1 ? ' do grupo' : ''}, uma vez com cada
+              {repetem > 0 ? ` — e repete ${repetem === 1 ? '1 parceira' : `${repetem} parceiras`}, a mesma quantidade para todas` : ''}.
+              {emDuplas && ' No mata-mata, 1ª com 1ª dos grupos.'}
+            </div>
+            {/* as quadras e o descanso */}
+            <div className="small">
+              🏐{' '}
+              {emCampeonato ? (
+                <>
+                  Quadras:{' '}
+                  {quadrasDoCampeonato
+                    .map((q, c) => `${String.fromCharCode(65 + c)} ${q.length === 1 ? q[0] : `${q[0]}–${q[q.length - 1]}`}`)
+                    .join(' · ')}
+                  .
+                </>
+              ) : (
+                <>
+                  <strong>{plural(effCourts, 'quadra')}</strong> ao mesmo tempo
+                  {restPorVez > 0 ? `, ${restPorVez} descansando por vez` : ''}.
+                </>
+              )}
+              {/* o revezamento so faz sentido falar por grupo quando ha grupos */}
+              {grupos.length > 1 && <> {descreverFolga(tamanhos)}</>}
+            </div>
+            {/* como pontua */}
+            <div className="small">
+              🏆{' '}
+              {!ranked
+                ? 'Play avulso: não soma no ranking do mês nem mexe no 🔥.'
+                : emDuplas
+                  ? `Pontos do mês pela colocação final${emCampeonato ? ', em cada categoria' : ''}; o pódio (campeã, vice e 3º) segura o 🔥.`
+                  : `Quem vence leva os games que fez menos os da adversária (mínimo 1). O dia é por vitórias; ${
+                      grupos.length > 1
+                        ? `o pódio é por grupo: sobem ${descreverPodios(tamanhos)}, que seguram o 🔥.`
+                        : 'o pódio é o top 3, que segura o 🔥.'
+                    }`}
+            </div>
+          </div>
+          {/* UM aviso so, e so quando precisa da atencao de quem organiza */}
+          {!emCampeonato && effCourts < courts ? (
+            <div className="banner warn" style={{ margin: '10px 0 0' }}>
+              🏐 Só dá para usar <strong>{plural(effCourts, 'quadra')}</strong>:{' '}
+              {travadoPorGrupo
+                ? `cada partida precisa de 4 meninas do mesmo grupo, e ${descreverGrupos(tamanhos)} enchem só ${effCourts} por vez. Para usar as ${courts}, aumente o tamanho do grupo (8 enchem 2 quadras, 12 enchem 3).`
+                : `${courts} quadras pedem ${courts * 4} meninas jogando juntas, e são ${selected.length}.`}
+            </div>
+          ) : format === 'todas' && totalPartidas > 40 ? (
+            <div className="banner warn" style={{ margin: '10px 0 0' }}>
+              ⏱️ {totalPartidas} partidas é longo para uma noite: o modo <strong>em grupos</strong> resolve (grupos de 8 =
+              7 partidas por menina).
+            </div>
+          ) : !emDuplas && restPorVez === 0 && grupos.length <= 1 && effCourts > 1 ? (
+            <div className="banner warn" style={{ margin: '10px 0 0' }}>
+              🪑 Ninguém fica de fora: a quadra que acabar primeiro espera as outras. Com {effCourts * 4 + 4} meninas
+              (ou uma quadra a menos) todo mundo descansa entre um jogo e outro.
+            </div>
+          ) : null}
+        </div>
+      )}
+
       <button className="btn pink block" disabled={selected.length < 4 || busy} onClick={() => void create()}>
         {busy ? 'Montando as duplas…' : `✨ Gerar ${totalPartidas || ''} partidas e começar`}
       </button>
@@ -1219,7 +1167,12 @@ function minutosDaPartida(alvo: number, r: Regra): number {
  * mais longo, rodada mais longa.
  */
 function duracaoEstimada(partidas: number, quadras: number, minutosPorPartida: number): string {
-  const min = Math.ceil(partidas / Math.max(1, quadras)) * Math.round(minutosPorPartida)
+  return formatarMinutos(Math.ceil(partidas / Math.max(1, quadras)) * Math.round(minutosPorPartida))
+}
+
+/** "45 min", "2h", "1h35". */
+function formatarMinutos(total: number): string {
+  const min = Math.round(total)
   const h = Math.floor(min / 60)
   const m = min % 60
   return h === 0 ? `${m} min` : m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
