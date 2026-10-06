@@ -547,3 +547,18 @@ test('a dupla do campeonato leva os pontos da colocacao dela', () => {
   assert.equal(p.get(['a1', 'a5'].sort().join('|')), 16)
   assert.equal(p.get(['b2', 'b6'].sort().join('|')), 12)
 })
+
+import { rankDuplasDoDia } from '../src/lib/stats'
+
+test('chave em andamento: sem podio e sem "caiu na final" antes da final', () => {
+  const duos: [string, string][] = [['a1', 'a5'], ['a2', 'a6'], ['a3', 'a7'], ['a4', 'a8']]
+  // so uma semifinal lancada: a1a5 venceu a4a8
+  const ms = [fase(partida(['a1', 'a5'], ['a4', 'a8'], 4, 1), 2)]
+  const r = rankDuplasDoDia(ms, (id) => id, undefined, duos)
+  assert.ok(r.every((d) => d.medalha === 0), 'ninguem tem medalha antes da final')
+  const venceu = r.find((d) => d.a === 'a1' || d.b === 'a1')!
+  const perdeu = r.find((d) => d.a === 'a4' || d.b === 'a4')!
+  assert.equal(venceu.viva, true)
+  assert.equal(perdeu.viva, false)
+  assert.equal(perdeu.saiuEm, 'na semifinal')
+})

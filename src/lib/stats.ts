@@ -488,6 +488,8 @@ export type DuplaDoDia = DuoStat & {
   medalha: 0 | 1 | 2 | 3
   /** Onde a campanha acabou, com preposicao: "na semifinal", "nas quartas". */
   saiuEm: string
+  /** Ainda nao perdeu na chave: segue jogando (ou e a campea). */
+  viva: boolean
 }
 
 /** A menor potencia de 2 que comporta `n`. */
@@ -597,13 +599,28 @@ export function rankDuplasDoDia(
     bronze: bronze.has(d.key),
     medalha: (d.key === ouro ? 3 : d.key === prata ? 2 : bronze.has(d.key) ? 1 : 0) as 0 | 1 | 2 | 3,
     saiuEm: '',
+    viva: !perderam.has(d.key),
   }))
 
   // quantas duplas entraram na rodada em que cada uma caiu: as que chegaram
   // ate aquela fase, contando as que passaram dela
-  for (const d of linhas) {
-    d.saiuEm = rodadaDeSaida(linhas.filter((x) => x.ateFase >= d.ateFase).length)
+  /*
+   * Quantas duplas ENTRARAM na rodada em que cada uma caiu. Com a chave
+   * (`duos`), conta todas as que ainda nao tinham perdido antes daquela
+   * rodada -- inclusive as que ainda nem jogaram. Contar so as que aparecem
+   * nas partidas jogadas errava no meio da chave: com uma semifinal lancada
+   * e a outra nao, so duas duplas apareciam, e as duas "caiam na final".
+   */
+  const entraram = (fase: number) => {
+    if (!duos?.length) return linhas.filter((x) => x.ateFase >= fase).length
+    const caiuAntes = new Set<string>()
+    for (const m of matches) {
+      if (m.disputa_3o || (m.fase ?? 2) >= fase) continue
+      caiuAntes.add(chaveDa((m.score_a as number) > (m.score_b as number) ? m.team_b : m.team_a))
+    }
+    return duos.filter((d) => !caiuAntes.has(chaveDa(d))).length
   }
+  for (const d of linhas) d.saiuEm = rodadaDeSaida(entraram(d.ateFase))
 
   return linhas.sort(
     (x, y) =>

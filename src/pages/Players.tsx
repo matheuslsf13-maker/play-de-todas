@@ -245,7 +245,12 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                         </span>
                         <span className="muted"> · força {f.nota}</span>
                         {f.provisoria && <span className="muted"> (provisória)</span>}
-                        {f.queda && <span className="muted"> · {textoDaQueda(f.queda)}</span>}
+                        {/* em linha propria: junto do nivel passava da tela no celular */}
+                        {f.queda && (
+                          <span className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>
+                            📉 {textoDaQueda(f.queda)}
+                          </span>
+                        )}
                       </div>
                     )
                   })()}

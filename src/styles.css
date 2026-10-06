@@ -1351,3 +1351,24 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 
 /* o placar escolhido que foi para o tie fica marcado enquanto se escolhe o tie */
 .game-btn.marcado { background: var(--pink); border-color: var(--pink); color: var(--sempre-escuro); }
+/* o nome-botao que corta com "..." (podio, tabelas) se comporta como o texto
+   que ele substituiu: ocupa a largura que tem e nao empurra a tela */
+.nome-link.ellipsis { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row > .nome-link.ellipsis { flex: 0 1 auto; }
+/* nome que sozinho nao cabe na linha: corta com "..." em vez de empurrar o
+   card para fora da tela (o nome continua sem quebrar no meio) */
+.names .nowrap { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+.pick-team .names { min-width: 0; }
+
+/* divisor de fase nas listas de partidas: onde termina a fase de grupos e
+   comecam as duplas fixas */
+.fase-divisor {
+  margin: 8px 0 4px;
+  padding: 2px 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--marca);
+  border-bottom: 1px dashed var(--line);
+}

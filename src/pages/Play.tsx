@@ -1170,6 +1170,14 @@ function duracaoEstimada(partidas: number, quadras: number, minutosPorPartida: n
   return formatarMinutos(Math.ceil(partidas / Math.max(1, quadras)) * Math.round(minutosPorPartida))
 }
 
+/**
+ * O podio da chave so existe depois da final: antes disso, quem venceu a
+ * semifinal sairia no texto e na arte como "campea do dia".
+ */
+function soComCampea(linhas: DuplaDoDia[]): DuplaDoDia[] {
+  return linhas.some((d) => d.medalha === 3) ? linhas : []
+}
+
 /** "Grupo 3" -- ou, no campeonato, "B · grupo 1". */
 function nomeDoGrupoNoPlay(session: PlaySession, i: number): string {
   const cats = categoriasDoPlay(session)
@@ -2155,8 +2163,8 @@ function PlayDetail({
        * continua legivel no celular.
        */
       const recorte = ehCampeonato
-        ? cats.map((c, ci) => ({ c, linhas: duplasPorCategoria[ci] ?? [] })).filter((_, ci) => catArte === null || catArte === ci)
-        : [{ c: null, linhas: duplasDoDia }]
+        ? cats.map((c, ci) => ({ c, linhas: soComCampea(duplasPorCategoria[ci] ?? []) })).filter((_, ci) => catArte === null || catArte === ci)
+        : [{ c: null, linhas: soComCampea(duplasDoDia) }]
       if (soFase2 && recorte.some((r) => r.linhas.length > 0)) {
         const porId = new Map(dayRows.map((s) => [s.player_id, s]))
         const titulos = ['Campeãs do dia', 'Vice-campeãs', '3º lugar']
@@ -2956,7 +2964,24 @@ function PlayDetail({
       <ListaDePartidas
         titulo={`✅ Já jogadas (${jogadas.length})`}
         vazio="Nenhum placar lançado ainda."
-        partidas={[...jogadas].reverse()}
+        partidas={
+          ehCampeonato
+            ? // por categoria (A, B, C), a mais recente primeiro em cada uma: misturadas pelo
+              // horario, o divisor de fase ficava alternando entre as categorias
+              [...jogadas]
+                .reverse()
+                .filter((m) => filtroCat === null || catDe(m) === filtroCat)
+                .sort((x, y) => catDe(x) - catDe(y))
+            : [...jogadas].reverse()
+        }
+        faseDe={
+          soFase2
+            ? (m) =>
+                `${ehCampeonato ? `${cats[catDe(m)].nome} · ` : ''}${
+                  (m.fase ?? 1) < 2 ? '👥 Fase de grupos' : '🤝 Duplas fixas · mata-mata'
+                }`
+            : undefined
+        }
         grupoDe={ehCampeonato ? categoriaDe : grupoDe}
         totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
         nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
@@ -3275,7 +3300,7 @@ function PlayDetail({
                             rows,
                             nameOf,
                             podios: podiosDoDia(rows, null),
-                            duplas: duplasPorCategoria[ci],
+                            duplas: soComCampea(duplasPorCategoria[ci] ?? []),
                             streaks: streaksDoDia,
                           })
                         })
@@ -3286,7 +3311,7 @@ function PlayDetail({
                         rows: rowsSel,
                         nameOf,
                         podios: podiosSel,
-                        duplas: soFase2 ? duplasDoDia : undefined,
+                        duplas: soFase2 ? soComCampea(duplasDoDia) : undefined,
                         streaks: streaksDoDia,
                         award,
                       })
@@ -3651,6 +3676,7 @@ function ListaDePartidas({
   nomesDosGrupos,
   repetidas,
   emQuadra,
+  faseDe,
   ausentes,
   desempateDe,
   target,
@@ -3674,6 +3700,8 @@ function ListaDePartidas({
   nomesDosGrupos?: string[]
   repetidas: Map<string, Repeticao>
   emQuadra: Set<string>
+  /** Para separar as fases na lista: muda o rotulo, entra um divisor (grupos -> duplas fixas). */
+  faseDe?: (m: Match) => string
   /** A regra do empate de cada partida, para escrever o placar do tie. */
   desempateDe?: (m: Match) => Regra
   target?: number
@@ -3711,8 +3739,13 @@ function ListaDePartidas({
                   (id) => (jogos.get(id) ?? 0) === 0 && !emQuadra.has(id),
                 )
               : []
+            // quando a fase muda de uma linha para a outra, um divisor diz onde
+            const fase = faseDe?.(m)
+            const divisor = fase && (i === 0 || faseDe?.(visiveis[i - 1]) !== fase) ? fase : null
             return (
-              <div key={m.id} className="fila-linha">
+              <div key={m.id}>
+              {divisor && <div className="fase-divisor">{divisor}</div>}
+              <div className="fila-linha">
                 <span className="fila-num">
                   {numerar ? `${i + 1}ª` : m.round}
                   <GrupoTag
@@ -3774,6 +3807,7 @@ function ListaDePartidas({
                     onClick={() => onCorrigir(m)}
                   >✏️</button>
                 )}
+              </div>
               </div>
             )
           })}
@@ -4164,9 +4198,19 @@ function DuplasDoDia({
 
   const medalhas = ['🥇', '🥈', '🥉']
   const podio = linhas.slice(0, DUPLAS_NO_PODIO)
+  // so ha podio quando a FINAL foi jogada: antes disso as medalhas por posicao
+  // davam ouro e prata para quem estava na semifinal (12/10, no teste da organizacao)
+  const temCampea = linhas.some((d) => d.medalha === 3)
+  const situacao = (d: DuplaDoDia) => (d.viva ? 'segue na chave' : `caiu ${d.saiuEm}`)
 
   return (
     <>
+      {!temCampea ? (
+        <div className="banner info" style={{ marginBottom: 8 }}>
+          🏆 <strong>Chave em andamento</strong> — o pódio aparece quando a final for lançada.
+        </div>
+      ) : (
+      <>
       <div className="section-title" style={{ fontSize: 13 }}>🏆 Pódio do dia</div>
       <div className="stack" style={{ gap: 8 }}>
         {podio.map((d, i) => (
@@ -4196,6 +4240,8 @@ function DuplasDoDia({
       <p className="tiny muted" style={{ marginTop: 6 }}>
         Quem está nestas três duplas segura a sequência 🔥 do dia.
       </p>
+      </>
+      )}
 
       <div className="section-title" style={{ fontSize: 13, marginTop: 14 }}>
         🤝 Todas as duplas do mata-mata
@@ -4215,13 +4261,16 @@ function DuplasDoDia({
           <tbody>
             {linhas.map((d, i) => (
               <tr key={d.key}>
-                <td className={`rank-pos top${i + 1}`} style={{ fontWeight: 800 }}>{i + 1}</td>
+                <td className={`rank-pos${temCampea ? ` top${i + 1}` : ''}`} style={{ fontWeight: 800 }}>{i + 1}</td>
                 <td>
                   <div className="row" style={{ gap: 6 }}>
                     <Avatar player={playerById(d.a)} size={24} />
                     <Avatar player={playerById(d.b)} size={24} />
-                    <span className="ellipsis">
-                      {nameOf(d.a)} + {nameOf(d.b)}
+                    <span className="grow" style={{ minWidth: 0 }}>
+                      <span className="ellipsis" style={{ display: 'block' }}>
+                        {nameOf(d.a)} + {nameOf(d.b)}
+                      </span>
+                      {!temCampea && <span className="tiny muted">{situacao(d)}</span>}
                     </span>
                   </div>
                 </td>
