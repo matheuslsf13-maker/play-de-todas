@@ -2,7 +2,7 @@ import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar, Empty, Modal } from '../components/ui'
 import ImportarLista from '../components/ImportarLista'
-import { nivelDeForca, notaDeForca, rankingDeForca, textoDaQueda } from '../lib/forca'
+import { NIVEIS_DE_FORCA, nivelDeForca, notaDeForca, rankingDeForca, textoDaQueda } from '../lib/forca'
 import {
   CATEGORIAS,
   categoriaDe,
@@ -12,8 +12,7 @@ import {
   type Categoria,
 } from '../lib/mensalidade'
 import { squareThumb } from '../lib/image'
-import { playedMatches } from '../lib/stats'
-import { ELO_INICIAL, ratings } from '../lib/stats'
+import { ELO_INICIAL, pausaNaForca, playedMatches, quedaPorFalta, ratings } from '../lib/stats'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
@@ -32,6 +31,17 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const [editando, setEditando] = useState<Player | null>(null)
   /** Filtro da lista: nome, apelido ou outra grafia, sem acento. */
   const [busca, setBusca] = useState('')
+  /** Os filtros por chip ficam guardados no aparelho, como a aba aberta. */
+  const [filtro, setFiltro] = useState<Filtro>(lerFiltro)
+  const mudarFiltro = (f: Partial<Filtro>) => {
+    const novo = { ...filtro, ...f }
+    setFiltro(novo)
+    try {
+      localStorage.setItem(CHAVE_DO_FILTRO, JSON.stringify(novo))
+    } catch {
+      /* sem armazenamento: o filtro so nao fica guardado */
+    }
+  }
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   /** Forca de cada jogadora, para o nivel aparecer na linha dela. */
@@ -43,7 +53,30 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
     return m
   }, [data])
 
+  // pausada na ficha (Stats) e quem esta faltando: as duas coisas que tiram
+  // do ranking da forca. Quem nunca jogou tambem pode estar pausada.
+  const pausas = useMemo(() => pausaNaForca(data), [data])
+  const faltas = useMemo(() => quedaPorFalta(data), [data])
+  const situacoes = useMemo(() => new Map(data.players.map((p) => [p.id, situacaoDoAtleta(p, data)])), [data])
+
+  const passa: Record<FiltroDeSituacao, (p: Player) => boolean> = {
+    todas: () => true,
+    ativas: (p) => p.active,
+    inativas: (p) => !p.active,
+    pausadas: (p) => pausas.get(p.id) === 'manual',
+    faltando: (p) => (faltas.get(p.id)?.faltas ?? 0) >= 2,
+    devendo: (p) => situacoes.get(p.id)?.cor === 'devendo',
+    novas: (p) => !forcaPorId.has(p.id),
+    semfoto: (p) => !p.photo_url,
+  }
+  const contagem = (sit: FiltroDeSituacao) => data.players.filter(passa[sit]).length
+  // a categoria e o nivel so aparecem quando ha mais de um em uso
+  const categoriasEmUso = CATEGORIAS.filter((c) => data.players.some((p) => categoriaDe(p) === c.valor))
+  const niveisEmUso = NIVEIS_DE_FORCA.filter((n) => [...forcaPorId.values()].some((f) => f.nivel.titulo === n.titulo))
+
   const termo = normalizar(busca)
+  const filtrando = filtro.situacao !== 'todas' || filtro.categoria !== null || filtro.nivel !== null
+  const notaDe = (p: Player) => forcaPorId.get(p.id)?.nota ?? -Infinity
   const sorted = [...data.players]
     .filter(
       (p) =>
@@ -52,9 +85,16 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
         normalizar(p.nickname ?? '').includes(termo) ||
         (p.aliases ?? []).some((a) => normalizar(a).includes(termo)),
     )
+    .filter(passa[filtro.situacao])
+    .filter((p) => filtro.categoria === null || categoriaDe(p) === filtro.categoria)
+    .filter((p) => filtro.nivel === null || forcaPorId.get(p.id)?.nivel.titulo === filtro.nivel)
     .sort(
-    (a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pt-BR'),
-  )
+      (a, b) =>
+        (filtro.ordem === 'forca' ? notaDe(b) - notaDe(a) : 0) ||
+        (filtro.ordem === 'faltas' ? (faltas.get(b.id)?.faltas ?? 0) - (faltas.get(a.id)?.faltas ?? 0) : 0) ||
+        Number(b.active) - Number(a.active) ||
+        a.name.localeCompare(b.name, 'pt-BR'),
+    )
 
   async function add() {
     const n = name.trim()
@@ -199,11 +239,89 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
           placeholder="Buscar pelo nome, apelido ou outra grafia"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          style={{ marginBottom: 10 }}
+          style={{ marginBottom: 8 }}
         />
+        <div className="filtros-meninas">
+          <div className="chips-scroll">
+            {SITUACOES.map((x) => {
+              const n = contagem(x.valor)
+              // filtro vazio nao aparece (menos o escolhido, para dar para sair dele)
+              if (n === 0 && x.valor !== 'todas' && filtro.situacao !== x.valor) return null
+              return (
+                <button
+                  key={x.valor}
+                  className={`chip ${filtro.situacao === x.valor ? 'on' : 'off'}`}
+                  onClick={() => mudarFiltro({ situacao: x.valor })}
+                  title={x.explica}
+                >
+                  {x.rotulo} <span className="filtro-n">{n}</span>
+                </button>
+              )
+            })}
+          </div>
+          {categoriasEmUso.length > 1 && (
+            <div className="chips-scroll">
+              <button className={`chip ${filtro.categoria === null ? 'on' : 'off'}`} onClick={() => mudarFiltro({ categoria: null })}>
+                Qualquer cadastro
+              </button>
+              {categoriasEmUso.map((c) => (
+                <button
+                  key={c.valor}
+                  className={`chip ${filtro.categoria === c.valor ? 'on' : 'off'}`}
+                  onClick={() => mudarFiltro({ categoria: filtro.categoria === c.valor ? null : c.valor })}
+                >
+                  {c.rotulo}
+                </button>
+              ))}
+            </div>
+          )}
+          {niveisEmUso.length > 1 && (
+            <div className="chips-scroll">
+              <button className={`chip ${filtro.nivel === null ? 'on' : 'off'}`} onClick={() => mudarFiltro({ nivel: null })}>
+                Qualquer nível
+              </button>
+              {niveisEmUso.map((n) => (
+                <button
+                  key={n.titulo}
+                  className={`chip ${filtro.nivel === n.titulo ? 'on' : 'off'}`}
+                  onClick={() => mudarFiltro({ nivel: filtro.nivel === n.titulo ? null : n.titulo })}
+                >
+                  {n.emoji} {n.titulo}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="row spread filtros-rodape">
+            <span className="tiny muted">
+              {filtrando || termo ? `${sorted.length} de ${data.players.length}` : plural(data.players.length, 'jogadora')}
+              {filtrando && (
+                <>
+                  {' · '}
+                  <button className="linkish" onClick={() => mudarFiltro({ situacao: 'todas', categoria: null, nivel: null })}>
+                    limpar filtros
+                  </button>
+                </>
+              )}
+            </span>
+            <div className="row" style={{ gap: 4 }} role="group" aria-label="Ordenar">
+              {ORDENS.map((o) => (
+                <button
+                  key={o.valor}
+                  className={`chip ${filtro.ordem === o.valor ? 'on' : 'off'}`}
+                  onClick={() => mudarFiltro({ ordem: o.valor })}
+                >
+                  {o.rotulo}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         {sorted.length === 0 ? (
-          termo ? (
-            <Empty icon="🔎">Nenhuma jogadora com “{busca.trim()}”.</Empty>
+          termo || filtrando ? (
+            <Empty icon="🔎">
+              Nenhuma jogadora{termo ? ` com “${busca.trim()}”` : ''}
+              {filtrando ? ' nesse filtro' : ''}.
+            </Empty>
           ) : (
             <Empty icon="👯">Cadastre as meninas do grupo para começar.</Empty>
           )
@@ -237,7 +355,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                   <SinalDePagamento jogadora={p} />
                   {(() => {
                     const f = forcaPorId.get(p.id)
-                    if (!f) return null
+                    // sem jogos nao ha linha de forca, mas a pausa aparece igual
+                    if (!f) return pausas.get(p.id) === 'manual' ? <div className="tiny muted">⏸️ pausada</div> : null
                     return (
                       <div className="tiny nowrap" style={{ marginTop: 2 }}>
                         <span style={{ color: f.nivel.cor, fontWeight: 800 }}>
@@ -260,7 +379,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                       'salvando foto…'
                     ) : (
                       <>
-                        {!p.active && <span className="pausada">pausada</span>}
+                        {!p.active && <span className="pausada">inativa</span>}
                         {canEdit && (
                           <>
                             <button className="linkish" onClick={() => setEditando(p)}>
@@ -288,7 +407,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                   <div className="row spread atleta-acoes">
                     <div className="row" style={{ gap: 6 }}>
                     <button className="btn ghost sm" onClick={() => void savePlayer({ ...p, active: !p.active })}>
-                      {p.active ? 'Pausar' : 'Ativar'}
+                      {p.active ? 'Inativar' : 'Ativar'}
                     </button>
                     <button className="btn ghost sm" title="juntar com outra jogadora" onClick={() => setJuntando(p)}>
                       🔗
@@ -315,7 +434,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
           partidas, pontos e sequência das duas passam para a que ficar.{' '}
           A foto aparece no pódio do ranking mensal. Toque na foto (ou em <em>pôr/trocar foto</em>) para escolher,
           e em <em>remover foto</em> para voltar às iniciais.
-          Quem está <strong>pausada</strong> não aparece na hora de montar o play, mas mantém o histórico.
+          Quem está <strong>inativa</strong> não aparece na hora de montar o play, mas mantém o histórico. Já a <strong>⏸️ pausada</strong> (na ficha, em Stats) continua no cadastro e só sai do ranking da força.
         </p>
       </div>
     </>
@@ -672,4 +791,48 @@ function ForcaInicial({
       </em>
     </div>
   )
+}
+
+type FiltroDeSituacao = 'todas' | 'ativas' | 'inativas' | 'pausadas' | 'faltando' | 'devendo' | 'novas' | 'semfoto'
+type Filtro = {
+  situacao: FiltroDeSituacao
+  categoria: Categoria | null
+  /** Titulo do nivel de forca (`NIVEIS_DE_FORCA`). */
+  nivel: string | null
+  ordem: 'nome' | 'forca' | 'faltas'
+}
+
+const CHAVE_DO_FILTRO = 'play-de-todas:meninas-filtro'
+const FILTRO_PADRAO: Filtro = { situacao: 'todas', categoria: null, nivel: null, ordem: 'nome' }
+
+const SITUACOES: { valor: FiltroDeSituacao; rotulo: string; explica: string }[] = [
+  { valor: 'todas', rotulo: 'Todas', explica: 'Todo o cadastro' },
+  { valor: 'ativas', rotulo: 'Ativas', explica: 'Aparecem na hora de montar o play' },
+  { valor: 'inativas', rotulo: 'Inativas', explica: 'Fora do cadastro ativo; o histórico continua' },
+  { valor: 'pausadas', rotulo: '⏸️ Pausadas', explica: 'Pausadas na ficha (Stats): fora do ranking da força' },
+  { valor: 'faltando', rotulo: '📉 Faltando', explica: '2 ou mais faltas seguidas: perdendo força e fora do ranking' },
+  { valor: 'devendo', rotulo: '💸 Devendo', explica: 'Bloqueadas pelo pagamento' },
+  { valor: 'novas', rotulo: '🆕 Sem jogos', explica: 'Ainda não jogaram nenhuma partida' },
+  { valor: 'semfoto', rotulo: '📷 Sem foto', explica: 'Sem foto no cadastro' },
+]
+
+const ORDENS: { valor: Filtro['ordem']; rotulo: string }[] = [
+  { valor: 'nome', rotulo: 'A-Z' },
+  { valor: 'forca', rotulo: '💪 Força' },
+  { valor: 'faltas', rotulo: 'Faltas' },
+]
+
+function lerFiltro(): Filtro {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE_DO_FILTRO) ?? 'null') as Partial<Filtro> | null
+    if (!salvo) return FILTRO_PADRAO
+    return {
+      situacao: SITUACOES.some((x) => x.valor === salvo.situacao) ? (salvo.situacao as FiltroDeSituacao) : 'todas',
+      categoria: CATEGORIAS.some((c) => c.valor === salvo.categoria) ? (salvo.categoria as Categoria) : null,
+      nivel: NIVEIS_DE_FORCA.some((n) => n.titulo === salvo.nivel) ? (salvo.nivel as string) : null,
+      ordem: ORDENS.some((o) => o.valor === salvo.ordem) ? (salvo.ordem as Filtro['ordem']) : 'nome',
+    }
+  } catch {
+    return FILTRO_PADRAO
+  }
 }

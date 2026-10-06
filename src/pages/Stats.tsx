@@ -22,6 +22,7 @@ import {
   playedMatches,
   pontosDeBye,
   winRate,
+  fecharPausa,
 } from '../lib/stats'
 import { colocacaoNoRecorte, colocacaoPorDupla } from '../lib/campeonato'
 import {
@@ -883,7 +884,8 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
   const p = data.players.find((x) => x.id === id)
   if (!p) return null
   const hoje = todayISO()
-  const aberta = (p.pausas ?? []).find((x) => !x.ate)
+  const sessoes = new Set(data.sessions.map((s) => s.id))
+  const aberta = (p.pausas ?? []).find((x) => !x.ate || (x.play && !sessoes.has(x.play)))
   function pausar() {
     if (!p) return
     if (!confirm(`Pausar ${nameOf(id)}? Ela sai do ranking da força até despausar (as faltas continuam baixando a força).`)) return
@@ -900,9 +902,7 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
           <button
             className="btn ghost sm block"
             style={{ marginTop: 8 }}
-            onClick={() =>
-              savePlayer({ ...p, pausas: (p.pausas ?? []).map((x) => (x.ate ? x : { ...x, ate: hoje })) })
-            }
+            onClick={() => savePlayer(fecharPausa(data, p, hoje))}
           >
             ▶️ Despausar {nameOf(id)}
           </button>

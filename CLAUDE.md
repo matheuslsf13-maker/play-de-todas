@@ -94,6 +94,12 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   colada pergunta uma vez por todas; o "Todas" deixa as pausadas de fora). Além disso,
   com **2 faltas seguidas** ela sai do ranking da força sozinha (a queda gradual continua)
   e volta ao jogar, ou no "Voltar ao ranking agora" da ficha.
+  Despausar ao montar o play só vale **quando o play é criado** (`pausas[].play` guarda o
+  id dele): desistir de montar ou **apagar o play** devolve a pausa sozinha (`pausaAberta`).
+  Não confundir com **inativa** (o "Inativar" da aba Meninas, `players.active`): essa some
+  da hora de montar o play. A aba Meninas tem filtros (ativas, inativas, ⏸️ pausadas,
+  📉 faltando, 💸 devendo, sem jogos, sem foto, cadastro, nível) e ordena por nome, força
+  ou faltas; os filtros ficam guardados no aparelho (`play-de-todas:meninas-filtro`).
 - **A dupla tem força própria** (`forcaDeDuplas`, aba “🤝 Dupla”). Não é a média
   das duas — essa é só o **ponto de partida**. A partir dela, cada partida
   **daquela dupla** move a nota pela fórmula do Elo, então `nota − base` é o

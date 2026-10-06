@@ -34,7 +34,12 @@ export type Player = {
    * nulo) ela some do ranking da forca. As faltas continuam derrubando a nota,
    * como as de todo mundo. Fechar a pausa traz ela de volta ao ranking (script 24).
    */
-  pausas?: { de: string; ate: string | null }[] | null
+  pausas?: {
+    de: string
+    ate: string | null
+    /** Despausada por entrar neste play: se ele for apagado, a pausa volta. */
+    play?: string | null
+  }[] | null
   /**
    * "Voltar ao ranking" na mao depois da pausa automatica por faltas: so as
    * faltas DEPOIS desta data contam para tirar de novo do ranking da forca.

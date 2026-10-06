@@ -1376,3 +1376,10 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 /* dupla em lista: os dois nomes aparecem sempre (ver NomesDaDupla) */
 .dupla-nomes { display: block; min-width: 0; }
 .dupla-nome { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+
+/* filtros da aba Meninas: linhas de chips que rolam de lado */
+.filtros-meninas { display: grid; gap: 6px; margin-bottom: 10px; }
+.filtros-meninas .chips-scroll { margin: 0; }
+.filtros-meninas .filtro-n { opacity: 0.7; font-variant-numeric: tabular-nums; margin-left: 2px; }
+.filtros-rodape { align-items: center; flex-wrap: wrap; gap: 6px; }
+.filtros-rodape .chip { padding: 4px 10px; font-size: 12px; }

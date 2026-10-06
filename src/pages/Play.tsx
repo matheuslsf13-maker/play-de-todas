@@ -73,6 +73,8 @@ import {
   ratings,
   aplicarColocacao,
   computeStatsComPontos,
+  fecharPausa,
+  pausaAberta,
 } from '../lib/stats'
 import { buildDayPoster, buildDayPosterGrupos, type PosterRow } from '../lib/poster'
 import {
@@ -334,7 +336,7 @@ function ConfirmarExclusao({ session, onClose }: { session: PlaySession; onClose
         disabled={texto.trim().toUpperCase() !== PALAVRA}
         onClick={() => { void deleteSession(session.id); onClose() }}
       >
-        🗑 Apagar o play e {plural(jogadas.length, 'o resultado', 'os resultados')}
+        🗑 Apagar o play{jogadas.length === 0 ? '' : jogadas.length === 1 ? ' e o resultado' : ` e os ${jogadas.length} resultados`}
       </button>
       <button className="btn ghost block sm" style={{ marginTop: 8 }} onClick={onClose}>
         Cancelar
@@ -557,12 +559,15 @@ function NewPlay({
    * seria o portao existir so para quem monta o play no dedo.
    */
   /** Pausada na mao agora (vai ficar um tempo fora): entrar no play pede para despausar. */
-  const estaPausada = (id: string) => (data.players.find((x) => x.id === id)?.pausas ?? []).some((x) => !x.ate)
-  function despausar(id: string) {
+  // despausar so vale quando o play e criado (grava o id dele na pausa): desistir
+  // de montar, ou apagar o play depois, deixa a menina pausada como estava
+  const [despausadas, setDespausadas] = useState<string[]>([])
+  const estaPausada = (id: string) => {
     const p = data.players.find((x) => x.id === id)
-    if (!p) return
-    const hoje = todayISO()
-    savePlayer({ ...p, pausas: (p.pausas ?? []).map((x) => (x.ate ? x : { ...x, ate: hoje })) })
+    return !!p && !despausadas.includes(id) && pausaAberta(data, p)
+  }
+  function despausar(id: string) {
+    setDespausadas((cur) => (cur.includes(id) ? cur : [...cur, id]))
   }
 
   function aplicarLista(idsDaLista: string[]): number {
@@ -678,6 +683,10 @@ function NewPlay({
       }
       await saveSession(session)
       await saveMatches(planToMatches(session.id, fila))
+      for (const id of despausadas) {
+        const p = data.players.find((x) => x.id === id)
+        if (p && selected.includes(id)) void savePlayer(fecharPausa(data, p, todayISO(), session.id))
+      }
       onToast('Partidas geradas! 🎾')
       onCreated(session.id)
     } finally {

@@ -378,7 +378,7 @@ function SecaoAtletas({
                     <div className="row spread" style={{ gap: 6 }}>
                       <div style={{ fontWeight: 700 }} className="ellipsis">
                         {nameOf(p.id)}
-                        {!p.active && <span className="tiny muted"> · pausada</span>}
+                        {!p.active && <span className="tiny muted"> · inativa</span>}
                       </div>
                       {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && (
                         <button className="linkish" style={{ padding: 0 }} onClick={() => onContas(p, 'extrato')}>
@@ -2012,7 +2012,7 @@ function LancarModal({
               <select className="select" value={playerId} onChange={(e) => { setPlayerId(e.target.value); setPrefeito(false) }}>
                 <option value="">Escolha…</option>
                 {jogadoras.map((p) => (
-                  <option key={p.id} value={p.id}>{nameOf(p.id)}{!p.active ? ' (pausada)' : ''}</option>
+                  <option key={p.id} value={p.id}>{nameOf(p.id)}{!p.active ? ' (inativa)' : ''}</option>
                 ))}
               </select>
             </label>

@@ -1,5 +1,5 @@
 import { isPlayed, matchPoints } from './scoring'
-import type { AppData, Match, PlaySession } from './types'
+import type { AppData, Match, Player, PlaySession } from './types'
 import { monthOf } from './types'
 
 export type PlayerStat = {
@@ -448,9 +448,27 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
  *     derrubando a forca como as de todo mundo; a pausa so tira do ranking;
  *   - 'faltas': 2 faltas seguidas -- volta sozinha quando jogar, ou na mao.
  */
+/**
+ * A pausa na mao esta aberta? Sem `ate`, sim. E tambem quando ela foi fechada
+ * por ENTRAR NUM PLAY (`play`) e esse play nao existe mais: apagar o play
+ * devolve a menina para a pausa, sem nada para desfazer na mao.
+ */
+export function pausaAberta(data: AppData, p: Player): boolean {
+  return (p.pausas ?? []).some((x) => !x.ate || (!!x.play && !data.sessions.some((s) => s.id === x.play)))
+}
+
+/** Fecha a pausa aberta (inclusive a que voltou porque o play sumiu). `play`: o play em que ela entrou. */
+export function fecharPausa(data: AppData, p: Player, ate: string, play: string | null = null): Player {
+  const sessoes = new Set(data.sessions.map((s) => s.id))
+  return {
+    ...p,
+    pausas: (p.pausas ?? []).map((x) => (!x.ate || (x.play && !sessoes.has(x.play)) ? { ...x, ate, play } : x)),
+  }
+}
+
 export function pausaNaForca(data: AppData): Map<string, 'manual' | 'faltas'> {
   const out = new Map<string, 'manual' | 'faltas'>()
-  for (const p of data.players) if ((p.pausas ?? []).some((x) => !x.ate)) out.set(p.id, 'manual')
+  for (const p of data.players) if (pausaAberta(data, p)) out.set(p.id, 'manual')
   for (const [id, q] of calcularElo(data).queda) {
     if (!out.has(id) && q.desdeReativacao >= 2) out.set(id, 'faltas')
   }

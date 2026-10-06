@@ -159,3 +159,19 @@ test('2 faltas seguidas: sai do ranking da forca sozinha; reativar na mao traz d
   ;(d.players.find((p) => p.id === 'x') as { reativada_em?: string | null }).reativada_em = null
   assert.equal(pausaNaForca(d).get('x'), undefined)
 })
+
+import { pausaAberta } from '../src/lib/stats'
+
+test('despausada ao entrar num play: apagar o play devolve a pausa', () => {
+  const d = base({ x: 1560, a: 1500, b: 1500, c: 1500 })
+  const x = d.players.find((p) => p.id === 'x') as { pausas?: unknown }
+  x.pausas = [{ de: '2026-09-02', ate: '2026-09-08', play: 's9' }]
+  playCom(d, 's9', '2026-09-08', ['x', 'a', 'b', 'c'])
+  assert.equal(pausaNaForca(d).get('x'), undefined, 'o play existe: despausada')
+  d.sessions = d.sessions.filter((s) => s.id !== 's9')
+  assert.equal(pausaNaForca(d).get('x'), 'manual', 'o play foi apagado: volta a pausa')
+  assert.ok(pausaAberta(d, d.players.find((p) => p.id === 'x')!))
+  // despausada na mao (sem play) continua despausada
+  x.pausas = [{ de: '2026-09-02', ate: '2026-09-08' }]
+  assert.equal(pausaNaForca(d).get('x'), undefined)
+})
