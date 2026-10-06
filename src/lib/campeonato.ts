@@ -66,6 +66,30 @@ export function quadrasPadrao(nCategorias: number, total: number): number[][] {
   return Array.from({ length: nCategorias }, (_, i) => [Math.min(i + 1, Math.max(1, total))])
 }
 
+/**
+ * Os ajustes na mao por cima da divisao automatica: quem foi movida e para
+ * qual categoria e grupo. Um de cada vez, na ordem em que foram feitos; o que
+ * nao vale mais e pulado -- destino que nao existe (mudou o numero de
+ * categorias ou de grupos) e o que deixaria um grupo com menos de 4.
+ */
+export function aplicarMovidasNoCampeonato(
+  estrutura: string[][][],
+  movidas: Record<string, { c: number; g: number }>,
+): string[][][] {
+  const out = estrutura.map((cat) => cat.map((g) => g.slice()))
+  for (const [id, { c, g }] of Object.entries(movidas)) {
+    if (!out[c]?.[g]) continue
+    const ci = out.findIndex((cat) => cat.some((grupo) => grupo.includes(id)))
+    if (ci < 0) continue
+    const gi = out[ci].findIndex((grupo) => grupo.includes(id))
+    if (ci === c && gi === g) continue
+    if (out[ci][gi].length <= 4) continue
+    out[ci][gi] = out[ci][gi].filter((x) => x !== id)
+    out[c][g] = [...out[c][g], id]
+  }
+  return out
+}
+
 /** De [categoria][grupo][ids] para o que a sessao grava: os grupos numa lista so e as categorias apontando para eles. */
 export function montarCategorias(
   estrutura: string[][][],

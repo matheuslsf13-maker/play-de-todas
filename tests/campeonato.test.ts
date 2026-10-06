@@ -416,3 +416,22 @@ test('colocacao entra nos pontos e na coluna propria (nao na do bye)', () => {
   // quem nao tem partida no recorte nao ganha linha nova
   assert.equal(aplicarColocacao(computeStats([]), col).size, 0)
 })
+
+import { aplicarMovidasNoCampeonato } from '../src/lib/campeonato'
+
+test('mover menina entre categorias e grupos', () => {
+  const e = [[['a', 'b', 'c', 'd', 'e'], ['f', 'g', 'h', 'i']], [['j', 'k', 'l', 'm'], ['n', 'o', 'p', 'q']]]
+  const r = aplicarMovidasNoCampeonato(e, { e: { c: 1, g: 1 } })
+  assert.deepEqual(r[0][0], ['a', 'b', 'c', 'd'])
+  assert.deepEqual(r[1][1], ['n', 'o', 'p', 'q', 'e'])
+})
+
+test('ajuste que deixaria grupo com menos de 4 e ignorado', () => {
+  const e = [[['a', 'b', 'c', 'd'], ['f', 'g', 'h', 'i']]]
+  assert.deepEqual(aplicarMovidasNoCampeonato(e, { a: { c: 0, g: 1 } }), e)
+})
+
+test('ajuste para categoria ou grupo que nao existe mais e ignorado', () => {
+  const e = [[['a', 'b', 'c', 'd', 'e'], ['f', 'g', 'h', 'i']]]
+  assert.deepEqual(aplicarMovidasNoCampeonato(e, { a: { c: 3, g: 0 }, b: { c: 0, g: 5 } }), e)
+})

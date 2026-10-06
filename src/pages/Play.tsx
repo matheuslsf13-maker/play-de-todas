@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import DivisaoDoCampeonato from '../components/DivisaoDoCampeonato'
+import {
+  PONTUACAO_PADRAO,
+  aplicarMovidasNoCampeonato,
+  dividirEmCategorias,
+  montarCategorias,
+} from '../lib/campeonato'
 import ImportarLista from '../components/ImportarLista'
 import { Avatar, Empty, Modal, StatBox, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
@@ -8,7 +15,6 @@ import {
   aplicarAjustesDeGrupo,
   duplasQueEntraram,
   formarGrupos,
-  gruposEquilibrados,
   gerarFila,
   nomeDaRodada,
   rodadaDoMataMata,
@@ -104,7 +110,10 @@ import {
 import { RankTable } from './Ranking'
 
 /** Os formatos, na ordem em que fazem sentido escolher. */
-const FORMATOS: { valor: PlayFormat; rotulo: string; explica: string }[] = [
+/** O formato escolhido na tela: o campeonato e um `grupos-duplas` com categorias. */
+type FormatoDaTela = PlayFormat | 'campeonato'
+
+const FORMATOS: { valor: FormatoDaTela; rotulo: string; explica: string }[] = [
   {
     valor: 'todas',
     rotulo: '🔁 Todas com todas',
@@ -114,6 +123,11 @@ const FORMATOS: { valor: PlayFormat; rotulo: string; explica: string }[] = [
     valor: 'grupos-duplas',
     rotulo: '🤝 Grupos + duplas',
     explica: 'rodízio dentro do grupo, depois dupla fixa por colocação e mata-mata',
+  },
+  {
+    valor: 'campeonato',
+    rotulo: '🏆 Campeonato',
+    explica: 'categorias por nível (A, B, C…), grupos em cada uma, duplas fixas e mata-mata, com pódio por categoria',
   },
   {
     valor: 'grupos',
@@ -206,6 +220,7 @@ function PlayList({
               const ms = data.matches.filter((m) => m.session_id === s.id)
               const done = ms.filter(isPlayed).length
               const grupos = s.groups?.length ?? 0
+              const categorias = s.categorias?.length ?? 0
               return (
                 <div key={s.id} className="row" style={{ borderBottom: '1px dashed var(--line)', paddingBottom: 10 }}>
                   <div className="grow" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer', minWidth: 0 }}>
@@ -216,7 +231,7 @@ function PlayList({
                     </div>
                     <div className="tiny muted">
                       {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {s.courts} quadras
-                      {grupos > 1 && ` · ${grupos} grupos`} · {done}/{ms.length} partidas
+                      {categorias > 1 ? ` · ${categorias} categorias` : grupos > 1 ? ` · ${grupos} grupos` : ''} · {done}/{ms.length} partidas
                     </div>
                   </div>
                   <button className="btn ghost sm" onClick={() => onOpen(s.id)}>Abrir</button>
@@ -329,7 +344,9 @@ function NewPlay({
   const [date, setDate] = useState(preset.date ?? todayISO())
   const [title, setTitle] = useState(preset.title ?? 'Play de Todas')
   const [courts, setCourts] = useState(preset.courts ?? 3)
-  const [format, setFormat] = useState<PlayFormat>(preset.format ?? 'todas')
+  const [format, setFormat] = useState<FormatoDaTela>(
+    (preset.categorias?.length ?? 0) > 1 ? 'campeonato' : (preset.format ?? 'todas'),
+  )
   const [porGrupo, setPorGrupo] = useState(8)
   /** Quantas duplas entram no mata-mata: 8 = 16 jogadoras, quartas de final. */
   const [duplasMM, setDuplasMM] = useState(8)
@@ -356,7 +373,17 @@ function NewPlay({
 
   // no modo em grupos o app decide quantos grupos cabem: quem escolhe e o
   // tamanho, e a conta sai do numero de meninas que confirmaram
-  const emDuplas = format === 'grupos-duplas'
+  const emCampeonato = format === 'campeonato'
+  const emDuplas = format === 'grupos-duplas' || emCampeonato
+  /** Campeonato: quantas categorias e quantos grupos em cada uma. */
+  const [nCategorias, setNCategorias] = useState(3)
+  const [gruposPorCategoria, setGruposPorCategoria] = useState(2)
+  /** Campeonato: quantas quadras cada categoria tem (null = dividir o total por igual). */
+  const [qtdQuadrasEditada, setQtdQuadras] = useState<number[] | null>(null)
+  /** Campeonato: ajustes na mao, menina -> categoria e grupo. */
+  const [movidasCat, setMovidasCat] = useState<Record<string, { c: number; g: number }>>({})
+  /** Pontos do mes por colocacao (grupos+duplas e campeonato). */
+  const [pontuacao, setPontuacao] = useState<number[]>(preset.pontuacao ?? PONTUACAO_PADRAO)
   /**
    * A semente do sorteio entre as empatadas em forca.
    *
@@ -378,13 +405,36 @@ function NewPlay({
   const [movendo, setMovendo] = useState<string | null>(null)
   const gruposBase = useMemo(() => {
     if (selected.length < 8) return [selected]
-    // no formato com fase 2 os grupos precisam ter a MESMA forca, senao ser 1a
-    // vale mais num grupo do que no outro e a dupla da fase 2 fica injusta
-    if (emDuplas) return gruposEquilibrados(selected, forca, porGrupo, sorteio)
-    if (format === 'grupos') return formarGrupos(selected, forca, porGrupo, sorteio)
+    // grupos POR NIVEL tambem no grupos+duplas: com grupos equilibrados a 1a de
+    // cada grupo era uma das mais fortes do dia, e "1a com 1a" virava uma
+    // superdupla. Por nivel, a dupla das primeiras e favorita sem ser imbativel
+    if (format === 'grupos' || format === 'grupos-duplas') return formarGrupos(selected, forca, porGrupo, sorteio)
     return [selected]
-  }, [format, emDuplas, selected, forca, porGrupo, sorteio])
-  const grupos = useMemo(() => aplicarAjustesDeGrupo(gruposBase, movidas), [gruposBase, movidas])
+  }, [format, selected, forca, porGrupo, sorteio])
+  /** Campeonato: [categoria][grupo][ids], ja com os ajustes na mao. */
+  const estrutura = useMemo(
+    () =>
+      emCampeonato
+        ? aplicarMovidasNoCampeonato(
+            dividirEmCategorias(selected, forca, nCategorias, gruposPorCategoria, sorteio),
+            movidasCat,
+          )
+        : [],
+    [emCampeonato, selected, forca, nCategorias, gruposPorCategoria, sorteio, movidasCat],
+  )
+  /**
+   * Quantas quadras cada categoria tem. O padrao e o que os grupos dela enchem
+   * ao mesmo tempo (2 grupos de 4 = 2 quadras): no campeonato o numero de
+   * quadras e por categoria, e a organizadora so mexe se tiver menos.
+   */
+  const qtdQuadras = useMemo(() => {
+    const base = qtdQuadrasEditada ?? estrutura.map((gs) => Math.max(1, quadrasSimultaneas(gs.map((g) => g.length))))
+    return Array.from({ length: nCategorias }, (_, i) => base[i] ?? 1)
+  }, [qtdQuadrasEditada, nCategorias, estrutura])
+  const grupos = useMemo(
+    () => (emCampeonato ? estrutura.flat() : aplicarAjustesDeGrupo(gruposBase, movidas)),
+    [emCampeonato, estrutura, gruposBase, movidas],
+  )
   const tamanhos = grupos.map((g) => g.length)
 
   /** A forca media do grupo, na escala de 1500 -- a que aparece nas telas. */
@@ -409,14 +459,45 @@ function NewPlay({
   function sortearDeNovo() {
     setSorteio(Math.floor(Math.random() * 2 ** 31))
     setMovidas({})
+    setMovidasCat({})
     setMovendo(null)
   }
+
+  /** Campeonato: menina para outra categoria e grupo (o grupo de onde sai nao fica com menos de 4). */
+  function moverNoCampeonato(id: string, c: number, g: number) {
+    const de = estrutura.flat().find((x) => x.includes(id))
+    if (de && de.length <= 4) {
+      onToast('O grupo dela ficaria com menos de 4 -- não dá para tirar ninguém dele')
+      return
+    }
+    setMovidasCat((m) => ({ ...m, [id]: { c, g } }))
+    setMovendo(null)
+  }
+
+  /**
+   * Campeonato: as quadras de cada categoria, numeradas em sequencia (A nas
+   * primeiras), sem passar do que os grupos dela enchem ao mesmo tempo -- uma
+   * quadra a mais so ficaria parada.
+   */
+  const quadrasDoCampeonato = useMemo(() => {
+    let proxima = 1
+    return estrutura.map((gs, c) => {
+      const cabem = Math.max(1, quadrasSimultaneas(gs.map((g) => g.length)))
+      const qtd = Math.min(qtdQuadras[c] ?? 1, cabem)
+      const qs = Array.from({ length: qtd }, (_, i) => proxima + i)
+      proxima += qtd
+      return qs
+    })
+  }, [estrutura, qtdQuadras])
 
   // as quadras saem dos GRUPOS, nao do total: cada partida precisa de quatro do
   // mesmo grupo, entao dois grupos de 6 (12 meninas) enchem duas quadras e nao
   // tres, e sobram duas de cada grupo esperando
   const maxCourts = quadrasSimultaneas(tamanhos)
-  const effCourts = Math.min(courts, maxCourts)
+  // no campeonato as quadras sao por categoria, e quem decide e o cartao delas
+  const effCourts = emCampeonato
+    ? quadrasDoCampeonato.reduce((t, q) => t + q.length, 0)
+    : Math.min(courts, maxCourts)
   /** O limite veio da divisao em grupos, e nao de faltar gente? */
   const travadoPorGrupo = grupos.length > 1 && maxCourts < Math.floor(selected.length / 4)
 
@@ -481,6 +562,10 @@ function NewPlay({
   }
 
   async function create() {
+    if (emCampeonato && selected.length < nCategorias * gruposPorCategoria * 4) {
+      onToast('Faltam meninas para essas categorias -- cada grupo precisa de pelo menos 4')
+      return
+    }
     if (grupos.length > 1 && tamanhos.some((t) => t < 4)) {
       onToast('Todo grupo precisa de pelo menos 4 -- ajuste os grupos antes de gerar')
       return
@@ -492,11 +577,12 @@ function NewPlay({
     setBusy(true)
     try {
       const emGrupos = (format === 'grupos' || emDuplas) && grupos.length > 1
+      const camp = emCampeonato ? montarCategorias(estrutura, quadrasDoCampeonato) : null
       const fila = gerarFila({
         playerIds: selected,
         ratings: forca,
         history: buildHistory(playedMatches(data)),
-        groups: emGrupos ? grupos : undefined,
+        groups: emGrupos ? (camp ? camp.groups : grupos) : undefined,
       })
       const session: PlaySession = {
         id: uid(),
@@ -512,7 +598,10 @@ function NewPlay({
         status: 'open',
         created_at: new Date().toISOString(),
         format: emGrupos ? (emDuplas ? 'grupos-duplas' : 'grupos') : 'todas',
-        groups: emGrupos ? grupos : null,
+        groups: camp ? camp.groups : emGrupos ? grupos : null,
+        categorias: camp ? camp.categorias : null,
+        // pontos do mes pela colocacao final; plays antigos nao tem e seguem pelo placar
+        pontuacao: emGrupos && emDuplas && ranked ? pontuacao : null,
         // todo play novo premia quem venceu mais; os antigos seguem por pontos
         criterio_dia: 'vitorias',
         duplas_mm: emGrupos && emDuplas ? duplasMM : null,
@@ -636,8 +725,8 @@ function NewPlay({
               onClick={() => {
                 // o grupos+duplas e jogado em grupos de 4; nos outros o grupo
                 // grande e que faz sentido, por isso o padrao muda junto
-                if (f.valor === 'grupos-duplas' && !emDuplas) setPorGrupo(4)
-                if (f.valor === 'grupos' && emDuplas) setPorGrupo(8)
+                if (f.valor === 'grupos-duplas' && format !== 'grupos-duplas') setPorGrupo(4)
+                if (f.valor === 'grupos' && format !== 'grupos') setPorGrupo(8)
                 setFormat(f.valor)
               }}
             >
@@ -651,6 +740,28 @@ function NewPlay({
         </div>
       </div>
 
+      {emCampeonato && (
+        <DivisaoDoCampeonato
+          estrutura={estrutura}
+          forca={forca}
+          nameOf={nameOf}
+          classeDoGrupo={classeDoGrupo}
+          movendo={movendo}
+          setMovendo={setMovendo}
+          onMover={moverNoCampeonato}
+          movidas={movidasCat}
+          nCategorias={nCategorias}
+          setNCategorias={(n) => { setNCategorias(n); setQtdQuadras(null); setMovidasCat({}) }}
+          gruposPorCategoria={gruposPorCategoria}
+          setGruposPorCategoria={(n) => { setGruposPorCategoria(n); setMovidasCat({}) }}
+          qtdQuadras={qtdQuadras}
+          setQtdQuadras={setQtdQuadras}
+          onSortear={sortearDeNovo}
+          onDesfazer={() => setMovidasCat({})}
+          selecionadas={selected.length}
+        />
+      )}
+
       <div className="card">
         <div className="section-title">⚙️ Detalhes do play</div>
         <div className="stack" style={{ marginTop: 12 }}>
@@ -663,7 +774,7 @@ function NewPlay({
               <span>Data</span>
               <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
-            <div className="field">
+            {!emCampeonato && <div className="field">
               <span>Quadras</span>
               <Stepper value={courts} min={1} max={12} onChange={setCourts} />
               <em className={`hint${selected.length >= 4 && effCourts < courts ? ' aviso' : ''}`}>
@@ -673,7 +784,7 @@ function NewPlay({
                     ? `só dá para usar ${effCourts}`
                     : 'quadras disponíveis hoje'}
               </em>
-            </div>
+            </div>}
           </div>
 
           {!emDuplas && (
@@ -762,9 +873,13 @@ function NewPlay({
               </div>
 
               <div className="field" style={{ marginBottom: 0 }}>
-                <span>Duplas no mata-mata</span>
+                <span>Duplas no mata-mata{emCampeonato ? ', em cada categoria' : ''}</span>
                 <Stepper value={duplasMM} min={2} max={16} onChange={setDuplasMM} />
-                <em className="hint">{descreverFase2(grupos, duplasMM)}</em>
+                <em className="hint">
+                  {emCampeonato
+                    ? `na categoria A: ${descreverFase2(estrutura[0] ?? [], duplasMM)}`
+                    : descreverFase2(grupos, duplasMM)}
+                </em>
               </div>
             </div>
           )}
@@ -783,7 +898,32 @@ function NewPlay({
             </label>
           </div>
 
-          {(format === 'grupos' || emDuplas) && (
+          {emDuplas && ranked && (
+            <div className="toggle-card">
+              <div className="field" style={{ marginBottom: 0 }}>
+                <span>Pontos no mês, pela colocação</span>
+                <div className="grid2">
+                  {['🥇 Campeã', '🥈 Vice', '🥉 3º lugar', 'Semifinal', 'Quartas ou antes', 'Fase de grupos'].map((rotulo, i) => (
+                    <div key={rotulo} className="field" style={{ marginBottom: 0 }}>
+                      <span>{rotulo}</span>
+                      <Stepper
+                        value={pontuacao[i] ?? 0}
+                        min={0}
+                        max={40}
+                        onChange={(v) => setPontuacao((p) => p.map((x, k) => (k === i ? v : x)))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <em className="hint">
+                  Cada menina leva os pontos de até onde a dupla dela chegou{emCampeonato ? ', em cada categoria' : ''}. As
+                  partidas não pontuam pelo placar: assim o título sempre vale mais que atropelar na semifinal.
+                </em>
+              </div>
+            </div>
+          )}
+
+          {(format === 'grupos' || format === 'grupos-duplas') && (
             <div className="toggle-card">
               <div className="field" style={{ marginBottom: 0 }}>
                 <span>Meninas por grupo</span>
@@ -791,11 +931,7 @@ function NewPlay({
                 <em className="hint">
                   {selected.length < 8
                     ? 'com menos de 8 confirmadas não dá para dividir: vai sair um grupo só'
-                    : `com ${selected.length} confirmadas o app monta ${descreverGrupos(tamanhos)} — ${
-                        emDuplas
-                          ? 'todos com a mesma força média, para ser 1ª valer o mesmo em qualquer grupo'
-                          : 'grupo 1 com quem está jogando melhor'
-                      }`}
+                    : `com ${selected.length} confirmadas o app monta ${descreverGrupos(tamanhos)} — grupo 1 com quem está jogando melhor`}
                 </em>
                 {selected.length >= 8 && (
                   <>
@@ -853,11 +989,17 @@ function NewPlay({
                 )}
               </>
             )}{' '}
-            Quem vence leva <strong>os games que fez menos os da adversária</strong> em pontos
-            (mínimo 1), e quem perde não pontua.
+            {emDuplas && ranked ? (
+              <>Os pontos do mês saem da <strong>colocação final</strong>, pela tabela acima.</>
+            ) : (
+              <>
+                Quem vence leva <strong>os games que fez menos os da adversária</strong> em pontos
+                (mínimo 1), e quem perde não pontua.
+              </>
+            )}
           </p>
 
-          {selected.length >= 4 && effCourts < courts && travadoPorGrupo && (
+          {!emCampeonato && selected.length >= 4 && effCourts < courts && travadoPorGrupo && (
             <div className="banner err" style={{ margin: '10px 0 0' }}>
               🏐 <strong>Não dá para usar {courts} quadras com {descreverGrupos(tamanhos)}.</strong>{' '}
               Cada partida precisa de <strong>quatro meninas do mesmo grupo</strong>, então um grupo
@@ -874,7 +1016,7 @@ function NewPlay({
             </div>
           )}
 
-          {selected.length >= 4 && effCourts < courts && !travadoPorGrupo && (
+          {!emCampeonato && selected.length >= 4 && effCourts < courts && !travadoPorGrupo && (
             <div className="banner err" style={{ margin: '10px 0 0' }}>
               🏐 <strong>Não dá para usar {courts} quadras com {selected.length} jogadoras.</strong>{' '}
               Cada quadra ocupa 4 meninas ao mesmo tempo, então {courts} quadras precisam de{' '}
@@ -888,7 +1030,7 @@ function NewPlay({
             </div>
           )}
 
-          {selected.length >= 4 && effCourts === courts && restPorVez === 0 && (
+          {!emCampeonato && selected.length >= 4 && effCourts === courts && restPorVez === 0 && (
             <div className="banner warn" style={{ margin: '10px 0 0' }}>
               🪑 Com <strong>{selected.length} jogadoras em {plural(effCourts, 'quadra')}</strong> todas
               jogam ao mesmo tempo e <strong>ninguém fica de fora</strong> — nem para descansar.
@@ -938,7 +1080,7 @@ function NewPlay({
             </div>
           )}
 
-          {(format === 'grupos' || emDuplas) && grupos.length > 1 && (
+          {(format === 'grupos' || format === 'grupos-duplas') && grupos.length > 1 && (
             <div className="stack" style={{ marginTop: 4 }}>
               {grupos.map((g, i) => (
                 <div key={i} className={`grupo-box ${classeDoGrupo(i + 1)}`}>
