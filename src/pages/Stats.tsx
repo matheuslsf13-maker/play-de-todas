@@ -913,18 +913,13 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
   if (pausada === 'faltas') {
     return (
       <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
-        ⏸️ <strong>Fora do ranking da força</strong> por 2 ou mais faltas seguidas. Volta sozinha quando jogar
+        ⏸️ <strong>Pausada</strong> por 2 ou mais faltas seguidas — fora do ranking da força. Volta sozinha quando jogar
         de novo.
         {canEdit && (
-          <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <button className="btn ghost sm grow" onClick={() => savePlayer({ ...p, reativada_em: hoje })}>
-              ▶️ Voltar ao ranking agora
-            </button>
-            {/* vai ficar mais tempo fora: a pausa na mao a mantem fora do ranking mesmo depois de voltar ao jogo */}
-            <button className="btn ghost sm grow" onClick={pausar}>
-              ⏸️ Pausar
-            </button>
-          </div>
+          // ja esta pausada pelas faltas: pausar de novo seria pausar quem ja esta pausada
+          <button className="btn ghost sm block" style={{ marginTop: 8 }} onClick={() => savePlayer({ ...p, reativada_em: hoje })}>
+            ▶️ Voltar ao ranking agora
+          </button>
         )}
       </div>
     )

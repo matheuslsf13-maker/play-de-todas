@@ -12,11 +12,11 @@ import {
   type Categoria,
 } from '../lib/mensalidade'
 import { squareThumb } from '../lib/image'
-import { ELO_INICIAL, pausaNaForca, playedMatches, quedaPorFalta, ratings } from '../lib/stats'
+import { ELO_INICIAL, fecharPausa, pausaNaForca, playedMatches, quedaPorFalta, ratings } from '../lib/stats'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
-import { plural, uid, type Player } from '../lib/types'
+import { plural, todayISO, uid, type Player } from '../lib/types'
 
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const { data, savePlayer, deletePlayer, mergePlayers, canEdit, repo } = useStore()
@@ -63,7 +63,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
     todas: () => true,
     ativas: (p) => p.active,
     inativas: (p) => !p.active,
-    pausadas: (p) => pausas.get(p.id) === 'manual',
+    // pausada na mao OU pelas faltas: as duas estao fora do ranking da forca
+    pausadas: (p) => pausas.has(p.id),
     faltando: (p) => (faltas.get(p.id)?.faltas ?? 0) >= 2,
     devendo: (p) => situacoes.get(p.id)?.cor === 'devendo',
     novas: (p) => !forcaPorId.has(p.id),
@@ -364,7 +365,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                         </span>
                         <span className="muted"> · força {f.nota}</span>
                         {f.provisoria && <span className="muted"> (provisória)</span>}
-                        {f.pausada && <span className="muted"> · ⏸️ {f.pausada === 'manual' ? 'pausada' : 'fora do ranking (faltas)'}</span>}
+                        {f.pausada && <span className="muted"> · ⏸️ {f.pausada === 'manual' ? 'pausada' : 'pausada (2+ faltas)'}</span>}
                         {/* em linha propria: junto do nivel passava da tela no celular */}
                         {f.queda && (
                           <span className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>
@@ -409,6 +410,40 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                     <button className="btn ghost sm" onClick={() => void savePlayer({ ...p, active: !p.active })}>
                       {p.active ? 'Inativar' : 'Ativar'}
                     </button>
+                    {(() => {
+                      // a pausa da forca: quem ja esta fora (na mao ou pelas faltas) so volta
+                      const pausa = pausas.get(p.id)
+                      const hoje = todayISO()
+                      if (pausa === 'manual') {
+                        return (
+                          <button className="btn ghost sm" onClick={() => void savePlayer(fecharPausa(data, p, hoje))}>
+                            ▶️ Despausar
+                          </button>
+                        )
+                      }
+                      if (pausa === 'faltas') {
+                        return (
+                          <button
+                            className="btn ghost sm"
+                            title="pausada por 2 faltas seguidas: volta sozinha ao jogar"
+                            onClick={() => void savePlayer({ ...p, reativada_em: hoje })}
+                          >
+                            ▶️ Voltar ao ranking
+                          </button>
+                        )
+                      }
+                      return (
+                        <button
+                          className="btn ghost sm"
+                          onClick={() => {
+                            if (!confirm(`Pausar ${p.nickname?.trim() || p.name}? Sai do ranking da força até despausar (as faltas continuam baixando a força).`)) return
+                            void savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
+                          }}
+                        >
+                          ⏸️ Pausar
+                        </button>
+                      )
+                    })()}
                     <button className="btn ghost sm" title="juntar com outra jogadora" onClick={() => setJuntando(p)}>
                       🔗
                     </button>
@@ -809,7 +844,7 @@ const SITUACOES: { valor: FiltroDeSituacao; rotulo: string; explica: string }[] 
   { valor: 'todas', rotulo: 'Todas', explica: 'Todo o cadastro' },
   { valor: 'ativas', rotulo: 'Ativas', explica: 'Aparecem na hora de montar o play' },
   { valor: 'inativas', rotulo: 'Inativas', explica: 'Fora do cadastro ativo; o histórico continua' },
-  { valor: 'pausadas', rotulo: '⏸️ Pausadas', explica: 'Pausadas na ficha (Stats): fora do ranking da força' },
+  { valor: 'pausadas', rotulo: '⏸️ Pausadas', explica: 'Fora do ranking da força: pausadas na mão ou por 2 faltas seguidas' },
   { valor: 'faltando', rotulo: '📉 Faltando', explica: '2 ou mais faltas seguidas: perdendo força e fora do ranking' },
   { valor: 'devendo', rotulo: '💸 Devendo', explica: 'Bloqueadas pelo pagamento' },
   { valor: 'novas', rotulo: '🆕 Sem jogos', explica: 'Ainda não jogaram nenhuma partida' },

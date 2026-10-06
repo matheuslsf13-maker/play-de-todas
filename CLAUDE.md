@@ -97,7 +97,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   Despausar ao montar o play só vale **quando o play é criado** (`pausas[].play` guarda o
   id dele): desistir de montar ou **apagar o play** devolve a pausa sozinha (`pausaAberta`).
   Não confundir com **inativa** (o "Inativar" da aba Meninas, `players.active`): essa some
-  da hora de montar o play. A aba Meninas tem filtros (ativas, inativas, ⏸️ pausadas,
+  da hora de montar o play. A aba Meninas tem o ⏸️ Pausar / ▶️ Despausar / ▶️ Voltar ao
+  ranking em cada linha (quem já está pausada pelas faltas não tem Pausar) e filtros (ativas, inativas, ⏸️ pausadas — na mão ou pelas faltas,
   📉 faltando, 💸 devendo, sem jogos, sem foto, cadastro, nível) e ordena por nome, força
   ou faltas; os filtros ficam guardados no aparelho (`play-de-todas:meninas-filtro`).
 - **A dupla tem força própria** (`forcaDeDuplas`, aba “🤝 Dupla”). Não é a média
