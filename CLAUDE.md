@@ -88,6 +88,7 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   pior** que o esperado (5% dos games) custa o passo normal e zera a sequência; dentro do
   esperado não soma nem quebra. A derrota nunca acelera (ninguém afunda rápido). O que o
   passo maior dá a mais sai, em pedaços, de todas que jogaram o play (a média fica em 1500).
+  Vale **só dos plays depois de 05/10/2026** (`PASSO_ACELERA_DESDE`): a força de antes ficou como estava.
 - **Quem falta perde força, devagar** (`calcularElo` em `stats.ts`): 1ª falta nada; da
   2ª seguida em diante, por play do ranking e aumentando a cada falta: acima de 1500
   −10%, −15%, −20%… até −30% da distância até 1500 (mín. 2); abaixo −2, −3, −4, depois

@@ -204,7 +204,7 @@ test('passo: ir pior que o esperado custa o normal e zera a sequencia; o neutro 
 
 test('passo que acelera: quem surpreende sobe mais rapido e a media continua em 1500', () => {
   const d = base({ x: 1500, p: 1500, a: 1500, b: 1500 })
-  playCom(d, 's1', '2026-09-01', ['x', 'p', 'a', 'b'])
+  playCom(d, 's1', '2026-10-12', ['x', 'p', 'a', 'b'])
   // x + p atropelam 3 vezes seguidas
   for (let i = 0; i < 3; i++) d.matches.push(partida('s1', ['x', 'p'], ['a', 'b'], 4, 0))
   // com o passo fixo seria: +12, depois menos (a nota ja subiu)
@@ -221,4 +221,19 @@ test('passo que acelera: quem surpreende sobe mais rapido e a media continua em 
   assert.ok(notaX > Math.round(fx), `${notaX} > ${Math.round(fx)} (passo fixo)`)
   const media = ['x', 'p', 'a', 'b'].reduce((t, id) => t + (1500 + ((r.get(id) as number) - 2) * 110), 0) / 4
   assert.ok(Math.abs(media - 1500) < 0.01, `media ${media}`)
+})
+
+test('passo que acelera so vale do play de 12/10 em diante: a forca de antes nao muda', () => {
+  const d = base({ x: 1500, p: 1500, a: 1500, b: 1500 })
+  playCom(d, 's1', '2026-10-05', ['x', 'p', 'a', 'b'])
+  for (let i = 0; i < 3; i++) d.matches.push(partida('s1', ['x', 'p'], ['a', 'b'], 4, 0))
+  let fx = 1500
+  let fa = 1500
+  for (let i = 0; i < 3; i++) {
+    const esp = 1 / (1 + Math.pow(10, (fa - fx) / 400))
+    const delta = 24 * (1 - esp)
+    fx += delta
+    fa -= delta
+  }
+  assert.equal(nota(d, 'x'), Math.round(fx), 'play antigo: passo fixo de 24')
 })

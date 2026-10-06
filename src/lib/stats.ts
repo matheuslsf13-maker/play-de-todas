@@ -315,6 +315,12 @@ const ELO_K = 24
  * ~1 play antes, a nota de quem esta estavel balanca um pouco mais (20 x 17).
  */
 export type SequenciaDeSurpresas = { n: number; sinal: number }
+/**
+ * A regra vale do primeiro play DEPOIS de 05/10/2026 em diante: a forca de
+ * quem ja jogou fica como estava, e so as partidas novas usam o passo que
+ * acelera (a sequencia comeca do zero nelas).
+ */
+export const PASSO_ACELERA_DESDE = '2026-10-07'
 const SURPRESA_MINIMA = 0.05
 
 /** A sequencia depois desta partida. */
@@ -407,7 +413,12 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
   for (const s of sessoes) {
     const jogos = (jogadasPorSessao.get(s.id) ?? []).sort((x, y) => x.round - y.round)
     const mudanca = new Map<string, number>()
+    const acelera = s.date >= PASSO_ACELERA_DESDE
     const mover = (id: string, surpresa: number) => {
+      if (!acelera) {
+        elo.set(id, nota(id) + ELO_K * surpresa)
+        return
+      }
       const q = proximaSequencia(sequencia.get(id), surpresa)
       sequencia.set(id, q)
       const d = passoDaSequencia(q, surpresa) * surpresa

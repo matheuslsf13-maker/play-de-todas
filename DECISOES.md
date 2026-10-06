@@ -373,6 +373,8 @@ Nos dois lados é só um K maior disfarçado (o fixo 36 dá o mesmo). Só para c
 acerto, alcança ~1 play antes e não faz ninguém afundar rápido — o custo é a nota de quem
 está estável balançar um pouco mais. Conta **surpresas** (games acima do esperado), não
 vitórias: vencer quem é mais fraca é o esperado e acelerar ali inflaria as fortes.
+Vale do primeiro play depois de 05/10/2026 em diante (`PASSO_ACELERA_DESDE`): a
+organização não quis mexer na força que já estava publicada.
 
 O Elo também resolve sozinho o que a janela de "últimos 4 plays" resolvia — quem
 foi boa há um ano e anda perdendo devolve nota partida a partida — sem o corte
