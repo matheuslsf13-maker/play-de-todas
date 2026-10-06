@@ -46,7 +46,7 @@ export default function Stats({
   abrir,
   onAbriu,
 }: { abrir?: Modo | { jogadora: string } | null; onAbriu?: () => void } = {}) {
-  const { data } = useStore()
+  const { data, nameOf } = useStore()
 
   const months = useMemo(() => {
     const set = new Set(data.sessions.map((s) => monthOf(s.date)))
@@ -92,7 +92,13 @@ export default function Stats({
     () => [...data.players].filter((p) => (stats.get(p.id)?.matches ?? 0) > 0),
     [data.players, stats],
   )
-  const selected = playerId || comJogo[0]?.id || data.players[0]?.id || ''
+  // sem ninguem escolhida, abre na 1a da forca que nao esta pausada (antes era
+  // a primeira em ordem alfabetica, que nao diz nada)
+  const topoDaForca = useMemo(
+    () => rankingDeForca(data, nameOf).find((l) => !l.pausada && comJogo.some((p) => p.id === l.player_id))?.player_id,
+    [data, nameOf, comJogo],
+  )
+  const selected = playerId || topoDaForca || comJogo[0]?.id || data.players[0]?.id || ''
 
   if (data.players.length === 0) {
     return (

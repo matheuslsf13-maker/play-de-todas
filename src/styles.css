@@ -1383,3 +1383,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 .filtros-meninas .filtro-n { opacity: 0.7; font-variant-numeric: tabular-nums; margin-left: 2px; }
 .filtros-rodape { align-items: center; flex-wrap: wrap; gap: 6px; }
 .filtros-rodape .chip { padding: 4px 10px; font-size: 12px; }
+
+/* o nome do podio e um botao: botao em bloco nao estica sozinho, entao ficava
+   colado na esquerda do degrau. Ocupa a largura e centraliza */
+.podium .nome-link { width: 100%; text-align: center; }
