@@ -20,6 +20,7 @@ PWA (manifest + service worker). Português do Brasil em toda a interface.
 npm run dev      # servidor local em http://localhost:5173
 npm run build    # tsc -b + vite build (use antes de commitar)
 npx tsc --noEmit # só a checagem de tipos
+npm test         # testes das regras puras (tests/*.test.ts, node:test via esbuild)
 ```
 
 ## Mapa do código
@@ -97,6 +98,30 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   mais** do que vencer quem está pior. Não é o ranking do mês (senão o primeiro
   play do mês sairia desequilibrado) e não é média de pontos, que não sabe de quem
   você ganhou — e por isso quebrava no modo em grupos.
+- **🏆 Campeonato = `grupos-duplas` com categorias** (`src/lib/campeonato.ts`,
+  `session.categorias`, script 21). Um play só, dividido **pela força** em categorias
+  A, B, C… (quantas quiser) e, dentro de cada uma, em grupos **por nível** (grupo 1 com
+  as mais fortes); a organizadora move qualquer menina para qualquer categoria/grupo
+  antes de começar. `session.groups` continua uma lista só (A-G1, A-G2, B-G1…) — por
+  isso fila, rodízio e “quem está em quadra” não mudaram; sem `categorias` é uma
+  categoria só (o grupos + duplas de sempre). Cada categoria tem **quadras fixas**
+  (padrão: o que os grupos dela enchem juntos) e anda no seu ritmo; quando uma termina
+  **tudo**, as quadras dela vão para a que tem mais jogo (`quadrasEfetivas`, ou a
+  escolhida em `quadras_cedidas`). Duplas **1ª com 1ª** (`duplasDaFase2`), chave, pódio,
+  🔥 e texto/arte **por categoria**; para o app é **um** play (ninguém “falta” na
+  categoria em que não estava — era o defeito de criar 3 plays no mesmo dia).
+  **Classificação do grupo** (`classificarGrupo`): vitórias → pontos → saldo de games →
+  confronto direto **só quando justo** (as duas tiveram as mesmas parceiras contra a
+  outra; num grupo de 4 empatadas em vitórias sempre ficam 1x1) → **desempate em
+  quadra** (simples 1x1 ou par ou ímpar, `desempates_grupo`, vale só para o mesmo
+  conjunto de empatadas). **Nunca ordem alfabética.** **Pontos do mês por colocação**
+  (`pontuacao`, padrão 16/12/10/8/6/3 = campeã, vice, 3º, semifinal, quartas ou antes,
+  fase de grupos; editável): pela diferença de games a vice podia somar mais que a
+  campeã. Com `pontuacao` nenhuma partida pontua por games e o bye não paga; sem ela
+  (plays antigos) tudo segue como era. Os plays **novos** de grupos + duplas também
+  usam a tabela e grupos por nível (antes: grupos equilibrados, que faziam da 1ª de
+  cada grupo uma superdupla). O ranking do dia mostra a **fase de grupos** (classificação
+  e duplas “se acabasse agora”) — antes ficava vazio até o mata-mata.
 - **No `grupos-duplas` quem decide o dia é a DUPLA.** A fase de grupos só forma as
   duplas e **não pontua** — nem no dia, nem no mês (`pontuaveis`); o Elo continua
   contando essas partidas, que aconteceram e só não dão ponto. O pódio é 🥇 campeã,
@@ -198,7 +223,7 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Play avulso** (`sessions.ranked = false`): conta no histórico e na força,
   mas **não soma no ranking do mês nem mexe nas sequências**. Serve para o jogo
   fora de calendário que não é o campeonato.
-- **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 a 18): a planilha da
+- **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 a 19): a planilha da
   organizadora. **A cota é por arena e vem do plano** (`checkin_planos`, script 18):
   Wellhub Gold dá 12 na V3 e 12 na GW (não aceita Itaparica); Gold+ e TotalPass dão
   12 em cada uma das três (`cotas` = `{local_id: n}`, ausente = não aceita; os

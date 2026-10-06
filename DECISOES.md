@@ -257,6 +257,31 @@ criação do play** explicando que com pelo menos 4 de folga o rodízio anda
 sozinho. A configuração ideal medida foi **24 jogadoras em 3 grupos de 8 com 3
 quadras: 0% de quadra ociosa e 11 minutos de descanso médio**.
 
+## Campeonato: um play com categorias (06/10/2026)
+
+Para o campeonato de 12/10 a organização montou **três plays** de grupos + duplas no
+mesmo dia, um por categoria. Funcionava na quadra, mas para o app cada menina
+**faltou** em dois plays — e faltar zera o 🔥. Por isso o campeonato é **um** play com
+categorias por cima dos grupos (`session.categorias`), e não plays ligados.
+
+- **Grupos por nível, não equilibrados.** Com grupos de mesma força média, a 1ª de cada
+  grupo era uma das melhores do dia, e “1ª com 1ª” formava uma superdupla. Por nível,
+  a dupla das primeiras é favorita sem ser imbatível — e ir bem no grupo continua
+  valendo.
+- **Confronto direto só quando é justo.** Em dupla, quem vence o confronto depende da
+  parceira. Ele só conta quando as duas tiveram as mesmas parceiras nas partidas em que
+  se enfrentaram. Detalhe medido nos testes: num grupo de 4, duas empatadas em
+  vitórias **sempre** ficam 1x1 no confronto — na prática o empate vai para a quadra.
+- **Nunca ordem alfabética.** Empate em tudo é decidido na quadra (simples 1x1 ou par ou
+  ímpar), gravado no play e no diário.
+- **Pontos por colocação.** Pela diferença de games, a vice que ganhou a semi de 4x0 e
+  perdeu a final somava 4; a campeã que ganhou as duas de 4x3 somava 2. A tabela
+  (16/12/10/8/6/3) fica gravada no play; os antigos não mudam. 16 para a campeã é um
+  pouco mais que o melhor de um play comum (média de 8 por menina, top de 11 a 21 em
+  set–out/2026).
+- **Categoria de grupo único** (o que fazer depois do rodízio) ficou para depois: por
+  ora o mínimo são 2 grupos por categoria.
+
 ## Modo em grupos
 
 Com 16 meninas o rodízio completo dá **60 partidas e 15 jogos para cada uma** —

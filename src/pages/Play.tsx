@@ -106,6 +106,7 @@ import {
 import { computeStreaks, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
+import { hasSupabase } from '../lib/supabase'
 import {
   type DesempateDeGrupo,
   type EventoDoPlay,
@@ -573,6 +574,13 @@ function NewPlay({
   }
 
   async function create() {
+    // sem o script 21 o banco descartaria as categorias e a tabela de pontos
+    // calado, e o campeonato viraria um grupos+duplas comum. Da para saber antes:
+    // com a coluna existindo, toda sessao carregada traz a chave (nula ou nao)
+    if (emDuplas && hasSupabase && data.sessions.length > 0 && data.sessions.every((x) => !('categorias' in x))) {
+      onToast('Antes, rode o script 21-campeonato.sql no Supabase (pasta supabase/)')
+      return
+    }
     if (emCampeonato && selected.length < nCategorias * gruposPorCategoria * 4) {
       onToast('Faltam meninas para essas categorias -- cada grupo precisa de pelo menos 4')
       return
