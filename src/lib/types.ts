@@ -41,7 +41,7 @@ export type SessionStatus = 'open' | 'finished'
  */
 export type PlayFormat = 'todas' | 'grupos' | 'grupos-duplas'
 
-export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra'
+export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra' | 'desempate'
 
 export type EventoDoPlay = {
   /** Hora da intervencao (ISO). */
@@ -56,6 +56,19 @@ export type EventoDoPlay = {
   /** Na troca: quem entrou (so as duplas dela mudam -- e o que separa a repeticao da troca da do plano). */
   entra?: string
 }
+
+/**
+ * Uma categoria do campeonato (A, B, C...): os grupos dela, como indices em
+ * `PlaySession.groups`, e as quadras fixas dela.
+ */
+export type Categoria = { nome: string; grupos: number[]; quadras: number[] }
+
+/**
+ * Desempate decidido EM QUADRA no fim da fase de grupos, quando duas ou mais
+ * empataram em tudo (vitorias, pontos, saldo e confronto direto justo): a
+ * organizadora marca como foi e a ordem em que ficaram.
+ */
+export type DesempateDeGrupo = { grupo: number; ordem: string[]; como: 'simples' | 'par-impar'; at: string }
 
 /** Um "Play de Todas": um dia de jogos. */
 export type PlaySession = {
@@ -125,6 +138,26 @@ export type PlaySession = {
    * do mes nem mexem nas sequencias. Ausente conta como `true` (plays antigos).
    */
   ranked?: boolean
+  /**
+   * CAMPEONATO: as categorias (A, B, C...), cada uma com os seus grupos e as
+   * suas quadras fixas. Ausente = uma categoria so, com todos os grupos e
+   * todas as quadras -- e o grupos+duplas de sempre (script 21).
+   */
+  categorias?: Categoria[] | null
+  /**
+   * Pontos do mes POR COLOCACAO no grupos+duplas/campeonato:
+   * [campea, vice, 3o, semifinal, quartas ou antes, fase de grupos].
+   * Ausente = a regra antiga (diferenca de games no mata-mata + bye), para
+   * nenhum ranking passado mudar.
+   */
+  pontuacao?: number[] | null
+  /** Os desempates decididos em quadra no fim da fase de grupos. */
+  desempates_grupo?: DesempateDeGrupo[] | null
+  /**
+   * Quadras de categoria que ja terminou, cedidas na mao: quadra -> indice da
+   * categoria que recebe. Sem escolha, vai para quem tem mais partidas por jogar.
+   */
+  quadras_cedidas?: Record<string, number> | null
 }
 
 export type Match = {
