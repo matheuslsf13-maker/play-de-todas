@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
+import { useStore } from '../lib/store'
 
 /**
  * NOMES QUE ABREM A FICHA DA MENINA.
@@ -18,17 +19,21 @@ export function useAbrirPerfil() {
 
 export function NomeClicavel({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
   const abrir = useContext(AbrirPerfil)
-  if (!abrir) return <span className={className}>{children}</span>
+  // quem ja foi Duquesa tem o nome dourado com a coroa, em qualquer tela
+  const duquesa = useStore().duquesas.has(id)
+  const classes = [className, duquesa && 'nome-duquesa'].filter(Boolean).join(' ')
+  const conteudo = duquesa ? <><span className="coroa">👑</span> {children}</> : children
+  if (!abrir) return <span className={classes || undefined}>{conteudo}</span>
   return (
     <button
       type="button"
-      className={`nome-link${className ? ` ${className}` : ''}`}
+      className={`nome-link${classes ? ` ${classes}` : ''}`}
       onClick={(e) => {
         e.stopPropagation()
         abrir(id)
       }}
     >
-      {children}
+      {conteudo}
     </button>
   )
 }

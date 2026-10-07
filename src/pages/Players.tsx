@@ -2,6 +2,7 @@ import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar, Empty, Modal } from '../components/ui'
 import ImportarLista from '../components/ImportarLista'
+import { NomeClicavel } from '../components/NomeClicavel'
 import { NIVEIS_DE_FORCA, nivelDeForca, notaDeForca, rankingDeForca, textoDaQueda } from '../lib/forca'
 import {
   CATEGORIAS,
@@ -348,7 +349,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                 />
                 <div className="grow">
                   <div style={{ fontWeight: 700 }} className="ellipsis">
-                    {p.nickname?.trim() || p.name}
+                    <NomeClicavel id={p.id}>{p.nickname?.trim() || p.name}</NomeClicavel>
                   </div>
                   {p.nickname?.trim() && p.nickname.trim() !== p.name && (
                     <div className="tiny muted ellipsis">{p.name}</div>

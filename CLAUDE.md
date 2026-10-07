@@ -64,12 +64,18 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   só** (chips "Tudo / Grupo 1 / Grupo 2…" no modal do ranking do dia), e os dois
   saem carimbados com o grupo. O status de **cada** medalhista aparece no texto
   e na imagem.
-- **Status 🔥**: mantido terminando o play no **pódio do dia** (top 3; nos
-  grupos, o top 3 **de cada grupo**, nunca mais que metade do grupo —
-  `vagasDoPodio`). Faltar zera o status, mesmo com vida. Escada em
-  `src/lib/streaks.ts`, de
-  🔥 *Em chamas* (2) até 👑💎🌟 **Duquesa da V3** (8+). No fim do mês a jogadora
-  escolhe **usar** (vira pontos, zera) ou **preservar** (segue e ganha 1 vida).
+- **Status 🔥** (`src/lib/streaks.ts`): sobe a cada play terminado no **pódio** — em
+  `todas` o top 3 do play; em `grupos` o pódio **de cada grupo** (nunca mais que metade
+  do grupo, `vagasDoPodio`; o ranking do dia é só informativo); em `grupos-duplas` e no
+  campeonato as 3 duplas medalhistas do mata-mata (de **cada categoria**). Avulso não conta.
+  Escada: 🔥 Em chamas (2) → ⚡ Imparável (3) → 💎 Rainha do Play (4) → 👑 **Duquesa da
+  V3** (5, `MAX_STREAK`). **Não vale pontos e não tem vida** (desde `STATUS_NOVO_DESDE`
+  = 06/10/2026): segue atravessando o mês e zera fora do pódio ou faltando. No 5º pódio
+  ela entra no **Hall das Duquesas** (`streaks.duquesas`), ganha camisa dourada + presente,
+  o status zera e o **nome fica dourado com 👑 para sempre** (`useStore().duquesas` →
+  `NomeClicavel`, classe `nome-duquesa`). O perfil mostra as conquistas (`conquistas`:
+  maior nível e quantas vezes chegou em cada um). Antes da data vale a regra antiga
+  (usar = pontos no fechamento, preservar = 1 vida): os +3 de setembro ficam.
 - **O mês fecha na mão**, no botão "🏁 Finalizar o mês" do Ranking (dá para
   reabrir). A premiação acontece no último play do mês, antes de o calendário
   virar.

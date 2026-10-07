@@ -17,36 +17,48 @@ import { monthOf, todayISO } from './types'
  * Como as duplas sao equilibradas, a campea do dia e quase sorteio: medindo em
  * 400 plays simulados, emendar duas vitorias acontece em 11% das vezes e
  * ninguem chega perto de 4. Por isso o que mantem o status nao e vencer o dia,
- * e sim terminar no PODIO do dia (top 3) -- e quem preserva o status no
- * fechamento do mes ganha 1 VIDA, que absorve um play fora do podio.
+ * e sim terminar no PODIO (o do play, o do grupo dela ou o do mata-mata).
  *
- * O status vale pontos uma unica vez: no fechamento do mes, se ela ainda o
- * tiver, escolhe USAR (os pontos entram naquele mes e o status zera) ou
- * PRESERVAR (nao pontua, o status segue e cresce, e ela ganha a vida).
+ * REGRA NOVA (plays desde `STATUS_NOVO_DESDE`): o status NAO vale pontos. Ele
+ * segue de play em play, atravessando o mes, e zera quando ela sai do podio ou
+ * falta -- sem vida. No 5o podio seguido ela vira DUQUESA: entra no Hall, ganha
+ * os premios (camisa dourada + presente) e o status recomeca do zero, mas o nome
+ * fica dourado com a coroa para sempre. Os pontos de status "roubavam" o podio
+ * do mes de quem tinha jogado mais, e isso desanimava.
  *
- * O mes fecha de tres jeitos: quando aparece um play de um mes seguinte,
- * quando o calendario passa do mes, ou quando a organizadora aperta
- * "finalizar o mes" (`MonthClosure`). O botao existe porque a premiacao
- * acontece no ultimo play do mes, antes de o calendario virar.
+ * REGRA ANTIGA (ate 05/10/2026, so para o passado nao mudar): no fechamento do
+ * mes ela escolhia USAR (pontos naquele mes, status zera) ou PRESERVAR (segue e
+ * ganha 1 VIDA, que segurava um play fora do podio). Setembro foi assim.
  */
 
 export type StreakLevel = { emoji: string; title: string }
 
+/** O 1o play da regra nova: o status deixa de valer pontos e de ter vida. */
+export const STATUS_NOVO_DESDE = '2026-10-06'
+
 export const STREAK_LADDER = [
-  { from: 2, to: 2, emoji: '🔥', title: 'Em chamas', value: 3 },
-  { from: 3, to: 3, emoji: '🔥🔥', title: 'Pegando fogo', value: 6 },
-  { from: 4, to: 4, emoji: '🔥🔥🔥', title: 'Imparável', value: 10 },
-  { from: 5, to: 5, emoji: '👑🔥', title: 'Lenda do Play', value: 16 },
-  { from: 6, to: 6, emoji: '👑💎', title: 'Rainha do Play', value: 24 },
-  { from: 7, to: 7, emoji: '👑🌟', title: 'Imperatriz do Play', value: 34 },
-  { from: 8, to: null, emoji: '👑💎🌟', title: 'Duquesa da V3', value: 50 },
+  { from: 2, emoji: '🔥', title: 'Em chamas' },
+  { from: 3, emoji: '⚡', title: 'Imparável' },
+  { from: 4, emoji: '💎', title: 'Rainha do Play' },
+  { from: 5, emoji: '👑', title: 'Duquesa da V3' },
 ] as const
 
-/** Quantos pontos vale o status que ela tem agora. */
-export function streakValue(streak: number): number {
-  if (streak <= 1) return 0
-  const faixa = [...STREAK_LADDER].reverse().find((x) => streak >= x.from)
-  return faixa ? faixa.value : 0
+/** A escada de ate 05/10/2026, com os pontos -- so para os status usados naquela epoca. */
+const ESCADA_ANTIGA = [
+  { from: 2, emoji: '🔥', title: 'Em chamas', value: 3 },
+  { from: 3, emoji: '🔥🔥', title: 'Pegando fogo', value: 6 },
+  { from: 4, emoji: '🔥🔥🔥', title: 'Imparável', value: 10 },
+  { from: 5, emoji: '👑🔥', title: 'Lenda do Play', value: 16 },
+  { from: 6, emoji: '👑💎', title: 'Rainha do Play', value: 24 },
+  { from: 7, emoji: '👑🌟', title: 'Imperatriz do Play', value: 34 },
+  { from: 8, emoji: '👑💎🌟', title: 'Duquesa da V3', value: 50 },
+] as const
+
+const faixaAntiga = (streak: number) => [...ESCADA_ANTIGA].reverse().find((x) => streak >= x.from)
+
+/** Quanto o status valia na regra antiga (no fechamento de mes). */
+function valorAntigo(streak: number): number {
+  return faixaAntiga(streak)?.value ?? 0
 }
 
 export function streakLevel(streak: number): StreakLevel | null {
@@ -112,19 +124,31 @@ export function podiosDoDia(
   })
 }
 
-/** O status maximo: 8 semanas seguidas no podio. */
-export const MAX_STREAK = 8
+/** Duquesa: 5 podios seguidos. */
+export const MAX_STREAK = 5
 
-export function isMaxLevel(streak: number): boolean {
-  return streak >= MAX_STREAK
-}
-
-/** Pontos creditados num mes porque a jogadora decidiu usar o status. */
+/** Pontos creditados num mes porque a jogadora decidiu usar o status (so regra antiga). */
 export type StreakAward = {
   month: string
   player_id: string
   streak: number
   bonus: number
+  /** O status com o nome e o simbolo da epoca (a escada mudou depois). */
+  emoji: string
+  title: string
+}
+
+/** Uma vez em que ela chegou a Duquesa (entra no Hall). */
+export type Duquesa = { player_id: string; date: string; session_id: string }
+
+/** O que ela ja conquistou: quantas vezes chegou em cada nivel e o maior. */
+export type Conquistas = {
+  /** O maior nivel ja alcancado (2 a 5; 0 = nunca teve status). */
+  melhor: number
+  /** Nivel (2 a 5) -> quantas vezes ela chegou nele. */
+  vezes: Record<number, number>
+  /** As datas em que virou Duquesa. */
+  duquesas: string[]
 }
 
 /** O que aconteceu com a sequencia de alguem num play. */
@@ -161,6 +185,9 @@ export type Streaks = {
   podiumOf: Map<string, string[]>
   decisions: MonthDecision[]
   closedMonths: string[]
+  /** O Hall das Duquesas, na ordem em que aconteceu. */
+  duquesas: Duquesa[]
+  conquistas: Map<string, Conquistas>
 }
 
 /** O mes ja foi fechado (na mao, ou porque o calendario passou dele)? */
@@ -193,8 +220,12 @@ export function computeStreaks(data: AppData): Streaks {
   const podiumOf = new Map<string, string[]>()
   const nameOf = (id: string) => data.players.find((p) => p.id === id)?.name ?? id
 
+  const duquesas: Duquesa[] = []
+
   const fecharMes = (mes: string) => {
     closedMonths.push(mes)
+    // da regra nova em diante o mes fecha sem pergunta: o status so segue
+    if (mes >= monthOf(STATUS_NOVO_DESDE)) return
     for (const p of data.players) {
       const seq = current.get(p.id) ?? 0
       if (seq < 2) continue // sem status, nao ha o que decidir
@@ -206,12 +237,16 @@ export function computeStreaks(data: AppData): Streaks {
         month: mes,
         player_id: p.id,
         streak: seq,
-        value: streakValue(seq),
+        value: valorAntigo(seq),
         action,
         respondido: Boolean(escolha),
       })
       if (action === 'usar') {
-        awards.push({ month: mes, player_id: p.id, streak: seq, bonus: streakValue(seq) })
+        const f = faixaAntiga(seq)
+        awards.push({
+          month: mes, player_id: p.id, streak: seq, bonus: valorAntigo(seq),
+          emoji: f?.emoji ?? '🔥', title: f?.title ?? 'Em chamas',
+        })
         current.set(p.id, 0)
         lives.set(p.id, 0)
       } else {
@@ -281,6 +316,10 @@ export function computeStreaks(data: AppData): Streaks {
     const jogaram = new Set<string>()
     for (const m of ms) for (const id of [...m.team_a, ...m.team_b]) jogaram.add(id)
 
+    const regraNova = s.date >= STATUS_NOVO_DESDE
+    // a vida era da regra antiga: quem tinha uma nao leva para a nova
+    if (regraNova) lives.clear()
+
     for (const p of data.players) {
       const seq = current.get(p.id) ?? 0
       if (noPodio.has(p.id)) {
@@ -289,14 +328,19 @@ export function computeStreaks(data: AppData): Streaks {
         if (nova > (best.get(p.id) ?? 0)) best.set(p.id, nova)
         steps.push({
           session_id: s.id, date: s.date, player_id: p.id,
-          streak: nova, usouVida: false, value: streakValue(nova),
+          streak: nova, usouVida: false, value: regraNova ? 0 : valorAntigo(nova),
         })
-      } else if (seq >= 2 && jogaram.has(p.id) && (lives.get(p.id) ?? 0) > 0) {
+        if (regraNova && nova >= MAX_STREAK) {
+          // virou Duquesa: entra no Hall e recomeca do zero
+          duquesas.push({ player_id: p.id, date: s.date, session_id: s.id })
+          current.set(p.id, 0)
+        }
+      } else if (!regraNova && seq >= 2 && jogaram.has(p.id) && (lives.get(p.id) ?? 0) > 0) {
         // veio, ficou fora do podio, mas tinha vida: o status sobrevive
         lives.set(p.id, 0)
         steps.push({
           session_id: s.id, date: s.date, player_id: p.id,
-          streak: seq, usouVida: true, value: streakValue(seq),
+          streak: seq, usouVida: true, value: valorAntigo(seq),
         })
       } else {
         // faltou, ou ficou fora do podio sem vida: perde tudo
@@ -313,7 +357,21 @@ export function computeStreaks(data: AppData): Streaks {
     fecharMes(mesCorrente)
   }
 
-  return { awards, steps, current, lives, best, winnersOf, podiumOf, decisions, closedMonths }
+  // conquistas: cada vez que a sequencia CHEGA num nivel conta uma
+  const conquistas = new Map<string, Conquistas>()
+  for (const st of steps) {
+    if (st.usouVida || st.streak < 2 || st.streak > MAX_STREAK) continue
+    const c = conquistas.get(st.player_id) ?? { melhor: 0, vezes: {}, duquesas: [] }
+    c.vezes[st.streak] = (c.vezes[st.streak] ?? 0) + 1
+    c.melhor = Math.max(c.melhor, st.streak)
+    conquistas.set(st.player_id, c)
+  }
+  for (const d of duquesas) conquistas.get(d.player_id)?.duquesas.push(d.date)
+
+  return {
+    awards, steps, current, lives, best, winnersOf, podiumOf, decisions, closedMonths,
+    duquesas, conquistas,
+  }
 }
 
 /** Soma no ranking os status usados no periodo. */
@@ -333,38 +391,14 @@ export function applyBonuses(
 }
 
 /** Jogadoras com status vivo, da maior sequencia para a menor. */
-export function onFire(
-  streaks: Streaks,
-): { player_id: string; streak: number; value: number; life: number }[] {
+export function onFire(streaks: Streaks): { player_id: string; streak: number }[] {
   return [...streaks.current.entries()]
     .filter(([, n]) => n >= 2)
-    .map(([player_id, streak]) => ({
-      player_id,
-      streak,
-      value: streakValue(streak),
-      life: streaks.lives.get(player_id) ?? 0,
-    }))
+    .map(([player_id, streak]) => ({ player_id, streak }))
     .sort((a, b) => b.streak - a.streak)
 }
 
-export function choiceId(playerId: string, month: string): string {
-  return `${playerId}:${month}`
-}
-
-export function newChoice(
-  playerId: string,
-  month: string,
-  action: 'usar' | 'preservar',
-  streak: number,
-  value: number,
-): StreakChoice {
-  return {
-    id: choiceId(playerId, month),
-    player_id: playerId,
-    month,
-    action: action === 'usar' ? 'sacar' : 'continuar', // nomes ja gravados no banco
-    streak,
-    bonus: value,
-    created_at: new Date().toISOString(),
-  }
+/** Quem ja foi Duquesa alguma vez (nome dourado com a coroa para sempre). */
+export function jaForamDuquesa(streaks: Streaks): Set<string> {
+  return new Set(streaks.duquesas.map((d) => d.player_id))
 }

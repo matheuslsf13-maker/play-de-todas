@@ -1387,3 +1387,16 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 /* o nome do podio e um botao: botao em bloco nao estica sozinho, entao ficava
    colado na esquerda do degrau. Ocupa a largura e centraliza */
 .podium .nome-link { width: 100%; text-align: center; }
+
+/* Quem ja foi Duquesa da V3: nome dourado com a coroa, para sempre.
+   O gradiente vai no texto; a coroa (emoji) fica com a cor dela. */
+.nome-duquesa {
+  background: linear-gradient(100deg, #b8860b, #f5d061 45%, #c99a2e 70%, #f5d061);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+.hall-duquesas { border: 1.5px solid var(--ouro); background: var(--ouro-suave); }
+.nome-duquesa .coroa { -webkit-text-fill-color: initial; color: initial; }

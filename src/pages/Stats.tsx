@@ -36,7 +36,7 @@ import {
   type LinhaDeForca,
 } from '../lib/forca'
 import { matchPoints } from '../lib/scoring'
-import { applyBonuses, computeStreaks, streakLevel, streakValue } from '../lib/streaks'
+import { applyBonuses, computeStreaks, STREAK_LADDER, streakLevel } from '../lib/streaks'
 import { useStore } from '../lib/store'
 import { dateLabel, monthLabel, monthOf, plural } from '../lib/types'
 
@@ -232,9 +232,9 @@ function PainelJogadora({
   const pedra = meusRivais.filter((p) => p.losses > 0).sort((a, b) => b.losses - a.losses || rate(a) - rate(b))[0]
 
   const seq = streaks.current.get(selected) ?? 0
-  const melhorSeq = streaks.best.get(selected) ?? 0
-  const vidas = streaks.lives.get(selected) ?? 0
   const nivel = streakLevel(seq)
+  const conquistas = streaks.conquistas.get(selected)
+  const maiorNivel = conquistas ? streakLevel(conquistas.melhor) : null
   const dataDaSessao = new Map(data.sessions.map((x) => [x.id, x.date]))
   const noPeriodo = (sid: string) => period === 'all' || monthOf(dataDaSessao.get(sid) ?? '') === period
   const diasVencidos = [...streaks.winnersOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
@@ -296,14 +296,20 @@ function PainelJogadora({
         <div className="row" style={{ margin: '14px 0 12px' }}>
           <Avatar player={playerById(selected)} size={62} />
           <div className="grow">
-            <div style={{ fontSize: 19, fontWeight: 800 }} className="ellipsis">{nameOf(selected)}</div>
+            <div style={{ fontSize: 19, fontWeight: 800 }} className="ellipsis">
+              <NomeClicavel id={selected}>{nameOf(selected)}</NomeClicavel>
+            </div>
+            {(conquistas?.duquesas.length ?? 0) > 0 && (
+              <div className="tiny" style={{ color: 'var(--ouro)', fontWeight: 800 }}>
+                👑 Duquesa da V3{conquistas!.duquesas.length > 1 && ` ×${conquistas!.duquesas.length}`}
+              </div>
+            )}
             <div className="small muted">
               {plural(s.days, 'play')} · {avgPoints(s).toFixed(2)} pontos por partida
             </div>
             {nivel && (
               <div className="tiny" style={{ color: 'var(--pink)', fontWeight: 800, marginTop: 2 }}>
-                {nivel.emoji} {nivel.title} · vale {streakValue(seq)} pts
-                {vidas > 0 && ' · 💚 1 vida'}
+                {nivel.emoji} {nivel.title} · {seq} pódios seguidos
               </div>
             )}
           </div>
@@ -351,31 +357,47 @@ function PainelJogadora({
       </div>
 
       <div className="card">
-        <div className="section-title">🔥 Sequência e status</div>
+        <div className="section-title">🏅 Status e conquistas</div>
         <div className="grid3">
-          <StatBox k="Sequência" v={seq} />
-          <StatBox k="Melhor seq." v={melhorSeq} />
-          <StatBox k="Vidas" v={vidas > 0 ? '💚 1' : '—'} />
+          <StatBox k="Seguidos agora" v={seq} />
           <StatBox k="Pódios" v={podios} />
           <StatBox k="Dias vencidos" v={diasVencidos} />
-          <StatBox k="Bônus" v={s.bonus > 0 ? `+${s.bonus}` : 0} />
         </div>
-        {statusUsados.length > 0 ? (
-          <div className="stack" style={{ marginTop: 10 }}>
-            {statusUsados.map((a) => {
-              const lvl = streakLevel(a.streak)
+        <div className="conquistas" style={{ marginTop: 10 }}>
+          <div className="tiny muted">
+            Maior status:{' '}
+            <strong style={{ color: 'var(--text)' }}>
+              {maiorNivel ? `${maiorNivel.emoji} ${maiorNivel.title}` : 'ainda nenhum'}
+            </strong>
+          </div>
+          <div className="row wrap" style={{ gap: 6, marginTop: 8 }}>
+            {STREAK_LADDER.map((x) => {
+              const n = conquistas?.vezes[x.from] ?? 0
               return (
-                <div key={a.month} className="tiny" style={{ background: 'var(--yellow-suave)', color: 'var(--yellow)', borderRadius: 10, padding: '8px 10px' }}>
-                  {lvl?.emoji} usou <strong>{lvl?.title}</strong> no fechamento de {monthLabel(a.month)} — <strong>+{a.bonus} pts</strong>
-                </div>
+                <span key={x.from} className={`chip ${n > 0 ? 'on' : 'off'}`} style={{ flex: 'none' }} title={x.title}>
+                  {x.emoji} {x.title} ×{n}
+                </span>
               )
             })}
           </div>
-        ) : (
-          <p className="tiny muted" style={{ marginBottom: 0 }}>
-            Terminar o play no pódio mantém o status. Ele vira pontos só quando ela usa, no fechamento do mês.
-          </p>
+          {(conquistas?.duquesas.length ?? 0) > 0 && (
+            <div className="tiny" style={{ marginTop: 8, color: 'var(--ouro)', fontWeight: 700 }}>
+              👑 Duquesa em {conquistas!.duquesas.map(dateLabel).join(', ')}
+            </div>
+          )}
+        </div>
+        {statusUsados.length > 0 && (
+          <div className="stack" style={{ marginTop: 10 }}>
+            {statusUsados.map((a) => (
+              <div key={a.month} className="tiny" style={{ background: 'var(--yellow-suave)', color: 'var(--yellow)', borderRadius: 10, padding: '8px 10px' }}>
+                {a.emoji} usou <strong>{a.title}</strong> no fechamento de {monthLabel(a.month)} — <strong>+{a.bonus} pts</strong> (regra antiga)
+              </div>
+            ))}
+          </div>
         )}
+        <p className="tiny muted" style={{ marginBottom: 0 }}>
+          O status segue enquanto ela terminar no pódio; no 5º seguido vira 👑 Duquesa e recomeça.
+        </p>
       </div>
 
       <div className="card">

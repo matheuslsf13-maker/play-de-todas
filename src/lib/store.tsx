@@ -3,6 +3,7 @@ import { localRepo } from '../data/localRepo'
 import { loadCache, loadQueue, saveCache, saveQueue, type WriteOp } from '../data/queue'
 import type { Repo } from '../data/repo'
 import { aplicarMescla } from './campeonato'
+import { computeStreaks, jaForamDuquesa } from './streaks'
 import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
 import type {
@@ -73,6 +74,8 @@ type Ctx = {
   signOut: () => Promise<void>
   playerById: (id: string) => Player | undefined
   nameOf: (id: string) => string
+  /** Quem ja foi Duquesa da V3: o nome fica dourado com a coroa para sempre. */
+  duquesas: Set<string>
 }
 
 const StoreContext = createContext<Ctx | null>(null)
@@ -365,6 +368,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     })
   }, [repo, reload])
 
+  // so depende das partidas: nao recalcula a cada escrita na fila
+  const duquesas = useMemo(() => jaForamDuquesa(computeStreaks(data)), [data])
+
   const value = useMemo<Ctx>(() => {
     const byId = new Map(data.players.map((p) => [p.id, p]))
     const sync: SyncState = queue.length === 0 ? 'saved' : syncing ? 'saving' : 'pending'
@@ -448,8 +454,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!p) return '—'
         return p.nickname?.trim() || p.name
       },
+      duquesas,
     }
-  }, [data, loading, error, repo, userEmail, reload, push, queue.length, syncing])
+  }, [data, loading, error, repo, userEmail, reload, push, queue.length, syncing, duquesas])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

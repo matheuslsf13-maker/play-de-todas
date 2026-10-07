@@ -554,6 +554,28 @@ segue e ela ganha 1 vida).
 > No banco os valores gravados continuam `'sacar'` / `'continuar'`, traduzidos
 > por `acaoDe()`. Foi de propósito, para não precisar migrar dados existentes.
 
+### Status sem pontos, Duquesa com 5 (desde 06/10/2026)
+
+**Tudo o que está acima sobre usar/preservar e vida é a regra ANTIGA** (vale só
+para os plays até 05/10, para setembro não mudar: Brenda e Ingryd usaram +3).
+
+**Por que mudou:** usar o status no fechamento podia tirar do pódio do mês quem
+tinha jogado mais — "roubar o pódio" de outra menina deixava todo mundo triste.
+Agora o ranking do mês é só o que foi jogado e o status é **reconhecimento**:
+
+- escada curta, um símbolo e um nome por degrau: 🔥 Em chamas (2) · ⚡ Imparável (3)
+  · 💎 Rainha do Play (4) · 👑 **Duquesa da V3** (5);
+- **não vale pontos, não tem vida, não tem escolha no fim do mês**: o status segue
+  de play em play (a virada do mês não muda nada) e zera fora do pódio ou faltando;
+- no 5º pódio seguido: **Hall das Duquesas**, camisa dourada com o nome + presente
+  surpresa, o status **zera na hora** (dá para buscar de novo) e o nome fica
+  **dourado com a coroa para sempre**;
+- o perfil de todas mostra as conquistas: maior degrau e quantas vezes chegou em cada.
+
+`computeStreaks` roda a regra antiga até `STATUS_NOVO_DESDE` e a nova dali em
+diante (as vidas antigas não atravessam). A sequência de antes conta: quem estava
+com 2 em 05/10 segue com 2.
+
 ## Campeã do dia
 
 **Empate exato** (mesmos pontos, saldo e vitórias) gera **co-campeãs**. Uma

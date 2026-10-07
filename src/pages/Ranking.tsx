@@ -29,11 +29,9 @@ function positionsOf(rows: PlayerStat[]): number[] {
 import {
   applyBonuses,
   computeStreaks,
-  isMaxLevel,
+  MAX_STREAK,
   mesFechado,
-  newChoice,
   onFire,
-  PODIO,
   STREAK_LADDER,
   streakLevel,
 } from '../lib/streaks'
@@ -56,7 +54,7 @@ export default function Ranking({
   /** Leva para a aba Stats ja na Força. */
   onVerForca?: () => void
 }) {
-  const { data, nameOf, playerById, canEdit, saveChoice, saveClosure, deleteClosure } = useStore()
+  const { data, nameOf, playerById, canEdit, saveClosure, deleteClosure } = useStore()
 
   const months = useMemo(() => {
     const set = new Set(data.sessions.map((s) => monthOf(s.date)))
@@ -82,7 +80,7 @@ export default function Ranking({
     () => data.closures.some((c) => c.month === activeMonth),
     [data.closures, activeMonth],
   )
-  /** Quem fecharia o mes com status em jogo, se ele fosse fechado agora. */
+  /** Quem esta com status vivo agora. */
   const comStatus = useMemo(() => onFire(streaks), [streaks])
 
   // play ja montado e ainda nao finalizado: as leitoras podem ver as chaves
@@ -138,7 +136,8 @@ export default function Ranking({
       const linhas = rows.slice(0, 8).map((s, i) => {
         // o fogo e o titulo so aparecem para a campea do mes que usou o status
         const usou = i === 0 ? usoDoMes.get(s.player_id) : undefined
-        const lvl = usou ? streakLevel(usou.streak) : null
+        // o titulo da epoca: a escada mudou depois
+        const lvl = usou ? { emoji: usou.emoji, title: usou.title } : null
         return {
           name: nameOf(s.player_id),
           points: s.points,
@@ -279,14 +278,14 @@ export default function Ranking({
                 <span className="tiny grow">
                   🏁 <strong>{monthLabel(activeMonth)} está fechado.</strong>{' '}
                   {naMao
-                    ? 'As escolhas de status aparecem logo abaixo.'
+                    ? 'O ranking dele não muda mais.'
                     : 'Fechou sozinho porque o calendário já passou do mês.'}
                 </span>
                 {naMao && (
                   <button
                     className="btn ghost sm nowrap"
                     onClick={() => {
-                      if (!confirm(`Reabrir ${monthLabel(activeMonth)}?\n\nAs sequências voltam a correr como se o mês não tivesse fechado. Serve para desfazer um fechamento feito por engano ou para teste.`)) return
+                      if (!confirm(`Reabrir ${monthLabel(activeMonth)}?\n\nServe para desfazer um fechamento feito por engano ou para teste.`)) return
                       deleteClosure(activeMonth)
                       onToast('Mês reaberto')
                     }}
@@ -305,7 +304,6 @@ export default function Ranking({
       {fechando && (
         <ConfirmarFechamento
           mes={activeMonth}
-          emChamas={comStatus}
           onClose={() => setFechando(false)}
           onConfirmar={() => {
             const closure: MonthClosure = {
@@ -315,104 +313,62 @@ export default function Ranking({
             }
             saveClosure(closure)
             setFechando(false)
-            onToast('Mês finalizado! Agora é só perguntar quem usa o status 🏁')
+            onToast('Mês finalizado 🏁')
           }}
         />
       )}
 
       {fire.length > 0 && (
         <div className="card">
-          <div className="section-title">🔥 Em chamas</div>
+          <div className="section-title">🔥 Status</div>
           <div className="stack">
             {fire.map((f) => {
               const lvl = streakLevel(f.streak)
-              const max = isMaxLevel(f.streak)
+              const falta = MAX_STREAK - f.streak
               return (
-                <div className={`row${max ? ' queen' : ''}`} key={f.player_id}>
-                  <Avatar player={playerById(f.player_id)} size={max ? 46 : 38} />
+                <div className={`row${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
+                  <Avatar player={playerById(f.player_id)} size={38} />
                   <div className="grow">
                     <div style={{ fontWeight: 800 }} className="ellipsis">
                       <NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel> {lvl?.emoji}
                     </div>
                     <div className="tiny muted">
-                      {lvl?.title} · {f.streak} semanas seguidas no pódio
-                      {f.life > 0 && ' · 💚 tem 1 vida'}
+                      {lvl?.title} · {f.streak} pódios seguidos ·{' '}
+                      {falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}
                     </div>
                   </div>
-                  <span className="badge open nowrap" title="quanto vale o status se ela usar no fechamento">
-                    {f.value} pts
-                  </span>
                 </div>
               )
             })}
           </div>
           <p className="tiny muted" style={{ marginBottom: 0 }}>
-            O status se mantém enquanto ela terminar o play no <strong>pódio do dia</strong> (top {PODIO} —
-            e, quando o play é em grupos, o top {PODIO} <strong>do grupo dela</strong>).
-            Ele só vira pontos no fechamento do mês, se ela escolher usar.
+            O status segue de play em play enquanto ela terminar no <strong>pódio</strong> (do play,
+            do grupo dela ou do mata-mata). Saiu do pódio ou faltou, zera.
           </p>
         </div>
       )}
 
+      <HallDasDuquesas duquesas={streaks.duquesas} />
+
       {decisoes.length > 0 && (
         <div className="card">
-          <div className="section-title">🏁 Fechamento de {monthLabel(activeMonth)}</div>
+          <div className="section-title">🏁 Status em {monthLabel(activeMonth)}</div>
           <p className="tiny muted" style={{ marginTop: 0 }}>
-            Estas jogadoras fecharam o mês com status. Pergunte a cada uma: <strong>usar</strong> o
-            status agora (os pontos entram neste mês e a sequência zera) ou <strong>preservar</strong>
-            {' '}(não pontua, o status continua crescendo no mês que vem e ela ganha <strong>1 vida</strong>)?
-            Sem resposta, o status fica preservado.
+            Na regra antiga o status virava pontos no fechamento do mês. Ficou registrado o que
+            cada uma escolheu.
           </p>
           <div className="stack">
             {decisoes.map((d) => {
-              const lvl = streakLevel(d.streak)
               const usou = d.action === 'usar'
               return (
-                <div key={d.player_id} className="row bet-row">
-                  <Avatar player={playerById(d.player_id)} size={40} />
-                  <div className="grow">
-                    <div style={{ fontWeight: 800 }} className="ellipsis">
-                      <NomeClicavel id={d.player_id}>{nameOf(d.player_id)}</NomeClicavel> {lvl?.emoji}
-                    </div>
-                    <div className="tiny muted">
-                      {lvl?.title} · {d.streak} semanas · vale <strong>{d.value} pts</strong>
-                      {!d.respondido && ' · ainda não respondeu'}
-                    </div>
-                    {canEdit && (
-                      <div className="row" style={{ gap: 6, marginTop: 6 }}>
-                        <button
-                          className={`btn sm ${usou ? 'teal' : 'ghost'}`}
-                          onClick={() => {
-                            const lbl = lvl?.title ?? 'status'
-                            if (usou) return
-                            if (
-                              !confirm(
-                                `Usar o status de ${nameOf(d.player_id)}?\n\n` +
-                                  `Ela ganha ${d.value} pontos em ${monthLabel(d.month)}, ` +
-                                  `mas o ${lbl} (${d.streak} semanas) zera e ela recomeça do zero.\n\n` +
-                                  `Essa escolha não tem volta.`,
-                              )
-                            )
-                              return
-                            saveChoice(newChoice(d.player_id, d.month, 'usar', d.streak, d.value))
-                          }}
-                        >
-                          💰 Usar +{d.value}
-                        </button>
-                        <button
-                          className={`btn sm ${!usou ? 'pink' : 'ghost'}`}
-                          onClick={() => saveChoice(newChoice(d.player_id, d.month, 'preservar', d.streak, d.value))}
-                        >
-                          🔥 Preservar {!usou && '✓'}
-                        </button>
-                      </div>
-                    )}
-                    {!canEdit && (
-                      <div className="tiny" style={{ color: usou ? 'var(--teal)' : 'var(--pink)', fontWeight: 700 }}>
-                        {usou ? `usou o status (+${d.value})` : 'preservou o status'}
-                      </div>
-                    )}
-                  </div>
+                <div key={d.player_id} className="row">
+                  <Avatar player={playerById(d.player_id)} size={34} />
+                  <span className="grow ellipsis" style={{ fontWeight: 700 }}>
+                    <NomeClicavel id={d.player_id}>{nameOf(d.player_id)}</NomeClicavel>
+                  </span>
+                  <span className="tiny nowrap" style={{ color: usou ? 'var(--teal)' : 'var(--pink)', fontWeight: 700 }}>
+                    {usou ? `usou o status (+${d.value})` : 'preservou'}
+                  </span>
                 </div>
               )
             })}
@@ -474,15 +430,15 @@ export default function Ranking({
           Ao final do play, os pontos são somados ao ranking mensal.
         </p>
         <hr className="sep" style={{ borderColor: 'rgba(255,255,255,.15)' }} />
-        <div className="section-title" style={{ marginBottom: 6 }}>🔥 Bônus em chamas</div>
+        <div className="section-title" style={{ marginBottom: 6 }}>🔥 Status</div>
         <p className="small" style={{ color: 'var(--muted)', marginTop: 0, marginBottom: 8 }}>
-          Terminou várias semanas seguidas no <strong>pódio do dia</strong> (top {PODIO}; nos plays em
-          grupos, o pódio é um por grupo)? Você ganha um status:
+          Terminou plays seguidos no <strong>pódio</strong>? Você ganha um status. Nos plays em
+          grupos vale o pódio <strong>do seu grupo</strong>; no grupos + duplas e no campeonato,
+          as 3 duplas medalhistas (de cada categoria).
         </p>
         <div className="grid2" style={{ gap: 8 }}>
           {STREAK_LADDER.map((x) => {
-            const faixa = x.to === null ? `${x.from} ou mais` : x.from === x.to ? `${x.from} seguidos` : `${x.from} a ${x.to}`
-            const top = x.to === null
+            const top = x.from === MAX_STREAK
             return (
               <div
                 key={x.title}
@@ -494,20 +450,20 @@ export default function Ranking({
                   gridColumn: top ? '1 / -1' : undefined,
                 }}
               >
+                <div style={{ fontSize: 20, fontWeight: 900 }}>{x.emoji} {x.title}</div>
                 <div className="tiny" style={{ fontWeight: 800, letterSpacing: '.5px' }}>
-                  {x.emoji} {faixa.toUpperCase()} · {x.title.toUpperCase()}
+                  {x.from} PÓDIOS SEGUIDOS
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 900 }}>{x.value} <span style={{ fontSize: 11 }}>PONTOS</span></div>
               </div>
             )
           })}
         </div>
         <p className="tiny" style={{ color: 'var(--muted)', marginBottom: 0 }}>
-          <strong>No fechamento do mês ela escolhe:</strong> <em>usar</em> o status (os pontos entram
-          naquele mês e a sequência zera) ou <em>preservar</em> (não pontua, o status continua
-          crescendo e ela ganha <strong>1 vida</strong>, que segura um play fora do pódio).
-          Faltar zera o status mesmo com vida — tem que estar lá. Como o mês tem 4 ou 5 plays,
-          Imperatriz e Duquesa só existem para quem preserva e atravessa meses.
+          O status <strong>não vale pontos</strong>: o ranking do mês é só o que foi jogado. Ele segue
+          de um play para o outro, atravessando o mês, e zera quando você fica fora do pódio ou
+          falta. No 5º pódio seguido você vira <strong>👑 Duquesa da V3</strong>: entra no Hall das
+          Duquesas, ganha a camisa dourada com o seu nome e um presente surpresa, e o status
+          recomeça — mas o seu nome fica <strong>dourado com a coroa</strong> para sempre.
         </p>
       </div>
     </>
@@ -515,57 +471,51 @@ export default function Ranking({
 }
 
 /**
- * Fechar o mes mexe no mini-game do status, entao a tela mostra exatamente o
- * que vai acontecer com cada uma antes de confirmar.
+ * O Hall das Duquesas: quem ja chegou a 5 podios seguidos, para sempre.
+ * O status dela recomeca, mas a conquista fica aqui e no nome dourado.
  */
+function HallDasDuquesas({ duquesas }: { duquesas: { player_id: string; date: string }[] }) {
+  const { nameOf, playerById } = useStore()
+  if (duquesas.length === 0) return null
+  return (
+    <div className="card hall-duquesas">
+      <div className="section-title">👑 Hall das Duquesas</div>
+      <div className="stack">
+        {[...duquesas].reverse().map((d) => (
+          <div key={`${d.player_id}:${d.date}`} className="row">
+            <Avatar player={playerById(d.player_id)} size={42} />
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="ellipsis" style={{ fontWeight: 800 }}>
+                <NomeClicavel id={d.player_id}>{nameOf(d.player_id)}</NomeClicavel>
+              </div>
+              <div className="tiny muted">Duquesa da V3 em {dateLabel(d.date)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="tiny muted" style={{ marginBottom: 0 }}>
+        🎁 Cada Duquesa ganha a camisa dourada com o nome e um presente surpresa.
+      </p>
+    </div>
+  )
+}
+
+/** Fechar o mes so trava o ranking dele: o status nao depende mais do fechamento. */
 function ConfirmarFechamento({
   mes,
-  emChamas,
   onClose,
   onConfirmar,
 }: {
   mes: string
-  emChamas: { player_id: string; streak: number; value: number; life: number }[]
   onClose: () => void
   onConfirmar: () => void
 }) {
-  const { nameOf, playerById } = useStore()
   return (
     <Modal title={`Finalizar ${monthLabel(mes)}?`} onClose={onClose}>
       <p className="tiny muted" style={{ marginTop: 0 }}>
-        O mês fecha e o app abre o <strong>fechamento do status</strong>: cada uma que está em
-        chamas escolhe <strong>usar</strong> (vira pontos deste mês e a sequência zera) ou{' '}
-        <strong>preservar</strong> (não pontua, o status continua e ela ganha 1 vida). Sem
-        resposta, fica preservado. Dá para <strong>reabrir</strong> depois, se foi teste.
+        O mês fecha com o ranking como está. O status das meninas não muda: ele continua no
+        próximo play. Dá para <strong>reabrir</strong> depois, se foi teste.
       </p>
-
-      {emChamas.length === 0 ? (
-        <div className="banner info" style={{ marginTop: 0 }}>
-          Nenhuma jogadora está em chamas agora, então fechar o mês não muda pontuação nenhuma.
-        </div>
-      ) : (
-        <>
-          <div className="section-title" style={{ fontSize: 13 }}>
-            🔥 {emChamas.length === 1 ? 'Uma jogadora fecha' : `${emChamas.length} jogadoras fecham`} com status
-          </div>
-          <div className="stack">
-            {emChamas.map((f) => {
-              const lvl = streakLevel(f.streak)
-              return (
-                <div key={f.player_id} className="row" style={{ gap: 10 }}>
-                  <Avatar player={playerById(f.player_id)} size={34} />
-                  <span className="grow ellipsis" style={{ fontWeight: 700 }}>
-                    {nameOf(f.player_id)} {lvl?.emoji}
-                  </span>
-                  <span className="tiny nowrap" style={{ fontWeight: 800, color: 'var(--pink)' }}>
-                    vale {f.value} pts
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
 
       <button className="btn teal block" style={{ marginTop: 14 }} onClick={onConfirmar}>
         🏁 Finalizar {monthLabel(mes)}

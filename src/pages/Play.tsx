@@ -107,7 +107,7 @@ import {
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
-import { computeStreaks, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { computeStreaks, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, precisaRefazer, proximasPelaFila } from '../lib/fila'
@@ -3244,10 +3244,18 @@ function PlayDetail({
             <>
               {award && awardLevel && (
                 <div className="banner warn" style={{ background: 'var(--orange-suave)', color: 'var(--orange)' }}>
-                  {awardLevel.emoji} <strong>{nameOf(award.player_id)}</strong> é {awardLevel.title.toLowerCase()}!
-                  {' '}{award.streak} semanas seguidas no pódio do dia — status vale{' '}
-                  <strong>{award.value} pontos</strong>, que ela decide se usa no fechamento do mês.
-                  {award.usouVida && ' (uma vida foi consumida para segurar o status hoje)'}
+                  {award.streak >= MAX_STREAK ? (
+                    <>
+                      👑 <strong>{nameOf(award.player_id)}</strong> virou <strong>Duquesa da V3</strong>!
+                      {' '}{award.streak} pódios seguidos: entra no Hall das Duquesas, ganha a camisa
+                      dourada e o presente surpresa, e o status recomeça.
+                    </>
+                  ) : (
+                    <>
+                      {awardLevel.emoji} <strong>{nameOf(award.player_id)}</strong> está {awardLevel.title}!
+                      {' '}{award.streak} pódios seguidos — faltam {MAX_STREAK - award.streak} para 👑 Duquesa.
+                    </>
+                  )}
                 </div>
               )}
               {ehCampeonato && (

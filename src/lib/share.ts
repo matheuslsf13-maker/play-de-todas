@@ -1,6 +1,6 @@
 import type { DuplaDoDia, PlayerStat } from './stats'
 import { balance } from './stats'
-import { streakLevel, type PodioDoDia } from './streaks'
+import { MAX_STREAK, streakLevel, type PodioDoDia } from './streaks'
 import { dateLabel, monthLabel, plural } from './types'
 
 /**
@@ -84,12 +84,12 @@ export function monthRankingText(
   const emChamas = rows.filter((s) => (fire?.get(s.player_id) ?? 0) >= 2)
   if (emChamas.length > 0) {
     partes.push(
-      '\n🔥 *Em chamas*\n' +
+      '\n🔥 *Status*\n' +
         emChamas
           .map((s) => {
             const n = fire?.get(s.player_id) ?? 0
             const lvl = streakLevel(n)
-            return `${lvl?.emoji} *${nameOf(s.player_id)}* — ${lvl?.title}, ${n} semanas seguidas no pódio`
+            return `${lvl?.emoji} *${nameOf(s.player_id)}* — ${lvl?.title}, ${n} pódios seguidos`
           })
           .join('\n'),
     )
@@ -199,9 +199,12 @@ export function dayRankingText(opts: DayTextOpts): string {
   const lvl = award ? streakLevel(award.streak) : null
   if (award && lvl) {
     partes.push(
-      `\n${lvl.emoji} *${nameOf(award.player_id)} é ${lvl.title.toUpperCase()}!*\n` +
-        `${award.streak} semanas seguidas no pódio. O status vale *${award.value} pontos*, ` +
-        `que ela decide se usa no fechamento do mês.`,
+      award.streak >= MAX_STREAK
+        ? `\n👑 *${nameOf(award.player_id)} VIROU DUQUESA DA V3!*\n` +
+            `${award.streak} pódios seguidos: entra no Hall das Duquesas, ganha a camisa dourada ` +
+            `e um presente surpresa. O status recomeça, mas a coroa fica para sempre.`
+        : `\n${lvl.emoji} *${nameOf(award.player_id)} está ${lvl.title.toUpperCase()}!*\n` +
+            `${award.streak} pódios seguidos. Faltam ${MAX_STREAK - award.streak} para virar 👑 Duquesa.`,
     )
   }
 
