@@ -32,7 +32,7 @@ const VISTAS = [
   ['costas34', false],
   ['costas', false],
 ]
-const ANIMS = { andar: 8, parada: 16 }
+const ANIMS = { andar: 12, parada: 16 }
 
 const tmp = join(tmpdir(), 'pdt-quadros')
 mkdirSync(tmp, { recursive: true })

@@ -3,7 +3,7 @@
  "altura": 192,
  "vistas": {
   "frente34": {
-   "folha": "exemplo-frente", "gabarito": [26, 17, 444, 986], "tipo": "diagonal",
+   "folha": "exemplo-frente", "gabarito": [26, 17, 444, 986], "tipo": "diagonalFrente",
    "ossos": {
     "corpo": {"pai": null, "pivo": [205, 500]},
     "cabeca": {"pai": "corpo", "pivo": [205, 232]},
@@ -28,7 +28,7 @@
    "ordem": ["bracoLonge", "pernaLonge", "corpo", "pernaPerto", "cabelo", "bracoPerto"]
   },
   "costas34": {
-   "folha": "exemplo-costas", "gabarito": [50, 21, 376, 984], "tipo": "diagonal",
+   "folha": "exemplo-costas", "gabarito": [50, 21, 376, 984], "tipo": "diagonalCostas",
    "ossos": {
     "corpo": {"pai": null, "pivo": [215, 500]},
     "cabeca": {"pai": "corpo", "pivo": [215, 232]},
@@ -53,7 +53,7 @@
    "ordem": ["bracoLonge", "pernaLonge", "corpo", "pernaPerto", "cabelo", "bracoPerto"]
   },
   "frente": {
-   "folha": "exemplo-vistas3", "gabarito": [160, 11, 423, 994], "tipo": "reta",
+   "folha": "exemplo-vistas3", "gabarito": [160, 11, 423, 994], "tipo": "frente",
    "ossos": {
     "corpo": {"pai": null, "pivo": [372, 520]},
     "cabeca": {"pai": "corpo", "pivo": [372, 228]},
@@ -102,7 +102,7 @@
    "ordem": ["bracoLonge", "pernaLonge", "corpo", "pernaPerto", "bracoPerto", "cabelo"]
   },
   "costas": {
-   "folha": "exemplo-vistas3", "gabarito": [964, 11, 426, 987], "tipo": "reta",
+   "folha": "exemplo-vistas3", "gabarito": [964, 11, 426, 987], "tipo": "costas",
    "ossos": {
     "corpo": {"pai": null, "pivo": [1179, 520]},
     "cabeca": {"pai": "corpo", "pivo": [1179, 230]},

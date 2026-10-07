@@ -43,8 +43,31 @@ export function direcaoDe(dx: number, dy: number): Direcao {
   return (['E', 'SE', 'S', 'SO', 'O', 'NO', 'N', 'NE'] as Direcao[])[setor]
 }
 
-/** Comprimento (px do sprite) de um ciclo de caminhada: dois passos, sem o pe patinar. */
-export const PASSO_DO_CICLO = 146
+/**
+ * Quanto a tela anda (px do sprite) em um ciclo de caminhada (dois passos), em
+ * cada direcao: e o que faz o pe ficar parado no chao (ver CICLO_EM_PX em
+ * boneco.ts). A animacao avanca pela distancia andada / este valor.
+ */
+export const CICLO_DA_DIRECAO: Record<Direcao, number> = {
+  S: 83,
+  N: 83,
+  E: 150,
+  O: 150,
+  SE: 100,
+  SO: 100,
+  NE: 100,
+  NO: 100,
+}
+
+/**
+ * Velocidade na tela para uma velocidade "de chao": a vista e de cima em
+ * diagonal (2:1), entao andar para cima ou para baixo na tela cobre metade dos
+ * pixels de andar para o lado.
+ */
+export function velocidadeNaTela(velocidadeNoChao: number, dx: number, dy: number): number {
+  const d = Math.hypot(dx, dy) || 1
+  return velocidadeNoChao / Math.hypot(dx / d, (2 * dy) / d)
+}
 /** Quanto dura o ciclo de "parada" (respirar e o cabelo na brisa), em segundos. */
 export const CICLO_PARADA = 2.4
 

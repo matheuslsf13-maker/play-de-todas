@@ -6,7 +6,7 @@
  * cabelo na brisa), gira 360, anda nas 8 direcoes, desce a escada degrau a
  * degrau, anda na areia; no fim a noite cai e o lampiao acende.
  */
-import { CICLO_PARADA, GIRO, PASSO_DO_CICLO, desenharMenina, direcaoDe, type Direcao, type FolhaDeSprites } from '../../../src/lib/hall/sprite'
+import { CICLO_DA_DIRECAO, CICLO_PARADA, GIRO, desenharMenina, direcaoDe, velocidadeNaTela, type Direcao, type FolhaDeSprites } from '../../../src/lib/hall/sprite'
 
 const MUNDO = { w: 1000, h: 1400 }
 const ESCALA = 2 // cada pixel da arte = 2x2 na tela
@@ -213,9 +213,12 @@ const ROTEIRO: Passo[] = [
   { parada: 3.2, dir: 'S' },
   { girar: 1.6 },
   { parada: 0.6, dir: 'S' },
-  { andar: [610, 300] }, // leste
-  { andar: [610, 210] }, // norte
-  { andar: [330, 210] }, // oeste
+  { andar: [430, 470] }, // sul (vindo para a camera)
+  { parada: 0.5, dir: 'S' },
+  { andar: [430, 230] }, // norte (indo embora)
+  { andar: [610, 230] }, // leste
+  { andar: [610, 300] }, // sul
+  { andar: [330, 300] }, // oeste
   { andar: [330, 330] }, // sul
   { andar: [420, 375] }, // sudeste
   { andar: [500, 335] }, // nordeste
@@ -282,11 +285,12 @@ export function simular(fps: number): Estado[] {
     } else if ('andar' in p) {
       const [tx, ty] = p.andar
       dir = direcaoDe(tx - x, ty - y)
+      const vel = velocidadeNaTela(VEL, tx - x, ty - y)
       for (;;) {
         const dx = tx - x
         const dy = ty - y
         const dist = Math.hypot(dx, dy)
-        const anda = VEL * dt
+        const anda = vel * dt
         if (dist <= anda) {
           x = tx
           y = ty
@@ -294,7 +298,7 @@ export function simular(fps: number): Estado[] {
         }
         x += (dx / dist) * anda
         y += (dy / dist) * anda
-        faseAndar += anda / PASSO_DO_CICLO
+        faseAndar += anda / CICLO_DA_DIRECAO[dir]
         registra('andar', faseAndar % 1)
       }
     } else if ('escada' in p) {
@@ -304,13 +308,14 @@ export function simular(fps: number): Estado[] {
       for (let k = 0; k < ESCADA.n + 1; k++) {
         const x0 = x
         const y0 = y
-        const durar = (ESCADA.piso / (VEL * 0.62))
+        const velE = velocidadeNaTela(VEL, D[0], D[1]) * 0.62
+        const durar = ESCADA.piso / velE
         for (let s = 0; s < durar; s += dt) {
           const u = s / durar
           const desce = k < ESCADA.n ? smooth(0.35, 0.7, u) * ESCADA.degrau : 0
           x = x0 + D[0] * ESCADA.piso * u
           y = y0 + D[1] * ESCADA.piso * u + desce
-          faseAndar += (VEL * 0.62 * dt) / PASSO_DO_CICLO
+          faseAndar += (velE * dt) / CICLO_DA_DIRECAO.SE
           registra('andar', faseAndar % 1)
         }
         x = x0 + D[0] * ESCADA.piso
