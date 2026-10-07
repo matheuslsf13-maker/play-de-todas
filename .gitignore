@@ -11,3 +11,9 @@ vite.config.ts.timestamp-*
 
 # config local do editor/agent
 .claude
+
+# Hall: intermediarios gerados pelos scripts/hall (regeneraveis)
+arte/hall/menina/quadros/
+arte/hall/menina/pele-*.png
+arte/hall/menina/partes-*.png
+arte/hall/menina/paleta-*.npy

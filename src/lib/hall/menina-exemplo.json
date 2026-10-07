@@ -1,70 +1,130 @@
 {
- "_leia": "Boneco articulado da menina de exemplo. 'caixa' = onde a peca esta na folha (x,y,w,h); 'lugar' = onde a peca fica no GABARITO (o desenho da menina inteira da propria folha), em pixels do gabarito (x,y,w,h) -- a peca e esticada para caber ali, porque o ChatGPT desenha cada peca numa escala; 'osso' = a parte do corpo que move a peca. 'ossos' tem o pivo de cada articulacao no gabarito. 'ordem' = de tras para a frente. Gerado/conferido por scripts/hall/menina.py.",
- "altura": [20, 1000],
+ "_leia": "Boneco da menina de exemplo, 5 vistas (as outras 3 direcoes sao espelho). Coordenadas em pixels da FOLHA de cada vista (arte/hall/menina/<folha>.webp). 'gabarito' = a caixa da menina inteira; 'ossos' = pivo de cada articulacao; 'regioes' = sementes de cada braco/perna (o recorte de verdade segue o contorno do desenho, scripts/hall/menina.py); 'rosto' = onde nao ha cabelo que balance; 'olhos' = elipses (cx, cy, rx, ry) para piscar; 'duplicar' = membro escondido desenhado com a copia do outro (de perfil so se ve uma perna); 'ordem' = de tras para a frente; 'logo' = centro do logo no peito.",
+ "altura": 192,
  "vistas": {
-  "frente": {
-   "folha": "exemplo-frente",
-   "gabarito": [26, 17, 444, 986],
+  "frente34": {
+   "folha": "exemplo-frente", "gabarito": [26, 17, 444, 986], "tipo": "diagonal",
    "ossos": {
-    "corpo": { "pai": null, "pivo": [205, 500] },
-    "cabeca": { "pai": "corpo", "pivo": [205, 240] },
-    "bracoLonge": { "pai": "corpo", "pivo": [318, 258] },
-    "antebracoLonge": { "pai": "bracoLonge", "pivo": [340, 455] },
-    "bracoPerto": { "pai": "corpo", "pivo": [92, 262] },
-    "antebracoPerto": { "pai": "bracoPerto", "pivo": [66, 458] },
-    "coxaLonge": { "pai": "corpo", "pivo": [258, 505] },
-    "canelaLonge": { "pai": "coxaLonge", "pivo": [262, 715] },
-    "coxaPerto": { "pai": "corpo", "pivo": [152, 505] },
-    "canelaPerto": { "pai": "coxaPerto", "pivo": [158, 715] }
+    "corpo": {"pai": null, "pivo": [205, 500]},
+    "cabeca": {"pai": "corpo", "pivo": [205, 232]},
+    "bracoPerto": {"pai": "corpo", "pivo": [92, 262]},
+    "antebracoPerto": {"pai": "bracoPerto", "pivo": [58, 458]},
+    "bracoLonge": {"pai": "corpo", "pivo": [320, 258]},
+    "antebracoLonge": {"pai": "bracoLonge", "pivo": [358, 455]},
+    "coxaPerto": {"pai": "corpo", "pivo": [150, 520]},
+    "canelaPerto": {"pai": "coxaPerto", "pivo": [158, 718]},
+    "coxaLonge": {"pai": "corpo", "pivo": [262, 520]},
+    "canelaLonge": {"pai": "coxaLonge", "pivo": [300, 722]}
    },
-   "pecas": {
-    "cabelo": { "caixa": [664, 18, 239, 442], "lugar": [82, 35, 246, 440], "osso": "cabeca" },
-    "antebracoLonge": { "caixa": [1371, 255, 113, 303], "lugar": [300, 440, 82, 210], "osso": "antebracoLonge" },
-    "bracoLonge": { "caixa": [1364, 43, 106, 193], "lugar": [284, 240, 76, 225], "osso": "bracoLonge", "cortarCima": 0.22 },
-    "canelaLonge": { "caixa": [1031, 575, 98, 416], "lugar": [224, 697, 80, 304], "osso": "canelaLonge" },
-    "coxaLonge": { "caixa": [654, 491, 118, 250], "lugar": [198, 478, 124, 272], "osso": "coxaLonge", "esfumar": 14 },
-    "canelaPerto": { "caixa": [853, 575, 100, 416], "lugar": [118, 697, 80, 304], "osso": "canelaPerto" },
-    "coxaPerto": { "caixa": [489, 492, 119, 250], "lugar": [92, 478, 124, 272], "osso": "coxaPerto", "esfumar": 14 },
-    "short": { "caixa": [895, 388, 284, 178], "lugar": [88, 442, 252, 156], "osso": "corpo" },
-    "tronco": { "caixa": [883, 43, 310, 334], "lugar": [70, 188, 284, 290], "osso": "corpo" },
-    "cabeca": { "caixa": [375, 21, 281, 433], "lugar": [70, 17, 256, 394], "osso": "cabeca", "tirarBranco": true },
-    "bracoPerto": { "caixa": [1216, 43, 106, 193], "lugar": [52, 245, 76, 225], "osso": "bracoPerto", "cortarCima": 0.22 },
-    "antebracoPerto": { "caixa": [1209, 255, 117, 304], "lugar": [26, 440, 84, 212], "osso": "antebracoPerto" },
-    "coroa": { "caixa": [1146, 621, 205, 162], "lugar": [152, -22, 104, 82], "osso": "cabeca" },
-    "raquete": { "caixa": [1351, 595, 163, 393], "lugar": [0, 0, 0, 0], "osso": "antebracoPerto" }
+   "regioes": {
+    "bracoPerto": [[20, 236], [110, 236], [100, 330], [84, 420], [83, 470], [82, 560], [82, 660], [20, 660]],
+    "bracoLonge": [[300, 236], [476, 236], [476, 660], [342, 660], [344, 560], [346, 470], [344, 400], [336, 330]],
+    "pernaPerto": [[20, 540], [212, 540], [214, 640], [230, 720], [240, 800], [260, 900], [268, 1008], [20, 1008]],
+    "pernaLonge": [[212, 540], [476, 540], [476, 1008], [268, 1008], [260, 900], [240, 800], [230, 720], [214, 640]]
    },
-   "ordem": ["cabelo", "bracoLonge", "antebracoLonge", "canelaLonge", "coxaLonge", "canelaPerto", "coxaPerto", "short", "bracoPerto", "tronco", "cabeca", "coroa", "antebracoPerto"]
+   "rosto": [[128, 60], [268, 60], [268, 232], [128, 232]],
+   "olhos": [[184, 114, 15, 8], [244, 105, 13, 7]],
+   "logo": [254, 287],
+   "ordem": ["bracoLonge", "pernaLonge", "corpo", "pernaPerto", "cabelo", "bracoPerto"]
+  },
+  "costas34": {
+   "folha": "exemplo-costas", "gabarito": [50, 21, 376, 984], "tipo": "diagonal",
+   "ossos": {
+    "corpo": {"pai": null, "pivo": [215, 500]},
+    "cabeca": {"pai": "corpo", "pivo": [215, 232]},
+    "bracoPerto": {"pai": "corpo", "pivo": [100, 258]},
+    "antebracoPerto": {"pai": "bracoPerto", "pivo": [58, 455]},
+    "bracoLonge": {"pai": "corpo", "pivo": [330, 252]},
+    "antebracoLonge": {"pai": "bracoLonge", "pivo": [355, 450]},
+    "coxaPerto": {"pai": "corpo", "pivo": [160, 520]},
+    "canelaPerto": {"pai": "coxaPerto", "pivo": [178, 722]},
+    "coxaLonge": {"pai": "corpo", "pivo": [272, 520]},
+    "canelaLonge": {"pai": "coxaLonge", "pivo": [300, 728]}
+   },
+   "regioes": {
+    "bracoPerto": [[30, 300], [118, 300], [118, 420], [110, 560], [102, 660], [30, 660]],
+    "bracoLonge": [[300, 205], [432, 205], [432, 660], [360, 660], [350, 540], [330, 440], [318, 330]],
+    "pernaPerto": [[44, 540], [215, 540], [216, 640], [236, 720], [234, 800], [248, 900], [258, 1010], [44, 1010]],
+    "pernaLonge": [[215, 540], [432, 540], [432, 1010], [258, 1010], [248, 900], [234, 800], [236, 720], [216, 640]]
+   },
+   "rosto": [[285, 90], [335, 90], [335, 215], [285, 215]],
+   "olhos": [],
+   "logo": null,
+   "ordem": ["bracoLonge", "pernaLonge", "corpo", "pernaPerto", "cabelo", "bracoPerto"]
+  },
+  "frente": {
+   "folha": "exemplo-vistas3", "gabarito": [160, 11, 423, 994], "tipo": "reta",
+   "ossos": {
+    "corpo": {"pai": null, "pivo": [372, 520]},
+    "cabeca": {"pai": "corpo", "pivo": [372, 228]},
+    "bracoPerto": {"pai": "corpo", "pivo": [248, 262]},
+    "antebracoPerto": {"pai": "bracoPerto", "pivo": [222, 432]},
+    "bracoLonge": {"pai": "corpo", "pivo": [497, 262]},
+    "antebracoLonge": {"pai": "bracoLonge", "pivo": [518, 432]},
+    "coxaPerto": {"pai": "corpo", "pivo": [312, 528]},
+    "canelaPerto": {"pai": "coxaPerto", "pivo": [290, 735]},
+    "coxaLonge": {"pai": "corpo", "pivo": [434, 528]},
+    "canelaLonge": {"pai": "coxaLonge", "pivo": [462, 735]}
+   },
+   "regioes": {
+    "bracoPerto": [[200, 270], [262, 270], [262, 425], [256, 470], [236, 560], [222, 660], [150, 660], [170, 500]],
+    "bracoLonge": [[482, 270], [545, 270], [575, 500], [592, 660], [522, 660], [510, 560], [490, 470], [484, 425]],
+    "pernaPerto": [[232, 545], [368, 545], [342, 640], [322, 760], [300, 1006], [190, 1006], [228, 800]],
+    "pernaLonge": [[378, 545], [512, 545], [518, 700], [538, 800], [560, 1006], [455, 1006], [428, 760], [402, 640]]
+   },
+   "rosto": [[300, 55], [446, 55], [446, 228], [300, 228]],
+   "olhos": [[346, 107, 16, 7], [402, 98, 15, 7]],
+   "logo": [430, 287],
+   "ordem": ["corpo", "pernaPerto", "pernaLonge", "cabelo", "bracoPerto", "bracoLonge"]
+  },
+  "perfil": {
+   "folha": "exemplo-vistas3", "gabarito": [617, 11, 263, 991], "tipo": "lado",
+   "ossos": {
+    "corpo": {"pai": null, "pivo": [760, 520]},
+    "cabeca": {"pai": "corpo", "pivo": [805, 222]},
+    "bracoPerto": {"pai": "corpo", "pivo": [752, 252]},
+    "antebracoPerto": {"pai": "bracoPerto", "pivo": [768, 438]},
+    "bracoLonge": {"pai": "corpo", "pivo": [745, 252]},
+    "antebracoLonge": {"pai": "bracoLonge", "pivo": [760, 438]},
+    "coxaPerto": {"pai": "corpo", "pivo": [752, 548]},
+    "canelaPerto": {"pai": "coxaPerto", "pivo": [768, 728]},
+    "coxaLonge": {"pai": "corpo", "pivo": [748, 548]},
+    "canelaLonge": {"pai": "coxaLonge", "pivo": [764, 728]}
+   },
+   "regioes": {
+    "bracoPerto": [[700, 215], [795, 215], [795, 300], [790, 430], [812, 520], [835, 645], [760, 648], [738, 520], [722, 430], [718, 300]],
+    "pernaPerto": [[680, 548], [845, 548], [840, 640], [815, 720], [792, 800], [800, 880], [882, 960], [882, 1004], [700, 1004], [705, 880], [700, 760], [690, 640]]
+   },
+   "duplicar": {"bracoLonge": "bracoPerto", "pernaLonge": "pernaPerto"},
+   "rosto": [[790, 60], [872, 60], [872, 232], [790, 232]],
+   "olhos": [[830, 95, 10, 6]],
+   "logo": null,
+   "ordem": ["bracoLonge", "pernaLonge", "corpo", "pernaPerto", "bracoPerto", "cabelo"]
   },
   "costas": {
-   "folha": "exemplo-costas",
-   "gabarito": [50, 21, 376, 984],
+   "folha": "exemplo-vistas3", "gabarito": [964, 11, 426, 987], "tipo": "reta",
    "ossos": {
-    "corpo": { "pai": null, "pivo": [215, 500] },
-    "cabeca": { "pai": "corpo", "pivo": [215, 235] },
-    "bracoLonge": { "pai": "corpo", "pivo": [318, 252] },
-    "antebracoLonge": { "pai": "bracoLonge", "pivo": [350, 450] },
-    "bracoPerto": { "pai": "corpo", "pivo": [112, 255] },
-    "antebracoPerto": { "pai": "bracoPerto", "pivo": [95, 450] },
-    "coxaLonge": { "pai": "corpo", "pivo": [270, 505] },
-    "canelaLonge": { "pai": "coxaLonge", "pivo": [285, 725] },
-    "coxaPerto": { "pai": "corpo", "pivo": [165, 505] },
-    "canelaPerto": { "pai": "coxaPerto", "pivo": [158, 720] }
+    "corpo": {"pai": null, "pivo": [1179, 520]},
+    "cabeca": {"pai": "corpo", "pivo": [1179, 230]},
+    "bracoPerto": {"pai": "corpo", "pivo": [1055, 268]},
+    "antebracoPerto": {"pai": "bracoPerto", "pivo": [1022, 450]},
+    "bracoLonge": {"pai": "corpo", "pivo": [1300, 268]},
+    "antebracoLonge": {"pai": "bracoLonge", "pivo": [1330, 450]},
+    "coxaPerto": {"pai": "corpo", "pivo": [1115, 545]},
+    "canelaPerto": {"pai": "coxaPerto", "pivo": [1100, 735]},
+    "coxaLonge": {"pai": "corpo", "pivo": [1245, 545]},
+    "canelaLonge": {"pai": "coxaLonge", "pivo": [1256, 735]}
    },
-   "pecas": {
-    "bracoLonge": { "caixa": [1388, 238, 96, 182], "lugar": [285, 236, 72, 222], "osso": "bracoLonge", "cortarCima": 0.22 },
-    "antebracoLonge": { "caixa": [1394, 441, 101, 296], "lugar": [313, 438, 76, 201], "osso": "antebracoLonge" },
-    "canelaLonge": { "caixa": [1100, 636, 107, 352], "lugar": [240, 704, 92, 301], "osso": "canelaLonge" },
-    "coxaLonge": { "caixa": [689, 562, 140, 240], "lugar": [213, 478, 115, 258], "osso": "coxaLonge", "esfumar": 14 },
-    "canelaPerto": { "caixa": [908, 631, 100, 358], "lugar": [116, 699, 84, 301], "osso": "canelaPerto" },
-    "coxaPerto": { "caixa": [503, 566, 130, 240], "lugar": [108, 478, 115, 258], "osso": "coxaPerto", "esfumar": 14 },
-    "short": { "caixa": [918, 407, 313, 218], "lugar": [100, 412, 250, 174], "osso": "corpo" },
-    "tronco": { "caixa": [947, 71, 296, 307], "lugar": [66, 188, 278, 262], "osso": "corpo" },
-    "bracoPerto": { "caixa": [1251, 238, 94, 182], "lugar": [72, 238, 72, 222], "osso": "bracoPerto", "cortarCima": 0.22 },
-    "cabeca": { "caixa": [425, 22, 226, 467], "lugar": [132, 21, 203, 420], "osso": "cabeca" },
-    "coroa": { "caixa": [1250, 21, 216, 161], "lugar": [160, -18, 104, 78], "osso": "cabeca" },
-    "antebracoPerto": { "caixa": [1243, 441, 99, 296], "lugar": [57, 438, 74, 201], "osso": "antebracoPerto" }
+   "regioes": {
+    "bracoPerto": [[1015, 290], [1075, 290], [1082, 380], [1062, 470], [1040, 560], [1020, 652], [955, 652], [975, 480]],
+    "bracoLonge": [[1282, 290], [1340, 290], [1380, 480], [1400, 652], [1335, 652], [1320, 560], [1300, 470], [1280, 380]],
+    "pernaPerto": [[1040, 582], [1175, 582], [1150, 700], [1125, 800], [1100, 998], [1010, 998], [1040, 760]],
+    "pernaLonge": [[1185, 582], [1320, 582], [1325, 700], [1335, 800], [1348, 998], [1250, 998], [1225, 800], [1210, 700]]
    },
-   "ordem": ["bracoLonge", "antebracoLonge", "canelaLonge", "coxaLonge", "canelaPerto", "coxaPerto", "short", "tronco", "bracoPerto", "cabeca", "coroa", "antebracoPerto"]
+   "rosto": [],
+   "olhos": [],
+   "logo": null,
+   "ordem": ["corpo", "pernaPerto", "pernaLonge", "cabelo", "bracoPerto", "bracoLonge"]
   }
  }
 }
