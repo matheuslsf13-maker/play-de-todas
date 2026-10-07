@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BotaoInstalar } from './components/InstalarApp'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
@@ -10,11 +10,7 @@ import Ranking from './pages/Ranking'
 import Stats from './pages/Stats'
 import { ProvedorDePerfil } from './components/NomeClicavel'
 
-// o Hall tem cenario, imagens e animacao: so carrega quando a aba e aberta,
-// para nao pesar no app de quadra
-const Hall = lazy(() => import('./pages/Hall'))
-
-type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins' | 'hall'
+type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
 /**
  * `soAdmin`: so aparece para quem esta logada. Meninas (cadastro, pagamento)
@@ -28,8 +24,6 @@ const TABS: { id: Tab; label: string; icon: string; soAdmin?: boolean }[] = [
   { id: 'stats', label: 'Stats', icon: '📊' },
   { id: 'players', label: 'Meninas', icon: '👯', soAdmin: true },
   { id: 'checkins', label: 'Check-ins', icon: '✅', soAdmin: true },
-  // em construcao: so a organizacao ve, ate a arte das meninas ficar pronta
-  { id: 'hall', label: 'Hall', icon: '👑', soAdmin: true },
 ]
 
 /**
@@ -171,11 +165,6 @@ export default function App() {
           {abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
           {abaVisivel === 'players' && <Players onToast={show} />}
           {abaVisivel === 'checkins' && <Checkins onToast={show} />}
-          {abaVisivel === 'hall' && (
-            <Suspense fallback={<div className="card"><div className="empty">Abrindo o Hall…</div></div>}>
-              <Hall />
-            </Suspense>
-          )}
         </main>
       )}
 
