@@ -1400,3 +1400,25 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 }
 .hall-duquesas { border: 1.5px solid var(--ouro); background: var(--ouro-suave); }
 .nome-duquesa .coroa { -webkit-text-fill-color: initial; color: initial; }
+
+/* ---------- Hall das Duquesas ---------- */
+.hall-palco { position: relative; margin: 0 0 10px; }
+.hall-cena {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 18px;
+  background: #f3e3c3;
+  touch-action: none; /* o dedo arrasta o cenario, nao a pagina */
+  box-shadow: 0 6px 22px rgba(20, 26, 60, 0.14);
+}
+@media (min-width: 720px) { .hall-cena { aspect-ratio: 16 / 10; } }
+.hall-relogio {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(255, 255, 255, 0.85); color: #1b1f42;
+  font-weight: 800; font-size: 12px; padding: 3px 9px; border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.hall-controles { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
+.hall-controles .segmented { flex: 1 1 220px; }
+.hall-numero { font-weight: 900; color: var(--ouro); min-width: 28px; }

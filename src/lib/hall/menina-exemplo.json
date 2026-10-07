@@ -1,0 +1,70 @@
+{
+ "_leia": "Boneco articulado da menina de exemplo. 'caixa' = onde a peca esta na folha (x,y,w,h); 'lugar' = onde a peca fica no GABARITO (o desenho da menina inteira da propria folha), em pixels do gabarito (x,y,w,h) -- a peca e esticada para caber ali, porque o ChatGPT desenha cada peca numa escala; 'osso' = a parte do corpo que move a peca. 'ossos' tem o pivo de cada articulacao no gabarito. 'ordem' = de tras para a frente. Gerado/conferido por scripts/hall/menina.py.",
+ "altura": [20, 1000],
+ "vistas": {
+  "frente": {
+   "folha": "exemplo-frente",
+   "gabarito": [26, 17, 444, 986],
+   "ossos": {
+    "corpo": { "pai": null, "pivo": [205, 500] },
+    "cabeca": { "pai": "corpo", "pivo": [205, 240] },
+    "bracoLonge": { "pai": "corpo", "pivo": [318, 258] },
+    "antebracoLonge": { "pai": "bracoLonge", "pivo": [340, 455] },
+    "bracoPerto": { "pai": "corpo", "pivo": [92, 262] },
+    "antebracoPerto": { "pai": "bracoPerto", "pivo": [66, 458] },
+    "coxaLonge": { "pai": "corpo", "pivo": [258, 505] },
+    "canelaLonge": { "pai": "coxaLonge", "pivo": [262, 715] },
+    "coxaPerto": { "pai": "corpo", "pivo": [152, 505] },
+    "canelaPerto": { "pai": "coxaPerto", "pivo": [158, 715] }
+   },
+   "pecas": {
+    "cabelo": { "caixa": [664, 18, 239, 442], "lugar": [82, 35, 246, 440], "osso": "cabeca" },
+    "antebracoLonge": { "caixa": [1371, 255, 113, 303], "lugar": [300, 440, 82, 210], "osso": "antebracoLonge" },
+    "bracoLonge": { "caixa": [1364, 43, 106, 193], "lugar": [284, 240, 76, 225], "osso": "bracoLonge", "cortarCima": 0.22 },
+    "canelaLonge": { "caixa": [1031, 575, 98, 416], "lugar": [224, 697, 80, 304], "osso": "canelaLonge" },
+    "coxaLonge": { "caixa": [654, 491, 118, 250], "lugar": [198, 478, 124, 272], "osso": "coxaLonge", "esfumar": 14 },
+    "canelaPerto": { "caixa": [853, 575, 100, 416], "lugar": [118, 697, 80, 304], "osso": "canelaPerto" },
+    "coxaPerto": { "caixa": [489, 492, 119, 250], "lugar": [92, 478, 124, 272], "osso": "coxaPerto", "esfumar": 14 },
+    "short": { "caixa": [895, 388, 284, 178], "lugar": [88, 442, 252, 156], "osso": "corpo" },
+    "tronco": { "caixa": [883, 43, 310, 334], "lugar": [70, 188, 284, 290], "osso": "corpo" },
+    "cabeca": { "caixa": [375, 21, 281, 433], "lugar": [70, 17, 256, 394], "osso": "cabeca", "tirarBranco": true },
+    "bracoPerto": { "caixa": [1216, 43, 106, 193], "lugar": [52, 245, 76, 225], "osso": "bracoPerto", "cortarCima": 0.22 },
+    "antebracoPerto": { "caixa": [1209, 255, 117, 304], "lugar": [26, 440, 84, 212], "osso": "antebracoPerto" },
+    "coroa": { "caixa": [1146, 621, 205, 162], "lugar": [152, -22, 104, 82], "osso": "cabeca" },
+    "raquete": { "caixa": [1351, 595, 163, 393], "lugar": [0, 0, 0, 0], "osso": "antebracoPerto" }
+   },
+   "ordem": ["cabelo", "bracoLonge", "antebracoLonge", "canelaLonge", "coxaLonge", "canelaPerto", "coxaPerto", "short", "bracoPerto", "tronco", "cabeca", "coroa", "antebracoPerto"]
+  },
+  "costas": {
+   "folha": "exemplo-costas",
+   "gabarito": [50, 21, 376, 984],
+   "ossos": {
+    "corpo": { "pai": null, "pivo": [215, 500] },
+    "cabeca": { "pai": "corpo", "pivo": [215, 235] },
+    "bracoLonge": { "pai": "corpo", "pivo": [318, 252] },
+    "antebracoLonge": { "pai": "bracoLonge", "pivo": [350, 450] },
+    "bracoPerto": { "pai": "corpo", "pivo": [112, 255] },
+    "antebracoPerto": { "pai": "bracoPerto", "pivo": [95, 450] },
+    "coxaLonge": { "pai": "corpo", "pivo": [270, 505] },
+    "canelaLonge": { "pai": "coxaLonge", "pivo": [285, 725] },
+    "coxaPerto": { "pai": "corpo", "pivo": [165, 505] },
+    "canelaPerto": { "pai": "coxaPerto", "pivo": [158, 720] }
+   },
+   "pecas": {
+    "bracoLonge": { "caixa": [1388, 238, 96, 182], "lugar": [285, 236, 72, 222], "osso": "bracoLonge", "cortarCima": 0.22 },
+    "antebracoLonge": { "caixa": [1394, 441, 101, 296], "lugar": [313, 438, 76, 201], "osso": "antebracoLonge" },
+    "canelaLonge": { "caixa": [1100, 636, 107, 352], "lugar": [240, 704, 92, 301], "osso": "canelaLonge" },
+    "coxaLonge": { "caixa": [689, 562, 140, 240], "lugar": [213, 478, 115, 258], "osso": "coxaLonge", "esfumar": 14 },
+    "canelaPerto": { "caixa": [908, 631, 100, 358], "lugar": [116, 699, 84, 301], "osso": "canelaPerto" },
+    "coxaPerto": { "caixa": [503, 566, 130, 240], "lugar": [108, 478, 115, 258], "osso": "coxaPerto", "esfumar": 14 },
+    "short": { "caixa": [918, 407, 313, 218], "lugar": [100, 412, 250, 174], "osso": "corpo" },
+    "tronco": { "caixa": [947, 71, 296, 307], "lugar": [66, 188, 278, 262], "osso": "corpo" },
+    "bracoPerto": { "caixa": [1251, 238, 94, 182], "lugar": [72, 238, 72, 222], "osso": "bracoPerto", "cortarCima": 0.22 },
+    "cabeca": { "caixa": [425, 22, 226, 467], "lugar": [132, 21, 203, 420], "osso": "cabeca" },
+    "coroa": { "caixa": [1250, 21, 216, 161], "lugar": [160, -18, 104, 78], "osso": "cabeca" },
+    "antebracoPerto": { "caixa": [1243, 441, 99, 296], "lugar": [57, 438, 74, 201], "osso": "antebracoPerto" }
+   },
+   "ordem": ["bracoLonge", "antebracoLonge", "canelaLonge", "coxaLonge", "canelaPerto", "coxaPerto", "short", "tronco", "bracoPerto", "cabeca", "coroa", "antebracoPerto"]
+  }
+ }
+}
