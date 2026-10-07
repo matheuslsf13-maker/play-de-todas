@@ -576,6 +576,22 @@ Agora o ranking do mês é só o que foi jogado e o status é **reconhecimento**
 diante (as vidas antigas não atravessam). A sequência de antes conta: quem estava
 com 2 em 05/10 segue com 2.
 
+**Quão fácil é virar Duquesa** (medido: 48 plays = 1 ano, 20 anos por modo, níveis
+reais diferentes, cada menina vem em 85% das segundas, fila e grupos do próprio app):
+
+| modo (toda semana) | chance de pódio | Duquesas por ano |
+|---|---|---|
+| todas com todas (16) | 19% | 1,3 |
+| em grupos de 8 | 39% | 2,6 |
+| grupos + duplas (16) | 37% | 3,8 |
+| campeonato, categorias de 12 | 52% | 22 |
+| campeonato, categorias de 8 | 76% | 60 |
+
+Nos modos de toda semana sai uma Duquesa a cada 3 a 9 meses — rara, mas possível.
+O campeonato dá fogo a quase toda a categoria (3 das 4 duplas de uma categoria de 8).
+**Decisão da organizadora: mantido o pódio inteiro no campeonato** — é um evento raro,
+e o fogo a mais recompensa quem joga o campeonato. Não "corrigir" para só a campeã.
+
 ## Campeã do dia
 
 **Empate exato** (mesmos pontos, saldo e vitórias) gera **co-campeãs**. Uma
