@@ -119,6 +119,14 @@ test('play sem status: o podio nao soma o fogo e ficar fora nao apaga', () => {
   assert.equal(computeStreaks(dentro).steps.some((x) => x.date === '2026-10-26'), false)
 })
 
+test('play sem status: quem tem so 1 podio tambem nao perde, nem faltando', () => {
+  const fora = marcar(dados([['2026-10-12', P], ['2026-10-19', SEM_P]]), '2026-10-19', { conta_status: false })
+  assert.equal(computeStreaks(fora).current.get('p'), 1)
+  const faltou = marcar(dados([['2026-10-12', P], ['2026-10-19', SEM_P]]), '2026-10-19', { conta_status: false })
+  faltou.sessions[1].player_ids = TODAS.filter((id) => id !== 'p')
+  assert.equal(computeStreaks(faltou).current.get('p'), 1)
+})
+
 test('play sem status que vale para o mes: o podio do dia continua contando no perfil', () => {
   const d = marcar(dados([['2026-10-12', P]]), '2026-10-12', { conta_status: false })
   const st = computeStreaks(d)
