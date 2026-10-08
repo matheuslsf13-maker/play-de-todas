@@ -107,7 +107,7 @@ import {
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
-import { computeStreaks, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { computeStreaks, contaNoStatus, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, precisaRefazer, proximasPelaFila } from '../lib/fila'
@@ -246,6 +246,7 @@ function PlayList({
                       <strong className="ellipsis">{s.title}</strong>
                       <span className={`badge ${s.status}`}>{s.status === 'open' ? 'em andamento' : 'finalizado'}</span>
                       {s.ranked === false && <span className="badge avulso">avulso</span>}
+                      {!contaNoStatus(s) && <span className="badge avulso">sem 🔥</span>}
                     </div>
                     <div className="tiny muted">
                       {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {s.courts} quadras
@@ -264,6 +265,53 @@ function PlayList({
       </div>
       {apagando && <ConfirmarExclusao session={apagando} onClose={() => setApagando(null)} />}
     </>
+  )
+}
+
+/**
+ * Mudar, com o play ja montado, se ele vale para o mes e se mexe no status (o
+ * campeonato que virou play de aniversario). Grava so a coluna mexida.
+ */
+function OpcoesDoPlay({ session }: { session: PlaySession }) {
+  const { mesclarNoPlay } = useStore()
+  const vale = session.ranked !== false
+  const status = contaNoStatus(session)
+  return (
+    <details className="card">
+      <summary className="small" style={{ fontWeight: 700, cursor: 'pointer' }}>
+        ⚙️ Vale para o mês e para o 🔥?
+      </summary>
+      <div className="stack" style={{ marginTop: 10 }}>
+        <label className={`toggle-card row${vale ? '' : ' avulso'}`} style={{ gap: 10, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={vale}
+            onChange={(e) => mesclarNoPlay(session.id, { campo: 'ranked', valor: e.target.checked })}
+          />
+          <span className="grow">
+            <strong>{vale ? '🏆 Vale para o ranking do mês' : '🎈 Play avulso'}</strong>
+            <span className="hint" style={{ marginTop: 2 }}>
+              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês'}
+            </span>
+          </span>
+        </label>
+        <label className={`toggle-card row${status ? '' : ' avulso'}`} style={{ gap: 10, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={status}
+            onChange={(e) => mesclarNoPlay(session.id, { campo: 'conta_status', valor: e.target.checked })}
+          />
+          <span className="grow">
+            <strong>{status ? '🔥 Conta no status' : '🧊 Play sem status'}</strong>
+            <span className="hint" style={{ marginTop: 2 }}>
+              {status
+                ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
+                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde'}
+            </span>
+          </span>
+        </label>
+      </div>
+    </details>
   )
 }
 
@@ -375,6 +423,7 @@ function NewPlay({
     ['nenhum', 'nenhum', 'nenhum', 'nenhum'],
   )
   const [ranked, setRanked] = useState(preset.ranked ?? true)
+  const [contaStatus, setContaStatus] = useState(preset.conta_status ?? preset.ranked ?? true)
   const [importando, setImportando] = useState(false)
   const [target, setTarget] = useState(preset.target ?? 4)
   const [regra, setRegra] = useState<Regra>(
@@ -680,6 +729,7 @@ function NewPlay({
         alvos: emGrupos && emDuplas ? alvos : null,
         desempates: emGrupos && emDuplas ? desempates : null,
         ranked,
+        conta_status: contaStatus,
       }
       await saveSession(session)
       await saveMatches(planToMatches(session.id, fila))
@@ -962,7 +1012,21 @@ function NewPlay({
                 <span className="hint" style={{ marginTop: 2 }}>
                   {ranked
                     ? 'os pontos entram no ranking do mês e as sequências 🔥 correm normalmente'
-                    : 'não soma pontos no ranking do mês e não mexe nas sequências 🔥 — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
+                    : 'não soma pontos no ranking do mês — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className={`toggle-card${contaStatus ? '' : ' avulso'}`}>
+            <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={contaStatus} onChange={(e) => setContaStatus(e.target.checked)} />
+              <span className="grow">
+                <strong>{contaStatus ? '🔥 Conta no status' : '🧊 Play sem status'}</strong>
+                <span className="hint" style={{ marginTop: 2 }}>
+                  {contaStatus
+                    ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
+                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde'}
                 </span>
               </span>
             </label>
@@ -1147,13 +1211,17 @@ function NewPlay({
             <div className="small">
               🏆{' '}
               {!ranked
-                ? 'Play avulso: não soma no ranking do mês nem mexe no 🔥.'
+                ? `Play avulso: não soma no ranking do mês${contaStatus ? '; o pódio segura o 🔥.' : ' nem mexe no 🔥.'}`
                 : emDuplas
-                  ? `Pontos do mês pela colocação final${emCampeonato ? ', em cada categoria' : ''}; o pódio (campeã, vice e 3º) segura o 🔥.`
+                  ? `Pontos do mês pela colocação final${emCampeonato ? ', em cada categoria' : ''}; ${
+                      contaStatus ? 'o pódio (campeã, vice e 3º) segura o 🔥.' : 'não mexe no 🔥.'
+                    }`
                   : `Quem vence leva os games que fez menos os da adversária (mínimo 1). O dia é por vitórias; ${
-                      grupos.length > 1
-                        ? `o pódio é por grupo: sobem ${descreverPodios(tamanhos)}, que seguram o 🔥.`
-                        : 'o pódio é o top 3, que segura o 🔥.'
+                      !contaStatus
+                        ? 'não mexe no 🔥.'
+                        : grupos.length > 1
+                          ? `o pódio é por grupo: sobem ${descreverPodios(tamanhos)}, que seguram o 🔥.`
+                          : 'o pódio é o top 3, que segura o 🔥.'
                     }`}
             </div>
           </div>
@@ -2665,6 +2733,7 @@ function PlayDetail({
           <button className="btn ghost sm" onClick={onBack}>← Plays</button>
           <span className="row" style={{ gap: 6 }}>
             {session.ranked === false && <span className="badge avulso">avulso</span>}
+            {!contaNoStatus(session) && <span className="badge avulso">sem 🔥</span>}
             <span className={`badge ${session.status}`}>{finished ? 'finalizado' : 'em andamento'}</span>
           </span>
         </div>
@@ -2672,6 +2741,7 @@ function PlayDetail({
           <div style={{ fontSize: 19, fontWeight: 800 }}>{session.title}</div>
           <div className="small" style={{ fontWeight: 700, marginTop: 2 }}>
             {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o ranking'}
+            {contaNoStatus(session) ? '' : ' · 🧊 sem status'}
             {' · '}
             {FORMATOS.find((f) => f.valor === (ehCampeonato ? 'campeonato' : (session.format ?? 'todas')))?.rotulo ?? session.format}
             {' · '}
@@ -2730,14 +2800,14 @@ function PlayDetail({
                 <div>
                   🏆{' '}
                   {session.ranked === false
-                    ? 'Play avulso: não soma no ranking do mês nem mexe no 🔥.'
+                    ? 'Play avulso: não soma no ranking do mês.'
                     : soFase2 && session.pontuacao?.length
                       ? `Pontos do mês pela colocação final${ehCampeonato ? ', em cada categoria' : ''}: ${session.pontuacao.join(' / ')} (campeã, vice, 3º, semifinal, quartas, grupos).`
                       : soFase2
                         ? 'O mata-mata pontua pelos games; o pódio é da chave.'
                         : 'Quem vence leva os games que fez menos os da adversária (mínimo 1). O dia é por vitórias.'}
                 </div>
-                <div>🔥 {soFase2 ? 'O pódio da chave (campeã, vice e 3º) segura o status.' : grupos && grupos.length > 1 ? 'O pódio de cada grupo segura o status.' : 'O top 3 segura o status.'}</div>
+                <div>🔥 {!contaNoStatus(session) ? 'Play sem status: o 🔥 de todas fica como está.' : soFase2 ? 'O pódio da chave (campeã, vice e 3º) segura o status.' : grupos && grupos.length > 1 ? 'O pódio de cada grupo segura o status.' : 'O top 3 segura o status.'}</div>
               </div>
             </details>
           )}
@@ -2783,10 +2853,17 @@ function PlayDetail({
       {session.ranked === false && (
         <div className="banner info">
           🎈 <strong>Play avulso.</strong> Os pontos deste dia <strong>não entram no ranking
-          do mês</strong> e não mexem nas sequências 🔥 — mas ficam no histórico de cada
-          jogadora e continuam ajudando a equilibrar as duplas dos próximos plays.
+          do mês</strong> — mas ficam no histórico de cada jogadora e continuam ajudando a
+          equilibrar as duplas dos próximos plays.
         </div>
       )}
+      {!contaNoStatus(session) && (
+        <div className="banner info">
+          🧊 <strong>Play sem status.</strong> O 🔥 de todas fica como está: quem subir ao
+          pódio não soma, e quem ficar fora ou não vier não perde a sequência.
+        </div>
+      )}
+      {editable && <OpcoesDoPlay session={session} />}
 
       {grupos && grupos.length > 1 && (
         <div className="card">
@@ -3145,6 +3222,7 @@ function PlayDetail({
               player_ids: session.player_ids,
               format: session.format,
               ranked: session.ranked,
+              conta_status: session.conta_status,
             })
           }
         >

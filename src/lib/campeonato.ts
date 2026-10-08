@@ -464,6 +464,10 @@ export function aplicarMescla(s: PlaySession, m: MesclaDoPlay): PlaySession {
       return { ...s, rounds: Math.max(s.rounds ?? 0, m.minimo) }
     case 'courts':
       return { ...s, courts: Math.max(1, m.valor) }
+    case 'ranked':
+      return { ...s, ranked: m.valor }
+    case 'conta_status':
+      return { ...s, conta_status: m.valor }
     case 'ausentes': {
       const sem = (s.ausentes ?? []).filter((id) => id !== m.id)
       return { ...s, ausentes: m.ausente ? [...sem, m.id] : sem }

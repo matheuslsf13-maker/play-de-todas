@@ -67,7 +67,10 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Status 🔥** (`src/lib/streaks.ts`): sobe a cada play terminado no **pódio** — em
   `todas` o top 3 do play; em `grupos` o pódio **de cada grupo** (nunca mais que metade
   do grupo, `vagasDoPodio`; o ranking do dia é só informativo); em `grupos-duplas` e no
-  campeonato as 3 duplas medalhistas do mata-mata (de **cada categoria**). Avulso não conta.
+  campeonato as 3 duplas medalhistas do mata-mata (de **cada categoria**). Play com
+  **"🧊 sem status"** (`sessions.conta_status = false`, script 26, `contaNoStatus`) não existe
+  para o 🔥: o pódio não soma e quem fica fora ou falta não perde. É separado do avulso; sem
+  valor gravado segue o `ranked` (avulso antigo = sem status).
   Escada: 🔥 Em chamas (2) → ⚡ Imparável (3) → 💎 Rainha do Play (4) → 👑 **Duquesa da
   V3** (5, `MAX_STREAK`). **Não vale pontos e não tem vida** (desde `STATUS_NOVO_DESDE`
   = 06/10/2026): segue atravessando o mês e zera fora do pódio ou faltando. No 5º pódio
@@ -256,7 +259,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   também respeitam o portão.
 - **Play avulso** (`sessions.ranked = false`): conta no histórico e na força,
   mas **não soma no ranking do mês nem mexe nas sequências**. Serve para o jogo
-  fora de calendário que não é o campeonato.
+  fora de calendário que não é o campeonato. As duas opções (mês e 🔥) aparecem na criação e, com o play
+  aberto, no "⚙️ Vale para o mês e para o 🔥?" (`OpcoesDoPlay`, grava só a coluna).
 - **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 a 19): a planilha da
   organizadora. **A cota é por arena e vem do plano** (`checkin_planos`, script 18):
   Wellhub Gold dá 12 na V3 e 12 na GW (não aceita Itaparica); Gold+ e TotalPass dão

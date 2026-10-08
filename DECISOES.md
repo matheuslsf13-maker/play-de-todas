@@ -410,6 +410,16 @@ ranking do mês e **não** mexe nas sequências 🔥 — o status é sobre as se
 No Stats, o filtro por mês acompanha o ranking (só os plays que valem) e o
 "Histórico completo" traz tudo; senão os dois números se contradiriam.
 
+**07/10/2026 — "sem status" virou uma opção separada** (`sessions.conta_status`,
+script 26). O campeonato que a organizadora montou virou o play de aniversário
+de uma menina (o app emprestado): não pode somar no mês **nem** no 🔥. Agora são
+duas caixas, independentes: "🏆 vale para o ranking do mês" e "🔥 conta no
+status". Sem status, o play não existe para o 🔥: quem tinha 1 e sobe ao pódio
+continua com 1; quem estava em chamas e fica fora (ou não vem) continua em
+chamas. O pódio de um play que vale para o mês e não para o status continua nos
+"pódios" do perfil. Sem valor gravado, segue o `ranked` — os avulsos antigos não
+mudam. As duas dá para trocar com o play aberto ("⚙️ Vale para o mês e para o 🔥?").
+
 ## Status 🔥 (o atrativo do campeonato)
 
 A pergunta difícil foi: **o que mantém o status?** Ganhar a sexta seguidas vezes

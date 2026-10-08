@@ -103,6 +103,9 @@ export type MesclaDoPlay =
   | { campo: 'rounds'; minimo: number }
   /** quantas quadras o play tem (abrir/tirar quadra no meio do campeonato) */
   | { campo: 'courts'; valor: number }
+  /** se o play soma no ranking do mes / se mexe no status 🔥 */
+  | { campo: 'ranked'; valor: boolean }
+  | { campo: 'conta_status'; valor: boolean }
   /** quem ainda nao chegou: marca ou desmarca UMA menina */
   | { campo: 'ausentes'; id: string; ausente: boolean }
   /** a partida escolhida na mao para uma quadra (null = volta a sugestao do app) */
@@ -176,6 +179,13 @@ export type PlaySession = {
    * do mes nem mexem nas sequencias. Ausente conta como `true` (plays antigos).
    */
   ranked?: boolean
+  /**
+   * O play mexe no status 🔥? `false` = o play nao existe para o status: quem
+   * sobe ao podio nao soma e quem fica fora ou falta nao perde (um play de
+   * aniversario, um play emprestado). Independe de `ranked`. Ausente = segue o
+   * `ranked`, como era antes da opcao existir (script 26).
+   */
+  conta_status?: boolean | null
   /**
    * CAMPEONATO: as categorias (A, B, C...), cada uma com os seus grupos e as
    * suas quadras fixas. Ausente = uma categoria so, com todos os grupos e

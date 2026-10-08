@@ -99,6 +99,47 @@ test('a sequencia de antes continua contando na regra nova', () => {
   assert.deepEqual(st.duquesas.filter((x) => x.player_id === 'p').map((x) => x.date), ['2026-10-26'])
 })
 
+/** Os mesmos dados, com o play de `data` marcado com as opcoes dadas. */
+function marcar(d: AppData, data: string, opcoes: Partial<PlaySession>): AppData {
+  d.sessions = d.sessions.map((s) => (s.date === data ? { ...s, ...opcoes } : s))
+  return d
+}
+
+test('play sem status: o podio nao soma o fogo e ficar fora nao apaga', () => {
+  // p com 2 (Em chamas); no play sem status ela fica fora -- continua com 2
+  const fora = marcar(dados([['2026-10-12', P], ['2026-10-19', P], ['2026-10-26', SEM_P]]), '2026-10-26', {
+    conta_status: false,
+  })
+  assert.equal(computeStreaks(fora).current.get('p'), 2)
+  // e se sobe ao podio nele, tambem nao vira 3
+  const dentro = marcar(dados([['2026-10-12', P], ['2026-10-19', P], ['2026-10-26', P]]), '2026-10-26', {
+    conta_status: false,
+  })
+  assert.equal(computeStreaks(dentro).current.get('p'), 2)
+  assert.equal(computeStreaks(dentro).steps.some((x) => x.date === '2026-10-26'), false)
+})
+
+test('play sem status que vale para o mes: o podio do dia continua contando no perfil', () => {
+  const d = marcar(dados([['2026-10-12', P]]), '2026-10-12', { conta_status: false })
+  const st = computeStreaks(d)
+  assert.ok(st.podiumOf.get('s-2026-10-12')?.includes('p'))
+  assert.equal(st.current.get('p') ?? 0, 0)
+})
+
+test('avulso sem dizer nada do status: segue fora do status, como sempre foi', () => {
+  const d = marcar(dados([['2026-10-12', P], ['2026-10-19', P], ['2026-10-26', SEM_P]]), '2026-10-26', {
+    ranked: false,
+  })
+  assert.equal(computeStreaks(d).current.get('p'), 2)
+})
+
+test('avulso que conta no status: mexe no fogo, mas o podio nao entra no mes', () => {
+  const d = marcar(dados([['2026-10-12', P], ['2026-10-19', P]]), '2026-10-19', { ranked: false, conta_status: true })
+  const st = computeStreaks(d)
+  assert.equal(st.current.get('p'), 2)
+  assert.equal(st.podiumOf.has('s-2026-10-19'), false)
+})
+
 test('conquistas: quantas vezes chegou em cada nivel e o maior status', () => {
   const d = dados([...DEPOIS.map((dt): [string, string[]] => [dt, P]), ['2026-11-23', P], ['2026-11-30', SEM_P]])
   const c = computeStreaks(d).conquistas.get('p')

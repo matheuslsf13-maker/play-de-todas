@@ -8,7 +8,7 @@ import {
   type PlayerStat,
 } from './stats'
 import { podioDoMataMata } from './campeonato'
-import type { AppData, StreakChoice } from './types'
+import type { AppData, PlaySession, StreakChoice } from './types'
 import { monthOf, todayISO } from './types'
 
 /**
@@ -202,11 +202,19 @@ function acaoDe(c: StreakChoice | undefined): 'usar' | 'preservar' | null {
   return c.action === 'sacar' ? 'usar' : 'preservar'
 }
 
+/**
+ * O play mexe no status? E uma opcao do play, separada do "vale para o mes":
+ * sem ela marcada (plays de antes da opcao), o avulso fica fora como sempre.
+ */
+export function contaNoStatus(s: Pick<PlaySession, 'ranked' | 'conta_status'>): boolean {
+  return s.conta_status ?? s.ranked !== false
+}
+
 export function computeStreaks(data: AppData): Streaks {
   const escolhas = new Map(data.choices.map((c) => [`${c.player_id}:${c.month}`, c]))
   const finished = data.sessions
-    // play avulso nao mexe em sequencia: o status e sobre o campeonato
-    .filter((s) => s.status === 'finished' && s.ranked !== false)
+    // um play que nao vale para o mes nem para o status nao existe aqui
+    .filter((s) => s.status === 'finished' && (s.ranked !== false || contaNoStatus(s)))
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
 
   const current = new Map<string, number>()
@@ -286,7 +294,10 @@ export function computeStreaks(data: AppData): Streaks {
      * quem perdeu a final. Nos outros formatos nao ha final: o dia e do
      * somatorio mesmo, e o empate exato divide o titulo.
      */
-    if (mataMata) {
+    const vaiProMes = s.ranked !== false
+    if (!vaiProMes) {
+      // avulso: os titulos e os podios do perfil sao do campeonato
+    } else if (mataMata) {
       winnersOf.set(s.id, mataMata.campeas)
     } else {
       const top = rank[0]
@@ -311,7 +322,9 @@ export function computeStreaks(data: AppData): Streaks {
     const noPodio = mataMata
       ? new Set(mataMata.podio)
       : new Set(podiosDoDia(rank, s.groups, criterio).flatMap((p) => p.rows.map((x) => x.player_id)))
-    podiumOf.set(s.id, [...noPodio])
+    if (vaiProMes) podiumOf.set(s.id, [...noPodio])
+    // play fora do status: quem subiu nao soma, quem ficou fora ou faltou nao perde
+    if (!contaNoStatus(s)) continue
 
     const jogaram = new Set<string>()
     for (const m of ms) for (const id of [...m.team_a, ...m.team_b]) jogaram.add(id)
