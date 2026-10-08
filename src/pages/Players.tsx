@@ -437,7 +437,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                         <button
                           className="btn ghost sm"
                           onClick={() => {
-                            if (!confirm(`Pausar ${p.nickname?.trim() || p.name}? Sai do ranking da força até despausar (as faltas continuam baixando a força).`)) return
+                            if (!confirm(`Pausar ${p.nickname?.trim() || p.name}? Sai do ranking da força até despausar ou jogar de novo (as faltas continuam baixando a força).`)) return
                             void savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
                           }}
                         >

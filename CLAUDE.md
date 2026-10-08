@@ -107,7 +107,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Pausar uma menina** (`players.pausas`, `reativada_em`, script 24; `pausaNaForca`):
   quem vai ficar um tempo fora é **pausada na aba Meninas** (o Stats só mostra): sai do ranking da força,
   o perfil continua aberto e **as faltas continuam baixando a força**, como as de todo
-  mundo (a pausa só tira do ranking). Tocar nela ao montar um play pergunta "despausar e colocar no play?" (a lista
+  mundo (a pausa só tira do ranking). **As duas pausas são a mesma pausa com causas diferentes: jogar
+  qualquer play depois do dia da pausa (avulso e sem status inclusive) tira dela** (`pausaAberta`). Tocar nela ao montar um play pergunta "despausar e colocar no play?" (a lista
   colada pergunta uma vez por todas; o "Todas" deixa as pausadas de fora). Além disso,
   com **2 faltas seguidas** ela sai do ranking da força sozinha (a queda gradual continua)
   e volta ao jogar, ou no "▶️ Despausar" da aba Meninas (o mesmo botão para as duas pausas).

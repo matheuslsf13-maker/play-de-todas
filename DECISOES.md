@@ -425,6 +425,12 @@ não conta como falta (ninguém perde força por não ir ao aniversário de outr
 quem **foi** jogou — então as faltas dela zeram, como num play normal. Antes o
 avulso era ignorado por inteiro: nem contava a falta, nem zerava quem veio.
 
+**08/10/2026 — uma pausa só** (`pausaAberta`): "a pausada na mão também deveria ser
+despausada ao jogar; os dois tipos são a mesma pausa, causada por situações
+diferentes". A pausa na mão acaba sozinha quando ela joga **qualquer** play de
+**depois** do dia da pausa (avulso e sem status inclusive) — o do mesmo dia não,
+senão pausar na noite de um play que ela jogou se desfaria na hora.
+
 ## Status 🔥 (o atrativo do campeonato)
 
 A pergunta difícil foi: **o que mantém o status?** Ganhar a sexta seguidas vezes

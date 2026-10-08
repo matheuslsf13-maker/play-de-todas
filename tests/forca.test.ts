@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { quedaPorFalta, ratings } from '../src/lib/stats'
+import { pausaNaForca, quedaPorFalta, ratings } from '../src/lib/stats'
 import { notaDeForca } from '../src/lib/forca'
 import { emptyData, type AppData, type Match, type PlaySession } from '../src/lib/types'
 
@@ -97,6 +97,24 @@ test('play sem status: faltar nao conta, mas quem vem zera as faltas', () => {
 test('play avulso: faltar nao conta, mas quem vem zera as faltas', () => {
   assert.equal(quedaPorFalta(duasFaltasEDepois({ ranked: false }, false)).get('x')?.faltas, 2)
   assert.equal(quedaPorFalta(duasFaltasEDepois({ ranked: false }, true)).get('x')?.faltas ?? 0, 0)
+})
+
+test('pausada na mao: jogar (mesmo avulso ou sem status) tira da pausa; faltar nao', () => {
+  const pausada = (especial: Partial<PlaySession>, xVem: boolean) => {
+    const d = duasFaltasEDepois(especial, xVem)
+    d.players = d.players.map((p) => (p.id === 'x' ? { ...p, pausas: [{ de: '2026-09-02', ate: null }] } : p))
+    return pausaNaForca(d).get('x')
+  }
+  assert.equal(pausada({ ranked: false }, true), undefined)
+  assert.equal(pausada({ conta_status: false }, true), undefined)
+  assert.equal(pausada({}, true), undefined)
+  assert.equal(pausada({ ranked: false }, false), 'manual')
+})
+
+test('pausada na mao no dia de um play que ela jogou: continua pausada', () => {
+  const d = duasFaltasEDepois({}, false)
+  d.players = d.players.map((p) => (p.id === 'x' ? { ...p, pausas: [{ de: '2026-09-01', ate: null }] } : p))
+  assert.equal(pausaNaForca(d).get('x'), 'manual')
 })
 
 test('play avulso nao conta como falta, e quem nunca jogou nao cai', () => {

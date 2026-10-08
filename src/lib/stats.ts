@@ -503,7 +503,8 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
 /**
  * QUEM ESTA FORA DO RANKING DA FORCA (o perfil continua aberto):
  *   - 'manual': pausada na mao (vai ficar um tempo fora) -- as faltas continuam
- *     derrubando a forca como as de todo mundo; a pausa so tira do ranking;
+ *     derrubando a forca como as de todo mundo; a pausa so tira do ranking e
+ *     acaba quando ela jogar (`pausaAberta`), como a das faltas;
  *   - 'faltas': 2 faltas seguidas -- volta sozinha quando jogar, ou na mao.
  */
 /**
@@ -512,7 +513,17 @@ export function ratings(data: AppData, upToDate?: string): Map<string, number> {
  * devolve a menina para a pausa, sem nada para desfazer na mao.
  */
 export function pausaAberta(data: AppData, p: Player): boolean {
-  return (p.pausas ?? []).some((x) => !x.ate || (!!x.play && !data.sessions.some((s) => s.id === x.play)))
+  const aberta = (p.pausas ?? []).filter((x) => !x.ate || (!!x.play && !data.sessions.some((s) => s.id === x.play)))
+  if (aberta.length === 0) return false
+  // a pausa na mao e a mesma pausa das faltas, so com outra causa: jogar
+  // (qualquer play, avulso ou sem status inclusive) traz de volta. Conta so
+  // play de DEPOIS do dia da pausa: pausar na noite de um play que ela jogou
+  // nao pode se desfazer sozinho
+  const de = aberta.reduce((m, x) => (x.de > m ? x.de : m), '')
+  const depois = new Set(data.sessions.filter((s) => s.date > de).map((s) => s.id))
+  return !data.matches.some(
+    (m) => depois.has(m.session_id) && isPlayed(m) && [...m.team_a, ...m.team_b].includes(p.id),
+  )
 }
 
 /** Fecha a pausa aberta (inclusive a que voltou porque o play sumiu). `play`: o play em que ela entrou. */

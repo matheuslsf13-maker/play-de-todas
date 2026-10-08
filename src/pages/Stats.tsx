@@ -915,7 +915,7 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
     <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
       ⏸️ <strong>Pausada</strong>
       {pausada === 'manual'
-        ? `${aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam baixando a força, como as de todo mundo.`
+        ? `${aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam baixando a força, como as de todo mundo. Volta sozinha quando jogar de novo.`
         : ' por 2 ou mais faltas seguidas — fora do ranking da força. Volta sozinha quando jogar de novo.'}
     </div>
   )
