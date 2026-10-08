@@ -74,6 +74,31 @@ test('voltou a jogar: a contagem zera', () => {
   assert.equal(quedaPorFalta(d).get('x')?.faltas ?? 0, 0)
 })
 
+/** x joga o s1 e falta os dois seguintes (2 faltas); o 4o play e o "especial". */
+function duasFaltasEDepois(especial: Partial<PlaySession>, xVem: boolean): AppData {
+  const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
+  playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
+  d.matches.push(partida('s1', ['x', 'a'], ['b', 'c'], 4, 3))
+  for (const i of [2, 3]) {
+    playCom(d, `s${i}`, `2026-09-0${i}`, ['a', 'b', 'c', 'd'])
+    d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
+  }
+  const quem = xVem ? ['x', 'a', 'b', 'c'] : ['a', 'b', 'c', 'd']
+  d.sessions.push({ ...sessao('s4', '2026-09-04', quem), ...especial })
+  d.matches.push(xVem ? partida('s4', ['x', 'a'], ['b', 'c'], 4, 3) : partida('s4', ['a', 'b'], ['c', 'd'], 4, 3))
+  return d
+}
+
+test('play sem status: faltar nao conta, mas quem vem zera as faltas', () => {
+  assert.equal(quedaPorFalta(duasFaltasEDepois({ conta_status: false }, false)).get('x')?.faltas, 2)
+  assert.equal(quedaPorFalta(duasFaltasEDepois({ conta_status: false }, true)).get('x')?.faltas ?? 0, 0)
+})
+
+test('play avulso: faltar nao conta, mas quem vem zera as faltas', () => {
+  assert.equal(quedaPorFalta(duasFaltasEDepois({ ranked: false }, false)).get('x')?.faltas, 2)
+  assert.equal(quedaPorFalta(duasFaltasEDepois({ ranked: false }, true)).get('x')?.faltas ?? 0, 0)
+})
+
 test('play avulso nao conta como falta, e quem nunca jogou nao cai', () => {
   const d = base({ x: 1560, z: 1600, a: 1500, b: 1500, c: 1500, d: 1500 })
   playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])

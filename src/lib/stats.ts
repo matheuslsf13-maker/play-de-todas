@@ -447,14 +447,17 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
     }
     const jogouAqui = acompanhar !== undefined && jogos.some((m) => [...m.team_a, ...m.team_b].includes(acompanhar))
     if (jogouAqui) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(nota(acompanhar as string)), jogou: true })
-    // so play do ranking, que aconteceu, conta como falta
-    if (s.ranked === false || jogos.length === 0) continue
+    if (jogos.length === 0) continue
+    // play avulso ou sem status (um aniversario, o app emprestado): faltar nele
+    // nao conta, mas quem veio jogou -- e isso zera as faltas dela
+    const semFalta = s.ranked === false || s.conta_status === false
     const presentes = new Set(s.player_ids)
     for (const id of jaJogou) {
       if (presentes.has(id)) {
         queda.delete(id)
         continue
       }
+      if (semFalta) continue
       const q = queda.get(id) ?? { faltas: 0, perda: 0, desdeReativacao: 0 }
       q.faltas++
       const reativada = jogadora.get(id)?.reativada_em

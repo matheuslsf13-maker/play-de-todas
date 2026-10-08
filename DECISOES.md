@@ -420,6 +420,11 @@ chamas. O pódio de um play que vale para o mês e não para o status continua n
 "pódios" do perfil. Sem valor gravado, segue o `ranked` — os avulsos antigos não
 mudam. As duas dá para trocar com o play aberto ("⚙️ Vale para o mês e para o 🔥?").
 
+**08/10/2026 — faltas** (`calcularElo`): faltar a um play avulso **ou** sem status
+não conta como falta (ninguém perde força por não ir ao aniversário de outra), mas
+quem **foi** jogou — então as faltas dela zeram, como num play normal. Antes o
+avulso era ignorado por inteiro: nem contava a falta, nem zerava quem veio.
+
 ## Status 🔥 (o atrativo do campeonato)
 
 A pergunta difícil foi: **o que mantém o status?** Ganhar a sexta seguidas vezes

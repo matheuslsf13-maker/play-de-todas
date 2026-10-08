@@ -291,7 +291,7 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
           <span className="grow">
             <strong>{vale ? '🏆 Vale para o ranking do mês' : '🎈 Play avulso'}</strong>
             <span className="hint" style={{ marginTop: 2 }}>
-              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês'}
+              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês e faltar não conta'}
             </span>
           </span>
         </label>
@@ -306,7 +306,7 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
             <span className="hint" style={{ marginTop: 2 }}>
               {status
                 ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
-                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde'}
+                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde; faltar também não conta como falta'}
             </span>
           </span>
         </label>
@@ -1012,7 +1012,7 @@ function NewPlay({
                 <span className="hint" style={{ marginTop: 2 }}>
                   {ranked
                     ? 'os pontos entram no ranking do mês e as sequências 🔥 correm normalmente'
-                    : 'não soma pontos no ranking do mês — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
+                    : 'não soma pontos no ranking do mês e faltar não conta — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
                 </span>
               </span>
             </label>
@@ -1026,7 +1026,7 @@ function NewPlay({
                 <span className="hint" style={{ marginTop: 2 }}>
                   {contaStatus
                     ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
-                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde'}
+                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde; faltar também não conta como falta'}
                 </span>
               </span>
             </label>
@@ -2854,13 +2854,15 @@ function PlayDetail({
         <div className="banner info">
           🎈 <strong>Play avulso.</strong> Os pontos deste dia <strong>não entram no ranking
           do mês</strong> — mas ficam no histórico de cada jogadora e continuam ajudando a
-          equilibrar as duplas dos próximos plays.
+          equilibrar as duplas dos próximos plays. Faltar não conta como falta; quem veio
+          zera as faltas.
         </div>
       )}
       {!contaNoStatus(session) && (
         <div className="banner info">
           🧊 <strong>Play sem status.</strong> O 🔥 de todas fica como está: quem subir ao
-          pódio não soma, e quem ficar fora ou não vier não perde a sequência.
+          pódio não soma, e quem ficar fora ou não vier não perde a sequência. Faltar não
+          conta como falta; quem veio zera as faltas.
         </div>
       )}
       {editable && <OpcoesDoPlay session={session} />}

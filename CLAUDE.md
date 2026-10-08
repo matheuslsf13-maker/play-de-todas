@@ -101,7 +101,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
 - **Quem falta perde força, devagar** (`calcularElo` em `stats.ts`): 1ª falta nada; da
   2ª seguida em diante, por play do ranking e aumentando a cada falta: acima de 1500
   −10%, −15%, −20%… até −30% da distância até 1500 (mín. 2); abaixo −2, −3, −4, depois
-  −5, até −20 na sequência. Voltou, zera. Avulso não conta; quem nunca
+  −5, até −20 na sequência. Voltou, zera. Faltar a um play avulso ou 🧊 sem status não
+  conta, mas quem veio nele zera as faltas; quem nunca
   jogou não cai. A ficha e as listas mostram "−N por K faltas seguidas".
 - **Pausar uma menina** (`players.pausas`, `reativada_em`, script 24; `pausaNaForca`):
   quem vai ficar um tempo fora é **pausada na aba Meninas** (o Stats só mostra): sai do ranking da força,
