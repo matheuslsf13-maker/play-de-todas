@@ -31,7 +31,7 @@ function playCom(d: AppData, id: string, date: string, quem: string[], ranked = 
 
 const nota = (d: AppData, id: string) => notaDeForca(ratings(d).get(id) as number)
 
-test('forte que falta: 1a falta nada, depois 10%, 15%, 20%... da distancia por play', () => {
+test('forte que falta: 1a falta nada, depois 10%, 30%, 50%... da distancia por play', () => {
   const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
   // x jogou no play 1 (uma partida que quase nao mexe: 4x3 contra iguais)
   playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
@@ -43,8 +43,8 @@ test('forte que falta: 1a falta nada, depois 10%, 15%, 20%... da distancia por p
     d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
   }
   const dist = depoisDoJogo - 1500
-  // 3 faltas: a 1a nao conta, a 2a tira 10% e a 3a, 15% (vai aumentando)
-  const esperado = 1500 + dist * 0.9 * 0.85
+  // 3 faltas: a 1a nao conta, a 2a tira 10% e a 3a, 30% (vai aumentando)
+  const esperado = 1500 + dist * 0.9 * 0.7
   assert.ok(Math.abs(nota(d, 'x') - esperado) <= 1, `${nota(d, 'x')} ~ ${esperado}`)
   assert.deepEqual(quedaPorFalta(d).get('x')?.faltas, 3)
 })
@@ -150,7 +150,7 @@ test('historico da forca: um ponto por play jogado, e as faltas que derrubaram a
   assert.equal(historicoDeForca(d, 'x', true)[0].nota, 1560)
 })
 
-test('a queda acima de 1500 aumenta a cada falta e para em 30%', () => {
+test('a queda acima de 1500 aumenta a cada falta e para em 70%', () => {
   const d = base({ x: 1600, a: 1500, b: 1500, c: 1500, d: 1500 })
   playCom(d, 's01', '2026-08-01', ['x', 'a', 'b', 'c'])
   d.matches.push(partida('s01', ['x', 'a'], ['b', 'c'], 4, 3))
@@ -160,8 +160,8 @@ test('a queda acima de 1500 aumenta a cada falta e para em 30%', () => {
     playCom(d, `s${dd}`, `2026-08-${dd}`, ['a', 'b', 'c', 'd'])
     d.matches.push(partida(`s${dd}`, ['a', 'b'], ['c', 'd'], 4, 3))
   }
-  // 8 faltas, a 1a nao conta: 2a..8a -> 10, 15, 20, 25, 30, 30, 30 %
-  const fator = [0.9, 0.85, 0.8, 0.75, 0.7, 0.7, 0.7].reduce((t, f) => t * f, 1)
+  // 8 faltas, a 1a nao conta: 2a..8a -> 10, 30, 50, 70, 70, 70, 70 %
+  const fator = [0.9, 0.7, 0.5, 0.3, 0.3, 0.3, 0.3].reduce((t, f) => t * f, 1)
   assert.ok(Math.abs(nota(d, 'x') - (1500 + inicio * fator)) <= 2, `${nota(d, 'x')} ~ ${1500 + inicio * fator}`)
 })
 
@@ -179,7 +179,7 @@ test('pausada na mao: sai do ranking, mas as faltas continuam derrubando a forca
   }
   // 4 faltas (a 1a nao conta): cai como quem nao esta pausada
   const dist = antes - 1500
-  const esperado = 1500 + dist * 0.9 * 0.85 * 0.8
+  const esperado = 1500 + dist * 0.9 * 0.7 * 0.5
   assert.ok(Math.abs(nota(d, 'x') - esperado) <= 1, `${nota(d, 'x')} ~ ${esperado}`)
   assert.equal(pausaNaForca(d).get('x'), 'manual')
 })

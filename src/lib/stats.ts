@@ -350,9 +350,11 @@ export const FORCA_PADRAO = 2
  * joga toda semana. A primeira falta nao muda nada (todo mundo falta uma vez);
  * da segunda seguida em diante, a cada play do ranking, e AUMENTANDO a cada
  * falta (quem some de vez perde mais rapido que quem faltou duas):
- *   - acima de 1500 perde 10% da distancia ate 1500 na 2a falta, 15% na 3a,
- *     20% na 4a... ate 30% (no minimo 2): 1560 vira 1554, 1546, 1537, 1527...
- *     -- a nota de quem some vai voltando para o meio;
+ *   - acima de 1500 perde 10% da distancia ate 1500 na 2a falta, 30% na 3a,
+ *     50% na 4a e 70% da 5a em diante (no minimo 2): 1560 vira 1554, 1538,
+ *     1519, 1506... -- a nota de quem some volta para o meio. Era 10%, 15%,
+ *     20%... ate 30%, e em 09/10 a Juliana Figueiredo, com UM play (1528) e 4
+ *     faltas, ainda estava em 1517 e caiu no grupo mais forte;
  *   - abaixo de 1500 perde menos: 2 na 2a falta, 3 na 3a, 4, e depois 5 por
  *     play, ate -20 na mesma sequencia: a fraca que some nao sobe, mas tambem
  *     nao afunda.
@@ -360,7 +362,7 @@ export const FORCA_PADRAO = 2
  * nao conta como falta. Quem nunca jogou nao cai (o app nao sabe nada dela).
  */
 /** Fracao da distancia ate 1500 que sai na k-esima falta seguida (k >= 2). */
-const quedaAcima = (k: number) => Math.min(0.1 + 0.05 * (k - 2), 0.3)
+const quedaAcima = (k: number) => Math.min(0.1 + 0.2 * (k - 2), 0.7)
 const QUEDA_MINIMA = 2
 /** Pontos que saem na k-esima falta seguida abaixo de 1500 (k >= 2). */
 const quedaAbaixo = (k: number) => Math.min(2 + (k - 2), 5)
