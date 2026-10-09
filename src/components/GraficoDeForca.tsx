@@ -17,19 +17,23 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   const [tocado, setTocado] = useState<number | null>(null)
 
   const jogados = pontos.filter((p) => p.jogou)
-  if (jogados.length < 2) {
+  // um play so ja tem o que mostrar se as faltas depois dele baixaram a nota
+  const depoisDoInicio = pontos.filter((p) => p.sessionId !== 'inicio')
+  if (jogados.length === 0 || depoisDoInicio.length < 2) {
     return (
       <p className="tiny muted" style={{ margin: '10px 0 0' }}>
-        O gráfico aparece a partir do 2º play dela.
+        O gráfico aparece a partir do 2º play dela (ou quando uma falta baixar a nota).
       </p>
     )
   }
 
-  // a tendencia: a nota de hoje contra a de 5 plays jogados atras
+  // a tendencia: a nota de hoje contra a de 5 plays jogados atras (com um play
+  // so, contra a dele: o que mudou depois foi a falta)
   const atras = jogados[Math.max(0, jogados.length - 6)]
   const agora = pontos[pontos.length - 1]
   const dif = agora.nota - atras.nota
   const nPlays = Math.min(5, jogados.length - 1)
+  const periodo = nPlays === 0 ? 'desde o único play' : nPlays === 1 ? 'no último play' : `nos últimos ${nPlays} plays`
   const tendencia = Math.abs(dif) < 8 ? 'estável' : dif > 0 ? 'subindo' : 'descendo'
 
   // escala: os pontos e a media, com folga em cima e embaixo
@@ -61,7 +65,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
             color: tendencia === 'subindo' ? 'var(--verde)' : tendencia === 'descendo' ? 'var(--danger)' : 'var(--muted)',
           }}
         >
-          {dif > 0 ? `+${dif}` : dif} {nPlays === 1 ? 'no último play' : `nos últimos ${nPlays} plays`} · {tendencia}
+          {dif > 0 ? `+${dif}` : dif} {periodo} · {tendencia}
         </span>
       </div>
       <svg

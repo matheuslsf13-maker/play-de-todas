@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pausaNaForca, quedaPorFalta, ratings } from '../src/lib/stats'
+import { historicoDeForca, pausaNaForca, quedaPorFalta, ratings } from '../src/lib/stats'
 import { notaDeForca } from '../src/lib/forca'
 import { emptyData, type AppData, type Match, type PlaySession } from '../src/lib/types'
 
@@ -279,4 +279,11 @@ test('passo que acelera so vale do play de 12/10 em diante: a forca de antes nao
     fa -= delta
   }
   assert.equal(nota(d, 'x'), Math.round(fx), 'play antigo: passo fixo de 24')
+})
+
+test('grafico: com um play so, as faltas que baixaram a nota viram pontos', () => {
+  const d = duasFaltasEDepois({}, false) // jogou o s1 e faltou s2, s3 e s4
+  const h = historicoDeForca(d, 'x', true)
+  assert.deepEqual(h.map((p) => p.jogou), [false, true, false, false])
+  assert.ok(h[3].nota < h[1].nota)
 })
