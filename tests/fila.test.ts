@@ -171,3 +171,44 @@ test('mata-mata: a dupla fixa junta meninas de grupos diferentes e mesmo assim e
   const quadras = proximasPelaFila(n, [1, 2], undefined, filas)
   assert.equal(quadras.size, 2, 'as duas quadras recebem uma semi')
 })
+
+import { planoDoRefazer } from '../src/lib/fila'
+
+test('quem sai do play leva junto as partidas que ainda nao jogou (09/10: 38/39)', () => {
+  const g1 = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8']
+  const g2 = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']
+  const plano = planToMatches('s', gerarFila({ playerIds: [...g1, ...g2], ratings: new Map(), groups: [g1, g2] }))
+  // b1 sai antes de jogar: as partidas dela nao vao acontecer, seja ela a
+  // primeira da dupla A ou nao
+  const deB1 = plano.filter((m) => jogadorasDaPartida(m).includes('b1'))
+  assert.ok(deB1.some((m) => m.team_a[0] !== 'b1'))
+  const semB1 = ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']
+  const r = planoDoRefazer({ grupos: [g1, semB1], jogadoras: [...g1, ...semB1], matches: plano, fixa: () => false })
+  assert.deepEqual(r.precisam, [semB1])
+  assert.equal(r.orfas.length, deB1.length)
+  assert.ok(r.preservadas.every((m) => !jogadorasDaPartida(m).includes('b1')))
+  // o grupo 1 fica intacto; do grupo 2 nada pendente fica para tras
+  assert.equal(r.preservadas.length, plano.filter((m) => g1.includes(m.team_a[0])).length)
+  assert.equal(r.naFila.length + r.orfas.length, plano.length - r.preservadas.length)
+})
+
+test('partida orfa sai mesmo quando nenhum grupo precisa refazer', () => {
+  const ids = ['a', 'b', 'c', 'd', 'e', 'f']
+  const plano = planToMatches('s', gerarFila({ playerIds: ids, ratings: new Map() }))
+  const orfa = { ...plano[0], id: 'orfa', team_a: ['x', 'a'] as [string, string] }
+  const r = planoDoRefazer({ grupos: [ids], jogadoras: ids, matches: [...plano, orfa], fixa: () => false })
+  assert.deepEqual(r.precisam, [])
+  assert.deepEqual(r.orfas.map((m) => m.id), ['orfa'])
+  assert.equal(r.preservadas.length, plano.length)
+})
+
+test('quem saiu e ja jogou: a partida jogada fica', () => {
+  const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+  const plano = planToMatches('s', gerarFila({ playerIds: ids, ratings: new Map() }))
+  const i = plano.findIndex((m) => jogadorasDaPartida(m).includes('g'))
+  const jogadas = plano.map((m, k) => (k === i ? { ...m, score_a: 4, score_b: 2 } : m))
+  const ficam = ids.filter((x) => x !== 'g')
+  const r = planoDoRefazer({ grupos: [ficam], jogadoras: ficam, matches: jogadas, fixa: () => false })
+  assert.ok(r.preservadas.some((m) => m.id === plano[i].id))
+  assert.ok(r.orfas.every((m) => m.score_a == null))
+})

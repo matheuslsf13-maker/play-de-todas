@@ -15,7 +15,6 @@ import {
   duosDaCategoria,
   pontosDeColocacao,
   quadrasEfetivas,
-  separarParaRefazer,
   dividirEmCategorias,
   esperamOTerceiroLugar,
   estimativaDaNoite,
@@ -110,7 +109,7 @@ import {
 import { computeStreaks, contaNoStatus, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
-import { filaPorGrupo, precisaRefazer, proximasPelaFila } from '../lib/fila'
+import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
 import { hasSupabase, supabase } from '../lib/supabase'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -2368,19 +2367,20 @@ function PlayDetail({
      * emendar 3 -- 14 das 18 meninas emendaram.
      */
     const gruposDoPlay = sessao.groups?.length ? sessao.groups : [sessao.player_ids]
-    const precisam = gruposDoPlay.filter((g) => {
-      const doGrupo = new Set(g)
-      return precisaRefazer(g, base.filter((m) => doGrupo.has(m.team_a[0])))
+    // so a fase de grupos que ainda nao comecou, e so dos grupos que precisam:
+    // o mata-mata (de qualquer categoria) e os outros grupos ficam como estao.
+    // A partida de quem ja saiu do play sai junto (`orfas`)
+    const { precisam, orfas, naFila, preservadas } = planoDoRefazer({
+      grupos: gruposDoPlay,
+      jogadoras: sessao.player_ids,
+      matches: base,
+      fixa,
     })
-    if (precisam.length === 0) {
+    if (precisam.length === 0 && orfas.length === 0) {
       if (!silencioso && !opcoes.automatico) onToast('A fila já está certa — nada para refazer ✅')
       return
     }
-    const quemRefaz = new Set(precisam.flat())
-    // so a fase de grupos que ainda nao comecou, e so dos grupos que precisam:
-    // o mata-mata (de qualquer categoria) e os outros grupos ficam como estao
-    const { naFila, preservadas } = separarParaRefazer(base, (m) => fixa(m) || !quemRefaz.has(m.team_a[0]))
-    if (naFila.length === 0 && !silencioso && !opcoes.automatico) {
+    if (naFila.length === 0 && orfas.length === 0 && !silencioso && !opcoes.automatico) {
       onToast('Não há partidas na fila para refazer')
       return
     }
