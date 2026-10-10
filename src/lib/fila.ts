@@ -193,3 +193,32 @@ export function precisaRefazer(grupo: string[], partidasDoGrupo: Match[]): boole
   }
   return false
 }
+
+/**
+ * O QUE O REFAZER MEXE: quais grupos refazem, o que sai da fila e o que fica.
+ *
+ * A partida pertence ao grupo de QUALQUER uma das quatro, nao so da primeira:
+ * em 09/10 duas meninas sairam do grupo 2 e a partida em que uma delas era a
+ * primeira da dupla A nao era "de grupo nenhum" -- ficou na fila para sempre,
+ * sem quadra, e o play fechou em 38/39 com "falta uma partida".
+ *
+ * `orfas`: partidas que ainda nao comecaram com alguem que ja nao esta no play.
+ * Elas nao vao acontecer, entao saem sempre, mesmo que nenhum grupo refaca.
+ */
+export function planoDoRefazer(opts: {
+  grupos: string[][]
+  jogadoras: string[]
+  matches: Match[]
+  /** A partida fica onde esta (em quadra, ou a que acabou de ser trocada). */
+  fixa: (m: Match) => boolean
+}): { precisam: string[][]; orfas: Match[]; naFila: Match[]; preservadas: Match[] } {
+  const noPlay = new Set(opts.jogadoras)
+  const pendente = (m: Match) => (m.fase ?? 1) === 1 && !isPlayed(m) && !opts.fixa(m)
+  const orfas = opts.matches.filter((m) => pendente(m) && jogadorasDaPartida(m).some((id) => !noPlay.has(id)))
+  const semOrfas = opts.matches.filter((m) => !orfas.includes(m))
+  const doGrupo = (g: Set<string>) => (m: Match) => jogadorasDaPartida(m).some((id) => g.has(id))
+  const precisam = opts.grupos.filter((g) => precisaRefazer(g, semOrfas.filter(doGrupo(new Set(g)))))
+  const daFilaNova = doGrupo(new Set(precisam.flat()))
+  const naFila = semOrfas.filter((m) => pendente(m) && daFilaNova(m))
+  return { precisam, orfas, naFila, preservadas: semOrfas.filter((m) => !naFila.includes(m)) }
+}
