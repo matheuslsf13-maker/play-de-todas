@@ -121,6 +121,11 @@ export default function DivisaoDoCampeonato({
                       <div className="tiny muted" style={{ marginBottom: 6 }}>
                         💪 força média <strong>{media(g)}</strong> · {nivelDeForca(media(g)).emoji} {nivelDeForca(media(g)).titulo}
                       </div>
+                      {g.length < 4 && (
+                        <em className="hint aviso" style={{ marginBottom: 6 }}>
+                          ⚠️ Precisa de pelo menos 4 para ter rodízio — mova alguém para cá antes de criar o play
+                        </em>
+                      )}
                       <div className="row wrap" style={{ gap: 6 }}>
                         {g.map((id) => (
                           <button
@@ -165,7 +170,7 @@ export default function DivisaoDoCampeonato({
           </div>
           <em className="hint">
             Toque numa menina e depois no botão do grupo para onde ela vai — qualquer categoria, qualquer grupo
-            (nenhum grupo fica com menos de 4). Quem já jogou entra pela força; o sorteio só mexe nas empatadas, como
+            (livre: um grupo pode ficar com menos de 4 no meio da arrumação, e o criar avisa). Quem já jogou entra pela força; o sorteio só mexe nas empatadas, como
             as estreantes.
           </em>
         </div>

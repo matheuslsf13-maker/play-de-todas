@@ -511,13 +511,9 @@ function NewPlay({
   const somaDeForca = (g: string[]) =>
     g.reduce((t, id) => t + notaDeForca(forca.get(id) ?? 2), 0)
 
+  // mover e livre: um grupo pode ficar com menos de 4 no meio da arrumacao;
+  // quem acusa e o "criar o play" (e o aviso em cima dos grupos)
   function mover(id: string, para: number) {
-    const de = grupos.findIndex((g) => g.includes(id))
-    // um rodizio precisa de quatro: tirar a quarta deixaria o grupo sem partida
-    if (de >= 0 && grupos[de].length <= 4) {
-      onToast('O grupo ' + (de + 1) + ' ficaria com menos de 4 -- não dá para tirar ninguém dele')
-      return
-    }
     setMovidas((m) => ({ ...m, [id]: para }))
     setMovendo(null)
   }
@@ -529,13 +525,8 @@ function NewPlay({
     setMovendo(null)
   }
 
-  /** Campeonato: menina para outra categoria e grupo (o grupo de onde sai nao fica com menos de 4). */
+  /** Campeonato: menina para outra categoria e grupo (livre; o criar acusa grupo com menos de 4). */
   function moverNoCampeonato(id: string, c: number, g: number) {
-    const de = estrutura.flat().find((x) => x.includes(id))
-    if (de && de.length <= 4) {
-      onToast('O grupo dela ficaria com menos de 4 -- não dá para tirar ninguém dele')
-      return
-    }
     setMovidasCat((m) => ({ ...m, [id]: { c, g } }))
     setMovendo(null)
   }
@@ -687,7 +678,13 @@ function NewPlay({
       return
     }
     if (grupos.length > 1 && tamanhos.some((t) => t < 4)) {
-      onToast('Todo grupo precisa de pelo menos 4 -- ajuste os grupos antes de gerar')
+      // a arrumacao dos grupos e livre; e aqui que se acusa o que nao fecha
+      const nomes = emCampeonato
+        ? estrutura.flatMap((gs, c) =>
+            gs.map((g, gi) => (g.length < 4 ? `${String.fromCharCode(65 + c)} · grupo ${gi + 1} (${g.length})` : '')),
+          )
+        : grupos.map((g, i) => (g.length < 4 ? `grupo ${i + 1} (${g.length})` : ''))
+      onToast(`Todo grupo precisa de pelo menos 4: ${nomes.filter(Boolean).join(', ')} -- mova alguém para lá`)
       return
     }
     if (selected.length < 4) {
@@ -1085,6 +1082,11 @@ function NewPlay({
                     {' · '}
                     total <strong>{somaDeForca(g)}</strong>
                   </div>
+                  {g.length < 4 && (
+                    <em className="hint aviso" style={{ marginBottom: 6 }}>
+                      ⚠️ Precisa de pelo menos 4 para ter rodízio — mova alguém para cá antes de criar o play
+                    </em>
+                  )}
                   <div className="row wrap" style={{ gap: 6 }}>
                     {g.map((id) => (
                       <button
@@ -1124,7 +1126,8 @@ function NewPlay({
                 )}
               </div>
               <em className="hint">
-                Toque numa menina e escolha o grupo para onde ela vai. Quem já jogou entra pela
+                Toque numa menina e escolha o grupo para onde ela vai — livre, mesmo que um
+                grupo fique com menos de 4 no meio da arrumação (o criar avisa). Quem já jogou entra pela
                 força; quem está empatada (as estreantes) é sorteada, e cada “sortear de
                 novo” muda esse sorteio.
               </em>

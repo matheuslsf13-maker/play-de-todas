@@ -180,7 +180,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   sem isso o desempate era a ordem da lista de presença, e refazer o play dava
   sempre os mesmos grupos, com estreantes no grupo forte por ordem alfabética.
   No cartão dos grupos dá para **tocar numa menina e movê-la** (`movidas`, por cima
-  do sorteio; um grupo nunca fica com menos de 4) e **sortear de novo**. Cada
+  do sorteio; **livre**, mesmo deixando um grupo com menos de 4 no meio da arrumação: o grupo
+  mostra ⚠️ e o "criar o play" recusa dizendo qual grupo) e **sortear de novo**. Cada
   chip mostra a nota e o cabeçalho a média do grupo.
 - **A força inicial é escolhida no cadastro** (`players.forca_inicial`, script 13).
   O padrão é **1500, o meio da escala — não a média das cadastradas**: o Elo é

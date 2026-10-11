@@ -426,9 +426,18 @@ test('mover menina entre categorias e grupos', () => {
   assert.deepEqual(r[1][1], ['n', 'o', 'p', 'q', 'e'])
 })
 
-test('ajuste que deixaria grupo com menos de 4 e ignorado', () => {
+test('mover e livre: o grupo pode ficar com menos de 4 (quem acusa e o criar)', () => {
   const e = [[['a', 'b', 'c', 'd'], ['f', 'g', 'h', 'i']]]
-  assert.deepEqual(aplicarMovidasNoCampeonato(e, { a: { c: 0, g: 1 } }), e)
+  const r = aplicarMovidasNoCampeonato(e, { a: { c: 0, g: 1 } })
+  assert.deepEqual(r[0][0], ['b', 'c', 'd'])
+  assert.deepEqual(r[0][1], ['f', 'g', 'h', 'i', 'a'])
+})
+
+import { aplicarAjustesDeGrupo } from '../src/lib/pairing'
+
+test('grupos: mover e livre, mesmo deixando um grupo com 3', () => {
+  const r = aplicarAjustesDeGrupo([['a', 'b', 'c', 'd'], ['f', 'g', 'h', 'i']], { a: 1 })
+  assert.deepEqual(r, [['b', 'c', 'd'], ['f', 'g', 'h', 'i', 'a']])
 })
 
 test('ajuste para categoria ou grupo que nao existe mais e ignorado', () => {

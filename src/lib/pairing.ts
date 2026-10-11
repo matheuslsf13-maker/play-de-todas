@@ -310,9 +310,10 @@ export function duplasQueEntraram(
  * Os ajustes na mao por cima dos grupos sorteados.
  *
  * Um ajuste de cada vez, na ordem em que foram feitos. O que nao vale mais e
- * pulado: quem saiu da presenca, grupo que nao existe (o tamanho mudou) e o
- * ajuste que deixaria um grupo com menos de 4 -- um rodizio precisa de quatro,
- * e a presenca pode ter mudado desde que o ajuste foi feito.
+ * pulado: quem saiu da presenca e grupo que nao existe (o tamanho mudou). Mover
+ * e LIVRE, mesmo deixando um grupo com menos de 4: a organizadora monta como
+ * quiser e o "criar o play" acusa o que nao fecha (barrar cada passo impedia
+ * trocas em duas etapas).
  */
 export function aplicarAjustesDeGrupo(
   base: string[][],
@@ -324,7 +325,6 @@ export function aplicarAjustesDeGrupo(
     if (para >= out.length) continue
     const de = out.findIndex((g) => g.includes(id))
     if (de < 0 || de === para) continue
-    if (out[de].length <= 4) continue
     out[de] = out[de].filter((x) => x !== id)
     out[para] = [...out[para], id]
   }

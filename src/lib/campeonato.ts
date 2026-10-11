@@ -70,7 +70,8 @@ export function quadrasPadrao(nCategorias: number, total: number): number[][] {
  * Os ajustes na mao por cima da divisao automatica: quem foi movida e para
  * qual categoria e grupo. Um de cada vez, na ordem em que foram feitos; o que
  * nao vale mais e pulado -- destino que nao existe (mudou o numero de
- * categorias ou de grupos) e o que deixaria um grupo com menos de 4.
+ * categorias ou de grupos). Mover e livre; o "criar o play" acusa grupo com
+ * menos de 4.
  */
 export function aplicarMovidasNoCampeonato(
   estrutura: string[][][],
@@ -83,7 +84,6 @@ export function aplicarMovidasNoCampeonato(
     if (ci < 0) continue
     const gi = out[ci].findIndex((grupo) => grupo.includes(id))
     if (ci === c && gi === g) continue
-    if (out[ci][gi].length <= 4) continue
     out[ci][gi] = out[ci][gi].filter((x) => x !== id)
     out[c][g] = [...out[c][g], id]
   }
