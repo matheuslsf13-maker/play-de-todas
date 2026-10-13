@@ -756,7 +756,8 @@ function PainelForca() {
     )
   }
 
-  const maior = Math.max(...linhas.map((l) => Math.abs(l.nota - 1500)), 60)
+  const mediaHoje = mediaDaForca(data)
+  const maior = Math.max(...linhas.map((l) => Math.abs(l.nota - mediaHoje)), 60)
 
   return (
     <>
@@ -764,12 +765,12 @@ function PainelForca() {
         <div className="section-title">💪 Força de cada jogadora</div>
         <p className="tiny muted" style={{ marginTop: 0 }}>
           A nota que monta os grupos e as duplas. Atravessa o ano (não zera com o mês) e mede{' '}
-          <strong>de quem</strong> você ganhou. 1500 é a média.
+          <strong>de quem</strong> você ganhou. A média do grupo hoje é <strong>{mediaHoje}</strong>.
         </p>
 
         <div className="stack" style={{ gap: 10 }}>
           {linhas.map((l, i) => (
-            <LinhaDaForca key={l.player_id} linha={l} pos={i + 1} maior={maior} nome={nameOf(l.player_id)} foto={playerById(l.player_id)} />
+            <LinhaDaForca key={l.player_id} linha={l} pos={i + 1} maior={maior} media={mediaHoje} nome={nameOf(l.player_id)} foto={playerById(l.player_id)} />
           ))}
         </div>
         {foraDoRanking.length > 0 && (
@@ -816,16 +817,19 @@ function LinhaDaForca({
   linha,
   pos,
   maior,
+  media,
   nome,
   foto,
 }: {
   linha: LinhaDeForca
   pos: number
   maior: number
+  /** A media do grupo hoje: a barra e o "+N" contam a partir dela. */
+  media: number
   nome: string
   foto: ReturnType<ReturnType<typeof useStore>['playerById']>
 }) {
-  const dif = linha.nota - 1500
+  const dif = linha.nota - media
   // a barra sai do meio para os dois lados: forca e distancia da media, com sinal
   const largura = (Math.abs(dif) / maior) * 50
   return (

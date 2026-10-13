@@ -12,8 +12,7 @@ import {
   pontosDeBye,
   rankPlayers,
   winRate,
-  type PlayerStat,
-} from '../lib/stats'
+  type PlayerStat, mediaDaForca } from '../lib/stats'
 import { colocacaoNoRecorte } from '../lib/campeonato'
 
 /** Empate de verdade (mesmos pontos, saldo e vitorias) fica na mesma posicao. */
@@ -703,7 +702,7 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
 
       <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
         {modo === 'individual' ? (
-          <>A força atravessa o ano (não zera com o mês). 1500 é a média.</>
+          <>A força atravessa o ano (não zera com o mês). A média do grupo hoje é {mediaDaForca(data)}.</>
         ) : (
           <>A força da dupla parte da média das duas e muda com o que rendem <strong>juntas</strong>.</>
         )}
