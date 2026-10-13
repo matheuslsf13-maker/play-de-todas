@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffcf3f"/>
+      <stop offset=".55" stop-color="#ffa53a"/>
+      <stop offset="1" stop-color="#ff7a3d"/>
+    </linearGradient>
+    <linearGradient id="mar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2f5fd0"/>
+      <stop offset="1" stop-color="#3fa2ff"/>
+    </linearGradient>
+    <linearGradient id="bola" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4ff6a"/>
+      <stop offset="1" stop-color="#c9e21c"/>
+    </linearGradient>
+    <clipPath id="cena"><circle cx="256" cy="252" r="182"/></clipPath>
+    <path id="arco" d="M 40 262 A 216 216 0 0 1 472 262"/>
+  </defs>
+
+  <rect width="512" height="512" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="238" fill="none" stroke="#1d3478" stroke-width="5"/>
+
+  <!-- a cena: por do sol na praia -->
+  <g clip-path="url(#cena)">
+    <rect x="40" y="20" width="440" height="420" fill="url(#ceu)"/>
+    <g fill="#fff6c8">
+      <circle cx="356" cy="122" r="34"/>
+    </g>
+    <g stroke="#fff6c8" stroke-width="6" stroke-linecap="round">
+      <line x1="356" y1="66" x2="356" y2="78"/><line x1="356" y1="166" x2="356" y2="178"/>
+      <line x1="300" y1="122" x2="312" y2="122"/><line x1="400" y1="122" x2="412" y2="122"/>
+      <line x1="316" y1="82" x2="325" y2="91"/><line x1="387" y1="153" x2="396" y2="162"/>
+      <line x1="396" y1="82" x2="387" y2="91"/><line x1="325" y1="153" x2="316" y2="162"/>
+    </g>
+    <rect x="40" y="250" width="440" height="70" fill="url(#mar)"/>
+    <path d="M40 262 q30 -10 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0" fill="none" stroke="#bfe3ff" stroke-width="4"/>
+    <path d="M40 286 q30 -10 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0" fill="none" stroke="#9fd2ff" stroke-width="3" opacity=".8"/>
+    <rect x="40" y="318" width="440" height="140" fill="#f6dca6"/>
+    <!-- raquetes cruzadas -->
+    <g transform="translate(206 214) rotate(-28)">
+      <rect x="-9" y="52" width="18" height="70" rx="8" fill="#0d1a30"/>
+      <ellipse cx="0" cy="0" rx="46" ry="58" fill="#1d3478" stroke="#0d1a30" stroke-width="6"/>
+      <g fill="#3fa2ff"><circle cx="-16" cy="-18" r="5"/><circle cx="0" cy="-26" r="5"/><circle cx="16" cy="-18" r="5"/><circle cx="-18" cy="2" r="5"/><circle cx="0" cy="-4" r="5"/><circle cx="18" cy="2" r="5"/><circle cx="-12" cy="22" r="5"/><circle cx="12" cy="22" r="5"/></g>
+    </g>
+    <g transform="translate(306 214) rotate(28)">
+      <rect x="-9" y="52" width="18" height="70" rx="8" fill="#0d1a30"/>
+      <ellipse cx="0" cy="0" rx="46" ry="58" fill="#2f5fd0" stroke="#0d1a30" stroke-width="6"/>
+      <g fill="#ffcf3f"><circle cx="-16" cy="-18" r="5"/><circle cx="0" cy="-26" r="5"/><circle cx="16" cy="-18" r="5"/><circle cx="-18" cy="2" r="5"/><circle cx="0" cy="-4" r="5"/><circle cx="18" cy="2" r="5"/><circle cx="-12" cy="22" r="5"/><circle cx="12" cy="22" r="5"/></g>
+    </g>
+    <circle cx="256" cy="146" r="24" fill="url(#bola)" stroke="#8aa012" stroke-width="2"/>
+    <path d="M238 132 q18 14 0 30 M274 132 q-18 14 0 30" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+  <circle cx="256" cy="252" r="182" fill="none" stroke="#1d3478" stroke-width="4"/>
+
+  <!-- o frase em arco, como no logo do Play de Todas -->
+  <text font-family="Inter, DejaVu Sans, sans-serif" font-size="18" font-weight="800" letter-spacing="1.8" fill="#1d3478">
+    <textPath href="#arco" startOffset="50%" text-anchor="middle">TODAS AS IDADES • TODAS AS CATEGORIAS • TODOS OS DIAS</textPath>
+  </text>
+
+  <!-- o nome -->
+  <g font-family="Inter Display, Inter, DejaVu Sans, sans-serif" font-style="italic" text-anchor="middle">
+    <text x="256" y="392" font-size="112" font-weight="900" fill="#1d3478" stroke="#ffffff" stroke-width="12" paint-order="stroke" transform="skewX(-10) translate(68 0)" letter-spacing="-2">Play</text>
+    <text x="256" y="452" font-size="54" font-weight="900" fill="#1f6fe0" stroke="#ffffff" stroke-width="10" paint-order="stroke" transform="skewX(-10) translate(80 0)" letter-spacing="1">DE TODOS</text>
+  </g>
+  <path d="M120 470 q34 -12 68 0 t68 0 t68 0 t68 0" fill="none" stroke="#3fa2ff" stroke-width="5" stroke-linecap="round"/>
+</svg>

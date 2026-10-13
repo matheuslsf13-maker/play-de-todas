@@ -41,6 +41,13 @@ liga.config.ts   as duas ligas: Play de Todas (feminino, schema public, raiz do
                  Mesmo código; escolhida no build por VITE_LIGA. Migração nova
                  que cria/altera tabela: rodar 27-liga-masculina.sql de novo
                  (ou repetir o ALTER em masculino.*), senão o masculino quebra.
+liga/            textos do masculino: o código fica no feminino e o build
+                 masculino troca as strings EXATAS de liga/masculino.json
+                 (liga/traduzir.ts). Texto novo de tela com "jogadora/menina/
+                 ela" → incluir no JSON (scripts/liga/extrair.mjs lista).
+                 Logo e ícones do masculino: public-masculino/ (gerados de
+                 liga/masculino/logo.svg por scripts/liga/gerar-logo.mjs).
+                 Cores: bloco [data-liga="masculino"] no fim do styles.css.
 ```
 
 ⚠️ Duas colunas do banco têm nome enganoso, mantido para não migrar dados:

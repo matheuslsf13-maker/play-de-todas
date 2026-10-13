@@ -1,4 +1,5 @@
 import { CHAVE } from './chaves'
+import { LIGA } from '../liga'
 
 /**
  * Modo diurno / noturno.
@@ -18,7 +19,7 @@ export type Tema = 'claro' | 'escuro'
 const PADRAO: Tema = 'escuro'
 
 /** Cor da barra de status do celular, para combinar com o tema. */
-const BARRA: Record<Tema, string> = { claro: '#fdf6ec', escuro: '#0e1230' }
+const BARRA: Record<Tema, string> = { claro: LIGA.temaClaro, escuro: LIGA.tema }
 
 export function temaSalvo(): Tema {
   try {

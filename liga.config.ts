@@ -20,8 +20,14 @@ export type Liga = {
   schema: 'public' | 'masculino'
   /** Prefixo das chaves do localStorage: os dois apps moram na mesma origem. */
   prefixo: string
-  /** Cor da barra do sistema e do fundo da tela de abertura. */
+  /** Cor da barra do sistema e do fundo da tela de abertura (tema escuro). */
   tema: string
+  /** Barra do sistema no tema claro. */
+  temaClaro: string
+  /** A cor de destaque da marca (no fundo escuro). */
+  marca: string
+  /** Segunda cor da marca, a do comeco do degrade. */
+  marca2: string
 }
 
 export const LIGAS: Record<LigaId, Liga> = {
@@ -33,6 +39,9 @@ export const LIGAS: Record<LigaId, Liga> = {
     schema: 'public',
     prefixo: 'play-de-todas',
     tema: '#0e1230',
+    temaClaro: '#fdf6ec',
+    marca: '#ff5c8a',
+    marca2: '#8b5cf0',
   },
   masculino: {
     id: 'masculino',
@@ -41,7 +50,12 @@ export const LIGAS: Record<LigaId, Liga> = {
     descricao: 'Duplas equilibradas, placares e ranking do Play de Todos.',
     schema: 'masculino',
     prefixo: 'play-de-todos',
-    tema: '#0e1230',
+    // azul-noite e azul-eletrico no lugar do roxo e do rosa; o por do sol
+    // (amarelo e laranja) continua, porque e a praia e nao o genero
+    tema: '#0a1626',
+    temaClaro: '#f1f5fa',
+    marca: '#3fa2ff',
+    marca2: '#2f5fd0',
   },
 }
 

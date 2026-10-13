@@ -3,6 +3,8 @@
  * com o podio, as fotos das tres primeiras e a coroa na campea.
  */
 
+import { LIGA } from '../liga'
+
 export type PosterRow = {
   name: string
   points: number
@@ -20,8 +22,8 @@ export type PosterRow = {
 const W = 1080
 const H = 1350
 // mesma paleta do app: a noite na areia, com o por do sol do logo
-const NAVY = '#0e1230'
-const PINK = '#ff5c8a'
+const NAVY = LIGA.tema
+const PINK = LIGA.marca
 const CREAM = '#fff6ee'
 const GOLD = '#ffc940'
 const SILVER = '#cdd3e6'

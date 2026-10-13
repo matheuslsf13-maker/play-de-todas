@@ -806,6 +806,19 @@ mesmos formatos — de propósito, nada de fork.
 - Os dois apps moram na mesma origem: chaves do localStorage com prefixo por
   liga (`src/lib/chaves.ts`) e cache do service worker com o caminho no nome —
   sem isso um app apagaria a fila offline e o cache do outro.
+- **Textos no masculino sem duplicar código**: o código continua escrito no
+  feminino e o build masculino troca só as strings **exatas** listadas em
+  `liga/masculino.json` (o plugin lê o código com o compilador do TypeScript —
+  não é procurar-e-trocar de palavras). Motivo: "Todas", "outra", "nenhuma"
+  quase sempre falam de partidas, categorias e arenas, que continuam
+  femininas; e nomes internos (classes, chaves, valores do banco, como
+  `'convidada'`) nunca podem mudar. O build avisa quando um texto do mapa some
+  do app. Texto novo fica no feminino até entrar no mapa.
+- Status no masculino: Rei do Play, Imperador do Play e **Duque da V3** (Hall
+  dos Duques). Cores: azul-eletrico e azul-royal no lugar do rosa e do roxo; o
+  amarelo e o laranja ficam (são a praia). Logo próprio, desenhado em SVG.
+- A página de apresentação (`public/apresentacao`) é do feminino; o card que
+  leva até ela não aparece no masculino.
 
 ## Escrita otimista
 

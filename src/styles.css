@@ -1425,3 +1425,66 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 
 /* novata: primeiro play dela (ao montar e durante o play; some ao finalizar) */
 .tag-novata { font-size: .85em; margin-left: 3px; line-height: 1; }
+
+/* ==================================================================
+   PLAY DE TODOS (masculino)
+
+   Mesmos nomes de variavel, outra paleta: o rosa vira azul-eletrico e o roxo
+   vira azul-royal; o amarelo e o laranja do por do sol ficam, porque sao a
+   praia e nao o genero. So o build com VITE_LIGA=masculino tem
+   data-liga="masculino" no <html>, entao o feminino nao muda nada.
+
+   O :not() no tema claro e de proposito: sem ele este bloco (mesma
+   especificidade do [data-tema="escuro"] e escrito depois) passaria por cima
+   do tema escuro.
+   ================================================================== */
+:root[data-liga="masculino"]:not([data-tema="escuro"]) {
+  --fundo:   #f1f5fa;
+  --fundo-2: #f8fafd;
+  --card-2:  #ebf1f8;
+  --line:    #d9e2ee;
+  --line-2:  #bccadc;
+  --text:    #12203c;
+  --muted:   #63708a;
+
+  --pink:    #1f6fe0;
+  /* tom medio: os cartoes desta cor levam texto escuro por cima */
+  --purple:  #5a7fe6;
+  --por-do-sol: linear-gradient(100deg, #1d3478 0%, #1f6fe0 52%, #f0a800 100%);
+  --pink-suave:   rgba(31, 111, 224, 0.10);
+  --purple-suave: rgba(90, 127, 230, 0.12);
+
+  --sempre-claro:  #f4f8ff;
+  --sempre-escuro: #0d1a30;
+  --shadow: 0 8px 24px rgba(13, 26, 48, 0.10);
+}
+
+:root[data-liga="masculino"][data-tema="escuro"] {
+  /* a noite na areia, mais fria */
+  --fundo:   #0a1626;
+  --fundo-2: #0f1f36;
+  --card:    #142843;
+  --card-2:  #1a3150;
+  --line:    rgba(236, 244, 255, 0.14);
+  --line-2:  rgba(236, 244, 255, 0.28);
+  --text:    #eef4ff;
+  --muted:   #93a4c0;
+
+  --pink:    #3fa2ff;
+  --purple:  #6f8dff;
+  --por-do-sol: linear-gradient(100deg, #2f5fd0 0%, #3fa2ff 52%, #ff8a3d 100%);
+  --pink-suave:   rgba(63, 162, 255, 0.16);
+  --purple-suave: rgba(111, 141, 255, 0.18);
+
+  --sempre-claro:  #f4f8ff;
+  --sempre-escuro: #0d1a30;
+}
+
+/* o grupo 1 era rosa como a marca; no masculino vira o azul da marca */
+:root[data-liga="masculino"]:not([data-tema="escuro"]) { --g1: #1f6fe0; --g6: #0e7490; }
+:root[data-liga="masculino"][data-tema="escuro"] { --g1: #3fa2ff; --g6: #22d3ee; }
+
+/* o cabecalho terminava no roxo do logo feminino */
+:root[data-liga="masculino"] .topbar {
+  background: linear-gradient(135deg, var(--fundo-2) 0%, #17407f 100%);
+}

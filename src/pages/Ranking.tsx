@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { LIGA } from '../liga'
 import { Avatar, Empty, Logo, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { buildMonthPoster } from '../lib/poster'
 import { monthRankingText } from '../lib/share'
@@ -183,6 +184,8 @@ export default function Ranking({
         </div>
       </div>
 
+      {/* a apresentacao (public/apresentacao) e do Play de Todas: no masculino ainda nao existe */}
+      {LIGA.id === 'feminino' && (
       <a
         className="card apresentacao"
         href={`${import.meta.env.BASE_URL}apresentacao/`}
@@ -200,6 +203,7 @@ export default function Ranking({
         {/* sem isto o card parece so um aviso: nada dizia que da para tocar */}
         <span className="prox-abrir">Abrir ↗</span>
       </a>
+      )}
 
       {emAndamento && (
         <button className="card proximo" onClick={() => onAbrirPlay?.(emAndamento.id)}>

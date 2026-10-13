@@ -515,5 +515,6 @@ export function dateLabel(dateISO: string): string {
  * segundo argumento.
  */
 export function plural(n: number, uma: string, varias?: string): string {
-  return `${n} ${n === 1 ? uma : (varias ?? uma + 's')}`
+  // 'jogador' -> 'jogadores' (o masculino passa por aqui)
+  return `${n} ${n === 1 ? uma : (varias ?? (/[rz]$/.test(uma) ? uma + 'es' : uma + 's'))}`
 }

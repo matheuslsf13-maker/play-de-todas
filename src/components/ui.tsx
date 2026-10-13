@@ -1,4 +1,5 @@
 import React from 'react'
+import { LIGA } from '../liga'
 import type { Player } from '../lib/types'
 
 export function initials(name: string): string {
@@ -118,16 +119,16 @@ export function Logo({ size = 64 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 100 100" style={{ flex: 'none' }} aria-label="Play de Todas">
       <defs>
         <linearGradient id="pdt" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#8b5cf0" />
-          <stop offset=".55" stopColor="#ff5c8a" />
+          <stop offset="0" stopColor={LIGA.marca2} />
+          <stop offset=".55" stopColor={LIGA.marca} />
           <stop offset="1" stopColor="#ff8a3d" />
         </linearGradient>
       </defs>
       <circle cx="50" cy="50" r="47" fill="url(#pdt)" />
       {/* bola de beach tennis, com a costura em arco */}
-      <circle cx="50" cy="36" r="16" fill="#0e1230" opacity=".22" />
+      <circle cx="50" cy="36" r="16" fill={LIGA.tema} opacity=".22" />
       <circle cx="50" cy="34" r="16" fill="#fff6ee" />
-      <path d="M38 26c7 5 7 11 0 16M62 26c-7 5-7 11 0 16" stroke="#ff5c8a" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      <path d="M38 26c7 5 7 11 0 16M62 26c-7 5-7 11 0 16" stroke={LIGA.marca} strokeWidth="2.4" fill="none" strokeLinecap="round" />
       <text x="50" y="66" textAnchor="middle" fontSize="15" fontWeight="800" fill="#fff6ee" fontFamily="system-ui, sans-serif" letterSpacing="2.5">PLAY</text>
       <text x="50" y="84" textAnchor="middle" fontSize="17" fontWeight="800" fill="#fff6ee" fontFamily="system-ui, sans-serif">de Todas</text>
     </svg>
