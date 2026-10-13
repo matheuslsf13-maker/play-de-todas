@@ -4,7 +4,11 @@
 // a versao vem da URL de registro (sw.js?v=...), entao cada publicacao usa um
 // cache novo e os arquivos da versao anterior sao apagados
 const VERSAO = new URL(self.location.href).searchParams.get('v') || 'dev'
-const CACHE = 'play-de-todas-' + VERSAO
+// o caminho entra no nome: o app feminino (/) e o masculino (/masculino/)
+// moram na mesma origem, e um nao pode apagar o cache do outro ao ativar
+const ESCOPO = new URL('./', self.location.href).pathname.replace(/[^a-z0-9]+/gi, '-')
+const DO_ESCOPO = 'play@' + ESCOPO + '@'
+const CACHE = DO_ESCOPO + VERSAO
 
 // a logo entra no cache ja na instalacao: ela nao tem hash no nome e so era
 // guardada depois de carregar uma vez -- na primeira abertura com sinal fraco
@@ -19,7 +23,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && (k.startsWith(DO_ESCOPO) || !k.startsWith('play@'))).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   )
 })
@@ -29,6 +33,9 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return // Supabase e fontes: sempre rede
+  // o app masculino mora em /masculino/ e tem o proprio service worker:
+  // o do feminino (escopo /) nao se mete nas paginas dele
+  if (url.pathname.includes('/masculino/') && !self.location.pathname.includes('/masculino/')) return
 
   // navegacao: tenta a rede, cai para o cache quando esta sem sinal
   if (req.mode === 'navigate') {

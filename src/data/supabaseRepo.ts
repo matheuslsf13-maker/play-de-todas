@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { LIGA } from '../liga'
 import type {
   Acerto,
   Plano,
@@ -315,20 +316,20 @@ export const supabaseRepo: Repo = {
   subscribe(cb: () => void) {
     const sb = client()
     const ch = sb
-      .channel('play-de-todas')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'streak_choices' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'month_closures' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_locais' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_contas' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_dias' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_pagamentos' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'caixa' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_acertos' }, cb)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkin_planos' }, cb)
+      .channel(`tempo-real-${LIGA.id}`)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'players' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'sessions' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'matches' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'streak_choices' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'month_closures' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_locais' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_contas' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_dias' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkins' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_pagamentos' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'caixa' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_acertos' }, cb)
+      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_planos' }, cb)
       .subscribe()
     return () => {
       void sb.removeChannel(ch)

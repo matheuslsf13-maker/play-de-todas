@@ -785,6 +785,28 @@ Detalhes que custaram atenção:
   conferido na hora: leitura pública 200, escrita sem login 401.
 - Publicação por GitHub Actions no GitHub Pages a cada push na `main`.
 
+### Versão masculina: mesmo código, outro schema (13/10/2026)
+
+O **Play de Todos** (masculino) é o mesmo app, compilado com `VITE_LIGA=masculino`
+e publicado em **playdetodas.com.br/masculino/**. Mesmas regras, mesma força,
+mesmos formatos — de propósito, nada de fork.
+
+- **Dados num schema próprio (`masculino`)**, com as mesmas tabelas e nomes do
+  `public`. O app só passa `db: { schema }` ao criar o cliente do Supabase;
+  nenhuma consulta muda. Descartado: sufixo nas tabelas (`players_m`…), que
+  obrigaria a mexer em todo `.from(...)` e repetir as 26 migrações.
+- **Mesmo projeto e mesmo login**: o Auth é do projeto inteiro. O bucket de
+  fotos é compartilhado (o caminho é o id do jogador, não colide).
+- `supabase/27-liga-masculina.sql` **copia a estrutura de hoje** lendo o próprio
+  catálogo (colunas, FKs, RLS, tempo real) e as arenas/planos. Testado num
+  Postgres 16 com todas as migrações: 122 colunas, 33 políticas e 13 tabelas no
+  tempo real iguais ao `public`; FKs apontando para `masculino`; anon lê e não
+  grava; rodar duas vezes não quebra. **Migração nova precisa valer nos dois
+  schemas.** O schema precisa estar em *Data API → Exposed schemas*.
+- Os dois apps moram na mesma origem: chaves do localStorage com prefixo por
+  liga (`src/lib/chaves.ts`) e cache do service worker com o caminho no nome —
+  sem isso um app apagaria a fila offline e o cache do outro.
+
 ## Escrita otimista
 
 As alterações aparecem na tela na hora e vão para uma **fila serializável**

@@ -29,8 +29,18 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
+      - name: Build masculino (Play de Todos, em /masculino/)
+        env:
+          VITE_LIGA: masculino
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npx vite build --outDir dist-m
       - name: SPA fallback
-        run: cp dist/index.html dist/404.html
+        run: |
+          cp dist/index.html dist/404.html
+          # o masculino mora numa subpasta do mesmo site; o CNAME e da raiz
+          rm -f dist-m/CNAME
+          cp -r dist-m dist/masculino
       - uses: actions/configure-pages@v5
         # liga o GitHub Pages automaticamente na primeira execucao
         with:

@@ -36,6 +36,11 @@ src/data/        armazenamento: localRepo (navegador) e supabaseRepo, com fila
                  de escrita otimista que sobrevive a refresh (queue.ts)
 src/config.ts    URL e chave pública do Supabase (NUNCA a secret/service_role)
 supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
+liga.config.ts   as duas ligas: Play de Todas (feminino, schema public, raiz do
+                 site) e Play de Todos (masculino, schema masculino, /masculino/).
+                 Mesmo código; escolhida no build por VITE_LIGA. Migração nova
+                 que cria/altera tabela: rodar 27-liga-masculina.sql de novo
+                 (ou repetir o ALTER em masculino.*), senão o masculino quebra.
 ```
 
 ⚠️ Duas colunas do banco têm nome enganoso, mantido para não migrar dados:

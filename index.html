@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-liga="%LIGA_ID%">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0e1230" />
-    <title>Play de Todas — Beach Tennis</title>
+    <meta name="theme-color" content="%LIGA_TEMA%" />
+    <title>%LIGA_NOME% — Beach Tennis</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎾</text></svg>" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Play de Todas" />
-    <meta name="description" content="Duplas equilibradas, placares e ranking do Play de Todas." />
+    <meta name="apple-mobile-web-app-title" content="%LIGA_CURTO%" />
+    <meta name="description" content="%LIGA_DESCRICAO%" />
   </head>
   <body>
     <div id="root">
@@ -21,7 +21,7 @@
       <div id="boot">
         <div class="boot-card">
           <div class="boot-logo">🏐</div>
-          <h1>Play de Todas</h1>
+          <h1>%LIGA_NOME%</h1>
           <p id="boot-msg">Carregando…</p>
           <div id="boot-acoes" hidden>
             <button onclick="location.reload()">Tentar de novo</button>
