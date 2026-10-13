@@ -423,6 +423,8 @@ export type RegraDaForca = {
   novataNaMedia: boolean
   /** false = sem a queda por falta (so para medir: na simulacao a habilidade nao muda com a falta). */
   queda?: boolean
+  /** Para explicar a forca de alguem: cada mudanca na nota, com o motivo. */
+  aoMudar?: (p: { sessionId: string; id: string; delta: number; motivo: 'partida' | 'deriva' | 'falta'; match?: Match; esperado?: number; passo?: number }) => void
   /** Para o medidor: chamado em cada partida com o esperado ANTES dela. */
   aoPrever?: (p: { esperado: number; real: number; jogosAntes: number[] }) => void
 }
@@ -483,7 +485,7 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
     const acelera = regra.aceleraDesde !== null && s.date >= regra.aceleraDesde
     const passoBase = (id: string) =>
       regra.k * (1 + regra.confianca * Math.max(0, 1 - (confiancaDe.get(id) ?? 0) / JOGOS_PARA_FIRMAR_ELO))
-    const mover = (id: string, surpresa: number) => {
+    const mover = (id: string, surpresa: number, m?: Match, esperado?: number) => {
       let passo = passoBase(id)
       if (acelera) {
         const q = proximaSequencia(sequencia.get(id), surpresa)
@@ -491,6 +493,7 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
         passo = Math.max(passo, (passoDaSequencia(q, surpresa) / ELO_K) * regra.k)
       }
       const d = passo * surpresa
+      regra.aoMudar?.({ sessionId: s.id, id, delta: d, motivo: 'partida', match: m, esperado, passo })
       elo.set(id, nota(id) + d)
       if (acelera || regra.confianca > 0) mudanca.set(id, (mudanca.get(id) ?? 0) + d)
     }
@@ -522,8 +525,8 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
         jogosAntes: [...m.team_a, ...m.team_b].map((id) => jogosDe.get(id) ?? 0),
       })
       const surpresa = real - esperado
-      for (const id of m.team_a) mover(id, surpresa)
-      for (const id of m.team_b) mover(id, -surpresa)
+      for (const id of m.team_a) mover(id, surpresa, m, esperado)
+      for (const id of m.team_b) mover(id, -surpresa, m, 1 - esperado)
       for (const id of [...m.team_a, ...m.team_b]) {
         jaJogou.add(id)
         jogosDe.set(id, (jogosDe.get(id) ?? 0) + 1)
@@ -534,7 +537,11 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
     // que jogaram este play -- senao a media sairia de 1500
     if (regra.somaZero && mudanca.size > 0) {
       const deriva = [...mudanca.values()].reduce((t, x) => t + x, 0) / mudanca.size
-      if (Math.abs(deriva) > 1e-9) for (const id of mudanca.keys()) elo.set(id, nota(id) - deriva)
+      if (Math.abs(deriva) > 1e-9)
+        for (const id of mudanca.keys()) {
+          regra.aoMudar?.({ sessionId: s.id, id, delta: -deriva, motivo: 'deriva' })
+          elo.set(id, nota(id) - deriva)
+        }
     }
     const jogouAqui = acompanhar !== undefined && jogos.some((m) => [...m.team_a, ...m.team_b].includes(acompanhar))
     if (jogouAqui) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(nota(acompanhar as string)), jogou: true })
@@ -559,6 +566,7 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
           atual > ELO_INICIAL
             ? Math.max(QUEDA_MINIMA, (atual - ELO_INICIAL) * quedaAcima(q.faltas))
             : Math.max(0, Math.min(quedaAbaixo(q.faltas), QUEDA_ABAIXO_MAXIMA - q.perda))
+        regra.aoMudar?.({ sessionId: s.id, id, delta: -perda, motivo: 'falta' })
         elo.set(id, atual - perda)
         q.perda += perda
         if (id === acompanhar && perda > 0) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(atual - perda), jogou: false })

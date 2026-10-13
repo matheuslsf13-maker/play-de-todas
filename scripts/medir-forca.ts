@@ -94,6 +94,7 @@ const SEM_QUEDA: RegraDaForca = { ...HOJE, queda: false }
 const motores: [string, Motor][] = [
   ...variantes.map(([n, r]) => [n, doElo(r)] as [string, Motor]),
   ['hoje sem queda', doElo(SEM_QUEDA)],
+  ['hoje sem acelera', doElo({ ...HOJE, aceleraDesde: null })],
   ['historico s60', (d) => forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: null })],
   ['historico s40', (d) => forcaPeloHistorico(d, { sigma: 40, meiaVidaSemanas: null })],
   ['historico s90', (d) => forcaPeloHistorico(d, { sigma: 90, meiaVidaSemanas: null })],

@@ -53,10 +53,7 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
           </linearGradient>
         </defs>
         <path d={faixa} fill="url(#grad-dupla)" />
-        <line x1={esq} x2={W - dir} y1={y(base)} y2={y(base)} stroke="var(--muted)" strokeDasharray="4 3" />
-        <text x={esq - 6} y={y(base) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">{base}</text>
-        <text x={esq - 6} y={y(base) + 11} textAnchor="end" fontSize="6.5" fill="var(--muted)">média</text>
-        <Extremos y={y} esq={esq} fim={W - dir} max={Math.max(...valores)} min={Math.min(...valores)} referencia={base} />
+        <Extremos y={y} esq={esq} fim={W - dir} max={Math.max(...valores)} min={Math.min(...valores)} referencia={base} topo={topo - 4} baixo={H - pe - 4} />
         {tocado !== null && (
           <line x1={x(tocado)} x2={x(tocado)} y1={topo - 6} y2={H - pe} stroke="var(--muted)" strokeDasharray="2 3" />
         )}

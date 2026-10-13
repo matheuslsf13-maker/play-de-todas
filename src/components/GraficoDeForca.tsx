@@ -85,10 +85,6 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
             <stop offset="1" stopColor="var(--marca)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <line x1={esq} x2={W - dir} y1={y(FORCA_MEDIA)} y2={y(FORCA_MEDIA)} stroke="var(--line-2)" strokeDasharray="4 3" />
-        <text x={esq - 6} y={y(FORCA_MEDIA) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">
-          {FORCA_MEDIA}
-        </text>
         {/* a mais alta e a mais baixa que ja teve (o ponto de partida nao conta: nao foi jogado) */}
         <Extremos
           y={y}
@@ -97,10 +93,9 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
           max={Math.max(...pontos.filter((p) => p.sessionId !== 'inicio').map((p) => p.nota))}
           min={Math.min(...pontos.filter((p) => p.sessionId !== 'inicio').map((p) => p.nota))}
           referencia={FORCA_MEDIA}
+          topo={topo - 4}
+          baixo={H - base - 4}
         />
-        <text x={esq - 6} y={y(FORCA_MEDIA) + 11} textAnchor="end" fontSize="6.5" fill="var(--muted)">
-          média
-        </text>
         <path d={area} fill="url(#grad-forca)" />
         {tocado !== null && (
           <line x1={x(tocado)} x2={x(tocado)} y1={topo - 6} y2={H - base} stroke="var(--muted)" strokeDasharray="2 3" />
