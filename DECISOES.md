@@ -867,3 +867,35 @@ sozinho, 4 conferidos na mão.
       autenticada) e tempo real ligados nas 5 tabelas.
 - [ ] Opcional: tirar o "Mais que um play, uma experiência!" do rodapé das artes
       (já aparece dentro do logo).
+
+## Força por confiança: medida e NÃO adotada (12/10/2026)
+
+Proposta do dono: o ganho da vencedora não precisa ser igual à perda da perdedora. Testado
+na forma certa disso — **passo por confiança** (cada menina move pelo próprio passo, maior
+enquanto o app a conhece pouco: 48→24 nos 12 primeiros jogos, ou 72→24), com e sem soma
+zero, com a falta devolvendo incerteza, com a novata começando na média, mais a calibragem
+de K, escala, peso da parceira mais forte e peso da vitória seca. Ferramentas:
+`node scripts/medir-forca.mjs` (histórico real) e `--simular` / `--par "a" "b"` (temporadas
+simuladas, `scripts/simular-forca.ts`); as alavancas ficam em `RegraDaForca` (`stats.ts`,
+padrão = a regra de hoje).
+
+**Histórico real** (8 plays, 206 partidas): todas as variantes acertam a favorita em 54–58%
+das partidas e erram ~26% dos games — diferenças dentro do acaso; curto demais para decidir.
+
+**Simulado** (30 temporadas, 16 plays, grupos de 8, faltas, 8 novatas chegando no meio):
+
+| regra | correlação no fim | erro da novata após o 1º play | após o 2º |
+|---|---|---|---|
+| hoje | 0,828 | 47,8 | 41,8 |
+| confiança 48→24 | 0,825 | 44,4 | 40,6 |
+| confiança 72→24 | 0,846 | 46,1 | 40,9 |
+| confiança + aceleração | **0,793** ⚠️ | 48,0 | 43,2 |
+| confiança + novata na média | 0,839 | 44,0 | 41,2 |
+| K 32 | 0,826 | 45,8 | 39,1 |
+
+Pareado (40 temporadas, mesmas sementes), a melhor contra hoje: correlação **+0,011 ± 0,015**,
+novata no 1º play **−3,3 ± 3,6**, no 2º **−1,6 ± 2,6** — nada fora do acaso. **A força ficou
+como estava.** O limite não é a fórmula: uma partida até 4 games traz pouca informação, e
+qualquer regra precisa de uns 3 plays para encaixar uma novata. Para a novata, o que funciona
+é a organizadora usar o que já sabe: a **força inicial no cadastro** e a marca **🆕** ao montar
+o play. Única conclusão firme: somar a aceleração ao passo por confiança **piora** (0,79).

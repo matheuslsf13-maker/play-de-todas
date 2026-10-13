@@ -91,6 +91,10 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   12 sextas com 16 jogadoras, que espalhou o grupo de −107 a +91. Abaixo de
   `JOGOS_PARA_FIRMAR` a nota sai marcada como **provisória**, e quem nunca jogou
   fica fora da lista.
+- **Medir antes de mexer na força** (`RegraDaForca` em `stats.ts`, padrão = a regra de hoje):
+  `node scripts/medir-forca.mjs` mede cada variante no histórico real; `--simular` em
+  temporadas simuladas; `--par "a" "b"` compara duas com intervalo. Em 12/10 o passo por
+  confiança (ganho ≠ perda) foi medido e não ganhou da regra atual (DECISOES.md).
 - **O passo acelera só para cima** (`proximaSequencia`/`passoDaSequencia` em `stats.ts`):
   "surpresa" é fazer mais (ou menos) games que a conta esperava. Cada surpresa **boa**
   seguida aumenta o passo de quem surpreendeu (24, 30, 36, 42, até 48); ir **claramente

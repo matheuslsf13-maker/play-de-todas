@@ -315,6 +315,8 @@ export function opponentStats(matches: Match[]): Map<string, Map<string, PairKey
 export const ELO_INICIAL = 1500
 /** Quanto uma partida move a nota. Entre 12 e 60 o resultado quase nao muda. */
 const ELO_K = 24
+/** Partidas para a nota firmar (o mesmo JOGOS_PARA_FIRMAR de forca.ts, sem import circular). */
+const JOGOS_PARA_FIRMAR_ELO = 12
 
 /*
  * O PASSO QUE ACELERA (so para cima).
@@ -393,7 +395,49 @@ export type QuedaPorFalta = {
 /** Um ponto do grafico de forca: a nota depois de um play (jogado, ou a falta que derrubou). */
 export type PontoDeForca = { date: string; sessionId: string; nota: number; jogou: boolean }
 
-function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
+/**
+ * AS ALAVANCAS DA FORCA, para medir variacoes contra o historico real
+ * (`scripts/medir-forca.mjs`). `REGRA_DA_FORCA` e a que o app usa.
+ */
+export type RegraDaForca = {
+  /** Passo base (K). */
+  k: number
+  /** Escala da curva do esperado (400 no xadrez). */
+  escala: number
+  /** Peso da parceira MAIS FORTE na forca da dupla (0,5 = a media). */
+  pesoForte: number
+  /** Parte da vitoria seca no "real" (0 = so a fatia de games, como hoje). */
+  pesoVitoria: number
+  /**
+   * PASSO POR CONFIANCA: cada menina move pelo proprio passo, K x (1 + c x o
+   * que falta para firmar). Com c = 1: 48 na 1a partida, 24 a partir da 12a.
+   */
+  confianca: number
+  /** Cada falta seguida (da 2a em diante) desconta tantas partidas da confianca. */
+  faltaDesconfia: number
+  /** O passo que acelera nas surpresas boas seguidas, a partir desta data (vazio = sempre; null = nunca). */
+  aceleraDesde: string | null
+  /** O que o passo maior da a mais sai de todas do play (a media fica em 1500). */
+  somaZero: boolean
+  /** Quem nao escolheu forca inicial comeca na media de quem ja jogou (e nao em 1500). */
+  novataNaMedia: boolean
+  /** Para o medidor: chamado em cada partida com o esperado ANTES dela. */
+  aoPrever?: (p: { esperado: number; real: number; jogosAntes: number[] }) => void
+}
+
+export const REGRA_DA_FORCA: RegraDaForca = {
+  k: ELO_K,
+  escala: 400,
+  pesoForte: 0.5,
+  pesoVitoria: 0,
+  confianca: 0,
+  faltaDesconfia: 0,
+  aceleraDesde: PASSO_ACELERA_DESDE,
+  somaZero: true,
+  novataNaMedia: false,
+}
+
+export function calcularElo(data: AppData, upToDate?: string, acompanhar?: string, regra: RegraDaForca = REGRA_DA_FORCA) {
   const historico: PontoDeForca[] = []
   const sessoes = [...data.sessions]
     .filter((s) => !upToDate || s.date <= upToDate)
@@ -417,47 +461,76 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
   const inicial = new Map(
     data.players.map((p) => [p.id, p.forca_inicial ?? ELO_INICIAL] as const),
   )
+  const escolheuInicio = new Set(data.players.filter((p) => p.forca_inicial != null).map((p) => p.id))
   const elo = new Map<string, number>()
   const nota = (id: string) => elo.get(id) ?? inicial.get(id) ?? ELO_INICIAL
   const jaJogou = new Set<string>()
   const queda = new Map<string, QuedaPorFalta>()
   const jogadora = new Map(data.players.map((p) => [p.id, p]))
   const sequencia = new Map<string, SequenciaDeSurpresas>()
+  /** Partidas jogadas por cada uma (para o medidor). */
+  const jogosDe = new Map<string, number>()
+  /** O quanto o app ja conhece cada uma: partidas, menos o que as faltas descontaram. */
+  const confiancaDe = new Map<string, number>()
 
   // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
   // naquele momento, entao os plays (e as partidas) entram em ordem cronologica
   for (const s of sessoes) {
     const jogos = (jogadasPorSessao.get(s.id) ?? []).sort((x, y) => x.round - y.round)
     const mudanca = new Map<string, number>()
-    const acelera = s.date >= PASSO_ACELERA_DESDE
+    const acelera = regra.aceleraDesde !== null && s.date >= regra.aceleraDesde
+    const passoBase = (id: string) =>
+      regra.k * (1 + regra.confianca * Math.max(0, 1 - (confiancaDe.get(id) ?? 0) / JOGOS_PARA_FIRMAR_ELO))
     const mover = (id: string, surpresa: number) => {
-      if (!acelera) {
-        elo.set(id, nota(id) + ELO_K * surpresa)
-        return
+      let passo = passoBase(id)
+      if (acelera) {
+        const q = proximaSequencia(sequencia.get(id), surpresa)
+        sequencia.set(id, q)
+        passo = Math.max(passo, (passoDaSequencia(q, surpresa) / ELO_K) * regra.k)
       }
-      const q = proximaSequencia(sequencia.get(id), surpresa)
-      sequencia.set(id, q)
-      const d = passoDaSequencia(q, surpresa) * surpresa
+      const d = passo * surpresa
       elo.set(id, nota(id) + d)
-      mudanca.set(id, (mudanca.get(id) ?? 0) + d)
+      if (acelera || regra.confianca > 0) mudanca.set(id, (mudanca.get(id) ?? 0) + d)
+    }
+    // quem estreia hoje sem forca escolhida: na regra que pede, entra na media de quem ja jogou
+    if (regra.novataNaMedia && jaJogou.size > 0) {
+      const media = [...jaJogou].reduce((t, id) => t + nota(id), 0) / jaJogou.size
+      for (const m of jogos)
+        for (const id of [...m.team_a, ...m.team_b])
+          if (!jaJogou.has(id) && !escolheuInicio.has(id) && !elo.has(id)) elo.set(id, media)
+    }
+    const forcaDaDupla = (ids: [string, string]) => {
+      const x = nota(ids[0])
+      const y = nota(ids[1])
+      return Math.max(x, y) * regra.pesoForte + Math.min(x, y) * (1 - regra.pesoForte)
     }
     for (const m of jogos) {
       const ga = m.score_a as number
       const gb = m.score_b as number
       if (ga + gb === 0) continue
-      const forcaA = (nota(m.team_a[0]) + nota(m.team_a[1])) / 2
-      const forcaB = (nota(m.team_b[0]) + nota(m.team_b[1])) / 2
-      const esperado = 1 / (1 + Math.pow(10, (forcaB - forcaA) / 400))
+      const forcaA = forcaDaDupla(m.team_a)
+      const forcaB = forcaDaDupla(m.team_b)
+      const esperado = 1 / (1 + Math.pow(10, (forcaB - forcaA) / regra.escala))
       // a margem conta, como na pontuacao do campeonato: 4x0 vale 1,00 e 4x3, 0,57
-      const real = ga / (ga + gb)
+      const fatia = ga / (ga + gb)
+      const real = regra.pesoVitoria * (ga > gb ? 1 : 0) + (1 - regra.pesoVitoria) * fatia
+      regra.aoPrever?.({
+        esperado,
+        real: fatia,
+        jogosAntes: [...m.team_a, ...m.team_b].map((id) => jogosDe.get(id) ?? 0),
+      })
       const surpresa = real - esperado
       for (const id of m.team_a) mover(id, surpresa)
       for (const id of m.team_b) mover(id, -surpresa)
-      for (const id of [...m.team_a, ...m.team_b]) jaJogou.add(id)
+      for (const id of [...m.team_a, ...m.team_b]) {
+        jaJogou.add(id)
+        jogosDe.set(id, (jogosDe.get(id) ?? 0) + 1)
+        confiancaDe.set(id, (confiancaDe.get(id) ?? 0) + 1)
+      }
     }
     // soma zero: o que o passo maior deu a mais sai, em pedacinhos, de todas
     // que jogaram este play -- senao a media sairia de 1500
-    if (mudanca.size > 0) {
+    if (regra.somaZero && mudanca.size > 0) {
       const deriva = [...mudanca.values()].reduce((t, x) => t + x, 0) / mudanca.size
       if (Math.abs(deriva) > 1e-9) for (const id of mudanca.keys()) elo.set(id, nota(id) - deriva)
     }
@@ -487,6 +560,8 @@ function calcularElo(data: AppData, upToDate?: string, acompanhar?: string) {
         elo.set(id, atual - perda)
         q.perda += perda
         if (id === acompanhar && perda > 0) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(atual - perda), jogou: false })
+        // quem some fica menos conhecida: volta se reencaixando mais rapido
+        if (regra.faltaDesconfia > 0) confiancaDe.set(id, Math.max(0, (confiancaDe.get(id) ?? 0) - regra.faltaDesconfia))
       }
       queda.set(id, q)
     }
