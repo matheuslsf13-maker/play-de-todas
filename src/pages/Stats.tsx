@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import GraficoDeForca from '../components/GraficoDeForca'
+import GraficoDaDupla from '../components/GraficoDaDupla'
 import { normalizar } from '../lib/roster'
 import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
 import { NomesDaDupla } from '../components/NomeClicavel'
@@ -35,7 +36,6 @@ import {
   type ForcaDeDupla,
   type LinhaDeForca,
 } from '../lib/forca'
-import { matchPoints } from '../lib/scoring'
 import { applyBonuses, computeStreaks, STREAK_LADDER, streakLevel } from '../lib/streaks'
 import { useStore } from '../lib/store'
 import { dateLabel, monthLabel, monthOf, plural } from '../lib/types'
@@ -561,6 +561,12 @@ function DetalheDupla({
   const jogos = useMemo(() => duoMatches(matches, duo.a, duo.b), [matches, duo])
   const dataDaSessao = new Map(data.sessions.map((s) => [s.id, s.date]))
   const pct = duo.matches === 0 ? 0 : duo.wins / duo.matches
+  // as partidas agrupadas por play, do mais recente para o mais antigo
+  const porPlay = useMemo(() => {
+    const m = new Map<string, typeof jogos>()
+    for (const j of jogos) m.set(j.session_id, [...(m.get(j.session_id) ?? []), j])
+    return [...m.entries()].sort((x, y) => (dataDaSessao.get(y[0]) ?? '').localeCompare(dataDaSessao.get(x[0]) ?? ''))
+  }, [jogos, data.sessions])
 
   // contra quem essa dupla mais jogou
   const rivais = useMemo(() => {
@@ -580,81 +586,70 @@ function DetalheDupla({
 
   return (
     <Modal title={`${nameOf(duo.a)} + ${nameOf(duo.b)}`} onClose={onClose}>
-      <div className="row center" style={{ justifyContent: 'center', gap: 10, marginBottom: 12 }}>
-        <Avatar player={playerById(duo.a)} size={52} />
-        <Avatar player={playerById(duo.b)} size={52} />
-      </div>
-      <div className="grid3">
-        <StatBox k="Jogos" v={duo.matches} />
-        <StatBox k="Vitórias" v={duo.wins} />
-        <StatBox k="Aproveit." v={`${Math.round(pct * 100)}%`} />
-        <StatBox k="Pontos" v={duo.points} />
-        <StatBox k="Games" v={`${duo.gamesWon}/${duo.gamesLost}`} />
-        <StatBox k="Plays" v={duo.sessions.size} />
-      </div>
-
-      {forca && (
-        <div className="card" style={{ marginTop: 12, marginBottom: 0 }}>
-          <div className="row" style={{ gap: 10 }}>
-            <span style={{ fontSize: 24 }}>{nivelDeForca(forca.nota).emoji}</span>
-            <div className="grow" style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 800, color: nivelDeForca(forca.nota).cor }}>
-                Força da dupla: {forca.nota}
-              </div>
-              <div className="tiny muted">
-                {forca.entrosamento === 0
-                  ? 'exatamente o que a força das duas previa'
-                  : forca.entrosamento > 0
-                    ? `+${forca.entrosamento} além do que a força das duas previa`
-                    : `${forca.entrosamento} abaixo do que a força das duas previa`}
-                {forca.provisoria && ' · provisória'}
-              </div>
+      <div className="row" style={{ gap: 12, marginBottom: 12 }}>
+        <span className="duo-fotos">
+          <Avatar player={playerById(duo.a)} size={46} />
+          <Avatar player={playerById(duo.b)} size={46} />
+        </span>
+        {forca && (
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, color: nivelDeForca(forca.nota).cor }}>
+              {nivelDeForca(forca.nota).emoji} Força da dupla {forca.nota}
+            </div>
+            <div className="tiny muted">
+              média das duas {forca.base}
+              {forca.entrosamento !== 0 && ` · ${forca.entrosamento > 0 ? '+' : ''}${forca.entrosamento} juntas`}
+              {forca.provisoria && ` · provisória (menos de ${JOGOS_PARA_ENTROSAMENTO} jogos)`}
             </div>
           </div>
-          <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
-            A média das duas dá <strong>{forca.base}</strong> — é o que a dupla deveria valer.
-            O número acima é o que ela vale <strong>pelo que renderam juntas</strong>: cada partida
-            delas move essa nota conforme o resultado e a força de quem estava do outro lado.
-            {forca.provisoria &&
-              ` Com menos de ${JOGOS_PARA_ENTROSAMENTO} jogos juntas, ainda é cedo para tirar conclusão.`}
-          </p>
-        </div>
-      )}
-
-      <div className="section-title" style={{ marginTop: 16 }}>⚔️ Contra quem jogaram</div>
-      <div className="scroll-x">
-        <table className="table">
-          <thead><tr><th style={{ textAlign: 'left' }}>Dupla adversária</th><th>V</th><th>D</th></tr></thead>
-          <tbody>
-            {rivais.map((r) => (
-              <tr key={r.key}>
-                <td className="ellipsis">{nameOf(r.a)} + {nameOf(r.b)}</td>
-                <td>{r.v}</td>
-                <td>{r.d}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        )}
       </div>
 
+      <div className="grid2" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+        <StatBox k="Jogos" v={duo.matches} />
+        <StatBox k="V–D" v={`${duo.wins}–${duo.losses}`} />
+        <StatBox k="Aprov." v={`${Math.round(pct * 100)}%`} />
+        <StatBox k="Pontos" v={duo.points} />
+      </div>
+
+      <GraficoDaDupla data={data} a={duo.a} b={duo.b} />
+
+      {rivais.length > 0 && (
+        <>
+          <div className="section-title" style={{ marginTop: 16 }}>⚔️ Contra quem jogaram</div>
+          <div className="stack" style={{ gap: 4 }}>
+            {rivais.map((r) => (
+              <div key={r.key} className="row small">
+                <span className="grow ellipsis">{nameOf(r.a)} + {nameOf(r.b)}</span>
+                <strong className="nowrap" style={{ color: r.v > r.d ? 'var(--verde)' : r.v < r.d ? 'var(--danger)' : 'var(--muted)' }}>
+                  {r.v}–{r.d}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="section-title" style={{ marginTop: 16 }}>📅 Partidas</div>
-      <div className="stack">
-        {jogos.map((j) => {
-          const somosA = j.team_a.includes(duo.a) && j.team_a.includes(duo.b)
-          const nosso = somosA ? (j.score_a as number) : (j.score_b as number)
-          const deles = somosA ? (j.score_b as number) : (j.score_a as number)
-          const outros = (somosA ? j.team_b : j.team_a) as [string, string]
-          const [pa, pb] = matchPoints(j.score_a as number, j.score_b as number)
-          const nossosPts = somosA ? pa : pb
-          return (
-            <div key={j.id} className="row tiny" style={{ borderBottom: '1px dashed var(--line)', paddingBottom: 6 }}>
-              <span className="muted nowrap">{dateLabel(dataDaSessao.get(j.session_id) ?? '')}</span>
-              <span className="grow ellipsis">vs {nameOf(outros[0])} + {nameOf(outros[1])}</span>
-              <strong style={{ color: nosso > deles ? 'var(--teal)' : 'var(--muted)' }}>{nosso} x {deles}</strong>
-              {nossosPts > 0 && <span style={{ color: 'var(--pink)', fontWeight: 800 }}>+{nossosPts}</span>}
-            </div>
-          )
-        })}
+      <div className="stack" style={{ gap: 10 }}>
+        {porPlay.map(([sid, lista]) => (
+          <div key={sid}>
+            <div className="tiny muted" style={{ fontWeight: 800, marginBottom: 4 }}>{dateLabel(dataDaSessao.get(sid) ?? '')}</div>
+            {lista.map((j) => {
+              const somosA = j.team_a.includes(duo.a) && j.team_a.includes(duo.b)
+              const nosso = somosA ? (j.score_a as number) : (j.score_b as number)
+              const deles = somosA ? (j.score_b as number) : (j.score_a as number)
+              const outros = (somosA ? j.team_b : j.team_a) as [string, string]
+              return (
+                <div key={j.id} className="row small" style={{ gap: 8 }}>
+                  <span style={{ width: 16 }}>{nosso > deles ? '✅' : '❌'}</span>
+                  <span className="grow ellipsis">{nameOf(outros[0])} + {nameOf(outros[1])}</span>
+                  <strong className="nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>{nosso}x{deles}</strong>
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </Modal>
   )

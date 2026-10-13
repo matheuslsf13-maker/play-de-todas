@@ -302,3 +302,17 @@ test('novata: quem nunca jogou; no 1o play continua novata ate o play existir em
   d.sessions.push({ ...sessao('s2', '2026-10-19', ['n', 'a', 'b', 'c']), status: 'open' })
   assert.ok(!novatas(d, 's2').has('n'))
 })
+
+import { forcaDeDuplas, historicoDaDupla } from '../src/lib/forca'
+
+test('historico da dupla: um ponto por play juntas, e o ultimo bate com a forca da dupla', () => {
+  const d = base({ a: 1500, b: 1500, c: 1500, e: 1500 })
+  playCom(d, 's1', '2026-09-01', ['a', 'b', 'c', 'e'])
+  d.matches.push(partida('s1', ['a', 'b'], ['c', 'e'], 4, 1), partida('s1', ['a', 'c'], ['b', 'e'], 4, 3))
+  playCom(d, 's2', '2026-09-08', ['a', 'b', 'c', 'e'])
+  d.matches.push(partida('s2', ['a', 'b'], ['c', 'e'], 2, 4))
+  const h = historicoDaDupla(d, 'b', 'a')
+  assert.deepEqual(h.pontos.map((p) => [p.sessionId, p.v, p.d]), [['s1', 1, 0], ['s2', 0, 1]])
+  assert.equal(h.pontos.at(-1)?.nota, forcaDeDuplas(d).get('a|b')?.nota)
+  assert.equal(h.base, forcaDeDuplas(d).get('a|b')?.base)
+})

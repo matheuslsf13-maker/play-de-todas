@@ -166,6 +166,13 @@ export const JOGOS_PARA_ENTROSAMENTO = 6
 const K_DUPLA = 20
 
 export function forcaDeDuplas(data: AppData): Map<string, ForcaDeDupla> {
+  return percorrerDuplas(data)
+}
+
+/** Uma partida da dupla: o play, se venceu, e a nota da dupla depois dela. */
+type JogoDaDupla = { key: string; sessionId: string; venceu: boolean; nota: number }
+
+function percorrerDuplas(data: AppData, aoJogar?: (j: JogoDaDupla) => void): Map<string, ForcaDeDupla> {
   const individuais = ratings(data)
   const nota = (id: string) => notaDeForca(individuais.get(id) ?? 2)
   const base = (x: string, y: string) => forcaDaDupla(nota(x), nota(y))
@@ -205,6 +212,7 @@ export function forcaDeDuplas(data: AppData): Map<string, ForcaDeDupla> {
       const esperado = 1 / (1 + Math.pow(10, (base(rival[0], rival[1]) - d.nota) / 400))
       d.nota += K_DUPLA * (favor / (favor + contra) - esperado)
       d.jogos++
+      aoJogar?.({ key: k, sessionId: m.session_id, venceu: favor > contra, nota: d.nota })
     }
   }
 
@@ -214,6 +222,32 @@ export function forcaDeDuplas(data: AppData): Map<string, ForcaDeDupla> {
     d.provisoria = d.jogos < JOGOS_PARA_ENTROSAMENTO
   }
   return out
+}
+
+/** Um ponto do grafico da dupla: a forca dela depois de um play em que jogaram juntas. */
+export type PontoDaDupla = { date: string; sessionId: string; nota: number; v: number; d: number }
+
+/**
+ * A FORCA DA DUPLA AO LONGO DO TEMPO, para o grafico da ficha: um ponto por
+ * play em que jogaram juntas (a nota depois dele e o V/D da noite). `base` e o
+ * que a media das duas preve hoje -- a distancia ate ela e o entrosamento.
+ */
+export function historicoDaDupla(data: AppData, a: string, b: string): { base: number; pontos: PontoDaDupla[] } {
+  const chave = [a, b].sort().join('|')
+  const dia = new Map(data.sessions.map((s) => [s.id, s.date]))
+  const pontos: PontoDaDupla[] = []
+  const final = percorrerDuplas(data, (j) => {
+    if (j.key !== chave) return
+    let p = pontos[pontos.length - 1]
+    if (!p || p.sessionId !== j.sessionId) {
+      p = { date: dia.get(j.sessionId) ?? '', sessionId: j.sessionId, nota: 0, v: 0, d: 0 }
+      pontos.push(p)
+    }
+    p.nota = Math.round(j.nota)
+    if (j.venceu) p.v++
+    else p.d++
+  }).get(chave)
+  return { base: final?.base ?? 1500, pontos }
 }
 
 /**
