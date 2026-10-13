@@ -16,6 +16,7 @@ export default function DivisaoDoCampeonato({
   estrutura,
   forca,
   nameOf,
+  novatas,
   classeDoGrupo,
   movendo,
   setMovendo,
@@ -34,6 +35,8 @@ export default function DivisaoDoCampeonato({
   estrutura: string[][][]
   forca: Map<string, number>
   nameOf: (id: string) => string
+  /** Quem nunca jogou: ganha o 🆕 no chip. */
+  novatas?: Set<string>
   classeDoGrupo: (grupo: number) => string
   movendo: string | null
   setMovendo: (id: string | null) => void
@@ -135,6 +138,7 @@ export default function DivisaoDoCampeonato({
                             onClick={() => setMovendo(movendo === id ? null : id)}
                           >
                             {nameOf(id)}
+                            {novatas?.has(id) && <span className="tag-novata" title="primeiro play dela">🆕</span>}
                             <span className="tiny muted" style={{ fontWeight: 600 }}>
                               {notaDeForca(forca.get(id) ?? 2)}
                             </span>

@@ -183,6 +183,11 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   do sorteio; **livre**, mesmo deixando um grupo com menos de 4 no meio da arrumação: o grupo
   mostra ⚠️ e o "criar o play" recusa dizendo qual grupo) e **sortear de novo**. Cada
   chip mostra a nota e o cabeçalho a média do grupo.
+- **🆕 Novata** (`novatas(data, sessionId?)` em `stats.ts`): quem não tem partida jogada fora
+  do play. Aparece ao montar o play (chips, grupos, divisão do campeonato) e, com o play
+  **aberto**, nos cartões de partida (`Duo`, via contexto `NovatasDoPlay`) e no cartão dos
+  grupos; play finalizado não marca. Fica fora do texto e da arte. A nota 1500 não dizia
+  isso: veterana também pode estar em 1500.
 - **A força inicial é escolhida no cadastro** (`players.forca_inicial`, script 13).
   O padrão é **1500, o meio da escala — não a média das cadastradas**: o Elo é
   soma zero, então a média fica em 1500 sozinha enquanto todas partirem dali. Dar

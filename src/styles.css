@@ -1422,3 +1422,6 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 .hall-controles { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
 .hall-controles .segmented { flex: 1 1 220px; }
 .hall-numero { font-weight: 900; color: var(--ouro); min-width: 28px; }
+
+/* novata: primeiro play dela (ao montar e durante o play; some ao finalizar) */
+.tag-novata { font-size: .85em; margin-left: 3px; line-height: 1; }

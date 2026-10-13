@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import ClassificacaoDosGrupos from '../components/ClassificacaoDosGrupos'
 import DesempateEmQuadra from '../components/DesempateEmQuadra'
@@ -73,6 +73,7 @@ import {
   aplicarColocacao,
   computeStatsComPontos,
   fecharPausa,
+  novatas,
   pausaAberta,
 } from '../lib/stats'
 import { buildDayPoster, buildDayPosterGrupos, type PosterRow } from '../lib/poster'
@@ -431,6 +432,8 @@ function NewPlay({
   const [selected, setSelected] = useState<string[]>(preset.player_ids ?? [])
   const [busy, setBusy] = useState(false)
 
+  /** Quem nunca jogou: o 🆕 ao montar o play (veterana tambem pode estar em 1500). */
+  const novatasAgora = useMemo(() => novatas(data), [data])
   const available = [...data.players]
     .filter((p) => p.active || selected.includes(p.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
@@ -815,6 +818,7 @@ function NewPlay({
                   <span className="nome-atleta">{p.nickname?.trim() || p.name}</span>
                   {!sit.liberado && <span style={{ color: 'var(--danger)' }}>●</span>}
                   {sit.alerta && <span title={sit.alerta}>⚠️</span>}
+                  {novatasAgora.has(p.id) && <TagNovata />}
                   {estaPausada(p.id) && <span title="pausada: tocar pergunta se é para despausar">⏸️</span>}
                 </button>
               )
@@ -854,6 +858,7 @@ function NewPlay({
           estrutura={estrutura}
           forca={forca}
           nameOf={nameOf}
+          novatas={novatasAgora}
           classeDoGrupo={classeDoGrupo}
           movendo={movendo}
           setMovendo={setMovendo}
@@ -1096,6 +1101,7 @@ function NewPlay({
                         onClick={() => setMovendo(movendo === id ? null : id)}
                       >
                         {nameOf(id)}
+                        {novatasAgora.has(id) && <TagNovata />}
                         <span className="tiny muted" style={{ fontWeight: 600 }}>
                           {notaDeForca(forca.get(id) ?? 2)}
                         </span>
@@ -1772,6 +1778,8 @@ function PlayDetail({
     return min === max ? `${min} partidas` : `${min} a ${max} partidas`
   }, [matches, session.player_ids])
   const finished = session.status === 'finished'
+  // so com o play aberto: finalizou, a marca de novata sai
+  const novatasDoPlay = useMemo(() => (finished ? new Set<string>() : novatas(data, session.id)), [finished, data, session.id])
   const grupos = session.groups ?? null
   /** A forca de cada pessoa na data do play, como ela estava ao montar os grupos. */
   const forcaDoDia = useMemo(() => ratings(data, session.date), [data, session.date])
@@ -2730,7 +2738,7 @@ function PlayDetail({
   const editable = canEdit && !finished
 
   return (
-    <>
+    <NovatasDoPlay.Provider value={novatasDoPlay}>
       <div className="card">
         <div className="row spread">
           <button className="btn ghost sm" onClick={onBack}>← Plays</button>
@@ -2890,7 +2898,7 @@ function PlayDetail({
                     total <strong>{total}</strong>
                   </div>
                   <div className="tiny">
-                    {g.map((id, k) => `${nameOf(id)} ${notas[k]}`).join(' · ')}
+                    {g.map((id, k) => `${nameOf(id)}${novatasDoPlay.has(id) ? ' 🆕' : ''} ${notas[k]}`).join(' · ')}
                   </div>
                 </div>
               )
@@ -3496,11 +3504,22 @@ function PlayDetail({
           )}
         </Modal>
       )}
-    </>
+    </NovatasDoPlay.Provider>
   )
 }
 
 /* ------------------------------------------------------------ partidas */
+
+/**
+ * Quem esta no PRIMEIRO play, enquanto ele esta aberto: o `Duo` (todos os
+ * cartoes de partida) poe o 🆕 no nome. Play finalizado nao fornece, e a marca some.
+ */
+const NovatasDoPlay = createContext<Set<string>>(new Set())
+
+/** O selo de novata, ao lado do nome. */
+function TagNovata() {
+  return <span className="tag-novata" title="primeiro play dela">🆕</span>
+}
 
 /**
  * Quadra vaga sem partida possivel: todas as partidas que faltam pegam
@@ -3616,6 +3635,7 @@ function GrupoTag({ grupo, total, nome }: { grupo?: number; total: number; nome?
 
 function Duo({ ids, ocupadas }: { ids: [string, string]; ocupadas?: Set<string> }) {
   const { nameOf, playerById } = useStore()
+  const novatasDoPlay = useContext(NovatasDoPlay)
   return (
     <>
       <Avatar player={playerById(ids[0])} size={26} />
@@ -3626,6 +3646,7 @@ function Duo({ ids, ocupadas }: { ids: [string, string]; ocupadas?: Set<string> 
             {i > 0 && <span className="muted"> + </span>}
             <span className={`nowrap${ocupadas?.has(id) ? ' ocupada' : ''}`}>
               {nameOf(id)}
+              {novatasDoPlay.has(id) && <TagNovata />}
               {ocupadas?.has(id) && ' ⏳'}
             </span>
           </span>

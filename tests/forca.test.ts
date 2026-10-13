@@ -287,3 +287,18 @@ test('grafico: com um play so, as faltas que baixaram a nota viram pontos', () =
   assert.deepEqual(h.map((p) => p.jogou), [false, true, false, false])
   assert.ok(h[3].nota < h[1].nota)
 })
+
+import { novatas } from '../src/lib/stats'
+
+test('novata: quem nunca jogou; no 1o play continua novata ate o play existir em outra sessao', () => {
+  const d = base({ n: 1500, a: 1500, b: 1500, c: 1500, d: 1500 })
+  assert.ok(novatas(d).has('n'))
+  // 1o play dela, ainda aberto e com partida jogada
+  d.sessions.push({ ...sessao('s1', '2026-10-12', ['n', 'a', 'b', 'c']), status: 'open' })
+  d.matches.push(partida('s1', ['n', 'a'], ['b', 'c'], 4, 2))
+  assert.ok(novatas(d, 's1').has('n'), 'durante o 1o play')
+  assert.ok(!novatas(d).has('n'), 'para montar o proximo play ela ja jogou')
+  // um 2o play: no s2 ela nao e mais novata
+  d.sessions.push({ ...sessao('s2', '2026-10-19', ['n', 'a', 'b', 'c']), status: 'open' })
+  assert.ok(!novatas(d, 's2').has('n'))
+})

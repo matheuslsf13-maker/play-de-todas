@@ -67,6 +67,20 @@ export function playedMatches(
 }
 
 /**
+ * AS NOVATAS: quem nao tem partida jogada fora de `sessionId` -- ou seja, quem
+ * esta no primeiro play (sem `sessionId`: quem nunca jogou, para montar o
+ * proximo). So a nota 1500 nao dizia isso: veterana tambem pode estar em 1500.
+ */
+export function novatas(data: AppData, sessionId?: string): Set<string> {
+  const jogaram = new Set<string>()
+  for (const m of playedMatches(data)) {
+    if (m.session_id === sessionId) continue
+    for (const id of [...m.team_a, ...m.team_b]) jogaram.add(id)
+  }
+  return new Set(data.players.filter((p) => !jogaram.has(p.id)).map((p) => p.id))
+}
+
+/**
  * AS PARTIDAS QUE VALEM PONTOS.
  *
  * No `grupos-duplas` a fase de grupos so serve para formar as duplas: ela nao
