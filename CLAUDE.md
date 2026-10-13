@@ -198,6 +198,11 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   outro ponto de partida é contar ao app o que ele ainda não sabe; depois disso as
   partidas mandam do mesmo jeito, e o histórico é **recalculado a partir do novo
   ponto** (`ratings()`), por isso o campo continua editável no perfil.
+  O nível vem **em três toques** (`NIVEIS_RAPIDOS` em `components/ForcaInicial.tsx`:
+  🌱 iniciante 1440 · ⚖️ intermediária 1500 · 📈 avançada 1560), com o número ajustável
+  embaixo — um número era difícil de chutar e quase ninguém usava. Dá para **cadastrar na
+  tela de montar o play** ("➕ Nova atleta", `components/NovaAtleta.tsx`): nome, quem paga e
+  o nível, e ela já entra no play (com o portão do pagamento, como todas).
 - **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,
   script 14). Ganhar 5 de 6 apertado vale mais no dia do que ganhar 3 atropelando;
   os pontos só desempatam. O critério fica **gravado no play**: os antigos (sem

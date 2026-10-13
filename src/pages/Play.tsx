@@ -22,6 +22,7 @@ import {
   montarCategorias,
 } from '../lib/campeonato'
 import ImportarLista from '../components/ImportarLista'
+import NovaAtleta from '../components/NovaAtleta'
 import { Avatar, Empty, Modal, StatBox, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
   duplasDaFase2,
@@ -425,6 +426,8 @@ function NewPlay({
   const [ranked, setRanked] = useState(preset.ranked ?? true)
   const [contaStatus, setContaStatus] = useState(preset.conta_status ?? preset.ranked ?? true)
   const [importando, setImportando] = useState(false)
+  /** A janela de cadastrar uma atleta nova sem sair da tela. */
+  const [cadastrando, setCadastrando] = useState(false)
   const [target, setTarget] = useState(preset.target ?? 4)
   const [regra, setRegra] = useState<Regra>(
     preset.desempate ? lerRegra(preset.desempate) : { ...REGRA_PADRAO },
@@ -759,9 +762,14 @@ function NewPlay({
             <button className="btn ghost sm" onClick={() => setSelected([])}>Limpar</button>
           </div>
         </div>
-        <button className="btn purple block sm" style={{ marginTop: 10 }} onClick={() => setImportando(true)}>
-          📋 Colar lista de confirmação do grupo
-        </button>
+        <div className="row" style={{ gap: 8, marginTop: 10 }}>
+          <button className="btn purple sm grow" onClick={() => setImportando(true)}>
+            📋 Colar lista do grupo
+          </button>
+          <button className="btn ghost sm" onClick={() => setCadastrando(true)}>
+            ➕ Nova atleta
+          </button>
+        </div>
 
         {barradas.length > 0 && (
           <div className="banner warn" style={{ marginTop: 10 }}>
@@ -1147,6 +1155,22 @@ function NewPlay({
           onLiberada={(p) => {
             setPendente(null)
             liberar(p)
+          }}
+        />
+      )}
+
+      {cadastrando && (
+        <NovaAtleta
+          onClose={() => setCadastrando(false)}
+          onCriada={(p) => {
+            setCadastrando(false)
+            // mensalista sem o mes pago passa pelo mesmo portao de todas
+            if (!situacaoDoAtleta(p, data).liberado) {
+              setPendente(p)
+              return
+            }
+            setSelected((s) => (s.includes(p.id) ? s : [...s, p.id]))
+            onToast(`${p.nickname?.trim() || p.name} cadastrada e no play 🆕`)
           }}
         />
       )}
