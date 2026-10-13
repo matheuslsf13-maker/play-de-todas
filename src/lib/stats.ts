@@ -423,6 +423,19 @@ export type RegraDaForca = {
   novataNaMedia: boolean
   /** false = sem a queda por falta (so para medir: na simulacao a habilidade nao muda com a falta). */
   queda?: boolean
+  /**
+   * GLICKO (Overwatch, xadrez online, a "fiabilidade" do Playtomic): cada menina
+   * tem nota + INCERTEZA. A incerteza comeca em `inicial`, cai a cada partida
+   * (cada game e informacao), nunca fica abaixo de `minima` e CRESCE com as
+   * semanas sem jogar (`porSemana`, desvio por raiz de semana). O passo de cada
+   * uma sai da incerteza dela; e a incerteza das OUTRAS tres (parceira e
+   * adversarias) amortece o resultado: partida com novata ensina menos.
+   */
+  glicko?: { inicial: number; minima: number; porSemana: number } | null
+  /** UTR: o passo cresce com os games da partida (games/5) -- um 6x4 informa mais que um 4x1. */
+  pesoPelosGames?: boolean
+  /** TrueSkill 2: nos primeiros 12 jogos, quem chegou tende a melhorar: + tantos pontos por partida. */
+  curvaDeAprendizado?: number
   /** Para explicar a forca de alguem: cada mudanca na nota, com o motivo. */
   aoMudar?: (p: { sessionId: string; id: string; delta: number; motivo: 'partida' | 'deriva' | 'falta'; match?: Match; esperado?: number; passo?: number }) => void
   /** Para o medidor: chamado em cada partida com o esperado ANTES dela. */
@@ -444,6 +457,10 @@ export const REGRA_DA_FORCA: RegraDaForca = {
   aceleraDesde: null,
   somaZero: false,
   novataNaMedia: true,
+  // 13/10/2026: GLICKO -- nota + incerteza (60 para quem chega, ate 35; cresce 10
+  // por raiz de semana parada). Medido: a novata se encaixa 5 a 7 pontos mais
+  // perto da forca real nos 2 primeiros plays; a ordem geral fica igual (DECISOES.md)
+  glicko: { inicial: 60, minima: 35, porSemana: 10 },
 }
 
 export function calcularElo(data: AppData, upToDate?: string, acompanhar?: string, regra: RegraDaForca = REGRA_DA_FORCA) {
@@ -490,6 +507,10 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
   const jogosDe = new Map<string, number>()
   /** O quanto o app ja conhece cada uma: partidas, menos o que as faltas descontaram. */
   const confiancaDe = new Map<string, number>()
+  /** Glicko: a incerteza de cada uma e o ultimo dia em que jogou (para ela crescer parada). */
+  const incerteza = new Map<string, number>()
+  const ultimoDia = new Map<string, string>()
+  const Q = Math.LN10 / 400
 
   // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
   // naquele momento, entao os plays (e as partidas) entram em ordem cronologica
@@ -497,6 +518,18 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
     const jogos = (jogadasPorSessao.get(s.id) ?? []).sort((x, y) => x.round - y.round)
     const mudanca = new Map<string, number>()
     const acelera = regra.aceleraDesde !== null && s.date >= regra.aceleraDesde
+    if (regra.glicko) {
+      const gl = regra.glicko
+      for (const m of jogos)
+        for (const id of [...m.team_a, ...m.team_b]) {
+          const antes = ultimoDia.get(id)
+          if (!antes || antes === s.date) continue
+          const semanas = (Date.parse(s.date) - Date.parse(antes)) / (7 * 86400000)
+          const rd = incerteza.get(id) ?? gl.inicial
+          incerteza.set(id, Math.min(gl.inicial, Math.sqrt(rd * rd + gl.porSemana * gl.porSemana * semanas)))
+          ultimoDia.set(id, s.date)
+        }
+    }
     const passoBase = (id: string) =>
       regra.k * (1 + regra.confianca * Math.max(0, 1 - (confiancaDe.get(id) ?? 0) / JOGOS_PARA_FIRMAR_ELO))
     const mover = (id: string, surpresa: number, m?: Match, esperado?: number) => {
@@ -544,8 +577,37 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
         jogosAntes: [...m.team_a, ...m.team_b].map((id) => jogosDe.get(id) ?? 0),
       })
       const surpresa = real - esperado
-      for (const id of m.team_a) mover(id, surpresa, m, esperado)
-      for (const id of m.team_b) mover(id, -surpresa, m, 1 - esperado)
+      const games = ga + gb
+      if (regra.glicko) {
+        // cada uma pelo Glicko: o passo sai da incerteza dela e da informacao dos
+        // games; a incerteza das outras tres amortece (g do Glicko)
+        const gl = regra.glicko
+        const rd = (id: string) => incerteza.get(id) ?? gl.inicial
+        const todas = [...m.team_a, ...m.team_b]
+        for (const id of todas) {
+          const outras = todas.filter((x) => x !== id)
+          const sigma2 = outras.reduce((t, x) => t + rd(x) * rd(x), 0) / 4
+          const g = 1 / Math.sqrt(1 + (3 * Q * Q * sigma2) / (Math.PI * Math.PI))
+          const doLadoA = m.team_a.includes(id)
+          const e = doLadoA ? esperado : 1 - esperado
+          const sReal = doLadoA ? real : 1 - real
+          const info = (games * Q * Q * g * g * e * (1 - e)) / 4
+          const r2 = rd(id) * rd(id)
+          const d = ((games * Q * g) / 2) * (sReal - e) / (1 / r2 + info)
+          regra.aoMudar?.({ sessionId: s.id, id, delta: d, motivo: 'partida', match: m, esperado: e })
+          elo.set(id, nota(id) + d)
+          incerteza.set(id, Math.max(gl.minima, Math.sqrt(1 / (1 / r2 + info))))
+          ultimoDia.set(id, s.date)
+        }
+      } else {
+        const fator = regra.pesoPelosGames ? games / 5 : 1
+        for (const id of m.team_a) mover(id, surpresa * fator, m, esperado)
+        for (const id of m.team_b) mover(id, -surpresa * fator, m, 1 - esperado)
+      }
+      // quem chegou ha pouco tende a melhorar: a nota acompanha (TrueSkill 2)
+      if (regra.curvaDeAprendizado)
+        for (const id of [...m.team_a, ...m.team_b])
+          if ((jogosDe.get(id) ?? 0) < JOGOS_PARA_FIRMAR_ELO) elo.set(id, nota(id) + regra.curvaDeAprendizado)
       for (const id of [...m.team_a, ...m.team_b]) {
         jaJogou.add(id)
         jogosDe.set(id, (jogosDe.get(id) ?? 0) + 1)

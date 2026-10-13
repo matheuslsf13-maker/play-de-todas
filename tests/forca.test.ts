@@ -249,39 +249,7 @@ test('passo: ir pior que o esperado custa o normal e zera a sequencia; o neutro 
   assert.equal(passoDaSequencia(q, 0.2), 24, 'a proxima surpresa boa recomeca em 24')
 })
 
-test('sem o passo que acelera (13/10): cada partida e soma zero, o que uma ganha a outra perde', () => {
-  const d = base({ x: 1500, p: 1500, a: 1500, b: 1500 })
-  playCom(d, 's1', '2026-10-12', ['x', 'p', 'a', 'b'])
-  // x + p atropelam 3 vezes seguidas: antes o passo delas crescia; agora e sempre 24
-  for (let i = 0; i < 3; i++) d.matches.push(partida('s1', ['x', 'p'], ['a', 'b'], 4, 0))
-  let fx = 1500
-  let fa = 1500
-  for (let i = 0; i < 3; i++) {
-    const esp = 1 / (1 + Math.pow(10, (fa - fx) / 400))
-    const delta = 24 * (1 - esp)
-    fx += delta
-    fa -= delta
-  }
-  const r = ratings(d)
-  assert.equal(notaDeForca(r.get('x') as number), Math.round(fx))
-  const media = ['x', 'p', 'a', 'b'].reduce((t, id) => t + (1500 + ((r.get(id) as number) - 2) * 110), 0) / 4
-  assert.ok(Math.abs(media - 1500) < 0.01, `media ${media}`)
-})
 
-test('passo que acelera so vale do play de 12/10 em diante: a forca de antes nao muda', () => {
-  const d = base({ x: 1500, p: 1500, a: 1500, b: 1500 })
-  playCom(d, 's1', '2026-10-05', ['x', 'p', 'a', 'b'])
-  for (let i = 0; i < 3; i++) d.matches.push(partida('s1', ['x', 'p'], ['a', 'b'], 4, 0))
-  let fx = 1500
-  let fa = 1500
-  for (let i = 0; i < 3; i++) {
-    const esp = 1 / (1 + Math.pow(10, (fa - fx) / 400))
-    const delta = 24 * (1 - esp)
-    fx += delta
-    fa -= delta
-  }
-  assert.equal(nota(d, 'x'), Math.round(fx), 'play antigo: passo fixo de 24')
-})
 
 test('grafico: com um play so, as faltas que baixaram a nota viram pontos', () => {
   const d = duasFaltasEDepois({}, false) // jogou o s1 e faltou s2, s3 e s4
@@ -359,4 +327,45 @@ test('novata sem nivel escolhido comeca na media de hoje (e nao em 1500)', () =>
   d.matches.push(partida('s2', ['n', 'a'], ['b', 'c'], 4, 3))
   const inicio = historicoDeForca(d, 'n', true)[0].nota
   assert.ok(Math.abs(inicio - media) <= 1, `${inicio} ~ ${media}`)
+})
+
+/* ------------------------------------------------- glicko: nota + incerteza */
+
+/** O quanto cada uma mexeu na ultima partida em que jogou. */
+function passos(d: AppData): Map<string, number> {
+  const out = new Map<string, number>()
+  calcularElo(d, undefined, undefined, { ...REGRA_DA_FORCA, aoMudar: (x) => x.motivo === 'partida' && out.set(x.id, x.delta) })
+  return out
+}
+
+test('glicko: na mesma partida, a novata (mais incerteza) mexe mais que a veterana', () => {
+  const d = base({ v: 1500, a: 1500, b: 1500, c: 1500, n: 1500 })
+  // v, a, b, c ja jogaram muito juntas: a incerteza delas caiu
+  for (let i = 1; i <= 8; i++) {
+    const dia = `2026-09-${String(i).padStart(2, '0')}`
+    playCom(d, `s${i}`, dia, ['v', 'a', 'b', 'c'])
+    d.matches.push(partida(`s${i}`, ['v', 'a'], ['b', 'c'], 4, 3), partida(`s${i}`, ['v', 'b'], ['a', 'c'], 3, 4))
+  }
+  // a novata estreia ao lado da veterana e as duas vencem 4x2
+  playCom(d, 's9', '2026-09-09', ['v', 'n', 'b', 'c'])
+  d.matches.push(partida('s9', ['v', 'n'], ['b', 'c'], 4, 2))
+  const p = passos(d)
+  assert.ok((p.get('n') as number) > (p.get('v') as number) * 1.5, `novata ${p.get('n')} x veterana ${p.get('v')}`)
+  assert.ok((p.get('v') as number) > 0)
+})
+
+test('glicko: quem fica semanas sem jogar volta mexendo mais (a incerteza cresceu)', () => {
+  const montar = (diaDaVolta: string) => {
+    const d = base({ x: 1500, a: 1500, b: 1500, c: 1500 })
+    for (let i = 1; i <= 6; i++) {
+      playCom(d, `s${i}`, `2026-09-0${i}`, ['x', 'a', 'b', 'c'])
+      d.matches.push(partida(`s${i}`, ['x', 'a'], ['b', 'c'], 4, 3))
+    }
+    playCom(d, 'volta', diaDaVolta, ['x', 'a', 'b', 'c'])
+    d.matches.push(partida('volta', ['x', 'a'], ['b', 'c'], 4, 1))
+    return passos(d).get('x') as number
+  }
+  const semanaSeguinte = montar('2026-09-13')
+  const depoisDeDezSemanas = montar('2026-11-15')
+  assert.ok(depoisDeDezSemanas > semanaSeguinte * 1.2, `${depoisDeDezSemanas} > ${semanaSeguinte}`)
 })

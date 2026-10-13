@@ -949,3 +949,28 @@ tirado de todas voltou: a Beatriz +5; a Letícia, que tinha acelerado no campeon
 E **a média passou a ser calculada** (`mediaDaForca`, 1498 em 13/10): a queda por falta tira
 pontos que não vão para ninguém, então "1500" não é exatamente o meio. Níveis, gráficos, nível
 da novata (🌱 média−60 · ⚖️ média · 📈 média+60) e a queda por falta contam a partir dela.
+
+## Glicko: nota + incerteza — ADOTADO (13/10/2026)
+
+Pesquisa de como outros medem (LoL/CS2: Elo escondido com K maior para quem é nova; Glicko-2
+e Playtomic: nota + incerteza que cresce com o tempo parado; TrueSkill 2: experiência e dados
+por jogador; UTR/DUPR: peso por formato, competitividade, confiabilidade e recência). Medidas
+três ideias novas (`RegraDaForca.glicko`, `pesoPelosGames`, `curvaDeAprendizado`), com a
+simulação ganhando partidas mais longas (3 em 10 até 6) e novatas que aprendem rápido:
+
+| simulação (30 temporadas) | correlação no fim | erro da novata 1º play | 2º play |
+|---|---|---|---|
+| Elo passo 24 (a regra de antes) | 0,849 | 50,3 | 45,2 |
+| **Glicko 60/35/10** | **0,867** | **45,1** | **38,1** |
+| Glicko 60/35/0 (sem crescer parada) | 0,868 | 42,8 | 34,4 |
+| peso pelos games | 0,847 | 46,6 | 43,5 |
+| curva de aprendizado 1 / 2 / 3 | 0,839 / 0,855 / 0,828 | ~51 | ~46–50 |
+| Glicko + curva 1 | 0,871 | 45,4 | 38,6 |
+| Glicko + histórico por época (média) | 0,866 | 45,3 | 40,1 |
+
+Pareado (40 temporadas): Glicko 60/35/10 − Elo = correlação +0,010 ± 0,016; novata no 1º play
+**−5,9 ± 3,0**, no 2º **−5,6 ± 3,4** (fora do acaso). Histórico real (foto antes de cada play):
+52,4% contra 51,9% — empate. Adotado o Glicko 60/35/10 (a incerteza que cresce parada fica:
+na simulação faltar não muda a habilidade, na vida real muda). As combinações não ganharam do
+Glicko sozinho. No histórico, as notas se espalham um pouco (Letícia 1560→1599, Brenda
+1569→1590, Tete 1406→1379); média 1500.

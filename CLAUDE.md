@@ -95,6 +95,14 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   `node scripts/medir-forca.mjs` mede cada variante no histórico real; `--simular` em
   temporadas simuladas; `--par "a" "b"` compara duas com intervalo. Em 12/10 o passo por
   confiança (ganho ≠ perda) foi medido e não ganhou da regra atual (DECISOES.md).
+- **Glicko: nota + incerteza** (desde 13/10/2026, `REGRA_DA_FORCA.glicko` em `stats.ts`):
+  cada menina tem a nota e o quanto o app ainda não a conhece (60 para quem chega, desce a
+  cada partida até 35, e **cresce** 10 por raiz de semana parada). O passo de cada uma sai
+  da incerteza dela e dos games da partida — a novata mexe ~3× mais que a veterana no mesmo
+  jogo, quem volta de um sumiço mexe mais — e a incerteza das outras três amortece (jogo
+  com novata ensina menos). Não é soma zero (a média é calculada). Medido contra o Elo de
+  passo 24: novata 5 a 7 pontos mais perto da força real nos 2 primeiros plays, ordem geral
+  igual; curva de aprendizado, peso pelos games e histórico inteiro não ganharam (DECISOES.md).
 - **Sem o passo que acelera** (desligado em 13/10/2026, `REGRA_DA_FORCA.aceleraDesde = null`;
   as funções `proximaSequencia`/`passoDaSequencia` ficam para medir). Ele dava passo maior a
   quem engatava surpresas boas, e o extra saía de todas do play para a média ficar em 1500 —

@@ -64,7 +64,11 @@ function temporada(semente: number, motor: Motor): Resultado {
   const melhora = new Set(pessoas.filter((_, i) => i % 6 === 0).map((p) => p.id))
   for (let semana = 0; semana < SEMANAS; semana++) {
     if (semana > 0)
-      for (const p of pessoas) real.set(p.id, (real.get(p.id) as number) + normal(r) * 4 + (melhora.has(p.id) ? 6 : 0))
+      for (const p of pessoas) {
+        // a novata aprende rapido nas primeiras 6 semanas (o sinal fraco que o historico real mostra)
+        const aprendendo = p.id.startsWith('n') && semana > p.chega && semana <= p.chega + 6 ? 4 : 0
+        real.set(p.id, (real.get(p.id) as number) + normal(r) * 4 + (melhora.has(p.id) ? 6 : 0) + aprendendo)
+      }
     const vem = pessoas.filter((p) => semana >= p.chega && (semana === p.chega || r() < p.chance)).map((p) => p.id)
     if (vem.length < 8) continue
     const elo = { nota: motor(d) }
@@ -79,9 +83,11 @@ function temporada(semente: number, motor: Motor): Resultado {
     for (const m of ms) {
       const media = (ids: [string, string]) => ((real.get(ids[0]) as number) + (real.get(ids[1]) as number)) / 2
       const pg = 1 / (1 + Math.pow(10, (media(m.team_b) - media(m.team_a)) / 400))
+      // 3 em cada 10 partidas sao mais longas (como o mata-mata ate 6)
+      const alvo = r() < 0.3 ? 6 : 4
       let ga = 0
       let gb = 0
-      while (ga < 4 && gb < 4) if (r() < pg) ga++
+      while (ga < alvo && gb < alvo) if (r() < pg) ga++
       else gb++
       m.score_a = ga
       m.score_b = gb

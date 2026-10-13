@@ -96,6 +96,21 @@ const motores: [string, Motor][] = [
   ['hoje sem queda', doElo(SEM_QUEDA)],
   ['hoje sem acelera', doElo({ ...HOJE, aceleraDesde: null })],
   ['antiga (soma zero, 1500 fixo)', doElo({ ...HOJE, somaZero: true, novataNaMedia: false })],
+  ['glicko 60/35/10', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10 } })],
+  ['glicko 70/35/10', doElo({ ...HOJE, glicko: { inicial: 70, minima: 35, porSemana: 10 } })],
+  ['glicko 60/35/0', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 0 } })],
+  ['glicko 50/30/10', doElo({ ...HOJE, glicko: { inicial: 50, minima: 30, porSemana: 10 } })],
+  ['peso pelos games', doElo({ ...HOJE, pesoPelosGames: true })],
+  ['curva 1', doElo({ ...HOJE, curvaDeAprendizado: 1 })],
+  ['curva 2', doElo({ ...HOJE, curvaDeAprendizado: 2 })],
+  ['curva 3', doElo({ ...HOJE, curvaDeAprendizado: 3 })],
+  ['glicko + curva 1', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10 }, curvaDeAprendizado: 1 })],
+  ['glicko + curva 2', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10 }, curvaDeAprendizado: 2 })],
+  ['glicko + epoca (media das duas)', (d) => {
+    const a = doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10 } })(d)
+    const b = forcaPorEpoca(d, { sigma: 60, deriva: 8 })
+    return (id: string) => (a(id) + b(id)) / 2
+  }],
   ['historico s60', (d) => forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: null })],
   ['historico s40', (d) => forcaPeloHistorico(d, { sigma: 40, meiaVidaSemanas: null })],
   ['historico s90', (d) => forcaPeloHistorico(d, { sigma: 90, meiaVidaSemanas: null })],
@@ -115,7 +130,7 @@ if (process.argv.includes('--par')) {
 }
 if (process.argv.includes('--simular')) {
   const pedidas = process.argv.slice(2).filter((x) => !x.startsWith('-') && !x.startsWith('['))
-  const escolhidas = pedidas.length ? motores.filter(([n]) => pedidas.includes(n)) : motores.filter(([n]) => /^1 |^hoje|^historico|^epoca/.test(n))
+  const escolhidas = pedidas.length ? motores.filter(([n]) => pedidas.includes(n)) : motores.filter(([n]) => /^1 |^hoje|^historico|^epoca|^glicko|^peso|^curva/.test(n))
   simular(escolhidas)
   process.exit(0)
 }
@@ -146,7 +161,7 @@ function medirPorPlay(d: AppData, motor: Motor) {
 
 if (process.argv.includes('--por-play')) {
   console.log('foto antes de cada play (historico real):')
-  for (const [nome, motor] of motores.filter(([n]) => /^1 |^hoje|^historico|^epoca/.test(n))) {
+  for (const [nome, motor] of motores.filter(([n]) => /^1 |^hoje|^historico|^epoca|^glicko|^peso|^curva/.test(n))) {
     const t = medirPorPlay(d, motor)
     console.log(nome.padEnd(34), String(t.n).padStart(4), pct(t).padStart(7), erro(t).padStart(6))
   }
