@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { FORCA_MEDIA } from '../lib/forca'
 import { isPlayed, matchPoints } from '../lib/scoring'
 import { historicoDeForca } from '../lib/stats'
+import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
 import { dateLabel, plural, type AppData } from '../lib/types'
 
 /**
@@ -36,20 +37,24 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   const periodo = nPlays === 0 ? 'desde o único play' : nPlays === 1 ? 'no último play' : `nos últimos ${nPlays} plays`
   const tendencia = Math.abs(dif) < 8 ? 'estável' : dif > 0 ? 'subindo' : 'descendo'
 
-  // escala: os pontos e a media, com folga em cima e embaixo
+  // escala: os pontos e a media, com folga em cima (para os numeros) e embaixo (datas)
   const W = 320
-  const H = 150
+  const H = 172
   const esq = 34
-  const dir = 10
-  const topo = 10
-  const base = 22
+  const dir = 14
+  const topo = 22
+  const base = 30
   const notas = [...pontos.map((p) => p.nota), FORCA_MEDIA]
-  const min = Math.min(...notas) - 10
-  const max = Math.max(...notas) + 10
+  const min = Math.min(...notas) - 8
+  const max = Math.max(...notas) + 8
   const x = (i: number) => esq + (pontos.length === 1 ? 0 : (i * (W - esq - dir)) / (pontos.length - 1))
   const y = (v: number) => topo + ((max - v) * (H - topo - base)) / Math.max(1, max - min)
   // marcas do eixo: a media e os extremos arredondados de 10 em 10
   const marcas = [...new Set([Math.ceil(min / 10) * 10, FORCA_MEDIA, Math.floor(max / 10) * 10])].sort((a, b) => a - b)
+  const valores = pontos.map((p) => p.nota)
+  const comRotulo = pontosComRotulo(valores, W - esq - dir)
+  const area = `M ${x(0)} ${H - base} ${pontos.map((p, i) => `L ${x(i)} ${y(p.nota)}`).join(' ')} L ${x(pontos.length - 1)} ${H - base} Z`
+  const ultimo = pontos.length - 1
 
   const sel = tocado !== null ? pontos[tocado] : null
   const resumo = sel && sel.jogou ? resumoDoPlay(data, sel.sessionId, playerId) : null
@@ -75,6 +80,12 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
         aria-label={`Força ao longo do tempo: de ${pontos[0].nota} para ${agora.nota}`}
         style={{ display: 'block', marginTop: 6, overflow: 'visible' }}
       >
+        <defs>
+          <linearGradient id="grad-forca" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--marca)" stopOpacity="0.32" />
+            <stop offset="1" stopColor="var(--marca)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         {marcas.map((v) => (
           <g key={v}>
             <line
@@ -83,7 +94,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
               y1={y(v)}
               y2={y(v)}
               stroke="var(--line)"
-              strokeDasharray={v === FORCA_MEDIA ? '4 3' : undefined}
+              strokeDasharray={v === FORCA_MEDIA ? '4 3' : '1 4'}
               strokeWidth={1}
             />
             <text x={esq - 6} y={y(v) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">
@@ -94,6 +105,10 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
         <text x={W - dir} y={y(FORCA_MEDIA) - 4} textAnchor="end" fontSize="8" fill="var(--muted)">
           média
         </text>
+        <path d={area} fill="url(#grad-forca)" />
+        {tocado !== null && (
+          <line x1={x(tocado)} x2={x(tocado)} y1={topo - 6} y2={H - base} stroke="var(--muted)" strokeDasharray="2 3" />
+        )}
         {/* a linha: cheia entre plays jogados, tracejada quando a queda veio de falta */}
         {pontos.slice(1).map((p, i) => (
           <line
@@ -103,30 +118,54 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
             x2={x(i + 1)}
             y2={y(p.nota)}
             stroke="var(--marca)"
-            strokeWidth={2}
+            strokeWidth={2.4}
             strokeDasharray={p.jogou ? undefined : '3 3'}
             strokeLinecap="round"
           />
         ))}
-        {pontos.map((p, i) => (
-          <circle
-            key={p.sessionId + 'c' + i}
-            cx={x(i)}
-            cy={y(p.nota)}
-            r={tocado === i ? 6 : i === pontos.length - 1 ? 4.5 : 3.5}
-            // o ponto de partida e cinza; vazado e so falta
-            fill={p.sessionId === 'inicio' ? 'var(--muted)' : p.jogou ? 'var(--marca)' : 'var(--card)'}
-            stroke={p.sessionId === 'inicio' ? 'var(--muted)' : 'var(--marca)'}
-            strokeWidth={2}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setTocado(tocado === i ? null : i)}
-          />
-        ))}
-        <text x={esq} y={H - 6} fontSize="9" fill="var(--muted)">
-          {dateLabel(pontos[0].date)}
+        {pontos.map((p, i) => {
+          const destaque = i === ultimo || i === tocado
+          const embaixo = rotuloEmbaixo(valores, i)
+          return (
+            <g key={p.sessionId + 'c' + i} style={{ cursor: 'pointer' }} onClick={() => setTocado(tocado === i ? null : i)}>
+              {/* area de toque maior que o ponto: no celular o dedo erra */}
+              <circle cx={x(i)} cy={y(p.nota)} r={12} fill="transparent" />
+              {i === ultimo && <circle cx={x(i)} cy={y(p.nota)} r={8} fill="var(--marca)" opacity={0.18} />}
+              <circle
+                cx={x(i)}
+                cy={y(p.nota)}
+                r={destaque ? 5 : 3.6}
+                // o ponto de partida e cinza; vazado e so falta
+                fill={p.sessionId === 'inicio' ? 'var(--muted)' : p.jogou ? 'var(--marca)' : 'var(--card)'}
+                stroke={p.sessionId === 'inicio' ? 'var(--muted)' : 'var(--marca)'}
+                strokeWidth={2}
+              />
+              {(comRotulo.has(i) || i === tocado) && (
+                <text
+                  x={x(i)}
+                  y={embaixo ? y(p.nota) + 15 : y(p.nota) - 9}
+                  textAnchor="middle"
+                  fontSize={destaque ? 10 : 8.5}
+                  fontWeight={destaque ? 800 : 600}
+                  fill={destaque ? 'var(--marca)' : 'var(--text)'}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {p.nota}
+                </text>
+              )}
+            </g>
+          )
+        })}
+        <text x={x(0)} y={H - 8} fontSize="9" fill="var(--muted)">
+          {diaMes(dateLabel(pontos[0].date))}
         </text>
-        <text x={W - dir} y={H - 6} textAnchor="end" fontSize="9" fill="var(--muted)">
-          {dateLabel(agora.date)}
+        {tocado !== null && tocado !== 0 && tocado !== ultimo && (
+          <text x={x(tocado)} y={H - 8} textAnchor="middle" fontSize="9" fontWeight={700} fill="var(--text)">
+            {diaMes(dateLabel(pontos[tocado].date))}
+          </text>
+        )}
+        <text x={x(ultimo)} y={H - 8} textAnchor="end" fontSize="9" fill="var(--muted)">
+          {diaMes(dateLabel(agora.date))}
         </text>
       </svg>
       <p className="tiny muted" style={{ margin: '4px 0 0' }}>

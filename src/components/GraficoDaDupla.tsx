@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { historicoDaDupla } from '../lib/forca'
 import { dateLabel, type AppData } from '../lib/types'
+import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
 
 /**
  * O DESEMPENHO DA DUPLA: a forca dela depois de cada play juntas (linha cheia)
@@ -17,19 +18,22 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
   }
 
   const W = 320
-  const H = 150
+  const H = 172
   const esq = 34
-  const dir = 10
-  const topo = 10
-  const pe = 22
+  const dir = 14
+  const topo = 22
+  const pe = 30
   const notas = [...pontos.map((p) => p.nota), base]
   const min = Math.min(...notas) - 8
   const max = Math.max(...notas) + 8
   const x = (i: number) => esq + (i * (W - esq - dir)) / (pontos.length - 1)
   const y = (v: number) => topo + ((max - v) * (H - topo - pe)) / Math.max(1, max - min)
   const ultimo = pontos[pontos.length - 1]
+  const iu = pontos.length - 1
   const entrosamento = ultimo.nota - base
-  const faixa = `M ${x(0)} ${y(base)} ${pontos.map((p, i) => `L ${x(i)} ${y(p.nota)}`).join(' ')} L ${x(pontos.length - 1)} ${y(base)} Z`
+  const faixa = `M ${x(0)} ${y(base)} ${pontos.map((p, i) => `L ${x(i)} ${y(p.nota)}`).join(' ')} L ${x(iu)} ${y(base)} Z`
+  const valores = pontos.map((p) => p.nota)
+  const comRotulo = pontosComRotulo(valores, W - esq - dir)
   const sel = tocado !== null ? pontos[tocado] : null
 
   return (
@@ -41,23 +45,56 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Força da dupla: de ${pontos[0].nota} para ${ultimo.nota}`} style={{ display: 'block', marginTop: 6, overflow: 'visible' }}>
-        <path d={faixa} fill={entrosamento >= 0 ? 'var(--verde)' : 'var(--muted)'} opacity={0.14} />
+        <defs>
+          <linearGradient id="grad-dupla" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={entrosamento >= 0 ? 'var(--verde)' : 'var(--danger)'} stopOpacity="0.30" />
+            <stop offset="1" stopColor={entrosamento >= 0 ? 'var(--verde)' : 'var(--danger)'} stopOpacity="0.04" />
+          </linearGradient>
+        </defs>
+        <path d={faixa} fill="url(#grad-dupla)" />
         <line x1={esq} x2={W - dir} y1={y(base)} y2={y(base)} stroke="var(--muted)" strokeDasharray="4 3" />
         <text x={esq - 6} y={y(base) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">{base}</text>
-        <text x={W - dir} y={y(base) - 4} textAnchor="end" fontSize="8" fill="var(--muted)">média das duas</text>
+        <text x={W - dir} y={y(base) + 12} textAnchor="end" fontSize="8" fill="var(--muted)">média das duas</text>
+        {tocado !== null && (
+          <line x1={x(tocado)} x2={x(tocado)} y1={topo - 6} y2={H - pe} stroke="var(--muted)" strokeDasharray="2 3" />
+        )}
         {pontos.slice(1).map((p, i) => (
-          <line key={p.sessionId} x1={x(i)} y1={y(pontos[i].nota)} x2={x(i + 1)} y2={y(p.nota)} stroke="var(--marca)" strokeWidth={2} strokeLinecap="round" />
+          <line key={p.sessionId} x1={x(i)} y1={y(pontos[i].nota)} x2={x(i + 1)} y2={y(p.nota)} stroke="var(--marca)" strokeWidth={2.4} strokeLinecap="round" />
         ))}
-        {pontos.map((p, i) => (
-          <circle
-            key={p.sessionId + 'c'}
-            cx={x(i)} cy={y(p.nota)} r={tocado === i ? 6 : i === pontos.length - 1 ? 4.5 : 3.5}
-            fill={p.v > p.d ? 'var(--marca)' : 'var(--card)'} stroke="var(--marca)" strokeWidth={2}
-            style={{ cursor: 'pointer' }} onClick={() => setTocado(tocado === i ? null : i)}
-          />
-        ))}
-        <text x={esq} y={H - 6} fontSize="9" fill="var(--muted)">{dateLabel(pontos[0].date)}</text>
-        <text x={W - dir} y={H - 6} textAnchor="end" fontSize="9" fill="var(--muted)">{dateLabel(ultimo.date)}</text>
+        {pontos.map((p, i) => {
+          const destaque = i === iu || i === tocado
+          const embaixo = rotuloEmbaixo(valores, i)
+          return (
+            <g key={p.sessionId + 'c'} style={{ cursor: 'pointer' }} onClick={() => setTocado(tocado === i ? null : i)}>
+              <circle cx={x(i)} cy={y(p.nota)} r={12} fill="transparent" />
+              {i === iu && <circle cx={x(i)} cy={y(p.nota)} r={8} fill="var(--marca)" opacity={0.18} />}
+              <circle
+                cx={x(i)} cy={y(p.nota)} r={destaque ? 5 : 3.6}
+                fill={p.v > p.d ? 'var(--marca)' : 'var(--card)'} stroke="var(--marca)" strokeWidth={2}
+              />
+              {(comRotulo.has(i) || i === tocado) && (
+                <text
+                  x={x(i)}
+                  y={embaixo ? y(p.nota) + 15 : y(p.nota) - 9}
+                  textAnchor="middle"
+                  fontSize={destaque ? 10 : 8.5}
+                  fontWeight={destaque ? 800 : 600}
+                  fill={destaque ? 'var(--marca)' : 'var(--text)'}
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {p.nota}
+                </text>
+              )}
+            </g>
+          )
+        })}
+        <text x={x(0)} y={H - 8} fontSize="9" fill="var(--muted)">{diaMes(dateLabel(pontos[0].date))}</text>
+        {tocado !== null && tocado !== 0 && tocado !== iu && (
+          <text x={x(tocado)} y={H - 8} textAnchor="middle" fontSize="9" fontWeight={700} fill="var(--text)">
+            {diaMes(dateLabel(pontos[tocado].date))}
+          </text>
+        )}
+        <text x={x(iu)} y={H - 8} textAnchor="end" fontSize="9" fill="var(--muted)">{diaMes(dateLabel(ultimo.date))}</text>
       </svg>
       <p className="tiny muted" style={{ margin: '4px 0 0' }}>
         {sel
