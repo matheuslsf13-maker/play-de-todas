@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0e1230">
-<meta name="description" content="Documento de apoio: os três formatos de play, como as duplas são equilibradas, como a fila decide quem entra, a força (Elo) e o fechamento do mês.">
+<meta name="description" content="Documento de apoio: os formatos de play (com o campeonato), como as duplas são equilibradas, como a fila decide quem entra, a força (Elo) e o fechamento do mês.">
 <link rel="icon" href="../icon-192.png">
 <meta property="og:title" content="Play de Todas — como a noite é montada">
 <meta property="og:description" content="Balanceamento, fila de partidas, formatos e fechamento do mês, explicados com os números medidos.">
@@ -137,6 +137,12 @@
   .formato.todas { border-color: rgba(255, 92, 138, .5); } .formato.todas h3 { color: var(--rosa); }
   .formato.grupo { border-color: rgba(139, 92, 240, .55); } .formato.grupo h3 { color: var(--roxo); }
   .formato.duplas { border-color: rgba(255, 201, 64, .55); } .formato.duplas h3 { color: var(--ouro); }
+  .formato.camp { border-color: rgba(46, 211, 183, .55); } .formato.camp h3 { color: var(--verde); }
+  /* resumao: uma linha por assunto, emoji na frente */
+  .pontos-resumo { list-style: none; padding: 0; margin: 0 0 14px; display: flex; flex-direction: column; gap: 10px; }
+  .pontos-resumo li { display: flex; gap: 12px; align-items: flex-start; padding: 11px 14px; border-radius: 14px;
+    background: rgba(255, 246, 238, .05); border: 1px solid var(--linha); }
+  .pontos-resumo li > span { font-size: 21px; line-height: 1.2; flex: none; }
 
   /* ------- caminho em passos ------- */
   .passos { list-style: none; counter-reset: passo; margin: 0 0 14px; padding: 0; display: flex;
@@ -216,19 +222,17 @@
 <div class="pagina">
   <header class="topo">
     <a class="voltar" href="https://playdetodas.com.br/"><span aria-hidden="true">←</span> Abrir o app</a>
-    <span class="topo-nome">Documento de apoio · setembro de 2026</span>
+    <span class="topo-nome">Documento de apoio · outubro de 2026</span>
   </header>
 
   <div class="capa">
     <span class="selo">Play de Todas · V3 Arena</span>
     <h1>Como a noite é <em>montada</em></h1>
     <p>
-      Este documento explica o que o app faz entre a lista de presença e o pódio: como as duplas
-      são formadas, como o confronto é escolhido, como a fila decide quem entra em quadra, o que
-      acontece quando o número de jogadoras <strong>não fecha certo</strong> — uma quadra com 6 e
-      outra com 7, por exemplo —, como a força de cada atleta é calculada e como o dia e o mês
-      fecham. Os números marcados como <em>medido</em> vieram de simulação do próprio motor do app,
-      não de estimativa.
+      Começa pelo <strong>resumão</strong>: o essencial em um minuto. Quer entender um ponto a
+      fundo? Cada tópico do sumário explica como o app faz aquilo — como as duplas são formadas,
+      como a fila decide quem entra, como a força é calculada e como o dia e o mês fecham. Os
+      números marcados como <em>medido</em> vieram de simulação do próprio motor do app.
     </p>
     <span class="assinatura">Mais que um play, uma experiência!</span>
   </div>
@@ -236,9 +240,10 @@
   <nav class="sumario" aria-label="Sumário">
     <b>Neste documento</b>
     <ol>
-      <li><a href="#resumo">Em uma página</a></li>
+      <li><a href="#resumao"><b style="display:inline;color:inherit;font-size:inherit;letter-spacing:0;text-transform:none;margin:0">⚡ O resumão</b></a></li>
+      <li><a href="#resumo">A noite, passo a passo</a></li>
       <li><a href="#vocabulario">O vocabulário</a></li>
-      <li><a href="#formatos">Os três formatos</a></li>
+      <li><a href="#formatos">Os formatos (e o campeonato)</a></li>
       <li><a href="#rodizio">O rodízio: as duplas</a></li>
       <li><a href="#confronto">Quem enfrenta quem</a></li>
       <li><a href="#fila">A fila da noite</a></li>
@@ -254,14 +259,31 @@
 
   <main>
 
+    <!-- 0 · resumao ----------------------------------------------------- -->
+    <section id="resumao">
+      <h2><span class="n">⚡</span> O resumão</h2>
+      <p class="chamada">Tudo o que você precisa saber, em um minuto. O resto do documento é o detalhe.</p>
+      <ul class="pontos-resumo">
+        <li><span>🎾</span><div><b>Toda segunda, 20h.</b> Partidas curtas (até 4 games), sempre com parceiras diferentes.</div></li>
+        <li><span>⚖️</span><div><b>O app monta tudo para os jogos saírem parelhos.</b> No seu grupo todas jogam o mesmo número de partidas, com todas as parceiras, e ninguém joga três seguidas.</div></li>
+        <li><span>👥</span><div><b>Quatro formatos:</b> todas com todas · em grupos (por nível) · grupos + duplas (termina numa final) · campeonato (categorias A, B, C…).</div></li>
+        <li><span>🏆</span><div><b>Pontos:</b> venceu, leva a diferença de games (4×1 = 3 pontos); perdeu, não pontua. O <b>dia</b> é por vitórias, o <b>mês</b> por pontos. No grupos + duplas e no campeonato, os pontos são pela colocação final (campeã 16, vice 12, 3º 10…).</div></li>
+        <li><span>💪</span><div><b>Força:</b> a sua nota (1500 é a média). Sobe quando você vai bem contra quem é forte e é ela que divide os grupos. Faltar duas ou mais seguidas faz a nota baixar aos poucos.</div></li>
+        <li><span>🔥</span><div><b>Status:</b> pódio em plays seguidos — 🔥 2, ⚡ 3, 💎 4 e 👑 5 = <b>Duquesa da V3</b> (camisa dourada, presente e nome dourado para sempre). Fora do pódio ou faltou, zera.</div></li>
+        <li><span>🎈</span><div><b>Play avulso</b> não soma no ranking do mês; <b>🧊 sem status</b> não mexe no 🔥. Faltar neles não conta.</div></li>
+        <li><span>🆕</span><div><b>Novata:</b> no primeiro play, o nome dela aparece com 🆕 — some quando o play termina.</div></li>
+      </ul>
+      <p class="legenda">Quer saber o porquê de algum desses pontos? Os tópicos abaixo explicam cada um, com as medições.</p>
+    </section>
+
     <!-- 1 -------------------------------------------------------------- -->
     <section id="resumo">
-      <h2><span class="n">1.</span> Em uma página</h2>
+      <h2><span class="n">1.</span> A noite, passo a passo</h2>
       <p class="chamada">O que o app resolve, na ordem em que a noite acontece.</p>
       <ol class="passos">
         <li><div><b>Marca quem veio</b><span>Lista colada do WhatsApp ou toque na lista de atletas. Quem está devendo aparece barrada, e o pagamento se resolve ali mesmo.</span></div></li>
-        <li><div><b>Escolhe o formato</b><span>Todas com todas, em grupos, ou grupos + duplas. É a escolha que muda tudo o que vem depois.</span></div></li>
-        <li><div><b>Divide os grupos por força</b><span>A força é um Elo alimentado por todas as partidas já jogadas. Empatadas são sorteadas, e a organizadora pode mover na mão.</span></div></li>
+        <li><div><b>Escolhe o formato</b><span>Todas com todas, em grupos, grupos + duplas ou campeonato. É a escolha que muda tudo o que vem depois — e se o play vale para o mês e para o 🔥.</span></div></li>
+        <li><div><b>Divide os grupos por força</b><span>A força é um Elo alimentado por todas as partidas já jogadas. Empatadas são sorteadas, e a organizadora move quem quiser, livremente — o criar só avisa se um grupo ficou com menos de 4.</span></div></li>
         <li><div><b>Monta o rodízio</b><span>Cada uma faz dupla com cada uma das outras exatamente uma vez, e <b>todas jogam o mesmo número de partidas</b> dentro do grupo.</span></div></li>
         <li><div><b>Escolhe os confrontos</b><span>Entre as duplas possíveis, o app pega sempre a que menos se enfrentou com aquela — e a que deixa o jogo mais parelho.</span></div></li>
         <li><div><b>Roda a fila</b><span>Não há rodadas: a quadra que vaga puxa a próxima partida cujas quatro estão livres, dando preferência a quem está fora há mais tempo — e sem deixar ninguém emendar três.</span></div></li>
@@ -291,7 +313,7 @@
 
     <!-- 3 -------------------------------------------------------------- -->
     <section id="formatos">
-      <h2><span class="n">3.</span> Os três formatos</h2>
+      <h2><span class="n">3.</span> Os formatos</h2>
       <p class="chamada">Escolhidos na criação do play, logo depois de marcar quem veio.</p>
 
       <div class="formatos">
@@ -319,10 +341,20 @@
           <h3>🤝 Grupos + duplas</h3>
           <div class="quando">quando o dia tem que ter uma campeã</div>
           <ul>
-            <li>Fase 1: rodízio em <b>grupos equilibrados entre si</b>.</li>
+            <li>Fase 1: rodízio em <b>grupos por nível</b>.</li>
             <li>Fase 2: a colocação vira <b>dupla fixa</b> (1ª com 1ª, 2ª com 2ª…).</li>
             <li>Depois é <b>mata-mata</b>: quartas, semi, final e disputa de 3º.</li>
             <li>Quem decide o dia é a <b>dupla</b>, não a soma individual.</li>
+          </ul>
+        </div>
+        <div class="formato camp">
+          <h3>🏆 Campeonato</h3>
+          <div class="quando">o evento do mês, com categorias</div>
+          <ul>
+            <li>Um play só, dividido <b>pela força</b> em categorias A, B, C…</li>
+            <li>Cada categoria é um <b>grupos + duplas</b> próprio, com <b>quadras fixas</b>.</li>
+            <li>Chave, pódio, 🔥 e arte <b>por categoria</b>.</li>
+            <li>Categoria que termina cede as quadras para a que tem mais jogo.</li>
           </ul>
         </div>
       </div>
@@ -331,25 +363,26 @@
       <div class="rolagem">
         <table>
           <thead>
-            <tr><th>&nbsp;</th><th>Todas com todas</th><th>Em grupos</th><th>Grupos + duplas</th></tr>
+            <tr><th>&nbsp;</th><th>Todas com todas</th><th>Em grupos</th><th>Grupos + duplas / campeonato</th></tr>
           </thead>
           <tbody>
             <tr><td>Parceira</td><td>todas, uma vez</td><td>todas do grupo, uma vez</td><td>todas do grupo; depois <b>fixa</b></td></tr>
-            <tr><td>Quem pontua</td><td>individual</td><td>individual</td><td>individual, <b>só da fase 2 em diante</b></td></tr>
+            <tr><td>Quem pontua</td><td>individual</td><td>individual</td><td><b>pela colocação final</b> (16/12/10/8/6/3)</td></tr>
             <tr><td>Ranking do dia</td><td>um só</td><td>um só</td><td>o da <b>chave</b></td></tr>
-            <tr><td>Pódio</td><td>top 3</td><td>top 3 <b>de cada grupo</b></td><td>campeã, vice e 3º lugar (<b>duplas</b>)</td></tr>
+            <tr><td>Pódio</td><td>top 3</td><td>top 3 <b>de cada grupo</b></td><td>campeã, vice e 3º lugar (<b>duplas</b>, por categoria)</td></tr>
             <tr><td>Status 🔥</td><td>segue o pódio</td><td>segue o pódio de cada grupo</td><td>segue as 3 duplas do pódio</td></tr>
             <tr><td>Duração típica</td><td>longa</td><td>ajustável pelo tamanho do grupo</td><td>média, com final marcada</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3>Como o “grupos + duplas” anda</h3>
+      <h3>Como o “grupos + duplas” (e cada categoria do campeonato) anda</h3>
       <ol class="passos">
-        <li><div><b>Grupos equilibrados, não por nível</b><span>Aqui os grupos precisam ter a <b>mesma força média</b>: a distribuição é em serpentina (1-2-3-4, depois 4-3-2-1), porque ser 1ª tem que custar o mesmo em qualquer grupo. É o oposto do formato “em grupos”, onde o grupo 1 leva as melhores de propósito.</span></div></li>
-        <li><div><b>A fase de grupos classifica — e não pontua</b><span>Ela existe para formar as duplas. Não soma pontos no dia nem no mês; o Elo, sim, continua contando essas partidas, que aconteceram.</span></div></li>
-        <li><div><b>A colocação vira dupla</b><span>Todas entram numa fila por colocação (as 1ªs, depois as 2ªs…) e as <b>vizinhas</b> viram dupla, sem repetir quem já jogou junto no grupo. Emparelhar vizinhas, e não “1ª com 1ª” ao pé da letra, é o que faz a conta fechar com número ímpar de grupos.</span></div></li>
-        <li><div><b>Mata-mata com bye</b><span>Quem foi melhor nos grupos passa direto da primeira rodada. O <b>bye paga pontos</b>: exatamente o que uma vitória daquela rodada pagou, na média — nem menos, que puniria quem foi bem, nem mais, que faria valer a pena não jogar. Bye não vira partida: não mexe no Elo nem no retrospecto.</span></div></li>
+        <li><div><b>Grupos por nível</b><span>O grupo 1 com as mais fortes, como no “em grupos”. Antes eram grupos equilibrados, e a 1ª de cada grupo era uma das mais fortes do dia — “1ª com 1ª” virava uma superdupla.</span></div></li>
+        <li><div><b>A fase de grupos classifica — e não pontua</b><span>Ela existe para formar as duplas. A ordem do grupo é: vitórias → pontos → saldo de games → confronto direto (só quando é justo) → <b>desempate em quadra</b> (simples 1×1 ou par ou ímpar). Nunca ordem alfabética. O Elo continua contando essas partidas, que aconteceram.</span></div></li>
+        <li><div><b>A colocação vira dupla fixa</b><span><b>1ª com 1ª</b>, 2ª com 2ª, entre os grupos — dupla daqui até o fim.</span></div></li>
+        <li><div><b>Mata-mata</b><span>A organizadora escolhe quantas duplas entram; com menos que a chave cheia, as melhores dos grupos passam de bye. Cada fase pode ter o seu alvo e o seu desempate.</span></div></li>
+        <li><div><b>Pontos pela colocação final</b><span>16 campeã · 12 vice · 10 3º · 8 semifinal · 6 quartas ou antes · 3 fase de grupos (editável na criação). Pela diferença de games, a vice podia somar mais que a campeã — por isso nenhuma partida pontua pelo placar aqui.</span></div></li>
         <li><div><b>Ouro e prata saem da final</b><span>Nunca da soma de pontos. Com bye, a vice chega à final com as mesmas vitórias da campeã e <b>mais pontos</b>, porque jogou uma partida a mais — o desempate por pontos invertia o pódio em 6% dos plays. O bronze sai da disputa de 3º, que roda em paralelo com a final, na quadra ao lado.</span></div></li>
       </ol>
     </section>
@@ -515,7 +548,7 @@
         <div class="cartao">
           <div class="rot">⏳ Quem não chegou</div>
           <div class="val">Pula as partidas dela</div>
-          <div class="obs">Marcada, ela conta como se estivesse em quadra e as partidas dela vão para o fim da previsão. Desmarcou, entra na frente — é quem está há mais tempo sem jogar. Fica só no aparelho de quem organiza.</div>
+          <div class="obs">Marcada, ela conta como se estivesse em quadra e as partidas dela vão para o fim da previsão. Desmarcou, entra na frente — é quem está há mais tempo sem jogar. Fica gravado no play: todos os celulares veem a mesma fila.</div>
         </div>
         <div class="cartao">
           <div class="rot">🔄 Entra / sai</div>
@@ -708,8 +741,19 @@
         O padrão é <strong>1500, o meio da escala — não a média das cadastradas</strong>. Como o Elo é
         soma zero, a média fica em 1500 sozinha enquanto todas partirem dali. Quando a organização já
         conhece o nível de alguém, dá para escolher outro ponto de partida no cadastro; o histórico é
-        recalculado a partir dele, e daí em diante as partidas mandam do mesmo jeito. Quem falta fica
-        com a <strong>nota parada</strong>, que é o certo: sem jogo, sem informação nova.
+        recalculado a partir dele, e daí em diante as partidas mandam do mesmo jeito. No primeiro play
+        o nome dela aparece com <strong>🆕</strong> — a nota 1500 sozinha não dizia quem é novata,
+        porque veterana também pode estar em 1500.
+      </p>
+
+      <h3>Quem falta perde força, devagar</h3>
+      <p>
+        A 1ª falta não muda nada. Da <strong>2ª seguida</strong> em diante, a cada play que vale, a nota
+        cai — e cai mais a cada falta: acima de 1500, 10%, 30%, 50% e depois 70% da distância até a
+        média; abaixo de 1500, só 2, 3, 4 e depois 5 pontos, até 20. Voltou a jogar, a contagem zera.
+        Com 2 faltas seguidas ela também sai do ranking da força (volta ao jogar), e a organizadora pode
+        <strong>pausar</strong> quem vai ficar um tempo fora — as duas pausas acabam quando ela joga.
+        Faltar a um play avulso ou sem status não conta.
       </p>
 
       <h3>A dupla tem força própria</h3>
@@ -833,12 +877,16 @@
       </ul>
       <p class="legenda">Até 05/10/2026 valia a regra antiga (o status virava pontos no fechamento do mês, ou era preservado com 1 vida); os pontos de setembro continuam no ranking daquele mês.</p>
 
-      <h3>Play avulso</h3>
+      <h3>Play avulso e play sem status</h3>
       <p>
-        Nem todo jogo é campeonato. Na criação dá para desmarcar “vale para o campeonato”: o play
-        avulso <strong>conta</strong> no histórico e na força que equilibra os próximos plays, mas
-        <strong>não</strong> soma no ranking do mês nem mexe nas sequências.
+        Nem todo jogo é campeonato. São duas caixas, na criação ou com o play aberto
+        (“⚙️ Vale para o mês e para o 🔥?”):
       </p>
+      <ul>
+        <li><b>🎈 Avulso</b> — não soma no ranking do mês. Conta no histórico e na força.</li>
+        <li><b>🧊 Sem status</b> — o 🔥 de todas fica como está: quem sobe ao pódio não soma, quem fica fora não perde.</li>
+      </ul>
+      <p>Nos dois, <strong>faltar não conta como falta</strong> — mas quem veio jogou, e isso zera as faltas dela.</p>
     </section>
 
     <!-- 12 ------------------------------------------------------------- -->
@@ -873,8 +921,9 @@
         <p>Quem nunca jogou entra com a nota do meio da escala, então cai no meio da tabela — e todas
         as empatadas são <b>sorteadas</b> antes de dividir os grupos. Sem o sorteio, o desempate era a
         ordem da lista de presença e refazer o play dava sempre os mesmos grupos. Se ela for muito
-        melhor (ou pior) que a média, o Elo a move já no primeiro play. E a organizadora pode mover
-        qualquer uma na mão, tocando no nome dela no cartão dos grupos.</p>
+        melhor (ou pior) que a média, o Elo a move já no primeiro play. Ela aparece com 🆕 para a
+        organizadora saber, e dá para mover qualquer uma na mão, tocando no nome dela no cartão dos
+        grupos — ou dar outro ponto de partida no cadastro, quando já se conhece o nível.</p>
       </details>
       <details>
         <summary>“O app decide quem ganha?”</summary>

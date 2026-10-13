@@ -185,6 +185,8 @@
   .formato.todas h3 { color: var(--rosa); }
   .formato.duplas { border-color: rgba(255, 201, 64, .55); }
   .formato.duplas h3 { color: var(--ouro); }
+  .formato.camp { border-color: rgba(46, 211, 183, .55); }
+  .formato.camp h3 { color: var(--verde); }
 
   /* ------- balanca do Elo ------- */
   .balanca { display: flex; flex-direction: column; gap: 6px; }
@@ -386,7 +388,7 @@
     <!-- 7 · os tres formatos -->
     <section class="cena" data-dur="17000">
       <span class="selo">Como o play é montado</span>
-      <h2>Três formatos, <em>a mesma regra de ouro</em></h2>
+      <h2>Quatro formatos, <em>a mesma regra de ouro</em></h2>
       <div class="formatos">
         <div class="formato todas">
           <h3>Todas com todas</h3>
@@ -415,6 +417,15 @@
             <li>Quem vence o dia é a <b>dupla</b>.</li>
           </ul>
         </div>
+        <div class="formato camp">
+          <h3>Campeonato</h3>
+          <div class="quando">o evento, com categorias</div>
+          <ul>
+            <li>Dividido <b>pela força</b> em categorias A, B, C…</li>
+            <li>Cada categoria é um <b>grupos + duplas</b>, com quadras fixas.</li>
+            <li>Pódio e 🔥 <b>em cada categoria</b>.</li>
+          </ul>
+        </div>
       </div>
       <div class="aviso">
         <span>🏆</span>
@@ -429,13 +440,13 @@
       <span class="selo">Grupos + duplas</span>
       <h2>O dia que termina <em>numa final</em></h2>
       <ol class="passos">
-        <li><p><b>Rodízio no seu grupo.</b> Aqui os grupos saem com a <b>mesma força média</b> — ser 1ª tem que custar o mesmo em todos eles.</p></li>
+        <li><p><b>Rodízio no seu grupo.</b> Os grupos saem <b>por nível</b> — o grupo 1 com as mais fortes. Empate no grupo? Vitórias, pontos, saldo e, se precisar, um <b>desempate em quadra</b>.</p></li>
         <li><p><b>A colocação vira dupla.</b> A 1ª de um grupo com a 1ª do outro, a 2ª com a 2ª. Dupla fixa daqui até o fim.</p></li>
-        <li><p><b>Mata-mata.</b> Quem foi bem nos grupos passa direto da primeira rodada — e o bye <b>paga pontos</b>, para ninguém sair perdendo por ter ido bem.</p></li>
+        <li><p><b>Mata-mata.</b> Quem foi bem nos grupos pode passar direto da primeira rodada.</p></li>
         <li><p><b>Final e 3º lugar</b> ao mesmo tempo, uma quadra do lado da outra.</p></li>
       </ol>
-      <p class="linha-fina">A fase de grupos <strong>não pontua</strong>: ela serve para formar as duplas.
-      O pódio do dia é 🥇 campeã, 🥈 vice e 🥉 a melhor semifinalista.</p>
+      <p class="linha-fina">Os pontos do mês vêm da <strong>colocação final</strong>: campeã 16, vice 12,
+      3º 10, semifinal 8, quartas 6 e fase de grupos 3. A fase de grupos serve para formar as duplas.</p>
     </section>
 
     <!-- 8 · a fila -->
@@ -515,8 +526,9 @@
         <div class="degrau"><span class="emo">🎯</span><span class="nome">Em evolução</span><span class="vale">1425–1474</span></div>
         <div class="degrau"><span class="emo">🌱</span><span class="nome">Começando</span><span class="vale">até 1424</span></div>
       </div>
-      <p class="linha-fina">Com menos de 12 partidas a nota sai marcada como
-      <strong>provisória</strong>: ela já conta para o equilíbrio, mas ainda está se formando.</p>
+      <p class="linha-fina">Com menos de 12 partidas a nota é <strong>provisória</strong>. Faltou
+      <strong>duas seguidas</strong>? A nota começa a baixar, devagar — voltou a jogar, para de cair.
+      E no seu primeiro play o seu nome aparece com <strong>🆕</strong>.</p>
     </section>
 
     <!-- 10 · pontuação -->
@@ -626,6 +638,10 @@
       <div class="aviso calmo">
         <span>📅</span>
         <div><b>O status atravessa o mês.</b> A virada do mês não muda nada: ele continua no próximo play.</div>
+      </div>
+      <div class="aviso">
+        <span>🧊</span>
+        <div><b>Play avulso ou sem status não conta.</b> Num play de aniversário, por exemplo, ninguém soma e ninguém perde o 🔥 — nem quem não foi.</div>
       </div>
     </section>
 
