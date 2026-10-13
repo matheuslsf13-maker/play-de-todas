@@ -137,8 +137,7 @@ export default function ImportarLista({
           Pronto
         </button>
         <p className="tiny muted" style={{ marginBottom: 0 }}>
-          Se depois perceber que criou uma atleta repetida, dá para juntar as duas na aba
-          <strong> Meninas</strong> — os pontos e a sequência das duas se somam na que ficar.
+          Criou uma repetida? Junte as duas no 🔗 da aba <strong>Meninas</strong>.
         </p>
       </Modal>
     )

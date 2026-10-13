@@ -645,8 +645,7 @@ function SecaoArenas({ mes, onToast }: { mes: string; onToast: (m: string) => vo
     <div className="card">
       <div className="section-title">📤 Check-ins para as arenas</div>
       <p className="tiny muted" style={{ margin: '0 0 10px' }}>
-        O que cada arena recebe no fim do mês: data, o <strong>titular da conta</strong> (o nome que a arena tem), o app e a
-        menina. Sem valores — isso é da organização.
+        O que cada arena recebe no fim do mês, com o <strong>titular da conta</strong>. Sem valores.
       </p>
       <div className="segmented" style={{ marginBottom: 10 }}>
         <button className={!porPeriodo ? 'on' : ''} onClick={() => setPorPeriodo(false)}>{monthLabel(mes)}</button>
@@ -949,9 +948,7 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
       <div className="card">
         <div className="section-title">📍 Arenas de check-in</div>
         <p className="tiny muted" style={{ margin: '0 0 10px' }}>
-          As arenas onde as meninas fazem check-in. Cada conta tem a sua arena padrão (em Atletas › contas), então
-          lançar é só confirmar. Arenas que <strong>dividem check-in</strong> (V3 e Itaparica) cobrem uma o que passa da
-          cota da outra, na mesma conta; a GW não divide com ninguém.
+          Arenas que <strong>dividem check-in</strong> (V3 e Itaparica) cobrem uma o que passa da cota da outra; a GW não divide.
         </p>
         <div className="stack">
           {locais.map((l) => (
@@ -1066,8 +1063,7 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
       <div className="card">
         <div className="section-title">🎫 Planos de passe</div>
         <p className="tiny muted" style={{ margin: '0 0 10px' }}>
-          Quantos check-ins por mês cada plano dá <strong>em cada arena</strong> (vazio = não aceita). É o que a conta de
-          cada menina usa para contar o que sobra para o play.
+          Check-ins por mês <strong>em cada arena</strong> (vazio = não aceita).
         </p>
         <div className="stack">
           {planos.map((p) =>
@@ -1154,19 +1150,15 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
           {ultimo
             ? <>: <strong>{formatarReais(ultimo.valor_cheio)}</strong> integral e <strong>{formatarReais(ultimo.valor_com_checkin)}</strong> com check-in.</>
             : <>: {formatarReais(VALOR_CHEIO_INICIAL)} integral e {formatarReais(VALOR_COM_CHECKIN_INICIAL)} com check-in.</>}
-          {' '}Quando o preço mudar, mude no próximo dia e os seguintes já vêm com ele. Quem paga diferente do combinado
-          tem o preço dela no próprio lançamento.
+          {' '}Mudou o preço? Mude no próximo dia.
         </p>
       </div>
 
       <div className="card">
         <div className="section-title">🎟️ Como a cota é contada</div>
         <p className="tiny muted" style={{ margin: 0 }}>
-          A cota é <strong>por arena</strong>: o plano da conta diz quantos check-ins por mês ela tem em cada uma
-          (os três de hoje dão {COTA_MENSAL}). As aulas cobram a cota da arena onde são feitas — 1 por semana cobra 8,
-          2 cobram 12, 3 cobram 16 — e o que sobra ali é o que a menina tem para o play. Além disso a conta faz
-          <strong> um check-in por dia</strong>: somando as arenas, o teto do mês é o número de dias dele (30 ou 31).
-          Quem esgota a conta lança o play na conta de outra pessoa (a secundária, em Atletas › contas).
+          Por arena, pelo plano ({COTA_MENSAL} por mês nos de hoje). Aulas cobram 8, 12 ou 16 (1, 2 ou 3 por semana);
+          o que sobra é do play. No máximo <strong>um check-in por dia</strong> somando as arenas.
         </p>
       </div>
     </>

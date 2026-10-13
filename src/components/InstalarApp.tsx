@@ -132,8 +132,7 @@ export function BotaoInstalar() {
             </>
           )}
           <p className="tiny muted" style={{ marginBottom: 0 }}>
-            Instalado, o app abre em tela cheia e o endereço continua o mesmo — quando eu publicar
-            uma novidade, ela chega sozinha, sem precisar baixar de novo.
+            Instalado, abre em tela cheia e as novidades chegam sozinhas.
           </p>
         </Modal>
       )}

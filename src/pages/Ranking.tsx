@@ -233,11 +233,7 @@ export default function Ranking({
 
         {historico && (
           <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
-            Soma de <strong>todos os plays já registrados</strong>, incluindo os avulsos. O
-            ranking do mês zera a cada virada, mas nada é apagado. Para equilibrar as duplas o
-            app não usa este total nem o mês: usa uma nota própria, em que{' '}
-            <strong>vencer quem está jogando melhor vale mais</strong>, e que se atualiza a
-            cada partida.
+            Todos os plays já registrados, avulsos inclusive.
           </p>
         )}
 
@@ -707,15 +703,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
 
       <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
         {modo === 'individual' ? (
-          <>
-            Não é o ranking do mês: o ranking soma pontos e zera na virada, a força atravessa o
-            ano. 1500 é a média.
-          </>
+          <>A força atravessa o ano (não zera com o mês). 1500 é a média.</>
         ) : (
-          <>
-            A força da dupla parte da média das duas e muda com o que elas rendem{' '}
-            <strong>juntas</strong> — e é isso que o app usa para escolher os confrontos.
-          </>
+          <>A força da dupla parte da média das duas e muda com o que rendem <strong>juntas</strong>.</>
         )}
       </p>
     </div>

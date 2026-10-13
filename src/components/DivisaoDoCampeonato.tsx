@@ -173,9 +173,7 @@ export default function DivisaoDoCampeonato({
             )}
           </div>
           <em className="hint">
-            Toque numa menina e depois no botão do grupo para onde ela vai — qualquer categoria, qualquer grupo
-            (livre: um grupo pode ficar com menos de 4 no meio da arrumação, e o criar avisa). Quem já jogou entra pela força; o sorteio só mexe nas empatadas, como
-            as estreantes.
+            Toque numa menina e no grupo para onde ela vai (qualquer categoria). Empatadas na força (as novatas) são sorteadas.
           </em>
         </div>
       )}

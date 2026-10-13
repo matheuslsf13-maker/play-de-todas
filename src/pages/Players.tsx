@@ -466,11 +466,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
           </div>
         )}
         <p className="tiny muted" style={{ marginBottom: 0 }}>
-          Criou a mesma atleta duas vezes? Toque em <strong>🔗</strong> para juntar as duas:
-          partidas, pontos e sequência das duas passam para a que ficar.{' '}
-          A foto aparece no pódio do ranking mensal. Toque na foto (ou em <em>pôr/trocar foto</em>) para escolher,
-          e em <em>remover foto</em> para voltar às iniciais.
-          Quem está <strong>inativa</strong> não aparece na hora de montar o play, mas mantém o histórico. Já a <strong>⏸️ pausada</strong> (na ficha, em Stats) continua no cadastro e só sai do ranking da força.
+          🔗 junta duas atletas repetidas. <strong>Inativa</strong> some da hora de montar o play;{' '}
+          <strong>⏸️ pausada</strong> só sai do ranking da força.
         </p>
       </div>
     </>
@@ -649,7 +646,6 @@ function EditarPerfil({
         valor={forcaInicial}
         onChange={setForcaInicial}
         atual={historico.partidas > 0 ? notaAtual : undefined}
-        partidas={historico.partidas}
       />
 
       <label className="field" style={{ marginTop: 12 }}>
@@ -663,9 +659,7 @@ function EditarPerfil({
         />
       </label>
       <p className="tiny muted" style={{ marginTop: 6 }}>
-        É por aqui que a importação da lista do grupo acerta a pessoa. Se ela aparece na lista às
-        vezes como <em>Ana</em> e às vezes como <em>Aninha</em>, escreva as duas — assim o app não
-        cadastra uma segunda.
+        Os outros nomes dela na lista do grupo (<em>Ana</em>, <em>Aninha</em>): a importação acha a mesma pessoa.
       </p>
 
       <div className="banner info" style={{ marginTop: 12 }}>
@@ -752,13 +746,11 @@ function ForcaInicial({
   valor,
   onChange,
   atual,
-  partidas = 0,
 }: {
   valor: number
   onChange: (v: number) => void
   /** A nota de hoje, quando ja ha partidas. */
   atual?: number
-  partidas?: number
 }) {
   const nivel = nivelDeForca(valor)
   const PASSO = 25
@@ -818,12 +810,11 @@ function ForcaInicial({
       </div>
       <em className="hint" style={{ marginTop: 6 }}>
         {valor === ELO_INICIAL
-          ? '1500 é o meio da escala: o app ainda não sabe o nível e vai aprender com as partidas.'
+          ? '1500 é o meio: o app aprende o nível com as partidas.'
           : valor > ELO_INICIAL
-            ? `Começa ${valor - ELO_INICIAL} acima do meio — o app já a trata como mais forte ao montar os grupos e as duplas.`
-            : `Começa ${ELO_INICIAL - valor} abaixo do meio — o app já a trata como mais fraca ao montar os grupos e as duplas.`}
-        {atual !== undefined &&
-          ` Hoje, depois de ${partidas} ${partidas === 1 ? 'partida' : 'partidas'}, a nota dela é ${atual}; mudar o ponto de partida recalcula tudo a partir dele.`}
+            ? `Começa ${valor - ELO_INICIAL} acima do meio.`
+            : `Começa ${ELO_INICIAL - valor} abaixo do meio.`}
+        {atual !== undefined && ` Hoje: ${atual} (mudar aqui recalcula tudo).`}
       </em>
     </div>
   )

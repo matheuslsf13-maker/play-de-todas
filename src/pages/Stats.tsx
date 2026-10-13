@@ -147,12 +147,7 @@ export default function Stats({
               </option>
             ))}
           </select>
-          <em className="hint">
-            O ranking zera todo mês, mas as partidas ficam guardadas para sempre. Os{' '}
-            <strong>plays avulsos</strong> aparecem só no histórico, porque não valem para o
-            campeonato. As duplas equilibradas não saem deste total: saem de uma nota
-            própria, em que <strong>vencer quem está jogando melhor vale mais</strong>.
-          </em>
+          <em className="hint">Plays avulsos aparecem só no histórico.</em>
         </label>
         )}
       </div>
@@ -344,10 +339,6 @@ function PainelJogadora({
                 {minhaForca.nota}
               </span>
             </div>
-            <p className="tiny muted" style={{ marginBottom: 0, marginTop: 8 }}>
-              Não é o ranking do mês: a força atravessa o ano e mede <strong>de quem</strong>{' '}
-              você ganhou. É ela que monta os grupos e escolhe as duplas. 1500 é a média do grupo.
-            </p>
             <GraficoDeForca data={data} playerId={selected} />
             <PausaDaJogadora id={selected} pausada={minhaForca.pausada} />
           </>
@@ -790,11 +781,8 @@ function PainelForca() {
       <div className="card">
         <div className="section-title">💪 Força de cada jogadora</div>
         <p className="tiny muted" style={{ marginTop: 0 }}>
-          Esta é a nota que o app já usava por baixo do pano para montar os grupos e escolher as
-          duplas — agora à vista. <strong>Não é o ranking do mês.</strong> O ranking soma pontos e
-          zera todo mês; a força atravessa o ano e mede <strong>de quem</strong> você ganhou:
-          vencer quem está melhor rende muito mais, e vencer apertado rende pouco. 1500 é a média
-          do grupo, e ela não se move — o que uma ganha, a outra perde.
+          A nota que monta os grupos e as duplas. Atravessa o ano (não zera com o mês) e mede{' '}
+          <strong>de quem</strong> você ganhou. 1500 é a média.
         </p>
 
         <div className="stack" style={{ gap: 10 }}>
@@ -835,9 +823,7 @@ function PainelForca() {
           ))}
         </div>
         <p className="tiny muted" style={{ marginBottom: 0 }}>
-          Com menos de {JOGOS_PARA_FIRMAR} partidas a nota aparece como <em>provisória</em>: uma
-          sexta ruim ainda mexe demais nela. Quem nunca jogou não entra na lista — a nota dela seria
-          exatamente a média, mas por falta de informação, não por equilíbrio.
+          Provisória: menos de {JOGOS_PARA_FIRMAR} partidas. Quem nunca jogou não entra na lista.
         </p>
       </div>
     </>

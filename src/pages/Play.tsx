@@ -1132,10 +1132,7 @@ function NewPlay({
                 )}
               </div>
               <em className="hint">
-                Toque numa menina e escolha o grupo para onde ela vai — livre, mesmo que um
-                grupo fique com menos de 4 no meio da arrumação (o criar avisa). Quem já jogou entra pela
-                força; quem está empatada (as estreantes) é sorteada, e cada “sortear de
-                novo” muda esse sorteio.
+                Toque numa menina e escolha o grupo dela. Empatadas na força (as novatas) são sorteadas.
               </em>
             </div>
           )}
@@ -2863,17 +2860,12 @@ function PlayDetail({
 
       {session.ranked === false && (
         <div className="banner info">
-          🎈 <strong>Play avulso.</strong> Os pontos deste dia <strong>não entram no ranking
-          do mês</strong> — mas ficam no histórico de cada jogadora e continuam ajudando a
-          equilibrar as duplas dos próximos plays. Faltar não conta como falta; quem veio
-          zera as faltas.
+          🎈 <strong>Play avulso:</strong> não soma no ranking do mês e faltar não conta. Entra na força e no histórico.
         </div>
       )}
       {!contaNoStatus(session) && (
         <div className="banner info">
-          🧊 <strong>Play sem status.</strong> O 🔥 de todas fica como está: quem subir ao
-          pódio não soma, e quem ficar fora ou não vier não perde a sequência. Faltar não
-          conta como falta; quem veio zera as faltas.
+          🧊 <strong>Play sem status:</strong> o 🔥 de todas fica como está, e faltar não conta.
         </div>
       )}
       {editable && <OpcoesDoPlay session={session} />}
@@ -3149,8 +3141,7 @@ function PlayDetail({
         <div className="card">
           <div className="section-title">🛠️ Intervenções nesta noite ({session.eventos?.length})</div>
           <p className="tiny muted" style={{ margin: '0 0 8px' }}>
-            Tudo que foi feito na mão, com a hora e quantas partidas já tinham sido jogadas. É por aqui que se
-            descobre depois por que uma dupla repetiu ou alguém ficou com uma partida a menos.
+            O que foi feito na mão, com a hora.
           </p>
           <div className="stack" style={{ gap: 6 }}>
             {[...(session.eventos ?? [])].reverse().map((e, i) => (
@@ -3246,9 +3237,7 @@ function PlayDetail({
       {marcandoAusentes && (
         <Modal title="⏳ Quem ainda não chegou?" onClose={() => setMarcandoAusentes(false)}>
           <p className="tiny muted" style={{ marginTop: 0 }}>
-            Marque quem está na lista mas ainda não apareceu. O app pula as partidas dela ao
-            sugerir a próxima; quando ela chegar, desmarque — ela entra na frente, porque é quem
-            está há mais tempo sem jogar. Se ela <strong>não vem</strong>, use o 🔁 Entra / sai.
+            As partidas dela ficam para depois; quando chegar, desmarque. Se <strong>não vem</strong>, use o 🔁 Entra / sai.
           </p>
           <div className="stack">
             {session.player_ids.map((id) => (
@@ -3587,9 +3576,7 @@ function QuadraEsperando({
               )}
               {editable && (
                 <div className="tiny muted" style={{ marginTop: 6 }}>
-                  A quadra espera a próxima partida terminar — trocar meninas aqui desfaria uma dupla
-                  do rodízio e daria um jogo a mais para uma e a menos para outra. Se alguém
-                  <strong> precisou ir embora</strong>, troque a jogadora direto no card da partida.
+                  A quadra espera a próxima partida terminar. Se alguém <strong>foi embora</strong>, troque a jogadora no card da partida.
                 </div>
               )}
             </>
@@ -4107,11 +4094,8 @@ function TrocarJogadoras({
     return (
       <Modal title="Quem sai da partida?" onClose={onClose}>
         <div className="banner warn" style={{ marginBottom: 10 }}>
-          Isto muda <strong>só esta partida</strong>: quem sai fica com uma a menos e quem entra
-          com uma a mais, e as duplas desta partida deixam de ser as do rodízio. Se alguém{' '}
-          <strong>saiu de vez</strong> ou <strong>chegou agora</strong>, use o{' '}
-          <strong>🔁 Entra / sai</strong>, que arruma a fila inteira. Se for só esta partida, depois
-          toque em <strong>🔄 Refazer a fila</strong> para o app compensar.
+          Muda <strong>só esta partida</strong>. Se alguém <strong>saiu de vez</strong> ou <strong>chegou agora</strong>,
+          use o <strong>🔁 Entra / sai</strong>, que arruma a fila inteira.
         </div>
         <div className="stack">
           {noTime.map((id) => (
@@ -4204,9 +4188,7 @@ function EscolherPartida({
   return (
     <Modal title={`Trocar a partida da quadra ${quadra} por qual?`} onClose={onClose}>
       <p className="tiny muted" style={{ marginTop: 0 }}>
-        A fila já escolhe sozinha a próxima partida desta quadra — troque só se precisar (alguém
-        pediu para esperar, por exemplo). A troca aparece em todos os celulares. As de cima são as
-        que têm as quatro livres e esperando há mais tempo.
+        A fila já escolhe sozinha; troque só se precisar. Em cima, as que têm as quatro livres há mais tempo.
       </p>
       <div className="stack">
         {ordenadas.slice(0, 30).map((m) => {
@@ -4456,9 +4438,7 @@ function DuplasDoDia({
         </table>
       </div>
       <p className="tiny muted" style={{ marginTop: 6 }}>
-        A ordem é até onde a dupla chegou; vitórias e saldo só desempatam dentro da mesma
-        fase. Na tabela individual as duas de uma dupla empatam em tudo — ganharam e perderam
-        as mesmas partidas —, e é por isso que a dupla é a medida do dia aqui.
+        A ordem é até onde a dupla chegou; vitórias e saldo desempatam dentro da mesma fase.
       </p>
     </>
   )
