@@ -3343,7 +3343,22 @@ function PlayDetail({
 
       {showRank && (
         <Modal title={`Ranking do dia — ${dateLabel(session.date)}`} onClose={() => setShowRank(false)}>
-          {soFase2 && <ClassificacaoDosGrupos session={session} matches={matches} nameOf={nameOf} />}
+          {/* o seletor de categoria manda na fase de grupos e no ranking abaixo */}
+          {ehCampeonato && (
+            <div className="chips-scroll" style={{ marginBottom: 8 }}>
+              <button className={`chip ${catArte === null ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(null)}>
+                🏆 Todas
+              </button>
+              {cats.map((c, ci) => (
+                <button key={ci} className={`chip ${catArte === ci ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(ci)}>
+                  Categoria {c.nome}
+                </button>
+              ))}
+            </div>
+          )}
+          {soFase2 && (
+            <ClassificacaoDosGrupos session={session} matches={matches} nameOf={nameOf} soCategoria={ehCampeonato ? catArte : null} />
+          )}
           {dayRows.length === 0 ? (
             soFase2 ? null : <Empty>Nenhum placar lançado ainda.</Empty>
           ) : (
@@ -3362,18 +3377,6 @@ function PlayDetail({
                       {' '}{award.streak} pódios seguidos — faltam {MAX_STREAK - award.streak} para 👑 Duquesa.
                     </>
                   )}
-                </div>
-              )}
-              {ehCampeonato && (
-                <div className="chips-scroll" style={{ marginBottom: 8 }}>
-                  <button className={`chip ${catArte === null ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(null)}>
-                    🏆 Todas
-                  </button>
-                  {cats.map((c, ci) => (
-                    <button key={ci} className={`chip ${catArte === ci ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(ci)}>
-                      Categoria {c.nome}
-                    </button>
-                  ))}
                 </div>
               )}
               {soFase2 &&

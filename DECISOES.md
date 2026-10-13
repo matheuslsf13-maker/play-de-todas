@@ -818,6 +818,14 @@ mesmos formatos — de propósito, nada de fork.
   é o melhor 1º (e quem sobra para fazer dupla com o melhor 2º), a fila
   comparava pontos e depois saldo. Agora usa o mesmo critério de dentro do
   grupo: vitórias → pontos → saldo. Vale para os dois apps.
+- **A fase de grupos continua visível depois de formar as duplas (13/10/2026).**
+  O ranking do dia mostrava a classificação dos grupos só enquanto as duplas
+  não existiam — e era justo depois que a organização queria conferir se
+  saíram certas. Agora fica recolhida ("toque para conferir") e ganhou a
+  **ordem na categoria**: a fila que forma as duplas, com a dupla de cada um.
+  Se a classificação de agora daria duplas diferentes das formadas (placar
+  corrigido depois, troca no meio do play), aparece um aviso — valem as
+  formadas. No campeonato, o seletor de categoria filtra isso também.
 - Status no masculino: Rei do Play, Imperador do Play e **Duque da V3** (Hall
   dos Duques). Cores: azul-eletrico e azul-royal no lugar do rosa e do roxo; o
   amarelo e o laranja ficam (são a praia). Logo próprio, desenhado em SVG.

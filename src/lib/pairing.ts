@@ -210,10 +210,15 @@ export type Colocacao = {
  * deve virar dupla agora. Quando as vizinhas sao do mesmo grupo, a proxima da
  * fila entra no lugar.
  */
-export function duplasDaFase2(colocacoes: Colocacao[], maxDuplas?: number): Duo[] {
-  const ordenados = [...colocacoes].sort(
+/** A fila da fase 2: a ordem DENTRO DA CATEGORIA que forma as duplas. */
+export function ordemDaFase2(colocacoes: Colocacao[]): Colocacao[] {
+  return [...colocacoes].sort(
     (a, b) => a.posicao - b.posicao || b.vitorias - a.vitorias || b.pontos - a.pontos || b.saldo - a.saldo,
   )
+}
+
+export function duplasDaFase2(colocacoes: Colocacao[], maxDuplas?: number): Duo[] {
+  const ordenados = ordemDaFase2(colocacoes)
   // sobrando gente para o tamanho do mata-mata, os ultimos da fila ficam de
   // fora: com 20 jogadoras e alvo de 8 duplas, saem 4 e ficam 16 para as quartas
   const fila = maxDuplas ? ordenados.slice(0, maxDuplas * 2) : ordenados
