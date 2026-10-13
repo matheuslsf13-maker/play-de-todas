@@ -436,9 +436,14 @@ export const REGRA_DA_FORCA: RegraDaForca = {
   pesoVitoria: 0,
   confianca: 0,
   faltaDesconfia: 0,
-  aceleraDesde: PASSO_ACELERA_DESDE,
-  somaZero: true,
-  novataNaMedia: false,
+  // 13/10/2026: SEM o passo que acelera. O extra dele saia de todas do play (para
+  // a media ficar em 1500), e o dono nao quis tirar de quem nao teve nada a ver;
+  // sem ninguem pagar, a forca ficou menos precisa (-0,022: quem vem mais vezes
+  // acumulava forca so por vir). Sem aceleracao a precisao e a de antes. Vale
+  // tambem para os plays desde 07/10: o que foi tirado de todas volta.
+  aceleraDesde: null,
+  somaZero: false,
+  novataNaMedia: true,
 }
 
 export function calcularElo(data: AppData, upToDate?: string, acompanhar?: string, regra: RegraDaForca = REGRA_DA_FORCA) {
@@ -456,19 +461,28 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
   /*
    * DE ONDE CADA PESSOA PARTE
    *
-   * O padrao e 1500, o meio da escala -- e nao a media de quem esta cadastrado:
-   * como o Elo e soma zero, a media do grupo fica em 1500 sozinha enquanto
-   * todo mundo partir dali. Quem organiza pode dar um ponto de partida
-   * diferente no cadastro, quando ja conhece o nivel; a partir dai as partidas
-   * mandam do mesmo jeito.
+   * Quem organiza pode dar um ponto de partida no cadastro, quando ja conhece o
+   * nivel. Sem ele, a novata comeca na MEDIA DE HOJE de quem ja jogou -- desde
+   * 13/10 a forca nao e mais soma zero (o extra do passo que acelera nao sai de
+   * ninguem), entao a media anda e "1500" deixou de ser o meio do grupo.
    */
   const inicial = new Map(
     data.players.map((p) => [p.id, p.forca_inicial ?? ELO_INICIAL] as const),
   )
   const escolheuInicio = new Set(data.players.filter((p) => p.forca_inicial != null).map((p) => p.id))
   const elo = new Map<string, number>()
-  const nota = (id: string) => elo.get(id) ?? inicial.get(id) ?? ELO_INICIAL
   const jaJogou = new Set<string>()
+  /** A media de hoje: a de quem ja jogou (no comeco, o meio da escala). */
+  const media = () => {
+    if (jaJogou.size === 0) return ELO_INICIAL
+    let t = 0
+    for (const id of jaJogou) t += elo.get(id) ?? inicial.get(id) ?? ELO_INICIAL
+    return t / jaJogou.size
+  }
+  /** De onde cada uma partiu de fato (a novata sem escolha: a media do dia em que estreou). */
+  const partida = new Map<string, number>()
+  const nota = (id: string) =>
+    elo.get(id) ?? (escolheuInicio.has(id) || !regra.novataNaMedia ? inicial.get(id) ?? ELO_INICIAL : media())
   const queda = new Map<string, QuedaPorFalta>()
   const jogadora = new Map(data.players.map((p) => [p.id, p]))
   const sequencia = new Map<string, SequenciaDeSurpresas>()
@@ -497,12 +511,17 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
       elo.set(id, nota(id) + d)
       if (acelera || regra.confianca > 0) mudanca.set(id, (mudanca.get(id) ?? 0) + d)
     }
-    // quem estreia hoje sem forca escolhida: na regra que pede, entra na media de quem ja jogou
-    if (regra.novataNaMedia && jaJogou.size > 0) {
-      const media = [...jaJogou].reduce((t, id) => t + nota(id), 0) / jaJogou.size
+    // quem estreia hoje: a nota de partida fica gravada (sem forca escolhida, e a
+    // media de quem ja jogou -- tirada ANTES das partidas da noite)
+    {
+      const m0 = media()
       for (const m of jogos)
-        for (const id of [...m.team_a, ...m.team_b])
-          if (!jaJogou.has(id) && !escolheuInicio.has(id) && !elo.has(id)) elo.set(id, media)
+        for (const id of [...m.team_a, ...m.team_b]) {
+          if (jaJogou.has(id) || elo.has(id)) continue
+          const v = escolheuInicio.has(id) || !regra.novataNaMedia ? inicial.get(id) ?? ELO_INICIAL : m0
+          elo.set(id, v)
+          partida.set(id, v)
+        }
     }
     const forcaDaDupla = (ids: [string, string]) => {
       const x = nota(ids[0])
@@ -550,6 +569,8 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
     // nao conta, mas quem veio jogou -- e isso zera as faltas dela
     const semFalta = s.ranked === false || s.conta_status === false
     const presentes = new Set(s.player_ids)
+    // quem some volta para a media DE HOJE (nao mais 1500 fixo)
+    const meio = regra.novataNaMedia ? media() : ELO_INICIAL
     for (const id of jaJogou) {
       if (presentes.has(id)) {
         queda.delete(id)
@@ -563,8 +584,8 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
       if (q.faltas >= 2 && regra.queda !== false) {
         const atual = nota(id)
         const perda =
-          atual > ELO_INICIAL
-            ? Math.max(QUEDA_MINIMA, (atual - ELO_INICIAL) * quedaAcima(q.faltas))
+          atual > meio
+            ? Math.max(QUEDA_MINIMA, (atual - meio) * quedaAcima(q.faltas))
             : Math.max(0, Math.min(quedaAbaixo(q.faltas), QUEDA_ABAIXO_MAXIMA - q.perda))
         regra.aoMudar?.({ sessionId: s.id, id, delta: -perda, motivo: 'falta' })
         elo.set(id, atual - perda)
@@ -576,7 +597,22 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
       queda.set(id, q)
     }
   }
-  return { nota, queda, historico, inicial: (id: string) => inicial.get(id) ?? ELO_INICIAL }
+  return { nota, queda, historico, media, inicial: (id: string) => partida.get(id) ?? inicial.get(id) ?? ELO_INICIAL }
+}
+
+const cacheDaMedia = new WeakMap<AppData, number>()
+
+/**
+ * A MEDIA DA FORCA HOJE: a de todas que ja jogaram. E o "meio" dos niveis
+ * (🚀 📈 ⚖️ 🎯 🌱), da linha "media" dos graficos, do nivel da novata e de
+ * onde a queda por falta puxa. Guardada por `data`: muitas telas pedem.
+ */
+export function mediaDaForca(data: AppData): number {
+  const c = cacheDaMedia.get(data)
+  if (c !== undefined) return c
+  const m = Math.round(calcularElo(data).media())
+  cacheDaMedia.set(data, m)
+  return m
 }
 
 /**

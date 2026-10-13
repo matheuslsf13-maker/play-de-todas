@@ -74,6 +74,7 @@ import {
   aplicarColocacao,
   computeStatsComPontos,
   fecharPausa,
+  mediaDaForca,
   novatas,
   pausaAberta,
 } from '../lib/stats'
@@ -1091,7 +1092,7 @@ function NewPlay({
                   <div className="tiny muted" style={{ marginBottom: 6 }}>
                     💪 força média <strong>{mediaDeForca(g)}</strong>
                     {' · '}
-                    {nivelDeForca(mediaDeForca(g)).emoji} {nivelDeForca(mediaDeForca(g)).titulo}
+                    {nivelDeForca(mediaDeForca(g), mediaDaForca(data)).emoji} {nivelDeForca(mediaDeForca(g), mediaDaForca(data)).titulo}
                     {' · '}
                     total <strong>{somaDeForca(g)}</strong>
                   </div>
@@ -2909,7 +2910,7 @@ function PlayDetail({
                   <div className="tiny muted" style={{ marginBottom: 4 }}>
                     💪 força média <strong>{media}</strong>
                     {' · '}
-                    {nivelDeForca(media).emoji} {nivelDeForca(media).titulo}
+                    {nivelDeForca(media, mediaDaForca(data)).emoji} {nivelDeForca(media, mediaDaForca(data)).titulo}
                     {' · '}
                     total <strong>{total}</strong>
                   </div>

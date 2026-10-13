@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
-import { FORCA_MEDIA } from '../lib/forca'
 import { isPlayed, matchPoints } from '../lib/scoring'
-import { historicoDeForca } from '../lib/stats'
+import { historicoDeForca, mediaDaForca } from '../lib/stats'
 import Extremos from './Extremos'
 import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
 import { dateLabel, plural, type AppData } from '../lib/types'
@@ -45,7 +44,8 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   const dir = 14
   const topo = 22
   const base = 30
-  const notas = [...pontos.map((p) => p.nota), FORCA_MEDIA]
+  const mediaHoje = mediaDaForca(data)
+  const notas = [...pontos.map((p) => p.nota), mediaHoje]
   const min = Math.min(...notas) - 8
   const max = Math.max(...notas) + 8
   const x = (i: number) => esq + (pontos.length === 1 ? 0 : (i * (W - esq - dir)) / (pontos.length - 1))
@@ -92,7 +92,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
           fim={W - dir}
           max={Math.max(...pontos.filter((p) => p.sessionId !== 'inicio').map((p) => p.nota))}
           min={Math.min(...pontos.filter((p) => p.sessionId !== 'inicio').map((p) => p.nota))}
-          referencia={FORCA_MEDIA}
+          referencia={mediaHoje}
           topo={topo - 4}
           baixo={H - base - 4}
         />

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { nivelDeForca } from '../lib/forca'
-import { ELO_INICIAL } from '../lib/stats'
 
 /**
  * O NIVEL EM TRES TOQUES. Um numero de forca e dificil de chutar para quem
@@ -9,33 +8,39 @@ import { ELO_INICIAL } from '../lib/stats'
  * que uma partida de 4 games demora a dar (medido: uns 3 plays para encaixar
  * uma novata, com qualquer regra -- DECISOES.md). O numero continua ajustavel.
  */
-export const NIVEIS_RAPIDOS = [
-  { rotulo: '🌱 Iniciante', valor: 1440 },
-  { rotulo: '⚖️ Intermediária', valor: ELO_INICIAL },
-  { rotulo: '📈 Avançada', valor: 1560 },
-] as const
+export function niveisRapidos(media: number) {
+  // em volta da MEDIA DE HOJE (a forca nao e mais soma zero: o meio anda)
+  const arred = (v: number) => Math.round(v / 5) * 5
+  return [
+    { rotulo: '🌱 Iniciante', valor: arred(media - 60) },
+    { rotulo: '⚖️ Intermediária', valor: media },
+    { rotulo: '📈 Avançada', valor: arred(media + 60) },
+  ]
+}
 
 /**
  * O ponto de partida do Elo, escolhido por quem organiza.
  *
- * O padrao e 1500 -- o MEIO da escala, nao a media de quem esta cadastrado. O
- * Elo e soma zero, entao a media do grupo fica em 1500 sozinha enquanto todo
- * mundo partir dali. Dar um ponto de partida diferente e dizer ao app o que ele
- * ainda nao sabe: que a estreante ja joga bem (ou ainda nao). Depois disso as
- * partidas mandam do mesmo jeito, e o historico inteiro e recalculado a partir
- * do novo ponto -- por isso o campo continua editavel depois.
+ * O padrao e a MEDIA DE HOJE do grupo (`mediaDaForca`; gravado como nulo, ela
+ * entra na media do dia em que estrear). Dar um ponto de partida diferente e
+ * dizer ao app o que ele ainda nao sabe: que a estreante ja joga bem (ou ainda
+ * nao). Depois disso as partidas mandam do mesmo jeito, e o historico inteiro e
+ * recalculado a partir do novo ponto -- por isso o campo continua editavel.
  */
 export default function ForcaInicial({
   valor,
   onChange,
   atual,
+  media,
 }: {
   valor: number
   onChange: (v: number) => void
+  /** A media da forca hoje (o "meio" dos niveis). */
+  media: number
   /** A nota de hoje, quando ja ha partidas. */
   atual?: number
 }) {
-  const nivel = nivelDeForca(valor)
+  const nivel = nivelDeForca(valor, media)
   const PASSO = 25
   const MIN = 1200
   const MAX = 1800
@@ -56,7 +61,7 @@ export default function ForcaInicial({
     <div className="field" style={{ marginTop: 12 }}>
       <span>Força inicial</span>
       <div className="row wrap" style={{ gap: 6, marginBottom: 8 }}>
-        {NIVEIS_RAPIDOS.map((n) => (
+        {niveisRapidos(media).map((n) => (
           <button
             key={n.rotulo}
             type="button"
@@ -104,11 +109,11 @@ export default function ForcaInicial({
         </span>
       </div>
       <em className="hint" style={{ marginTop: 6 }}>
-        {valor === ELO_INICIAL
-          ? '1500 é o meio: o app aprende o nível com as partidas.'
-          : valor > ELO_INICIAL
-            ? `Começa ${valor - ELO_INICIAL} acima do meio.`
-            : `Começa ${ELO_INICIAL - valor} abaixo do meio.`}
+        {valor === media
+          ? `Na média do grupo hoje (${media}): o app aprende o nível com as partidas.`
+          : valor > media
+            ? `Começa ${valor - media} acima da média do grupo (${media}).`
+            : `Começa ${media - valor} abaixo da média do grupo (${media}).`}
         {atual !== undefined && ` Hoje: ${atual} (mudar aqui recalcula tudo).`}
       </em>
     </div>

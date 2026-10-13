@@ -31,7 +31,7 @@ function playCom(d: AppData, id: string, date: string, quem: string[], ranked = 
 
 const nota = (d: AppData, id: string) => notaDeForca(ratings(d).get(id) as number)
 
-test('forte que falta: 1a falta nada, depois 10%, 30%, 50%... da distancia por play', () => {
+test('forte que falta: 1a falta nada, depois 10%, 30%, 50%... da distancia ate a MEDIA DE HOJE', () => {
   const d = base({ x: 1560, a: 1500, b: 1500, c: 1500, d: 1500 })
   // x jogou no play 1 (uma partida que quase nao mexe: 4x3 contra iguais)
   playCom(d, 's1', '2026-09-01', ['x', 'a', 'b', 'c'])
@@ -42,10 +42,14 @@ test('forte que falta: 1a falta nada, depois 10%, 30%, 50%... da distancia por p
     playCom(d, `s${i}`, `2026-09-0${i}`, ['a', 'b', 'c', 'd'])
     d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
   }
-  const dist = depoisDoJogo - 1500
-  // 3 faltas: a 1a nao conta, a 2a tira 10% e a 3a, 30% (vai aumentando)
-  const esperado = 1500 + dist * 0.9 * 0.7
-  assert.ok(Math.abs(nota(d, 'x') - esperado) <= 1, `${nota(d, 'x')} ~ ${esperado}`)
+  // 3 faltas: a 1a nao conta, a 2a tira 10% e a 3a, 30% da distancia ate a media
+  // daquele dia (que ja inclui a propria x: ela tambem jogou)
+  const em = (dia: string) => calcularElo(d, dia)
+  const x2 = em('2026-09-02').nota('x')
+  assert.ok(Math.abs(x2 - depoisDoJogo) < 1, 'a 1a falta nao tira nada')
+  const x3 = x2 - (x2 - em('2026-09-02').media()) * 0.1
+  const x4 = x3 - (x3 - em('2026-09-03').media()) * 0.3
+  assert.ok(Math.abs(em('2026-09-04').nota('x') - x4) <= 0.5, `${em('2026-09-04').nota('x')} ~ ${x4}`)
   assert.deepEqual(quedaPorFalta(d).get('x')?.faltas, 3)
 })
 
@@ -177,10 +181,10 @@ test('pausada na mao: sai do ranking, mas as faltas continuam derrubando a forca
     playCom(d, `s${i}`, `2026-09-0${i}`, ['a', 'b', 'c', 'd'])
     d.matches.push(partida(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
   }
-  // 4 faltas (a 1a nao conta): cai como quem nao esta pausada
-  const dist = antes - 1500
-  const esperado = 1500 + dist * 0.9 * 0.7 * 0.5
-  assert.ok(Math.abs(nota(d, 'x') - esperado) <= 1, `${nota(d, 'x')} ~ ${esperado}`)
+  // 4 faltas (a 1a nao conta): cai exatamente como quem nao esta pausada
+  const semPausa = { ...d, players: d.players.map((p) => (p.id === 'x' ? { ...p, pausas: [] } : p)) }
+  assert.ok(nota(d, 'x') < antes, 'caiu')
+  assert.equal(nota(d, 'x'), nota(semPausa, 'x'))
   assert.equal(pausaNaForca(d).get('x'), 'manual')
 })
 
@@ -245,12 +249,11 @@ test('passo: ir pior que o esperado custa o normal e zera a sequencia; o neutro 
   assert.equal(passoDaSequencia(q, 0.2), 24, 'a proxima surpresa boa recomeca em 24')
 })
 
-test('passo que acelera: quem surpreende sobe mais rapido e a media continua em 1500', () => {
+test('sem o passo que acelera (13/10): cada partida e soma zero, o que uma ganha a outra perde', () => {
   const d = base({ x: 1500, p: 1500, a: 1500, b: 1500 })
   playCom(d, 's1', '2026-10-12', ['x', 'p', 'a', 'b'])
-  // x + p atropelam 3 vezes seguidas
+  // x + p atropelam 3 vezes seguidas: antes o passo delas crescia; agora e sempre 24
   for (let i = 0; i < 3; i++) d.matches.push(partida('s1', ['x', 'p'], ['a', 'b'], 4, 0))
-  // com o passo fixo seria: +12, depois menos (a nota ja subiu)
   let fx = 1500
   let fa = 1500
   for (let i = 0; i < 3; i++) {
@@ -260,8 +263,7 @@ test('passo que acelera: quem surpreende sobe mais rapido e a media continua em 
     fa -= delta
   }
   const r = ratings(d)
-  const notaX = notaDeForca(r.get('x') as number)
-  assert.ok(notaX > Math.round(fx), `${notaX} > ${Math.round(fx)} (passo fixo)`)
+  assert.equal(notaDeForca(r.get('x') as number), Math.round(fx))
   const media = ['x', 'p', 'a', 'b'].reduce((t, id) => t + (1500 + ((r.get(id) as number) - 2) * 110), 0) / 4
   assert.ok(Math.abs(media - 1500) < 0.01, `media ${media}`)
 })
@@ -331,4 +333,30 @@ test('forca pelo historico: quem ganha sobe, e a vitoria sobre quem depois se mo
   for (let i = 0; i < 4; i++) d.matches.push(partida('s2', ['c', 'e'], ['f', 'g'], 4, 0))
   const depois = forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: null })
   assert.ok(depois('a') > antes('a') + 3, `${depois('a')} > ${antes('a')}`)
+})
+
+/* ------------------------------ sem soma zero: a media e a do grupo de hoje */
+import { calcularElo, mediaDaForca, REGRA_DA_FORCA } from '../src/lib/stats'
+
+test('a aceleracao nao tira de quem nao teve nada a ver (sem redistribuir)', () => {
+  const d = base({ a: 1500, b: 1500, c: 1500, e: 1500 })
+  // datas depois de PASSO_ACELERA_DESDE: a+b atropelam varias vezes seguidas (acelera)
+  playCom(d, 's1', '2026-10-20', ['a', 'b', 'c', 'e'])
+  for (let i = 0; i < 4; i++) d.matches.push(partida('s1', ['a', 'b'], ['c', 'e'], 4, 0))
+  const motivos: string[] = []
+  calcularElo(d, undefined, undefined, { ...REGRA_DA_FORCA, aoMudar: (x) => motivos.push(x.motivo) })
+  assert.ok(!motivos.includes('deriva'), 'ninguem paga a aceleracao das outras')
+})
+
+test('novata sem nivel escolhido comeca na media de hoje (e nao em 1500)', () => {
+  const d = base({ a: 1600, b: 1600, c: 1600, e: 1600, n: 1500 })
+  d.players = d.players.map((p) => (p.id === 'n' ? { ...p, forca_inicial: null } : p))
+  playCom(d, 's1', '2026-09-01', ['a', 'b', 'c', 'e'])
+  d.matches.push(partida('s1', ['a', 'b'], ['c', 'e'], 4, 3))
+  const media = mediaDaForca(d)
+  assert.ok(Math.abs(media - 1600) < 1, `media ${media}`)
+  playCom(d, 's2', '2026-09-08', ['n', 'a', 'b', 'c'])
+  d.matches.push(partida('s2', ['n', 'a'], ['b', 'c'], 4, 3))
+  const inicio = historicoDeForca(d, 'n', true)[0].nota
+  assert.ok(Math.abs(inicio - media) <= 1, `${inicio} ~ ${media}`)
 })

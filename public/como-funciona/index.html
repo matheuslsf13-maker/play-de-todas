@@ -268,7 +268,7 @@
         <li><span>⚖️</span><div><b>O app monta tudo para os jogos saírem parelhos.</b> No seu grupo todas jogam o mesmo número de partidas, com todas as parceiras, e ninguém joga três seguidas.</div></li>
         <li><span>👥</span><div><b>Quatro formatos:</b> todas com todas · em grupos (por nível) · grupos + duplas (termina numa final) · campeonato (categorias A, B, C…).</div></li>
         <li><span>🏆</span><div><b>Pontos:</b> venceu, leva a diferença de games (4×1 = 3 pontos); perdeu, não pontua. O <b>dia</b> é por vitórias, o <b>mês</b> por pontos. No grupos + duplas e no campeonato, os pontos são pela colocação final (campeã 16, vice 12, 3º 10…).</div></li>
-        <li><span>💪</span><div><b>Força:</b> a sua nota (1500 é a média). Sobe quando você vai bem contra quem é forte e é ela que divide os grupos. Faltar duas ou mais seguidas faz a nota baixar aos poucos.</div></li>
+        <li><span>💪</span><div><b>Força:</b> a sua nota (a média do grupo fica perto de 1500). Sobe quando você vai bem contra quem é forte e é ela que divide os grupos. Faltar duas ou mais seguidas faz a nota baixar aos poucos.</div></li>
         <li><span>🔥</span><div><b>Status:</b> pódio em plays seguidos — 🔥 2, ⚡ 3, 💎 4 e 👑 5 = <b>Duquesa da V3</b> (camisa dourada, presente e nome dourado para sempre). Fora do pódio ou faltou, zera.</div></li>
         <li><span>🎈</span><div><b>Play avulso</b> não soma no ranking do mês; <b>🧊 sem status</b> não mexe no 🔥. Faltar neles não conta.</div></li>
         <li><span>🆕</span><div><b>Novata:</b> no primeiro play, o nome dela aparece com 🆕 — some quando o play termina.</div></li>
@@ -738,8 +738,9 @@
 
       <h3>De onde cada uma parte</h3>
       <p>
-        O padrão é <strong>1500, o meio da escala — não a média das cadastradas</strong>. Como o Elo é
-        soma zero, a média fica em 1500 sozinha enquanto todas partirem dali. Quando a organização já
+        Sem escolha, ela começa na <strong>média do grupo no dia em que estreia</strong> (o app calcula a
+        média de verdade; fica perto de 1500). Ao cadastrar dá para marcar 🌱 iniciante, ⚖️ intermediária
+        ou 📈 avançada — em volta dessa média. Quando a organização já
         conhece o nível de alguém, dá para escolher outro ponto de partida no cadastro; o histórico é
         recalculado a partir dele, e daí em diante as partidas mandam do mesmo jeito. No primeiro play
         o nome dela aparece com <strong>🆕</strong> — a nota 1500 sozinha não dizia quem é novata,
@@ -749,8 +750,8 @@
       <h3>Quem falta perde força, devagar</h3>
       <p>
         A 1ª falta não muda nada. Da <strong>2ª seguida</strong> em diante, a cada play que vale, a nota
-        cai — e cai mais a cada falta: acima de 1500, 10%, 30%, 50% e depois 70% da distância até a
-        média; abaixo de 1500, só 2, 3, 4 e depois 5 pontos, até 20. Voltou a jogar, a contagem zera.
+        cai — e cai mais a cada falta: acima da média, 10%, 30%, 50% e depois 70% da distância até
+        ela; abaixo da média, só 2, 3, 4 e depois 5 pontos, até 20. Voltou a jogar, a contagem zera.
         Com 2 faltas seguidas ela também sai do ranking da força (volta ao jogar), e a organizadora pode
         <strong>pausar</strong> quem vai ficar um tempo fora — as duas pausas acabam quando ela joga.
         Faltar a um play avulso ou sem status não conta.

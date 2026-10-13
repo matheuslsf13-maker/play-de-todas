@@ -927,3 +927,25 @@ sem a aceleração, a correlação no fim fica igual (−0,007 ± 0,014), mas a 
 **pior** — erro no 2º play +4,6 ± 3,0 (no 1º, +2,5 ± 2,5). Ela ajuda quem chega e está acima
 do ponto de partida a subir rápido. Efeito colateral visto no caso da Beatriz (12/10): o que o
 passo maior dá a mais sai de todas do play (−2,9 para ela naquela noite), pela soma zero.
+
+## Sem o passo que acelera; média calculada (13/10/2026)
+
+O dono não concordou com o extra da aceleração saindo de todas do play ("não concordo de
+tirar a força de todo mundo que não teve nada a ver só para manter em 1500 — manter em 1500
+não é importante"). Medido (pareado, 40 temporadas com evolução):
+
+| regra | correlação no fim | erro da novata no 2º play |
+|---|---|---|
+| aceleração + extra saindo de todas (a de antes) | referência | referência |
+| aceleração sem ninguém pagar | **−0,022 ± 0,017** | +3,8 ± 3,3 |
+| sem aceleração | −0,007 ± 0,014 (igual) | +4,6 ± 3,0 |
+
+Sem ninguém pagar, **quem vem mais vezes acumula força só por vir** (mais chances de engatar
+uma sequência) — pior. Decisão do dono: **sem aceleração** — cada partida é "o que uma ganha a
+outra perde", ninguém de fora paga, precisão igual; a novata se encaixa um pouco mais devagar,
+e o nível em três toques no cadastro compensa. Vale também para os plays desde 07/10 (o que foi
+tirado de todas voltou: a Beatriz +5; a Letícia, que tinha acelerado no campeonato, −17).
+
+E **a média passou a ser calculada** (`mediaDaForca`, 1498 em 13/10): a queda por falta tira
+pontos que não vão para ninguém, então "1500" não é exatamente o meio. Níveis, gráficos, nível
+da novata (🌱 média−60 · ⚖️ média · 📈 média+60) e a queda por falta contam a partir dela.

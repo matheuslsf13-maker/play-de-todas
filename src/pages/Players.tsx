@@ -14,7 +14,7 @@ import {
   type Categoria,
 } from '../lib/mensalidade'
 import { squareThumb } from '../lib/image'
-import { ELO_INICIAL, fecharPausa, pausaNaForca, playedMatches, quedaPorFalta, ratings } from '../lib/stats'
+import { fecharPausa, mediaDaForca, pausaNaForca, playedMatches, quedaPorFalta, ratings } from '../lib/stats'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
@@ -29,7 +29,9 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
   /** Categoria de quem for cadastrada agora; fica escolhida para a proxima. */
   const [novaCategoria, setNovaCategoria] = useState<Categoria>('isenta')
   /** Ponto de partida do Elo de quem for cadastrada agora (escala de 1500). */
-  const [novaForca, setNovaForca] = useState(ELO_INICIAL)
+  const mediaHoje = useMemo(() => mediaDaForca(data), [data])
+  const [novaForca, setNovaForca] = useState<number | null>(null)
+  const forcaDaNova = novaForca ?? mediaHoje
   const [editando, setEditando] = useState<Player | null>(null)
   /** Filtro da lista: nome, apelido ou outra grafia, sem acento. */
   const [busca, setBusca] = useState('')
@@ -111,13 +113,13 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
       categoria: novaCategoria,
       pago_mes: null,
       pago_avulso: false,
-      forca_inicial: novaForca === ELO_INICIAL ? null : novaForca,
+      forca_inicial: forcaDaNova === mediaHoje ? null : forcaDaNova,
     }
     await savePlayer(p)
     setName('')
     // a categoria fica para a proxima de proposito (costuma ser a mesma para
     // uma leva); a forca e de cada pessoa, e nao pode vazar
-    setNovaForca(ELO_INICIAL)
+    setNovaForca(null)
     onToast(`${n} entrou no grupo 🎾`)
   }
 
@@ -187,7 +189,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
             {CATEGORIAS.find((c) => c.valor === novaCategoria)?.explica}
           </p>
 
-          <ForcaInicial valor={novaForca} onChange={setNovaForca} />
+          <ForcaInicial valor={forcaDaNova} onChange={setNovaForca} media={mediaHoje} />
 
           <button
             className="btn ghost block sm"
@@ -558,7 +560,8 @@ function EditarPerfil({
   const [apelido, setApelido] = useState(jogadora.nickname ?? '')
   const [categoria, setCategoria] = useState<Categoria>(categoriaDe(jogadora))
   const [apelidos, setApelidos] = useState((jogadora.aliases ?? []).join('\n'))
-  const [forcaInicial, setForcaInicial] = useState(jogadora.forca_inicial ?? ELO_INICIAL)
+  const mediaHoje = useMemo(() => mediaDaForca(data), [data])
+  const [forcaInicial, setForcaInicial] = useState(jogadora.forca_inicial ?? mediaHoje)
   /** A nota de hoje, ja com as partidas -- para mostrar ao lado do ponto de partida. */
   const notaAtual = useMemo(() => notaDeForca(ratings(data).get(jogadora.id) ?? 2), [data, jogadora.id])
 
@@ -589,7 +592,7 @@ function EditarPerfil({
       categoria,
       pago_mes: mudou ? null : jogadora.pago_mes,
       pago_avulso: mudou ? false : jogadora.pago_avulso,
-      forca_inicial: forcaInicial === ELO_INICIAL ? null : forcaInicial,
+      forca_inicial: forcaInicial === mediaHoje && jogadora.forca_inicial == null ? null : forcaInicial,
     })
   }
 
@@ -646,6 +649,7 @@ function EditarPerfil({
       <ForcaInicial
         valor={forcaInicial}
         onChange={setForcaInicial}
+        media={mediaHoje}
         atual={historico.partidas > 0 ? notaAtual : undefined}
       />
 

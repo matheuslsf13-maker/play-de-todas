@@ -95,16 +95,19 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   `node scripts/medir-forca.mjs` mede cada variante no histórico real; `--simular` em
   temporadas simuladas; `--par "a" "b"` compara duas com intervalo. Em 12/10 o passo por
   confiança (ganho ≠ perda) foi medido e não ganhou da regra atual (DECISOES.md).
-- **O passo acelera só para cima** (`proximaSequencia`/`passoDaSequencia` em `stats.ts`):
-  "surpresa" é fazer mais (ou menos) games que a conta esperava. Cada surpresa **boa**
-  seguida aumenta o passo de quem surpreendeu (24, 30, 36, 42, até 48); ir **claramente
-  pior** que o esperado (5% dos games) custa o passo normal e zera a sequência; dentro do
-  esperado não soma nem quebra. A derrota nunca acelera (ninguém afunda rápido). O que o
-  passo maior dá a mais sai, em pedaços, de todas que jogaram o play (a média fica em 1500).
-  Vale **só dos plays depois de 05/10/2026** (`PASSO_ACELERA_DESDE`): a força de antes ficou como estava.
+- **Sem o passo que acelera** (desligado em 13/10/2026, `REGRA_DA_FORCA.aceleraDesde = null`;
+  as funções `proximaSequencia`/`passoDaSequencia` ficam para medir). Ele dava passo maior a
+  quem engatava surpresas boas, e o extra saía de todas do play para a média ficar em 1500 —
+  o dono não quis tirar de quem não teve nada a ver; sem ninguém pagar, a força ficou menos
+  precisa (quem vem mais vezes acumulava força só por vir). Sem aceleração, cada partida é
+  soma zero e a precisão é a de antes. Vale também para os plays desde 07/10.
+- **A média é calculada, não suposta** (`mediaDaForca`): a média de hoje de quem já jogou
+  (1498 em 13/10 — a queda por falta tira pontos que não vão para ninguém). É o meio dos
+  níveis (`nivelDeForca(nota, media)`), da linha "média" dos gráficos, do nível da novata e de
+  onde a queda por falta puxa. Novata sem nível escolhido começa na média do dia em que estreia.
 - **Quem falta perde força, devagar** (`calcularElo` em `stats.ts`): 1ª falta nada; da
-  2ª seguida em diante, por play do ranking e aumentando a cada falta: acima de 1500
-  −10%, −30%, −50% e daí −70% da distância até 1500 (mín. 2; era 10/15/20… até 30%, lento
+  2ª seguida em diante, por play do ranking e aumentando a cada falta: acima da média de hoje
+  −10%, −30%, −50% e daí −70% da distância até ela (mín. 2; era 10/15/20… até 30%, lento
   demais: em 09/10 quem tinha 1 play e 4 faltas ainda caía no grupo forte); abaixo −2, −3, −4, depois
   −5, até −20 na sequência. Voltou, zera. Faltar a um play avulso ou 🧊 sem status não
   conta, mas quem veio nele zera as faltas; quem nunca
@@ -196,8 +199,8 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   grupos; play finalizado não marca. Fica fora do texto e da arte. A nota 1500 não dizia
   isso: veterana também pode estar em 1500.
 - **A força inicial é escolhida no cadastro** (`players.forca_inicial`, script 13).
-  O padrão é **1500, o meio da escala — não a média das cadastradas**: o Elo é
-  soma zero, então a média fica em 1500 sozinha enquanto todas partirem dali. Dar
+  O padrão é **a média de hoje** (`forca_inicial` nulo = entra na média do dia em que
+  estrear). Dar
   outro ponto de partida é contar ao app o que ele ainda não sabe; depois disso as
   partidas mandam do mesmo jeito, e o histórico é **recalculado a partir do novo
   ponto** (`ratings()`), por isso o campo continua editável no perfil.

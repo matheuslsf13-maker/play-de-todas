@@ -3,7 +3,7 @@ import ForcaInicial from './ForcaInicial'
 import { Modal } from './ui'
 import { CATEGORIAS, type Categoria } from '../lib/mensalidade'
 import { normalizar } from '../lib/roster'
-import { ELO_INICIAL } from '../lib/stats'
+import { mediaDaForca } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { uid, type Player } from '../lib/types'
 
@@ -17,7 +17,8 @@ export default function NovaAtleta({ onClose, onCriada }: { onClose: () => void;
   const [nome, setNome] = useState('')
   const [apelido, setApelido] = useState('')
   const [categoria, setCategoria] = useState<Categoria>('isenta')
-  const [forca, setForca] = useState(ELO_INICIAL)
+  const media = mediaDaForca(data)
+  const [forca, setForca] = useState(media)
   // ja existe alguem com esse nome? (o erro mais comum: cadastrar duas vezes)
   const chave = normalizar(nome)
   const parecida = chave.length >= 3
@@ -37,7 +38,8 @@ export default function NovaAtleta({ onClose, onCriada }: { onClose: () => void;
       categoria,
       pago_mes: null,
       pago_avulso: false,
-      forca_inicial: forca === ELO_INICIAL ? null : forca,
+      // na media: grava nulo, e ela entra na media do dia em que estrear
+      forca_inicial: forca === media ? null : forca,
     }
     await savePlayer(p)
     onCriada(p)
@@ -75,7 +77,7 @@ export default function NovaAtleta({ onClose, onCriada }: { onClose: () => void;
             ))}
           </div>
         </div>
-        <ForcaInicial valor={forca} onChange={setForca} />
+        <ForcaInicial valor={forca} onChange={setForca} media={media} />
         <button className="btn pink block" disabled={!nome.trim()} onClick={() => void criar()}>
           Cadastrar e colocar no play
         </button>

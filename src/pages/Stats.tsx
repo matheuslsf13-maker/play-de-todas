@@ -24,6 +24,7 @@ import {
   playedMatches,
   pontosDeBye,
   winRate,
+  mediaDaForca,
 } from '../lib/stats'
 import { colocacaoNoRecorte, colocacaoPorDupla } from '../lib/campeonato'
 import {
@@ -583,8 +584,8 @@ function DetalheDupla({
         </span>
         {forca && (
           <div className="grow" style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, color: nivelDeForca(forca.nota).cor }}>
-              {nivelDeForca(forca.nota).emoji} Força da dupla {forca.nota}
+            <div style={{ fontWeight: 800, color: nivelDeForca(forca.nota, mediaDaForca(data)).cor }}>
+              {nivelDeForca(forca.nota, mediaDaForca(data)).emoji} Força da dupla {forca.nota}
             </div>
             <div className="tiny muted">
               média das duas {forca.base}
@@ -716,8 +717,9 @@ function TabelaPares({ linhas, primeira }: { linhas: PairKeyStat[]; primeira: st
 
 /** A forca da dupla na linha da lista: nivel, nota e o entrosamento. */
 function ForcaDaDupla({ f }: { f?: ForcaDeDupla }) {
+  const { data } = useStore()
   if (!f) return null
-  const n = nivelDeForca(f.nota)
+  const n = nivelDeForca(f.nota, mediaDaForca(data))
   return (
     <span className="tiny nowrap" style={{ display: 'block', marginTop: 2 }}>
       <span style={{ color: n.cor, fontWeight: 800 }}>{n.emoji} força {f.nota}</span>

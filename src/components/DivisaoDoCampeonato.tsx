@@ -1,4 +1,6 @@
 import { nivelDeForca, notaDeForca } from '../lib/forca'
+import { mediaDaForca } from '../lib/stats'
+import { useStore } from '../lib/store'
 import { nomeDaCategoria } from '../lib/campeonato'
 import { partidasDoRodizio, quadrasSimultaneas } from '../lib/pairing'
 import { plural } from '../lib/types'
@@ -52,6 +54,7 @@ export default function DivisaoDoCampeonato({
   onDesfazer: () => void
   selecionadas: number
 }) {
+  const mediaHoje = mediaDaForca(useStore().data)
   const precisa = nCategorias * gruposPorCategoria * 4
   const media = (g: string[]) =>
     Math.round(g.reduce((t, id) => t + notaDeForca(forca.get(id) ?? 2), 0) / Math.max(1, g.length))
@@ -122,7 +125,7 @@ export default function DivisaoDoCampeonato({
                         {nomeDaCategoria(c)} · grupo {gi + 1} · {plural(g.length, 'menina')} · {plural(partidasDoRodizio(g.length), 'partida')}
                       </div>
                       <div className="tiny muted" style={{ marginBottom: 6 }}>
-                        💪 força média <strong>{media(g)}</strong> · {nivelDeForca(media(g)).emoji} {nivelDeForca(media(g)).titulo}
+                        💪 força média <strong>{media(g)}</strong> · {nivelDeForca(media(g), mediaHoje).emoji} {nivelDeForca(media(g), mediaHoje).titulo}
                       </div>
                       {g.length < 4 && (
                         <em className="hint aviso" style={{ marginBottom: 6 }}>

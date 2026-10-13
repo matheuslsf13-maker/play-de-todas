@@ -1,4 +1,4 @@
-import { pausaNaForca, quedaPorFalta, ratings, type QuedaPorFalta } from './stats'
+import { mediaDaForca, pausaNaForca, quedaPorFalta, ratings, type QuedaPorFalta } from './stats'
 import type { AppData } from './types'
 
 /**
@@ -45,8 +45,9 @@ export const NIVEIS_DE_FORCA: NivelDeForca[] = [
   { de: -Infinity, emoji: '🌱', titulo: 'Começando', cor: 'var(--bronze)' },
 ]
 
-export function nivelDeForca(nota: number): NivelDeForca {
-  const dif = nota - FORCA_MEDIA
+/** O nivel conta a partir da MEDIA DE HOJE (`mediaDaForca`); sem ela, o meio da escala. */
+export function nivelDeForca(nota: number, media: number = FORCA_MEDIA): NivelDeForca {
+  const dif = nota - media
   return NIVEIS_DE_FORCA.find((n) => dif >= n.de) as NivelDeForca
 }
 
@@ -90,6 +91,7 @@ export function rankingDeForca(
   const forcas = ratings(data, ate)
   const quedas = quedaPorFalta(data, ate)
   const pausas = pausaNaForca(data)
+  const media = mediaDaForca(data)
   const jogos = new Map<string, number>()
   for (const m of data.matches) {
     if (m.score_a === null || m.score_b === null) continue
@@ -104,7 +106,7 @@ export function rankingDeForca(
         player_id: p.id,
         nota,
         jogos: n,
-        nivel: nivelDeForca(nota),
+        nivel: nivelDeForca(nota, media),
         provisoria: n < JOGOS_PARA_FIRMAR,
         queda: (quedas.get(p.id)?.perda ?? 0) > 0 ? quedas.get(p.id) : undefined,
         pausada: pausas.get(p.id),
