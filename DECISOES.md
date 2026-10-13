@@ -921,3 +921,9 @@ Elo**. No histórico real (foto antes de cada play, 187 partidas): 52% de acerto
 53–56% — dentro do acaso. **A força ficou como estava.** Observação: na simulação a queda por
 falta custa ~0,02 de correlação (lá faltar não muda a habilidade); ela é uma escolha da
 organização para os grupos (caso Juliana), não de precisão.
+
+**13/10/2026 — o passo que acelera continua.** Medido pareado (40 temporadas com evolução):
+sem a aceleração, a correlação no fim fica igual (−0,007 ± 0,014), mas a novata se encaixa
+**pior** — erro no 2º play +4,6 ± 3,0 (no 1º, +2,5 ± 2,5). Ela ajuda quem chega e está acima
+do ponto de partida a subir rápido. Efeito colateral visto no caso da Beatriz (12/10): o que o
+passo maior dá a mais sai de todas do play (−2,9 para ela naquela noite), pela soma zero.

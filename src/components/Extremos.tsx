@@ -29,7 +29,11 @@ export default function Extremos({
   baixo: number
 }) {
   type Linha = { v: number; rotulo: string; cor: string; traco: string; peso: number }
-  const linhas: Linha[] = [{ v: referencia, rotulo: 'média', cor: 'var(--muted)', traco: '4 3', peso: 400 }]
+  // maxima ou minima exatamente na media: e a mesma linha, e o rotulo diz as duas coisas
+  const naMedia = [max === referencia ? 'máx' : '', min === referencia && min !== max ? 'mín' : ''].filter(Boolean)
+  const linhas: Linha[] = [
+    { v: referencia, rotulo: ['média', ...naMedia].join(' · '), cor: 'var(--muted)', traco: '4 3', peso: 400 },
+  ]
   if (max !== referencia) linhas.push({ v: max, rotulo: 'máx', cor: 'var(--verde)', traco: '1 3', peso: 800 })
   if (min !== referencia && min !== max) linhas.push({ v: min, rotulo: 'mín', cor: 'var(--bronze)', traco: '1 3', peso: 800 })
 
