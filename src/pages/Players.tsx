@@ -1,4 +1,5 @@
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import { LIGA } from '../liga'
 import { useMemo, useRef, useState } from 'react'
 import { Avatar, Empty, Modal } from '../components/ui'
 import ImportarLista from '../components/ImportarLista'
@@ -747,7 +748,7 @@ type Filtro = {
   ordem: 'nome' | 'forca' | 'faltas'
 }
 
-const CHAVE_DO_FILTRO = 'play-de-todas:meninas-filtro'
+const CHAVE_DO_FILTRO = `${LIGA.prefixo}:meninas-filtro`
 const FILTRO_PADRAO: Filtro = { situacao: 'todas', categoria: null, nivel: null, ordem: 'nome' }
 
 const SITUACOES: { valor: FiltroDeSituacao; rotulo: string; explica: string }[] = [

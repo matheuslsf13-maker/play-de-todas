@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LIGA } from '../liga'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -87,7 +88,7 @@ type VisaoDasContas = 'contas' | 'extrato' | 'acerto'
 /** O que o modal de lancamento recebe: um lancamento existente, ou de quem e de que dia e o novo. */
 type PedidoDeLancamento = { checkin?: Checkin; playerId?: string; diaId?: string }
 
-const CHAVE_DA_SECAO = 'play-de-todas:checkins-secao'
+const CHAVE_DA_SECAO = `${LIGA.prefixo}:checkins-secao`
 const SECOES: Secao[] = ['atletas', 'dias', 'arenas', 'caixa', 'padroes']
 
 function secaoSalva(): Secao {
@@ -836,7 +837,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
           style={{ marginTop: 10 }}
           onClick={async () => {
             const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
-            const arquivo = new File([gerarXlsx(planilhas)], `controle-play-de-todas-${tudo ? 'tudo' : mes}.xlsx`, {
+            const arquivo = new File([gerarXlsx(planilhas)], `controle-${LIGA.prefixo}-${tudo ? 'tudo' : mes}.xlsx`, {
               type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             })
             const r = await baixarOuCompartilhar(arquivo, `Controle Play de Todas — ${tudo ? 'tudo' : monthLabel(mes)}`)

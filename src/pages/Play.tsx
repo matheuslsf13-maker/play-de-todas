@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { LIGA } from '../liga'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import ClassificacaoDosGrupos from '../components/ClassificacaoDosGrupos'
 import DesempateEmQuadra from '../components/DesempateEmQuadra'
@@ -1540,7 +1541,7 @@ function PlayDetail({
    * CAMPEONATO: quem cuida de uma categoria so ve as quadras e a fila dela.
    * E preferencia de quem olha, nao estado do play: fica no aparelho.
    */
-  const chaveDoFiltro = `play-de-todas:filtro-categoria:${session.id}`
+  const chaveDoFiltro = `${LIGA.prefixo}:filtro-categoria:${session.id}`
   const [filtroCat, setFiltroCatState] = useState<number | null>(() => {
     try {
       const v = localStorage.getItem(chaveDoFiltro)

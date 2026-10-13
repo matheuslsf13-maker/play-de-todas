@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { LIGA } from './liga'
 import { BotaoInstalar } from './components/InstalarApp'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
@@ -30,7 +31,7 @@ const TABS: { id: Tab; label: string; icon: string; soAdmin?: boolean }[] = [
  * A aba aberta fica guardada no aparelho: o app recarrega ao voltar para a
  * tela (e no F5), e cair sempre no Ranking obrigava a navegar de novo.
  */
-const CHAVE_DA_ABA = 'play-de-todas:aba'
+const CHAVE_DA_ABA = `${LIGA.prefixo}:aba`
 
 function abaSalva(): Tab {
   try {
