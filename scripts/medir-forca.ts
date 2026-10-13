@@ -104,6 +104,9 @@ const motores: [string, Motor][] = [
   ['curva 1', doElo({ ...HOJE, curvaDeAprendizado: 1 })],
   ['curva 2', doElo({ ...HOJE, curvaDeAprendizado: 2 })],
   ['curva 3', doElo({ ...HOJE, curvaDeAprendizado: 3 })],
+  ['glicko2 v15', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10, volatilidade: 15 } })],
+  ['glicko2 v25', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10, volatilidade: 25 } })],
+  ['glicko2 v40', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10, volatilidade: 40 } })],
   ['glicko + curva 1', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10 }, curvaDeAprendizado: 1 })],
   ['glicko + curva 2', doElo({ ...HOJE, glicko: { inicial: 60, minima: 35, porSemana: 10 }, curvaDeAprendizado: 2 })],
   ['glicko + epoca (media das duas)', (d) => {

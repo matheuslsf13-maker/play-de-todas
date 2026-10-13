@@ -974,3 +974,13 @@ Pareado (40 temporadas): Glicko 60/35/10 − Elo = correlação +0,010 ± 0,016;
 na simulação faltar não muda a habilidade, na vida real muda). As combinações não ganharam do
 Glicko sozinho. No histórico, as notas se espalham um pouco (Letícia 1560→1599, Brenda
 1569→1590, Tete 1406→1379); média 1500.
+
+**Glicko + o que já tínhamos, e o Glicko-2 (13/10/2026).** As variantes foram medidas sobre a
+regra atual (queda por falta, média calculada, novata na média, grupos e fila do próprio app).
+Faltava o **nível em 3 toques**: na simulação (`--nivel`, a organizadora "vê" a novata com ~35
+pontos de engano e marca iniciante/intermediária/avançada), o erro da novata cai de 45→**33**
+no 1º play e 38→**33** no 2º, com o Glicko — o maior ganho de todos: **vale marcar o nível de
+toda novata**. O **Glicko-2** (volatilidade: surpresa grande demais para ser acaso aumenta a
+incerteza do play seguinte, `glicko.volatilidade`) não ganhou: 15 → 0,869 (igual), 25 → 0,841,
+40 → 0,833 — numa partida até 4 games ele confunde noite de sorte com mudança de nível.
+Histórico real: 51–52% em todas. Fica o Glicko sem volatilidade.

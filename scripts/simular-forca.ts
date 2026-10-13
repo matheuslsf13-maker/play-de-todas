@@ -30,6 +30,7 @@ function rng(semente: number) {
 const normal = (r: () => number) => Math.sqrt(-2 * Math.log(r() || 1e-9)) * Math.cos(2 * Math.PI * r())
 
 const SEMANAS = 16
+const NIVEL_NA_CHEGADA = process.argv.includes('--nivel')
 function dataDa(semana: number) {
   const d = new Date(Date.UTC(2026, 10, 2 + 7 * semana))
   return d.toISOString().slice(0, 10)
@@ -53,7 +54,14 @@ function temporada(semente: number, motor: Motor): Resultado {
   const real = new Map(pessoas.map((p) => [p.id, p.real]))
 
   const d: AppData = emptyData()
-  d.players = pessoas.map((p) => ({ id: p.id, name: p.id, photo_url: null, active: true, created_at: '' }) as never)
+  // --nivel: a organizadora marca o nivel da novata em 3 toques (iniciante/intermediaria/
+  // avancada) pelo que ve dela -- com erro: ela "ve" a habilidade com uns 35 pontos de engano
+  const nivelDaOrganizadora = (p: Pessoa) => {
+    if (!NIVEL_NA_CHEGADA || !p.id.startsWith('n')) return null
+    const visto = p.real + normal(r) * 35
+    return visto < 1470 ? 1440 : visto > 1530 ? 1560 : null
+  }
+  d.players = pessoas.map((p) => ({ id: p.id, name: p.id, photo_url: null, active: true, created_at: '', forca_inicial: nivelDaOrganizadora(p) }) as never)
   const errosNovata: [number[], number[]] = [[], []]
   const playsDaNovata = new Map<string, number>()
   let acertos = 0

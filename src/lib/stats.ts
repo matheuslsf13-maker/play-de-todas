@@ -431,7 +431,19 @@ export type RegraDaForca = {
    * uma sai da incerteza dela; e a incerteza das OUTRAS tres (parceira e
    * adversarias) amortece o resultado: partida com novata ensina menos.
    */
-  glicko?: { inicial: number; minima: number; porSemana: number } | null
+  glicko?: {
+    inicial: number
+    minima: number
+    porSemana: number
+    /**
+     * GLICKO-2: a VOLATILIDADE. Quem surpreende muito numa noite (para cima ou
+     * para baixo, alem do que o acaso explica) provavelmente esta mudando de
+     * nivel: a incerteza dela sobe no play seguinte e a nota anda mais rapido. E
+     * a aceleracao feita do jeito certo -- dos dois lados, e so quando o tamanho
+     * da surpresa justifica. O numero e quantos pontos a incerteza pode ganhar.
+     */
+    volatilidade?: number
+  } | null
   /** UTR: o passo cresce com os games da partida (games/5) -- um 6x4 informa mais que um 4x1. */
   pesoPelosGames?: boolean
   /** TrueSkill 2: nos primeiros 12 jogos, quem chegou tende a melhorar: + tantos pontos por partida. */
@@ -510,6 +522,8 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
   /** Glicko: a incerteza de cada uma e o ultimo dia em que jogou (para ela crescer parada). */
   const incerteza = new Map<string, number>()
   const ultimoDia = new Map<string, string>()
+  /** Glicko-2: a volatilidade de cada uma (pontos^2 que somam na incerteza do proximo play). */
+  const volatil = new Map<string, number>()
   const Q = Math.LN10 / 400
 
   // o Elo depende da ordem: cada partida e avaliada com as notas que existiam
@@ -526,7 +540,8 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
           if (!antes || antes === s.date) continue
           const semanas = (Date.parse(s.date) - Date.parse(antes)) / (7 * 86400000)
           const rd = incerteza.get(id) ?? gl.inicial
-          incerteza.set(id, Math.min(gl.inicial, Math.sqrt(rd * rd + gl.porSemana * gl.porSemana * semanas)))
+          const extra = volatil.get(id) ?? 0
+          incerteza.set(id, Math.min(gl.inicial, Math.sqrt(rd * rd + gl.porSemana * gl.porSemana * semanas + extra)))
           ultimoDia.set(id, s.date)
         }
     }
@@ -556,6 +571,8 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
           partida.set(id, v)
         }
     }
+    /** Glicko-2: a surpresa de cada uma na noite (soma dos games acima do esperado) e o quanto o acaso explicaria. */
+    const surpresaDaNoite = new Map<string, { s: number; v: number }>()
     const forcaDaDupla = (ids: [string, string]) => {
       const x = nota(ids[0])
       const y = nota(ids[1])
@@ -592,6 +609,10 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
           const e = doLadoA ? esperado : 1 - esperado
           const sReal = doLadoA ? real : 1 - real
           const info = (games * Q * Q * g * g * e * (1 - e)) / 4
+          const sn = surpresaDaNoite.get(id) ?? { s: 0, v: 0 }
+          sn.s += games * (sReal - e)
+          sn.v += games * e * (1 - e)
+          surpresaDaNoite.set(id, sn)
           const r2 = rd(id) * rd(id)
           const d = ((games * Q * g) / 2) * (sReal - e) / (1 / r2 + info)
           regra.aoMudar?.({ sessionId: s.id, id, delta: d, motivo: 'partida', match: m, esperado: e })
@@ -612,6 +633,15 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
         jaJogou.add(id)
         jogosDe.set(id, (jogosDe.get(id) ?? 0) + 1)
         confiancaDe.set(id, (confiancaDe.get(id) ?? 0) + 1)
+      }
+    }
+    // Glicko-2: surpresa grande demais para ser acaso (z^2 > 1) aumenta a volatilidade;
+    // noite dentro do esperado faz ela baixar aos poucos
+    if (regra.glicko?.volatilidade) {
+      const t2 = regra.glicko.volatilidade * regra.glicko.volatilidade
+      for (const [id, sn] of surpresaDaNoite) {
+        const z2 = sn.v > 0 ? (sn.s * sn.s) / sn.v : 0
+        volatil.set(id, 0.7 * (volatil.get(id) ?? 0) + 0.3 * Math.max(0, z2 - 1) * t2)
       }
     }
     // soma zero: o que o passo maior deu a mais sai, em pedacinhos, de todas
