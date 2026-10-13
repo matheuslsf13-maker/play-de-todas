@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { FORCA_MEDIA } from '../lib/forca'
 import { isPlayed, matchPoints } from '../lib/scoring'
 import { historicoDeForca } from '../lib/stats'
+import Extremos from './Extremos'
 import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
 import { dateLabel, plural, type AppData } from '../lib/types'
 
@@ -49,8 +50,6 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   const max = Math.max(...notas) + 8
   const x = (i: number) => esq + (pontos.length === 1 ? 0 : (i * (W - esq - dir)) / (pontos.length - 1))
   const y = (v: number) => topo + ((max - v) * (H - topo - base)) / Math.max(1, max - min)
-  // marcas do eixo: a media e os extremos arredondados de 10 em 10
-  const marcas = [...new Set([Math.ceil(min / 10) * 10, FORCA_MEDIA, Math.floor(max / 10) * 10])].sort((a, b) => a - b)
   const valores = pontos.map((p) => p.nota)
   const comRotulo = pontosComRotulo(valores, W - esq - dir)
   const area = `M ${x(0)} ${H - base} ${pontos.map((p, i) => `L ${x(i)} ${y(p.nota)}`).join(' ')} L ${x(pontos.length - 1)} ${H - base} Z`
@@ -86,23 +85,20 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
             <stop offset="1" stopColor="var(--marca)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {marcas.map((v) => (
-          <g key={v}>
-            <line
-              x1={esq}
-              x2={W - dir}
-              y1={y(v)}
-              y2={y(v)}
-              stroke="var(--line)"
-              strokeDasharray={v === FORCA_MEDIA ? '4 3' : '1 4'}
-              strokeWidth={1}
-            />
-            <text x={esq - 6} y={y(v) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">
-              {v}
-            </text>
-          </g>
-        ))}
-        <text x={W - dir} y={y(FORCA_MEDIA) - 4} textAnchor="end" fontSize="8" fill="var(--muted)">
+        <line x1={esq} x2={W - dir} y1={y(FORCA_MEDIA)} y2={y(FORCA_MEDIA)} stroke="var(--line-2)" strokeDasharray="4 3" />
+        <text x={esq - 6} y={y(FORCA_MEDIA) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">
+          {FORCA_MEDIA}
+        </text>
+        {/* a mais alta e a mais baixa que ja teve (o ponto de partida nao conta: nao foi jogado) */}
+        <Extremos
+          y={y}
+          esq={esq}
+          fim={W - dir}
+          max={Math.max(...pontos.filter((p) => p.sessionId !== 'inicio').map((p) => p.nota))}
+          min={Math.min(...pontos.filter((p) => p.sessionId !== 'inicio').map((p) => p.nota))}
+          referencia={FORCA_MEDIA}
+        />
+        <text x={esq - 6} y={y(FORCA_MEDIA) + 11} textAnchor="end" fontSize="6.5" fill="var(--muted)">
           média
         </text>
         <path d={area} fill="url(#grad-forca)" />
