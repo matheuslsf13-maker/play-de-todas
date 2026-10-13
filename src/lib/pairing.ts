@@ -187,6 +187,7 @@ export type Colocacao = {
   grupo: number
   /** 1 = primeiro do grupo. */
   posicao: number
+  vitorias: number
   pontos: number
   saldo: number
 }
@@ -195,7 +196,10 @@ export type Colocacao = {
  * FASE 2 -- as duplas fixas.
  *
  * Ordena todos por colocacao no grupo (as 1as primeiro, depois as 2as...) e,
- * dentro da mesma colocacao, por desempenho. Depois junta os VIZINHOS dessa
+ * dentro da mesma colocacao, pelo MESMO criterio de dentro do grupo:
+ * vitorias, depois pontos, depois saldo. (Ate 13/10/2026 comecava pelos
+ * pontos, e uma 1a com 3 vitorias de 4x3 ficava atras de uma com 2 de 4x0;
+ * o dono pediu a mesma regra nos dois lugares.) Depois junta os VIZINHOS dessa
  * fila: melhor com melhor, media com media, ultima com ultima.
  *
  * Emparelhar vizinhos, e nao "1a com 1a" ao pe da letra, e o que faz a conta
@@ -208,7 +212,7 @@ export type Colocacao = {
  */
 export function duplasDaFase2(colocacoes: Colocacao[], maxDuplas?: number): Duo[] {
   const ordenados = [...colocacoes].sort(
-    (a, b) => a.posicao - b.posicao || b.pontos - a.pontos || b.saldo - a.saldo,
+    (a, b) => a.posicao - b.posicao || b.vitorias - a.vitorias || b.pontos - a.pontos || b.saldo - a.saldo,
   )
   // sobrando gente para o tamanho do mata-mata, os ultimos da fila ficam de
   // fora: com 20 jogadoras e alvo de 8 duplas, saem 4 e ficam 16 para as quartas

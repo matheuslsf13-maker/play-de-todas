@@ -310,7 +310,7 @@ export function colocacoesDaCategoria(
     const desempates = (s.desempates_grupo ?? []).filter((d) => d.grupo === gi)
     const { linhas, pendente } = classificarGrupo(grupo, ms, desempates)
     for (const l of linhas) {
-      colocacoes.push({ id: l.id, grupo: k, posicao: l.posicao, pontos: l.pontos, saldo: l.saldo })
+      colocacoes.push({ id: l.id, grupo: k, posicao: l.posicao, vitorias: l.vitorias, pontos: l.pontos, saldo: l.saldo })
     }
     for (const ids of pendente) pendentes.push({ grupo: gi, ids })
   })

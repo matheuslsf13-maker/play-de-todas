@@ -814,6 +814,10 @@ mesmos formatos — de propósito, nada de fork.
   femininas; e nomes internos (classes, chaves, valores do banco, como
   `'convidada'`) nunca podem mudar. O build avisa quando um texto do mapa some
   do app. Texto novo fica no feminino até entrar no mapa.
+- **Entre grupos, vitórias primeiro (13/10/2026).** Na fase 2, para saber qual
+  é o melhor 1º (e quem sobra para fazer dupla com o melhor 2º), a fila
+  comparava pontos e depois saldo. Agora usa o mesmo critério de dentro do
+  grupo: vitórias → pontos → saldo. Vale para os dois apps.
 - Status no masculino: Rei do Play, Imperador do Play e **Duque da V3** (Hall
   dos Duques). Cores: azul-eletrico e azul-royal no lugar do rosa e do roxo; o
   amarelo e o laranja ficam (são a praia). Logo próprio, desenhado em SVG.

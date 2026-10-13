@@ -248,6 +248,19 @@ test('colocacoes da categoria: posicao no grupo, grupo dentro da categoria', () 
   assert.deepEqual(duplasDaFase2(colocacoes, 8), [['b1', 'b5'], ['b2', 'b6'], ['b3', 'b7'], ['b4', 'b8']])
 })
 
+test('fase 2 entre grupos: vitorias antes dos pontos, como dentro do grupo', () => {
+  // tres grupos; o 1o do grupo C ganhou 3 de 4x3 (3 pts) e o do grupo B
+  // ganhou 2 de 4x0 (8 pts). Por vitorias, C e o melhor 1o e B o que sobra
+  const c = (id: string, grupo: number, posicao: number, vitorias: number, pontos: number, saldo: number) =>
+    ({ id, grupo, posicao, vitorias, pontos, saldo })
+  const colocacoes = [
+    c('a1', 0, 1, 3, 9, 8), c('b1', 1, 1, 2, 8, 6), c('c1', 2, 1, 3, 3, 3),
+    c('a2', 0, 2, 2, 5, 2), c('b2', 1, 2, 2, 4, 1), c('c2', 2, 2, 1, 4, 0),
+  ]
+  // fila: a1, c1 (3 vit), b1 (2 vit), a2, b2, c2
+  assert.deepEqual(duplasDaFase2(colocacoes, 8), [['a1', 'c1'], ['b1', 'a2'], ['b2', 'c2']])
+})
+
 test('empate pendente aparece por grupo (indice global)', () => {
   const empate = [
     partida(['b1', 'b2'], ['b3', 'b4'], 4, 1),
