@@ -187,6 +187,9 @@ supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
   do sorteio; **livre**, mesmo deixando um grupo com menos de 4 no meio da arrumação: o grupo
   mostra ⚠️ e o "criar o play" recusa dizendo qual grupo) e **sortear de novo**. Cada
   chip mostra a nota e o cabeçalho a média do grupo.
+- **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
+  as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
+  cabeçalho, "avulso" marcado), 4 plays por vez com "ver mais". Segue o período do Stats.
 - **🆕 Novata** (`novatas(data, sessionId?)` em `stats.ts`): quem não tem partida jogada fora
   do play. Aparece ao montar o play (chips, grupos, divisão do campeonato) e, com o play
   **aberto**, nos cartões de partida (`Duo`, via contexto `NovatasDoPlay`) e no cartão dos

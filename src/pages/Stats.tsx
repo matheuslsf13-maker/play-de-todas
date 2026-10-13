@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import GraficoDeForca from '../components/GraficoDeForca'
 import GraficoDaDupla from '../components/GraficoDaDupla'
+import HistoricoDePartidas from '../components/HistoricoDePartidas'
 import { normalizar } from '../lib/roster'
 import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
 import { NomesDaDupla } from '../components/NomeClicavel'
@@ -348,6 +349,11 @@ function PainelJogadora({
       </div>
 
       <div className="card">
+        <div className="section-title">🕑 Histórico</div>
+        <HistoricoDePartidas partidas={matches} jogadora={selected} />
+      </div>
+
+      <div className="card">
         <div className="section-title">🏅 Status e conquistas</div>
         <div className="grid3">
           <StatBox k="Seguidos agora" v={seq} />
@@ -550,14 +556,7 @@ function DetalheDupla({
   const { data, nameOf, playerById } = useStore()
   const forca = useMemo(() => forcaDeDuplas(data).get(duo.key), [data, duo.key])
   const jogos = useMemo(() => duoMatches(matches, duo.a, duo.b), [matches, duo])
-  const dataDaSessao = new Map(data.sessions.map((s) => [s.id, s.date]))
   const pct = duo.matches === 0 ? 0 : duo.wins / duo.matches
-  // as partidas agrupadas por play, do mais recente para o mais antigo
-  const porPlay = useMemo(() => {
-    const m = new Map<string, typeof jogos>()
-    for (const j of jogos) m.set(j.session_id, [...(m.get(j.session_id) ?? []), j])
-    return [...m.entries()].sort((x, y) => (dataDaSessao.get(y[0]) ?? '').localeCompare(dataDaSessao.get(x[0]) ?? ''))
-  }, [jogos, data.sessions])
 
   // contra quem essa dupla mais jogou
   const rivais = useMemo(() => {
@@ -621,27 +620,8 @@ function DetalheDupla({
         </>
       )}
 
-      <div className="section-title" style={{ marginTop: 16 }}>📅 Partidas</div>
-      <div className="stack" style={{ gap: 10 }}>
-        {porPlay.map(([sid, lista]) => (
-          <div key={sid}>
-            <div className="tiny muted" style={{ fontWeight: 800, marginBottom: 4 }}>{dateLabel(dataDaSessao.get(sid) ?? '')}</div>
-            {lista.map((j) => {
-              const somosA = j.team_a.includes(duo.a) && j.team_a.includes(duo.b)
-              const nosso = somosA ? (j.score_a as number) : (j.score_b as number)
-              const deles = somosA ? (j.score_b as number) : (j.score_a as number)
-              const outros = (somosA ? j.team_b : j.team_a) as [string, string]
-              return (
-                <div key={j.id} className="row small" style={{ gap: 8 }}>
-                  <span style={{ width: 16 }}>{nosso > deles ? '✅' : '❌'}</span>
-                  <span className="grow ellipsis">{nameOf(outros[0])} + {nameOf(outros[1])}</span>
-                  <strong className="nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>{nosso}x{deles}</strong>
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </div>
+      <div className="section-title" style={{ marginTop: 16 }}>🕑 Histórico</div>
+      <HistoricoDePartidas partidas={jogos} dupla={[duo.a, duo.b]} />
     </Modal>
   )
 }
