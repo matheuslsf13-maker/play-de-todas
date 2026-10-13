@@ -17,7 +17,8 @@
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../src/config'
 import { calcularElo, REGRA_DA_FORCA, type RegraDaForca } from '../src/lib/stats'
 import { emptyData, type AppData } from '../src/lib/types'
-import { compararPar, simular } from './simular-forca'
+import { compararPar, doElo, simular, type Motor } from './simular-forca'
+import { forcaPeloHistorico, forcaPorEpoca } from '../src/lib/forcaHistorico'
 
 async function ler(tabela: string) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?select=*`, {
@@ -88,15 +89,65 @@ const json = process.argv.slice(2).find((x) => x.startsWith('['))
 const extra = json ? (JSON.parse(json) as [string, Partial<RegraDaForca>][]) : []
 for (const [nome, r] of extra) variantes.push([nome, { ...CONFIANCA, ...r }])
 
+// os motores que nao sao Elo: a forca pelo historico inteiro, com algumas calibragens
+const SEM_QUEDA: RegraDaForca = { ...HOJE, queda: false }
+const motores: [string, Motor][] = [
+  ...variantes.map(([n, r]) => [n, doElo(r)] as [string, Motor]),
+  ['hoje sem queda', doElo(SEM_QUEDA)],
+  ['historico s60', (d) => forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: null })],
+  ['historico s40', (d) => forcaPeloHistorico(d, { sigma: 40, meiaVidaSemanas: null })],
+  ['historico s90', (d) => forcaPeloHistorico(d, { sigma: 90, meiaVidaSemanas: null })],
+  ['historico s60 meia-vida 26', (d) => forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: 26 })],
+  ['historico s60 meia-vida 10', (d) => forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: 10 })],
+  ['epoca s60 d8', (d) => forcaPorEpoca(d, { sigma: 60, deriva: 8 })],
+  ['epoca s60 d15', (d) => forcaPorEpoca(d, { sigma: 60, deriva: 15 })],
+  ['epoca s90 d8', (d) => forcaPorEpoca(d, { sigma: 90, deriva: 8 })],
+  ['epoca s60 d4', (d) => forcaPorEpoca(d, { sigma: 60, deriva: 4 })],
+]
+
 if (process.argv.includes('--par')) {
   const nomes = process.argv.slice(2).filter((x) => !x.startsWith('-') && !x.startsWith('['))
-  const achar = (n: string) => variantes.find(([v]) => v === n) as [string, RegraDaForca]
+  const achar = (n: string) => motores.find(([v]) => v === n) as [string, Motor]
   compararPar(achar(nomes[0]), achar(nomes[1]))
   process.exit(0)
 }
 if (process.argv.includes('--simular')) {
-  const escolhidas = variantes.filter(([n]) => /^\d|^k 32/.test(n) || extra.some(([e]) => e === n))
+  const pedidas = process.argv.slice(2).filter((x) => !x.startsWith('-') && !x.startsWith('['))
+  const escolhidas = pedidas.length ? motores.filter(([n]) => pedidas.includes(n)) : motores.filter(([n]) => /^1 |^hoje|^historico|^epoca/.test(n))
   simular(escolhidas)
+  process.exit(0)
+}
+
+/**
+ * Para comparar motores que nao sao Elo: a forca de cada play sai SO do que veio
+ * antes dele (foto da noite), e as partidas daquele play sao a prova.
+ */
+function medirPorPlay(d: AppData, motor: Motor) {
+  const tudo = vazio()
+  const plays = [...d.sessions].sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
+  const jogos = new Map<string, number>()
+  for (let i = 0; i < plays.length; i++) {
+    const antes = new Set(plays.slice(0, i).map((s) => s.id))
+    const nota = motor({ ...d, sessions: plays.slice(0, i), matches: d.matches.filter((m) => antes.has(m.session_id)) })
+    for (const m of d.matches.filter((x) => x.session_id === plays[i].id && x.score_a !== null && x.score_b !== null)) {
+      const ga = m.score_a as number
+      const gb = m.score_b as number
+      if (ga + gb === 0) continue
+      const fa = (nota(m.team_a[0]) + nota(m.team_a[1])) / 2
+      const fb = (nota(m.team_b[0]) + nota(m.team_b[1])) / 2
+      if (Math.abs(fa - fb) > 1e-9) somar(tudo, 1 / (1 + Math.pow(10, (fb - fa) / 400)), ga / (ga + gb))
+      for (const id of [...m.team_a, ...m.team_b]) jogos.set(id, (jogos.get(id) ?? 0) + 1)
+    }
+  }
+  return tudo
+}
+
+if (process.argv.includes('--por-play')) {
+  console.log('foto antes de cada play (historico real):')
+  for (const [nome, motor] of motores.filter(([n]) => /^1 |^hoje|^historico|^epoca/.test(n))) {
+    const t = medirPorPlay(d, motor)
+    console.log(nome.padEnd(34), String(t.n).padStart(4), pct(t).padStart(7), erro(t).padStart(6))
+  }
   process.exit(0)
 }
 

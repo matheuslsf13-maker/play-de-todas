@@ -899,3 +899,25 @@ como estava.** O limite não é a fórmula: uma partida até 4 games traz pouca 
 qualquer regra precisa de uns 3 plays para encaixar uma novata. Para a novata, o que funciona
 é a organizadora usar o que já sabe: a **força inicial no cadastro** e a marca **🆕** ao montar
 o play. Única conclusão firme: somar a aceleração ao passo por confiança **piora** (0,79).
+
+### Força pelo histórico inteiro: medida e NÃO adotada (13/10/2026)
+
+Segunda ideia: em vez de olhar cada partida uma vez (Elo), ajustar as notas de todas sobre
+**todas** as partidas juntas (`src/lib/forcaHistorico.ts`, só para medir): `forcaPeloHistorico`
+(uma nota por menina, com meia-vida) e `forcaPorEpoca` (uma nota por play, que só anda
+devagar — o jeito certo: se a adversária melhorou DEPOIS, a vitória antiga não ganha crédito;
+dúvida do dono, "se a Pretti subir, eu que ganhei dela subo junto?" — medido: não, o efeito de
+uma partida antiga fica em poucos pontos e quase sempre é de outras partidas da rede).
+
+| simulação (30 temporadas) | correlação no fim, habilidade **parada** | com **evolução** (todas ±4/semana, 1 em 6 melhorando +6/semana) |
+|---|---|---|
+| hoje (com queda por falta) | 0,828 | 0,828 |
+| hoje sem a queda por falta | 0,834 | 0,851 |
+| histórico, nota única, meia-vida 26 | 0,872 (+0,024 ± 0,016 pareado) | 0,852 |
+| histórico por época (melhor) | — | 0,858 |
+
+Com a habilidade parada o histórico ganhava; com evolução, que é o caso real, **empata com o
+Elo**. No histórico real (foto antes de cada play, 187 partidas): 52% de acerto hoje contra
+53–56% — dentro do acaso. **A força ficou como estava.** Observação: na simulação a queda por
+falta custa ~0,02 de correlação (lá faltar não muda a habilidade); ela é uma escolha da
+organização para os grupos (caso Juliana), não de precisão.

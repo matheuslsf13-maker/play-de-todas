@@ -37,7 +37,11 @@ function dataDa(semana: number) {
 
 type Resultado = { correl: number; novata1: number; novata2: number; acerto: number }
 
-function temporada(semente: number, regra: RegraDaForca): Resultado {
+/** Como cada regra da a forca de todas, dado o historico ate agora. */
+export type Motor = (d: AppData) => (id: string) => number
+export const doElo = (regra: RegraDaForca): Motor => (d) => calcularElo(d, undefined, undefined, regra).nota
+
+function temporada(semente: number, motor: Motor): Resultado {
   const r = rng(semente)
   Math.random = rng(semente * 7919)
   // 24 frequentes (vem 85%), 10 eventuais (40%), 8 novatas: 2 chegam nas semanas 3, 6, 9 e 12
@@ -55,10 +59,15 @@ function temporada(semente: number, regra: RegraDaForca): Resultado {
   let acertos = 0
   let partidas = 0
 
+  // a habilidade real ANDA: todas variam um pouco por semana e 1 em cada 6
+  // melhora de verdade (+6 por semana) -- como na quadra, onde a evolucao existe
+  const melhora = new Set(pessoas.filter((_, i) => i % 6 === 0).map((p) => p.id))
   for (let semana = 0; semana < SEMANAS; semana++) {
+    if (semana > 0)
+      for (const p of pessoas) real.set(p.id, (real.get(p.id) as number) + normal(r) * 4 + (melhora.has(p.id) ? 6 : 0))
     const vem = pessoas.filter((p) => semana >= p.chega && (semana === p.chega || r() < p.chance)).map((p) => p.id)
     if (vem.length < 8) continue
-    const elo = calcularElo(d, undefined, undefined, regra)
+    const elo = { nota: motor(d) }
     const ratings = new Map(vem.map((id) => [id, 2 + (elo.nota(id) - 1500) / 110]))
     const grupos = formarGrupos(vem, ratings, 8, semente * 31 + semana)
     const id = `s${semana}`
@@ -88,7 +97,7 @@ function temporada(semente: number, regra: RegraDaForca): Resultado {
     d.matches.push(...ms)
 
     // como as novatas ficaram depois deste play (escalas centradas em quem joga)
-    const depois = calcularElo(d, undefined, undefined, regra)
+    const depois = { nota: motor(d) }
     const ativas = pessoas.filter((p) => semana >= p.chega).map((p) => p.id)
     const mediaNota = ativas.reduce((t, x) => t + depois.nota(x), 0) / ativas.length
     const mediaReal = ativas.reduce((t, x) => t + (real.get(x) as number), 0) / ativas.length
@@ -100,7 +109,7 @@ function temporada(semente: number, regra: RegraDaForca): Resultado {
     }
   }
 
-  const fim = calcularElo(d, undefined, undefined, regra)
+  const fim = { nota: motor(d) }
   const jogou = pessoas.filter((p) => d.matches.some((m) => [...m.team_a, ...m.team_b].includes(p.id))).map((p) => p.id)
   const a = jogou.map((x) => fim.nota(x))
   const b = jogou.map((x) => real.get(x) as number)
@@ -123,11 +132,11 @@ function temporada(semente: number, regra: RegraDaForca): Resultado {
   }
 }
 
-export function simular(variantes: [string, RegraDaForca][], temporadas = 30) {
+export function simular(variantes: [string, Motor][], temporadas = 30) {
   console.log(`\n${temporadas} temporadas simuladas, ${SEMANAS} plays, grupos de 8, faltas e 8 novatas por temporada\n`)
   console.log('variante'.padEnd(34), 'correl fim'.padStart(10), 'novata 1o play'.padStart(15), '2o play'.padStart(8), 'acerto'.padStart(7))
-  for (const [nome, regra] of variantes) {
-    const rs = Array.from({ length: temporadas }, (_, i) => temporada(1000 + i, regra))
+  for (const [nome, motor] of variantes) {
+    const rs = Array.from({ length: temporadas }, (_, i) => temporada(1000 + i, motor))
     const m = (f: (x: Resultado) => number) => rs.reduce((t, x) => t + f(x), 0) / rs.length
     console.log(
       nome.padEnd(34),
@@ -140,7 +149,7 @@ export function simular(variantes: [string, RegraDaForca][], temporadas = 30) {
 }
 
 /** Duas regras temporada a temporada (mesmas sementes): a diferenca media e o erro dela. */
-export function compararPar(a: [string, RegraDaForca], b: [string, RegraDaForca], temporadas = 40) {
+export function compararPar(a: [string, Motor], b: [string, Motor], temporadas = 40) {
   const difs = { correl: [] as number[], novata1: [] as number[], novata2: [] as number[] }
   for (let i = 0; i < temporadas; i++) {
     const x = temporada(2000 + i, a[1])

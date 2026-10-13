@@ -421,6 +421,8 @@ export type RegraDaForca = {
   somaZero: boolean
   /** Quem nao escolheu forca inicial comeca na media de quem ja jogou (e nao em 1500). */
   novataNaMedia: boolean
+  /** false = sem a queda por falta (so para medir: na simulacao a habilidade nao muda com a falta). */
+  queda?: boolean
   /** Para o medidor: chamado em cada partida com o esperado ANTES dela. */
   aoPrever?: (p: { esperado: number; real: number; jogosAntes: number[] }) => void
 }
@@ -551,7 +553,7 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
       q.faltas++
       const reativada = jogadora.get(id)?.reativada_em
       if (!reativada || s.date > reativada) q.desdeReativacao++
-      if (q.faltas >= 2) {
+      if (q.faltas >= 2 && regra.queda !== false) {
         const atual = nota(id)
         const perda =
           atual > ELO_INICIAL

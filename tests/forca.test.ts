@@ -316,3 +316,19 @@ test('historico da dupla: um ponto por play juntas, e o ultimo bate com a forca 
   assert.equal(h.pontos.at(-1)?.nota, forcaDeDuplas(d).get('a|b')?.nota)
   assert.equal(h.base, forcaDeDuplas(d).get('a|b')?.base)
 })
+
+import { forcaPeloHistorico } from '../src/lib/forcaHistorico'
+
+test('forca pelo historico: quem ganha sobe, e a vitoria sobre quem depois se mostrou forte vale mais', () => {
+  const d = base({ a: 1500, b: 1500, c: 1500, e: 1500, f: 1500, g: 1500 })
+  // play 1: a+b vencem c+e apertado
+  playCom(d, 's1', '2026-09-01', ['a', 'b', 'c', 'e'])
+  d.matches.push(partida('s1', ['a', 'b'], ['c', 'e'], 4, 3))
+  const antes = forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: null })
+  assert.ok(antes('a') > 1500 && antes('c') < 1500)
+  // depois c+e atropelam f+g varias vezes: c e e eram fortes -- a vitoria de a+b passa a valer mais
+  playCom(d, 's2', '2026-09-08', ['c', 'e', 'f', 'g'])
+  for (let i = 0; i < 4; i++) d.matches.push(partida('s2', ['c', 'e'], ['f', 'g'], 4, 0))
+  const depois = forcaPeloHistorico(d, { sigma: 60, meiaVidaSemanas: null })
+  assert.ok(depois('a') > antes('a') + 3, `${depois('a')} > ${antes('a')}`)
+})
