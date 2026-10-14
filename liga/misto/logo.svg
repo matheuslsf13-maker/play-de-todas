@@ -60,7 +60,7 @@
   <!-- o nome -->
   <g font-family="Inter Display, Inter, DejaVu Sans, sans-serif" font-style="italic" text-anchor="middle">
     <text x="256" y="392" font-size="112" font-weight="900" fill="#0b4f4a" stroke="#ffffff" stroke-width="12" paint-order="stroke" transform="skewX(-10) translate(68 0)" letter-spacing="-2">Play</text>
-    <text x="256" y="452" font-size="54" font-weight="900" fill="#f0782c" stroke="#ffffff" stroke-width="10" paint-order="stroke" transform="skewX(-10) translate(80 0)" letter-spacing="6">MISTO</text>
+    <text x="256" y="452" font-size="54" font-weight="900" fill="#f0782c" stroke="#ffffff" stroke-width="10" paint-order="stroke" transform="skewX(-10) translate(80 0)" letter-spacing="6">MISTA</text>
   </g>
   <path d="M120 470 q34 -12 68 0 t68 0 t68 0 t68 0" fill="none" stroke="#2ec4b0" stroke-width="5" stroke-linecap="round"/>
 </svg>

@@ -425,10 +425,13 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                 {canEdit && (
                   <div className="row spread atleta-acoes">
                     <div className="row" style={{ gap: 6 }}>
+                    {/* inativar e pausar valem no campeonato da pessoa: o misto nao mexe */}
+                    {!precisaDeGenero && (
                     <button className="btn ghost sm" onClick={() => void savePlayer({ ...p, active: !p.active })}>
                       {p.active ? 'Inativar' : 'Ativar'}
                     </button>
-                    {(() => {
+                    )}
+                    {!precisaDeGenero && (() => {
                       // a pausa da forca: quem ja esta fora (na mao ou pelas faltas) so volta
                       const pausa = pausas.get(p.id)
                       const hoje = todayISO()
@@ -611,7 +614,11 @@ function EditarPerfil({
       categoria,
       pago_mes: mudou ? null : jogadora.pago_mes,
       pago_avulso: mudou ? false : jogadora.pago_avulso,
-      forca_inicial: forcaInicial === mediaHoje && jogadora.forca_inicial == null ? null : forcaInicial,
+      // no misto a forca inicial nao aparece: e a do campeonato dela, e mexer
+      // aqui mudaria a forca la
+      forca_inicial: precisaDeGenero
+        ? jogadora.forca_inicial
+        : forcaInicial === mediaHoje && jogadora.forca_inicial == null ? null : forcaInicial,
     })
   }
 
@@ -665,12 +672,18 @@ function EditarPerfil({
         </em>
       </div>
 
-      <ForcaInicial
-        valor={forcaInicial}
-        onChange={setForcaInicial}
-        media={mediaHoje}
-        atual={historico.partidas > 0 ? notaAtual : undefined}
-      />
+      {precisaDeGenero ? (
+        <p className="tiny muted" style={{ marginTop: 12 }}>
+          💪 A força do misto parte da força do campeonato dela e só os jogos do misto mexem nela.
+        </p>
+      ) : (
+        <ForcaInicial
+          valor={forcaInicial}
+          onChange={setForcaInicial}
+          media={mediaHoje}
+          atual={historico.partidas > 0 ? notaAtual : undefined}
+        />
+      )}
 
       <label className="field" style={{ marginTop: 12 }}>
         <span>Outras grafias do nome (uma por linha)</span>

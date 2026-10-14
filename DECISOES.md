@@ -1050,7 +1050,7 @@ incerteza do play seguinte, `glicko.volatilidade`) não ganhou: 15 → 0,869 (ig
 40 → 0,833 — numa partida até 4 games ele confunde noite de sorte com mudança de nível.
 Histórico real: 51–52% em todas. Fica o Glicko sem volatilidade.
 
-**Play Misto (14/10/2026).** App à parte em `/misto/`, com ranking, histórico e força próprios
+**Play Mista (14/10/2026).** App à parte em `/mista/`, com ranking, histórico e força próprios
 (começando da força de casa) — o dono não quis que o misto mexesse na força nem no 🔥 dos
 campeonatos. Jogadores continuam nos dois campeonatos (um cadastro só por pessoa). O rodízio
 de duplas mistas usa o quadrado latino em vez do método do círculo: com n homens e n mulheres

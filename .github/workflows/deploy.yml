@@ -35,7 +35,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npx vite build --outDir dist-m
-      - name: Build misto (Play Misto, em /misto/)
+      - name: Build misto (Play Mista, em /mista/)
         env:
           VITE_LIGA: misto
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -48,7 +48,7 @@ jobs:
           rm -f dist-m/CNAME
           cp -r dist-m dist/masculino
           rm -f dist-x/CNAME
-          cp -r dist-x dist/misto
+          cp -r dist-x dist/mista
       - uses: actions/configure-pages@v5
         # liga o GitHub Pages automaticamente na primeira execucao
         with:

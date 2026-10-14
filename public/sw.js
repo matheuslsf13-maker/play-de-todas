@@ -37,8 +37,8 @@ self.addEventListener('fetch', (event) => {
   // o app masculino mora em /masculino/ e tem o proprio service worker:
   // o do feminino (escopo /) nao se mete nas paginas dele
   if (url.pathname.includes('/masculino/') && !self.location.pathname.includes('/masculino/')) return
-  // o misto, em /misto/, idem
-  if (url.pathname.includes('/misto/') && !self.location.pathname.includes('/misto/')) return
+  // o misto, em /mista/, idem
+  if (url.pathname.includes('/mista/') && !self.location.pathname.includes('/mista/')) return
 
   // navegacao: tenta a rede, cai para o cache quando esta sem sinal
   if (req.mode === 'navigate') {

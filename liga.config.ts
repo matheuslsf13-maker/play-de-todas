@@ -59,9 +59,9 @@ export const LIGAS: Record<LigaId, Liga> = {
   },
   misto: {
     id: 'misto',
-    nome: 'Play Misto',
-    nomeCurto: 'Play Misto',
-    descricao: 'Duplas equilibradas, placares e ranking do Play Misto.',
+    nome: 'Play Mista',
+    nomeCurto: 'Play Mista',
+    descricao: 'Duplas equilibradas, placares e ranking do Play Mista.',
     // so as tabelas do play (sessions, matches...): os jogadores continuam no
     // Play de Todas (public) e no Play de Terca (masculino)
     schema: 'misto',

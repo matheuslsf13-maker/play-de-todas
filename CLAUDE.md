@@ -56,7 +56,7 @@ liga/            textos do masculino: o código fica no feminino e o build
 
 `hasSupabase` decide qual driver é usado. Escrita exige login; leitura é pública.
 
-## 👫 Play Misto (`/misto/`, `VITE_LIGA=misto`, schema `misto`, script 29)
+## 👫 Play Mista (`/mista/`, `VITE_LIGA=misto`, schema `misto`, script 29)
 
 - **Não tem jogadores próprios**: lê os `players` do `public` (♀) e do `masculino` (♂)
   (`jogadoresDosDoisCampeonatos` em `supabaseRepo.ts`) e marca `genero` só em memória.
@@ -72,6 +72,8 @@ liga/            textos do masculino: o código fica no feminino e o build
   cada gênero dividido por nível, metade de cada (`formarGruposMistos`). Refazer e
   `precisaRefazer` só contam duplas H+M (`genero`). Trocar jogador mostra o mesmo gênero
   primeiro. Duplas fixas no misto: `montarDuplasPorNivel(..., genero)` prioriza H+M.
+- No misto a aba Atletas **não** inativa, pausa nem muda a força inicial: isso vale no
+  campeonato da pessoa e mexeria lá. Status: 💎 **Craque do Play** (4) e 👑 **MVP da V3** (5).
 - Textos: `liga/masculino.json` (plural neutro) + `liga/misto.json` por cima. Logo:
   `node scripts/liga/gerar-logo.mjs misto` (de `liga/misto/logo.svg` para `public-misto/`).
 

@@ -213,7 +213,7 @@ export const supabaseRepo: Repo = {
     if (EH_MISTO) {
       // grava no campeonato da pessoa, sem o que so existe na memoria do misto
       const { genero, forca_de_casa: _casa, ...noBanco } = p
-      if (!genero) throw new Error('No Play Misto, todo atleta precisa ser do feminino ou do masculino')
+      if (!genero) throw new Error('No Play Mista, todo atleta precisa ser do feminino ou do masculino')
       await upsertTolerante('players', noBanco, SCHEMA_DO_GENERO[genero])
       return
     }
@@ -221,7 +221,7 @@ export const supabaseRepo: Repo = {
   },
   async deletePlayer(id: string) {
     // apagar alguem e coisa do campeonato dela: o misto so le
-    if (EH_MISTO) throw new Error('No Play Misto não dá para apagar atleta: apague no app do campeonato dele')
+    if (EH_MISTO) throw new Error('No Play Mista não dá para apagar atleta: apague no app do campeonato dele')
     const { error } = await client().from('players').delete().eq('id', id)
     if (error) throw error
   },

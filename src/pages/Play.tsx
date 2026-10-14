@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 
-/** O app do Play Misto (homens e mulheres dos dois campeonatos). */
+/** O app do Play Mista (homens e mulheres dos dois campeonatos). */
 const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
