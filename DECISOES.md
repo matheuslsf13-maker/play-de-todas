@@ -787,7 +787,7 @@ Detalhes que custaram atenção:
 
 ### Versão masculina: mesmo código, outro schema (13/10/2026)
 
-O **Play de Todos** (masculino) é o mesmo app, compilado com `VITE_LIGA=masculino`
+O **Play de Terça** (masculino, primeiro chamado "Play de Todos") é o mesmo app, compilado com `VITE_LIGA=masculino`
 e publicado em **playdetodas.com.br/masculino/**. Mesmas regras, mesma força,
 mesmos formatos — de propósito, nada de fork.
 
@@ -826,9 +826,16 @@ mesmos formatos — de propósito, nada de fork.
   Se a classificação de agora daria duplas diferentes das formadas (placar
   corrigido depois, troca no meio do play), aparece um aviso — valem as
   formadas. No campeonato, o seletor de categoria filtra isso também.
-- Status no masculino: Rei do Play, Imperador do Play e **Duque da V3** (Hall
-  dos Duques). Cores: azul-eletrico e azul-royal no lugar do rosa e do roxo; o
-  amarelo e o laranja ficam (são a praia). Logo próprio, desenhado em SVG.
+- **Masculino = Play de Terça, sem infantilizar (14/10/2026).** O grupo é de homens
+  de nível avançado: o nome é **Play de Terça**, a aba é **Atletas** e nenhum texto
+  diz "menino" (vira atleta/jogador). Status: Em chamas → Imparável → **Dominando**
+  (no lugar de Rainha) → **MVP da V3** (no lugar de Duquesa), com o **Hall dos
+  MVPs**. Paleta azul no lugar do rosa/roxo; logo próprio e **redondo** (PNG
+  transparente fora do círculo; os ícones da tela inicial levam o azul-noite de
+  fundo, porque o iPhone pinta o transparente de preto). As chaves do aparelho
+  continuam `play-de-todos:*` — trocar o prefixo apagaria a fila offline de quem já
+  usa. O tradutor aceita chave por arquivo (`Arquivo.tsx::texto`) e nunca mexe em
+  `className`/`key`.
 - A página de apresentação (`public/apresentacao`) é do feminino; o card que
   leva até ela não aparece no masculino.
 

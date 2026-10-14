@@ -8,6 +8,11 @@
  * (quase sempre fala de partidas, categorias ou arenas), e nomes internos
  * (classes, chaves, valores gravados no banco) nunca estao no mapa.
  *
+ * Uma chave `Arquivo.tsx::texto` vale so naquele arquivo -- para palavras que
+ * tambem sao valor interno em outro lugar (`'jogadora'` e o modo do Stats, mas
+ * em Players.tsx e so o `plural(n, 'jogadora')`). Atributos `className`/`key`
+ * nunca sao traduzidos: `"pausada"` e tambem uma classe do CSS.
+ *
  * Texto novo no app fica no feminino ate entrar no mapa:
  * `node scripts/liga/extrair.mjs` lista os candidatos.
  */
@@ -21,10 +26,13 @@ export function traduzirParaMasculino(mapaPath: string): Plugin {
   const mapa: Record<string, string> = JSON.parse(readFileSync(mapaPath, 'utf8'))
   const usados = new Set<string>()
 
+  let arquivo = ''
   const trocar = (texto: string): string | null => {
-    const novo = mapa[junta(texto)]
+    const local = `${arquivo}::${junta(texto)}`
+    const chave = local in mapa ? local : junta(texto)
+    const novo = mapa[chave]
     if (novo === undefined) return null
-    usados.add(junta(texto))
+    usados.add(chave)
     const inicio = texto.match(/^\s*/)![0]
     const fim = texto.match(/\s*$/)![0]
     // espacos das pontas importam ("3 jogadoras " + nome); quebras viram espaco
@@ -33,7 +41,11 @@ export function traduzirParaMasculino(mapaPath: string): Plugin {
   // a string e o NOME de algo ({ 'chave': ... }), e nao um valor: nunca troca
   const ehNome = (n: ts.Node) => {
     const p = n.parent as ts.Node & { name?: ts.Node }
-    return !!p && p.name === n
+    if (!p) return false
+    if (p.name === n) return true
+    // className="pausada", key="..." -- nome de classe ou chave, nunca texto
+    if (ts.isJsxAttribute(p)) return ['className', 'key', 'id', 'htmlFor'].includes(p.name.getText())
+    return false
   }
   const crase = (s: string) => s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
 
@@ -42,6 +54,7 @@ export function traduzirParaMasculino(mapaPath: string): Plugin {
     enforce: 'pre',
     transform(code, id) {
       if (!/\/src\/.*\.tsx?$/.test(id)) return null
+      arquivo = id.split('/').pop() ?? ''
       const sf = ts.createSourceFile(id, code, ts.ScriptTarget.Latest, true,
         id.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
       const trocas: { de: number; ate: number; por: string }[] = []

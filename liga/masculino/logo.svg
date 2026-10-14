@@ -17,8 +17,8 @@
     <path id="arco" d="M 40 262 A 216 216 0 0 1 472 262"/>
   </defs>
 
-  <rect width="512" height="512" fill="#ffffff"/>
-  <circle cx="256" cy="256" r="238" fill="none" stroke="#1d3478" stroke-width="5"/>
+  <!-- so o disco: fora dele o PNG e transparente (o logo e redondo, nao um quadrado) -->
+  <circle cx="256" cy="256" r="240" fill="#ffffff" stroke="#1d3478" stroke-width="5"/>
 
   <!-- a cena: por do sol na praia -->
   <g clip-path="url(#cena)">
@@ -52,15 +52,15 @@
   </g>
   <circle cx="256" cy="252" r="182" fill="none" stroke="#1d3478" stroke-width="4"/>
 
-  <!-- o frase em arco, como no logo do Play de Todas -->
-  <text font-family="Inter, DejaVu Sans, sans-serif" font-size="18" font-weight="800" letter-spacing="1.8" fill="#1d3478">
-    <textPath href="#arco" startOffset="50%" text-anchor="middle">TODAS AS IDADES • TODAS AS CATEGORIAS • TODOS OS DIAS</textPath>
+  <!-- a frase em arco -->
+  <text font-family="Inter, DejaVu Sans, sans-serif" font-size="21" font-weight="800" letter-spacing="3" fill="#1d3478">
+    <textPath href="#arco" startOffset="50%" text-anchor="middle">BEACH TENNIS • V3 ARENA • TODA TERÇA</textPath>
   </text>
 
   <!-- o nome -->
   <g font-family="Inter Display, Inter, DejaVu Sans, sans-serif" font-style="italic" text-anchor="middle">
     <text x="256" y="392" font-size="112" font-weight="900" fill="#1d3478" stroke="#ffffff" stroke-width="12" paint-order="stroke" transform="skewX(-10) translate(68 0)" letter-spacing="-2">Play</text>
-    <text x="256" y="452" font-size="54" font-weight="900" fill="#1f6fe0" stroke="#ffffff" stroke-width="10" paint-order="stroke" transform="skewX(-10) translate(80 0)" letter-spacing="1">DE TODOS</text>
+    <text x="256" y="452" font-size="54" font-weight="900" fill="#1f6fe0" stroke="#ffffff" stroke-width="10" paint-order="stroke" transform="skewX(-10) translate(80 0)" letter-spacing="1">DE TERÇA</text>
   </g>
   <path d="M120 470 q34 -12 68 0 t68 0 t68 0 t68 0" fill="none" stroke="#3fa2ff" stroke-width="5" stroke-linecap="round"/>
 </svg>

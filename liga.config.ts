@@ -45,9 +45,9 @@ export const LIGAS: Record<LigaId, Liga> = {
   },
   masculino: {
     id: 'masculino',
-    nome: 'Play de Todos',
-    nomeCurto: 'Play de Todos',
-    descricao: 'Duplas equilibradas, placares e ranking do Play de Todos.',
+    nome: 'Play de Terça',
+    nomeCurto: 'Play de Terça',
+    descricao: 'Duplas equilibradas, placares e ranking do Play de Terça.',
     schema: 'masculino',
     prefixo: 'play-de-todos',
     // azul-noite e azul-eletrico no lugar do roxo e do rosa; o por do sol
