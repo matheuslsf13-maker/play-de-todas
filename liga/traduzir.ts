@@ -27,7 +27,9 @@ export function traduzirParaMasculino(mapaPath: string): Plugin {
   const usados = new Set<string>()
 
   let arquivo = ''
-  const trocar = (texto: string): string | null => {
+  // `exato`: string do codigo, onde "\n" e espaco das pontas importam (o texto do
+  // WhatsApp). No texto de JSX as quebras viram espaco de qualquer jeito.
+  const trocar = (texto: string, exato = false): string | null => {
     const local = `${arquivo}::${junta(texto)}`
     const chave = local in mapa ? local : junta(texto)
     const novo = mapa[chave]
@@ -35,6 +37,7 @@ export function traduzirParaMasculino(mapaPath: string): Plugin {
     usados.add(chave)
     const inicio = texto.match(/^\s*/)![0]
     const fim = texto.match(/\s*$/)![0]
+    if (exato) return inicio + novo + (texto.trim() ? fim : '')
     // espacos das pontas importam ("3 jogadoras " + nome); quebras viram espaco
     return (inicio ? ' ' : '') + novo + (fim && texto.trim() ? ' ' : '')
   }
@@ -62,13 +65,13 @@ export function traduzirParaMasculino(mapaPath: string): Plugin {
         if (ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) return
         let novo: string | null = null
         if (ts.isStringLiteral(n) && !ehNome(n)) {
-          novo = trocar(n.text)
+          novo = trocar(n.text, true)
           if (novo !== null) novo = JSON.stringify(novo)
         } else if (ts.isNoSubstitutionTemplateLiteral(n)) {
-          novo = trocar(n.text)
+          novo = trocar(n.text, true)
           if (novo !== null) novo = '`' + crase(novo) + '`'
         } else if (ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) {
-          novo = trocar(n.text)
+          novo = trocar(n.text, true)
           if (novo !== null) {
             const abre = ts.isTemplateHead(n) ? '`' : '}'
             const fecha = ts.isTemplateTail(n) ? '`' : '${'

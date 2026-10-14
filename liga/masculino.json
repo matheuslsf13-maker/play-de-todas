@@ -10,7 +10,6 @@
  ", troque a jogadora no card da partida.": ", troque o jogador no card da partida.",
  ". Vale só para quem for criada agora — quem já está cadastrada mantém a categoria dela.": ". Vale só para quem for criado agora — quem já está cadastrado mantém a categoria dele.",
  "1 parceira": "1 parceiro",
- ": entra no Hall das Duquesas, ganha a camisa dourada com o seu nome e um presente surpresa, e o status recomeça — mas o seu nome fica": ": entra no Hall dos MVPs, ganha a camisa dourada com o seu nome e um presente surpresa, e o status recomeça — mas o seu nome fica",
  "? O histórico de partidas dela continua salvo.": "? O histórico de partidas dele continua salvo.",
  "A fila já escolhe sozinha; troque só se precisar. Em cima, as que têm as quatro livres há mais tempo.": "A fila já escolhe sozinha; troque só se precisar. Em cima, as que têm os quatro livres há mais tempo.",
  "Adversária": "Adversário",
@@ -54,6 +53,7 @@
  "Jogadoras": "Jogadores",
  "Jogadoras juntadas 🔗": "Jogadores juntados 🔗",
  "Já existe outra jogadora com esse nome. Se for a mesma pessoa cadastrada duas vezes, feche aqui e use o": "Já existe outro jogador com esse nome. Se for a mesma pessoa cadastrada duas vezes, feche aqui e use o",
+ "Mais que um play, uma experiência!": "Competição de verdade, toda terça",
  "Meninas": "Atletas",
  "Meninas por grupo": "Atletas por grupo",
  "Na regra antiga o status virava pontos no fechamento do mês. Ficou registrado o que cada uma escolheu.": "Na regra antiga o status virava pontos no fechamento do mês. Ficou registrado o que cada um escolheu.",
@@ -99,6 +99,7 @@
  "Vale para este play; depois ela volta a aparecer como devendo.": "Vale para este play; depois ele volta a aparecer como devendo.",
  "Ver todas as": "Ver todos os",
  "Vice-campeãs": "Vice-campeões",
+ "_Mais que um play, uma experiência!_ 💗": "_Competição de verdade, toda terça_ 🎾",
  "_Play de Todas · Beach Tennis · V3 Arena_": "_Play de Terça · Beach Tennis · V3 Arena_",
  "_Play de Todas · Beach Tennis_": "_Play de Terça · Beach Tennis_",
  "a fila que ainda não aconteceu é refeita com ela": "a fila que ainda não aconteceu é refeita com ele",
@@ -122,6 +123,7 @@
  "destacadas abaixo eu não tenho certeza — diga se é alguém que já joga ou se é atleta nova.": "destacadas abaixo eu não tenho certeza — diga se é alguém que já joga ou se é atleta novo.",
  "ela entra": "ele entra",
  "elas entram": "eles entram",
+ "entra no Hall das Duquesas, ganha a camisa dourada com o nome e um presente surpresa. O status recomeça, mas o nome fica dourado com a coroa para sempre.": "entra no Hall dos MVPs, ganha a camisa dourada com o nome e um presente surpresa. O status recomeça, mas o nome fica dourado com a coroa para sempre.",
  "escolha a jogadora que fica": "escolha o jogador que fica",
  "está em quadra agora — espere a partida dela acabar": "está em quadra agora — espere a partida dele acabar",
  "está pausada": "está pausado",
@@ -135,6 +137,7 @@
  "jogadoras. Confira e aplique.": "jogadores. Confira e aplique.",
  "juntar com outra jogadora": "juntar com outro jogador",
  "já cadastrada": "já cadastrado",
+ "mais que um play, uma experiência!": "competição de verdade, toda terça",
  "marcadas para este play.": "marcados para este play.",
  "menina": "atleta",
  "menina joga": "atleta joga",
@@ -202,5 +205,6 @@
  "🔄 Trocar jogadora": "🔄 Trocar jogador",
  "🔎 Buscar menina": "🔎 Buscar atleta",
  "🔗 junta duas atletas repetidas.": "🔗 junta dois atletas repetidos.",
- "🤝 Convidada": "🤝 Convidado"
+ "🤝 Convidada": "🤝 Convidado",
+ "🥇 Campeã": "🥇 Campeão"
 }

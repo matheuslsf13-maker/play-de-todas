@@ -14,7 +14,7 @@ import {
   rankPlayers,
   winRate,
   type PlayerStat, mediaDaForca } from '../lib/stats'
-import { colocacaoNoRecorte } from '../lib/campeonato'
+import { PONTUACAO_PADRAO, colocacaoNoRecorte } from '../lib/campeonato'
 
 /** Empate de verdade (mesmos pontos, saldo e vitorias) fica na mesma posicao. */
 function positionsOf(rows: PlayerStat[]): number[] {
@@ -414,60 +414,90 @@ export default function Ranking({
         </Modal>
       )}
 
-      <div className="card dark">
-        <div className="section-title">⭐ Pontuação individual</div>
-        <div className="grid2" style={{ gap: 8 }}>
-          {POINTS_TABLE.map((p) => (
-            <div key={p.label} style={{ background: p.color, borderRadius: 12, padding: '8px 10px', color: 'var(--sempre-escuro)' }}>
-              <div className="tiny" style={{ fontWeight: 800, letterSpacing: '.5px' }}>VITÓRIA POR {p.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>{p.points} <span style={{ fontSize: 11 }}>PONTOS</span></div>
-            </div>
-          ))}
-        </div>
-        <p className="small" style={{ color: 'var(--muted)' }}>
-          Cada partida vai até 4 pontos, sem empate. Quem vence leva os pontos da tabela; a derrota não pontua.
-          Ao final do play, os pontos são somados ao ranking mensal.
-        </p>
-        <hr className="sep" style={{ borderColor: 'rgba(255,255,255,.15)' }} />
-        <div className="section-title" style={{ marginBottom: 6 }}>🔥 Status</div>
-        <p className="small" style={{ color: 'var(--muted)', marginTop: 0, marginBottom: 8 }}>
-          Terminou plays seguidos no <strong>pódio</strong>? Você ganha um status. Nos plays em
-          grupos vale o pódio <strong>do seu grupo</strong>; no grupos + duplas e no campeonato,
-          as 3 duplas medalhistas (de cada categoria).
-        </p>
-        <div className="grid2" style={{ gap: 8 }}>
-          {STREAK_LADDER.map((x) => {
-            const top = x.from === MAX_STREAK
-            return (
+      {/* Como funciona: o que pontua e o que da status. Os numeros saem das
+          mesmas constantes que o app usa (POINTS_TABLE, PONTUACAO_PADRAO,
+          STREAK_LADDER), para o cartao nunca contar uma regra velha. */}
+      <div className="card dark regras">
+        <div className="section-title">⭐ Como pontua</div>
+
+        <div className="regra-bloco">
+          <div className="regra-titulo">🎾 Partida a partida</div>
+          <p className="regra-texto">
+            Quem vence leva a <strong>diferença de games</strong> (mínimo 1). A derrota não pontua.
+          </p>
+          <div className="placares">
+            {POINTS_TABLE.map((p) => (
               <div
-                key={x.title}
-                style={{
-                  background: top ? 'var(--por-do-sol)' : 'var(--card-2)',
-                  color: top ? 'var(--sempre-escuro)' : undefined,
-                  borderRadius: 12,
-                  padding: '8px 10px',
-                  gridColumn: top ? '1 / -1' : undefined,
-                }}
+                key={p.label}
+                className="placar-chip"
+                // o roxo e o unico tom escuro da tabela: texto claro nele
+                style={{ background: p.color, color: p.color === 'var(--purple)' ? 'var(--sempre-claro)' : undefined }}
               >
-                <div style={{ fontSize: 20, fontWeight: 900 }}>{x.emoji} {x.title}</div>
-                <div className="tiny" style={{ fontWeight: 800, letterSpacing: '.5px' }}>
-                  {x.from} PÓDIOS SEGUIDOS
-                </div>
+                <span className="placar-pts">+{p.points}</span>
+                <span className="placar-jogo">{p.label.replace(/\s/g, '')}</span>
               </div>
-            )
-          })}
+            ))}
+          </div>
+          <p className="regra-nota">
+            Vale para o rodízio e para os grupos. Exemplo numa partida até 4 — o play pode ir até
+            outro número e escolher como fecha o empate no fim.
+          </p>
         </div>
-        <p className="tiny" style={{ color: 'var(--muted)', marginBottom: 0 }}>
-          O status <strong>não vale pontos</strong>: o ranking do mês é só o que foi jogado. Ele segue
-          de um play para o outro, atravessando o mês, e zera quando você fica fora do pódio ou
-          falta. No 5º pódio seguido você vira <strong>👑 Duquesa da V3</strong>: entra no Hall das
-          Duquesas, ganha a camisa dourada com o seu nome e um presente surpresa, e o status
-          recomeça — mas o seu nome fica <strong>dourado com a coroa</strong> para sempre.
+
+        <div className="regra-bloco">
+          <div className="regra-titulo">🤝 Duplas fixas e campeonato</div>
+          <p className="regra-texto">
+            A fase de grupos só forma as duplas. Os pontos do mês vêm de <strong>onde a dupla terminou</strong>:
+          </p>
+          <div className="colocacoes">
+            {PONTUACAO_PADRAO.map((pts, i) => (
+              <div key={i} className={`colocacao-chip${i < 3 ? ' podio' : ''}`}>
+                <span className="colocacao-nome">{ROTULOS_DA_COLOCACAO[i]}</span>
+                <span className="colocacao-pts">{pts}</span>
+              </div>
+            ))}
+          </div>
+          <p className="regra-nota">Tabela padrão: cada play pode ajustar na hora de criar.</p>
+        </div>
+
+        <div className="regra-rodape">
+          📅 O <strong>dia</strong> é decidido por vitórias · o <strong>mês</strong> soma os pontos
+        </div>
+      </div>
+
+      <div className="card dark regras">
+        <div className="section-title">🔥 Status</div>
+        <p className="regra-texto" style={{ marginTop: 0 }}>
+          Cada play terminado no <strong>pódio</strong> sobe um degrau: o top 3 do play, o pódio do seu
+          grupo, ou as 3 duplas medalhistas nas duplas fixas e no campeonato.
         </p>
+        <ol className="escada">
+          {STREAK_LADDER.map((x) => (
+            <li key={x.title} className={x.from === MAX_STREAK ? 'topo' : undefined}>
+              <span className="degrau">{x.from}</span>
+              <span className="degrau-nome">
+                {x.emoji} {x.title}
+              </span>
+              <span className="degrau-conta">{x.from === MAX_STREAK ? 'o topo' : 'pódios seguidos'}</span>
+            </li>
+          ))}
+        </ol>
+        <ul className="regras-lista">
+          <li>❌ Zera fora do pódio ou faltando</li>
+          <li>🧊 Play sem status não sobe nem zera</li>
+          <li>⭐ Não vale pontos: o ranking é só o que foi jogado</li>
+        </ul>
+        <div className="premio">
+          👑 <strong>Duquesa da V3</strong> entra no Hall das Duquesas, ganha a camisa dourada com o nome e um
+          presente surpresa. O status recomeça, mas o nome fica dourado com a coroa para sempre.
+        </div>
       </div>
     </>
   )
 }
+
+/** O nome de cada posicao da tabela de pontos por colocacao (PONTUACAO_PADRAO). */
+const ROTULOS_DA_COLOCACAO = ['🥇 Campeã', '🥈 Vice', '🥉 3º lugar', 'Semifinal', 'Quartas', 'Grupos']
 
 /**
  * O Hall das Duquesas: quem ja chegou a 5 podios seguidos, para sempre.

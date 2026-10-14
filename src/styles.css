@@ -1488,3 +1488,84 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 :root[data-liga="masculino"] .topbar {
   background: linear-gradient(135deg, var(--fundo-2) 0%, #17407f 100%);
 }
+
+/* ---------- como pontua e status (Ranking) ----------
+   Blocos curtos e numeros grandes: e lido no celular, de relance, por quem
+   acabou de perguntar "quanto vale um 4x2?". */
+.regras .regra-bloco {
+  background: var(--card-2);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.regras .regra-titulo { font-weight: 800; font-size: 14px; margin-bottom: 4px; }
+.regras .regra-texto { font-size: 13px; line-height: 1.45; margin: 0 0 10px; }
+.regras .regra-nota { font-size: 11px; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+
+.placares { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.placar-chip {
+  border-radius: 12px;
+  padding: 8px 4px 6px;
+  text-align: center;
+  color: var(--sempre-escuro);
+}
+.placar-pts { display: block; font-size: 22px; font-weight: 900; line-height: 1; }
+.placar-jogo { display: block; font-size: 11px; font-weight: 800; letter-spacing: .5px; margin-top: 3px; opacity: .8; }
+
+.colocacoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.colocacao-chip {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  padding: 7px 4px;
+}
+.colocacao-chip.podio { background: var(--ouro-suave); border-color: transparent; }
+.colocacao-nome { font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.colocacao-chip.podio .colocacao-nome { color: var(--text); }
+.colocacao-pts { font-size: 20px; font-weight: 900; line-height: 1.1; }
+
+.regra-rodape {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 2px;
+}
+
+/* a escada do status: degraus numerados ligados por uma linha */
+.escada { list-style: none; margin: 0 0 12px; padding: 0; position: relative; }
+.escada::before {
+  content: '';
+  position: absolute;
+  left: 17px; top: 18px; bottom: 18px;
+  width: 2px;
+  background: var(--line-2);
+}
+.escada li {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 0;
+}
+.escada .degrau {
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 15px;
+  background: var(--card-2);
+  border: 2px solid var(--line-2);
+  position: relative; z-index: 1;
+}
+.escada .degrau-nome { font-weight: 800; font-size: 16px; flex: 1; min-width: 0; }
+.escada .degrau-conta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.escada li.topo { margin-top: 4px; padding: 8px 10px 8px 0; border-radius: 14px; background: var(--por-do-sol); color: var(--sempre-escuro); }
+.escada li.topo .degrau { background: var(--sempre-claro); border-color: transparent; color: var(--sempre-escuro); }
+.escada li.topo .degrau-conta { color: var(--sempre-escuro); opacity: .75; font-weight: 800; }
+
+.regras-lista { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.premio {
+  background: var(--ouro-suave);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
