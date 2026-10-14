@@ -1,4 +1,5 @@
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import type { Player } from '../lib/types'
 
@@ -154,7 +155,10 @@ export function StatBox({ k, v }: { k: string; v: React.ReactNode }) {
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
+  // direto no <body>: aberto de dentro do cabecalho (sticky, z-index proprio),
+  // o modal ficava preso na camada dele e a barra de abas o cobria -- o
+  // "Trocar de play" escondia o Play Mista atras dela
+  return createPortal(
     <div className="modal-bg" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="row spread" style={{ marginBottom: 12 }}>
@@ -163,7 +167,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

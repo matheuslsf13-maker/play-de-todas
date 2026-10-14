@@ -1057,3 +1057,9 @@ de duplas mistas usa o quadrado latino em vez do método do círculo: com n home
 são n² duplas mistas, e n ímpar não fecha em partidas inteiras — a saída é a mesma regra do
 rodízio de sempre (cada um repete a mesma quantidade: um pareamento H×M inteiro joga de novo).
 Medido em `tests/misto.test.ts` (2+2 a 6+6): toda dupla H+M, todos os pares, jogos iguais.
+
+**Play Mista independente (14/10/2026, mesmo dia).** A primeira versão recalculava a força de
+casa a cada abertura e somava o misto por cima; o dono preferiu o misto **totalmente à parte**:
+a força do campeonato é puxada **uma vez** (a foto em `misto.atletas`) e, dali em diante, força,
+faltas, pausa e inativar são do misto — com o mesmo cálculo de todos os plays. Só o cadastro
+(nome, apelido, foto) continua compartilhado.

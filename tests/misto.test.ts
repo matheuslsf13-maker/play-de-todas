@@ -11,9 +11,10 @@ import {
 } from '../src/lib/pairing'
 import { precisaRefazer } from '../src/lib/fila'
 import { pairKey } from '../src/lib/stats'
-import { calcularElo } from '../src/lib/stats'
+import { calcularElo, pausaNaForca, quedaPorFalta } from '../src/lib/stats'
+import { rankingDeForca } from '../src/lib/forca'
 import { emptyData } from '../src/lib/types'
-import type { Match } from '../src/lib/types'
+import type { AppData, Match, PlaySession, Player } from '../src/lib/types'
 
 const ids = (p: string, n: number) => Array.from({ length: n }, (_, i) => `${p}${i + 1}`)
 
@@ -92,13 +93,56 @@ test('refazer no misto: completa so com duplas H+M e fecha a conta', () => {
   assert.equal(precisaRefazer(todos, todas), true)
 })
 
-test('forca do misto comeca da forca de casa', () => {
-  const data = emptyData()
-  data.players = [
-    { id: 'a', name: 'A', active: true, forca_de_casa: 1580 },
-    { id: 'b', name: 'B', active: true, forca_de_casa: 1430 },
-  ] as typeof data.players
-  const elo = calcularElo(data)
-  assert.ok(Math.abs(elo.nota('a') - 1580) < 1e-6)
-  assert.ok(Math.abs(elo.nota('b') - 1430) < 1e-6)
+/*
+ * FORCA DO MISTO: a foto da forca do campeonato (forca_inicial em
+ * misto.atletas) e o ponto de partida; dali em diante e o mesmo calculo dos
+ * outros plays (Glicko, queda por falta, pausa), so que com os plays do misto.
+ */
+const sessaoMisto = (id: string, date: string, ids: string[]): PlaySession => ({
+  id, date, title: id, courts: 1, rounds: 1, target: 4, player_ids: ids, status: 'finished', created_at: date, ranked: true,
+})
+let nm = 0
+const partidaMisto = (s: string, a: [string, string], b: [string, string], sa: number, sb: number): Match => ({
+  id: `mm${++nm}`, session_id: s, round: nm, court: 1, team_a: a, team_b: b, score_a: sa, score_b: sb,
+  fase: 1, disputa_3o: false, started_at: null, ended_at: null,
+})
+function misto(): AppData {
+  const d = emptyData()
+  const p = (id: string, genero: 'F' | 'M', foto: number, jogos_de_casa: number): Player => ({
+    id, name: id, photo_url: null, active: true, created_at: '', genero, forca_inicial: foto, jogos_de_casa,
+  })
+  d.players = [p('x', 'F', 1560, 12), p('a', 'M', 1500, 8), p('b', 'F', 1500, 8), p('c', 'M', 1500, 8), p('d', 'F', 1500, 8), p('y', 'M', 1520, 10)]
+  return d
+}
+
+test('misto: cada um parte da foto do campeonato, e quem nunca jogou o misto nao cai', () => {
+  const d = misto()
+  // y nunca veio ao misto: a nota e a foto, aparece na forca (jogou no campeonato) e nao cai
+  for (let i = 1; i <= 3; i++) {
+    d.sessions.push(sessaoMisto(`s${i}`, `2026-10-0${i}`, ['a', 'b', 'c', 'd']))
+    d.matches.push(partidaMisto(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
+  }
+  assert.ok(Math.abs(calcularElo(d).nota('y') - 1520) < 1e-6)
+  assert.equal(quedaPorFalta(d).get('y')?.faltas ?? 0, 0)
+  const linha = rankingDeForca(d, (id) => id).find((l) => l.player_id === 'y')
+  assert.equal(linha?.nota, 1520)
+  assert.equal(linha?.jogos, 0)
+  assert.equal(linha?.jogosDeCasa, 10)
+})
+
+test('misto: faltar aos plays do misto segue a mesma regra dos outros (2a falta 10%, sai do ranking)', () => {
+  const d = misto()
+  d.sessions.push(sessaoMisto('s1', '2026-10-01', ['x', 'a', 'b', 'c']))
+  d.matches.push(partidaMisto('s1', ['x', 'a'], ['b', 'c'], 4, 3))
+  for (let i = 2; i <= 3; i++) {
+    d.sessions.push(sessaoMisto(`s${i}`, `2026-10-0${i}`, ['a', 'b', 'c', 'd']))
+    d.matches.push(partidaMisto(`s${i}`, ['a', 'b'], ['c', 'd'], 4, 3))
+  }
+  const depoisDoJogo = calcularElo(d, '2026-10-01').nota('x')
+  const x2 = calcularElo(d, '2026-10-02').nota('x')
+  assert.ok(Math.abs(x2 - depoisDoJogo) < 1, 'a 1a falta nao tira nada')
+  const esperado = x2 - (x2 - calcularElo(d, '2026-10-02').media()) * 0.1
+  assert.ok(Math.abs(calcularElo(d).nota('x') - esperado) <= 0.5)
+  assert.equal(quedaPorFalta(d).get('x')?.faltas, 2)
+  assert.equal(pausaNaForca(d).get('x'), 'faltas')
 })

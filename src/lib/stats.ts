@@ -495,13 +495,10 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
    * 13/10 a forca nao e mais soma zero (o extra do passo que acelera nao sai de
    * ninguem), entao a media anda e "1500" deixou de ser o meio do grupo.
    */
-  const inicial = new Map(
-    // no misto, o ponto de partida e a forca que a pessoa tem no campeonato dela
-    data.players.map((p) => [p.id, p.forca_de_casa ?? p.forca_inicial ?? ELO_INICIAL] as const),
-  )
-  const escolheuInicio = new Set(
-    data.players.filter((p) => p.forca_de_casa != null || p.forca_inicial != null).map((p) => p.id),
-  )
+  // no misto, o forca_inicial e a forca do campeonato dela, puxada uma vez
+  // (`misto.atletas`): e o mesmo campo, entao a conta e a mesma
+  const inicial = new Map(data.players.map((p) => [p.id, p.forca_inicial ?? ELO_INICIAL] as const))
+  const escolheuInicio = new Set(data.players.filter((p) => p.forca_inicial != null).map((p) => p.id))
   const elo = new Map<string, number>()
   const jaJogou = new Set<string>()
   /** A media de hoje: a de quem ja jogou (no comeco, o meio da escala). */

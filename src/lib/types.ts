@@ -6,10 +6,11 @@ export type Player = {
    */
   genero?: 'F' | 'M'
   /**
-   * SO NO APP MISTO, so em memoria: a forca dela no proprio campeonato (escala
-   * 1500), que e o ponto de partida da forca do misto.
+   * SO NO APP MISTO, so em memoria: desde quando ela esta no misto (o dia da
+   * "foto" da forca do campeonato, em `misto.atletas`). Sem isto, a foto ainda
+   * nao foi tirada e a forca inicial mostrada e a do campeonato de agora.
    */
-  forca_de_casa?: number
+  misto_desde?: string
   /**
    * SO NO APP MISTO, so em memoria: quantas partidas ela tem no proprio
    * campeonato. Quem tem forca la ja aparece na forca do misto, mesmo antes do

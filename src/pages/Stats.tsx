@@ -770,8 +770,9 @@ function PainelForca() {
         </p>
         {LIGA.id === 'misto' && (
           <p className="tiny muted" style={{ marginTop: 0 }}>
-            👫 No misto, cada um parte da força do <strong>seu campeonato</strong>, e só os jogos do misto mexem
-            daí para frente. Nada daqui volta para o Play de Todas nem para o Play de Terça.
+            👫 No misto, cada um começou com a força que tinha no <strong>seu campeonato</strong>; daí em diante só os
+            jogos do misto mexem, com as mesmas regras (faltas, pausa) dos outros plays. Nada daqui volta para o
+            Play de Todas nem para o Play de Terça, e nada de lá entra mais aqui.
           </p>
         )}
 

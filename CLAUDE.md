@@ -62,8 +62,13 @@ liga/            textos do masculino: o código fica no feminino e o build
   (`jogadoresDosDoisCampeonatos` em `supabaseRepo.ts`) e marca `genero` só em memória.
   Cadastrar no misto pede ♀/♂ (`EscolherGenero`) e grava no campeonato certo; apagar e
   juntar ficam bloqueados. Sem a aba Check-ins. O schema `misto` só tem as tabelas do play.
-- **Força própria do misto**: começa da força de casa (`forca_de_casa` = o `calcularElo` do
-  campeonato dela/dele) e só as partidas do misto mexem. Nada volta para os campeonatos.
+- **Força própria do misto, puxada UMA vez** (`misto.atletas`, script 30): ao abrir o misto
+  logada, quem ainda não tem linha ganha uma com a força do campeonato daquele momento (a
+  "foto", em `forca_inicial`; `upsert` com `ignoreDuplicates`, nunca regrava). Dali em diante
+  é o **mesmo cálculo** dos outros plays (`calcularElo`: Glicko, queda por falta, pausa,
+  2 faltas fora do ranking), só que com os plays do misto. O campeonato não mexe mais no
+  misto, e o misto nunca mexe no campeonato. Sem foto ainda (visitante, antes de alguém
+  logado abrir), vale a força de casa de agora.
 - **Duplas do rodízio escolhidas a cada play** (`sessions.duplas_mistas`): 🔀 mistas
   (padrão) ou 🎲 livres. Mistas = quadrado latino (`rondasMistas`/`rodizioMisto` em
   `pairing.ts`): cada homem joga uma vez com cada mulher, todos com o mesmo número de
@@ -72,10 +77,14 @@ liga/            textos do masculino: o código fica no feminino e o build
   cada gênero dividido por nível, metade de cada (`formarGruposMistos`). Refazer e
   `precisaRefazer` só contam duplas H+M (`genero`). Trocar jogador mostra o mesmo gênero
   primeiro. Duplas fixas no misto: `montarDuplasPorNivel(..., genero)` prioriza H+M.
-- No misto a aba Atletas **não** inativa, pausa nem muda a força inicial: isso vale no
-  campeonato da pessoa e mexeria lá. Status: 💎 **Craque do Play** (4) e 👑 **MVP da V3** (5).
+- **Inatividade do misto é do misto**: inativar, pausar e a força inicial do perfil gravam em
+  `misto.atletas` (`savePlayer` no misto manda só o cadastro — nome, apelido, foto, grafias —
+  para o campeonato; nunca `forca_inicial`/`active`/`pausas`/`reativada_em`, exceto ao criar
+  alguém novo pelo misto). Juntar e apagar continuam só no app do campeonato. Status: 💎 **Craque do Play** (4) e 👑 **MVP da V3** (5).
 - **A força do misto aparece antes do 1º play misto**: quem tem jogos no campeonato dela
   (`jogos_de_casa`, só em memória) entra no ranking da força e na média (`mediaDaForca`).
+- **`Modal` é desenhado no `<body>`** (`createPortal` em `ui.tsx`): aberto de dentro do
+  cabeçalho (sticky, camada própria), ficava atrás da barra de abas.
 - **🔁 Trocar de play** (`components/TrocarDePlay.tsx`, nos três apps, no cabeçalho): leva
   de um app ao outro pelo `liga.pasta` (`''`, `masculino/`, `mista/`) e mostra o `rotulo`
   ("Play de Todas (feminino)"…, em `liga.config.ts`, fora de `src/` para o tradutor não

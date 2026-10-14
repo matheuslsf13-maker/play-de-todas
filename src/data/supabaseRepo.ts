@@ -25,16 +25,46 @@ import { emptyData } from '../lib/types'
 
 /**
  * O APP MISTO nao tem jogadores proprios: le os do Play de Todas (`public`, 'F')
- * e os do Play de Terca (`masculino`, 'M'), e grava cada um de volta no
- * campeonato dele. Tambem le os plays dos dois para calcular a FORCA DE CASA de
- * cada um, o ponto de partida da forca do misto -- que depois anda so com as
- * partidas do misto. Nada do misto volta para os campeonatos.
+ * e os do Play de Terca (`masculino`, 'M'), e o CADASTRO (nome, apelido, foto)
+ * continua de la. O resto e do misto e mora em `misto.atletas` (script 30):
+ *
+ *  - a FORCA INICIAL e a forca do campeonato puxada UMA vez -- a "foto",
+ *    tirada quando a pessoa aparece no misto pela primeira vez. Dali em diante
+ *    so os jogos do misto mexem; o campeonato nao mexe mais (o dono quis o
+ *    misto independente, 14/10);
+ *  - inativar e pausar no misto sao do misto.
+ *
+ * Nada do misto volta para os campeonatos, e nada deles entra mais no misto.
  */
 const EH_MISTO = LIGA.id === 'misto'
 const SCHEMA_DO_GENERO = { F: 'public', M: 'masculino' } as const
 
+/** A linha de `misto.atletas`: o que e so do misto. */
+type AtletaDoMisto = {
+  player_id: string
+  forca_inicial: number | null
+  active: boolean
+  pausas: Player['pausas'] | null
+  reativada_em: string | null
+  created_at?: string
+}
+
+/** Quem ja existe no campeonato: gravar alguem novo pelo misto cria o cadastro inteiro la. */
+const jaNoCampeonato = new Set<string>()
+
 async function jogadoresDosDoisCampeonatos(): Promise<Player[]> {
   const sb = client()
+  const atletas = await sb.from('atletas').select('*')
+  // sem o script 30 o misto segue abrindo, so que ainda sem forca propria
+  if (atletas.error) {
+    console.warn('misto.atletas indisponível:', atletas.error.message)
+    avisosDoBanco.tabelas.add('atletas')
+  } else {
+    avisosDoBanco.tabelas.delete('atletas')
+  }
+  const doMisto = new Map(((atletas.data ?? []) as AtletaDoMisto[]).map((a) => [a.player_id, a]))
+  const fotos: AtletaDoMisto[] = []
+
   const lados = await Promise.all(
     (['F', 'M'] as const).map(async (g) => {
       const esquema = sb.schema(SCHEMA_DO_GENERO[g])
@@ -54,14 +84,34 @@ async function jogadoresDosDoisCampeonatos(): Promise<Player[]> {
         if (m.score_a === null || m.score_b === null) continue
         for (const id of [...m.team_a, ...m.team_b]) jogos.set(id, (jogos.get(id) ?? 0) + 1)
       }
-      return jogadores.map((p) => ({
-        ...p,
-        genero: g,
-        forca_de_casa: Math.round(nota(p.id)),
-        jogos_de_casa: jogos.get(p.id) ?? 0,
-      }))
+      return jogadores.map((p): Player => {
+        jaNoCampeonato.add(p.id)
+        const daCasa = Math.round(nota(p.id))
+        const m = doMisto.get(p.id)
+        if (!m) fotos.push({ player_id: p.id, forca_inicial: daCasa, active: p.active, pausas: null, reativada_em: null })
+        return {
+          ...p,
+          genero: g,
+          jogos_de_casa: jogos.get(p.id) ?? 0,
+          // sem foto ainda (ninguem logado abriu o misto desde que ela chegou),
+          // vale a forca de casa de agora; com foto, a foto e mais nada
+          forca_inicial: m ? m.forca_inicial : daCasa,
+          active: m ? m.active : p.active,
+          pausas: m?.pausas ?? undefined,
+          reativada_em: m?.reativada_em ?? undefined,
+          misto_desde: m?.created_at,
+        }
+      })
     }),
   )
+
+  // A FOTO, UMA VEZ: quem chegou ao misto ganha a linha com a forca de casa de
+  // hoje. So logada (a anon nao escreve), e `ignoreDuplicates`: a linha que ja
+  // existe nunca e regravada -- nem por dois celulares abrindo ao mesmo tempo.
+  if (!atletas.error && fotos.length > 0 && (await sb.auth.getSession()).data.session) {
+    const { error } = await sb.from('atletas').upsert(fotos, { onConflict: 'player_id', ignoreDuplicates: true })
+    if (error) console.warn('não consegui guardar a força inicial do misto:', error.message)
+  }
   return lados.flat().sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
 }
 
@@ -221,10 +271,29 @@ export const supabaseRepo: Repo = {
   },
   async savePlayer(p: Player) {
     if (EH_MISTO) {
-      // grava no campeonato da pessoa, sem o que so existe na memoria do misto
-      const { genero, forca_de_casa: _casa, jogos_de_casa: _jogos, ...noBanco } = p
+      // o cadastro vai para o campeonato da pessoa; forca inicial, inativar e
+      // pausar vao para o misto -- e NUNCA para o campeonato, senao pausar
+      // alguem no misto pausaria la tambem
+      const {
+        genero, jogos_de_casa: _jogos, misto_desde: _desde,
+        forca_inicial, active, pausas, reativada_em, ...cadastro
+      } = p
       if (!genero) throw new Error('No Play Mista, todo atleta precisa ser do feminino ou do masculino')
-      await upsertTolerante('players', noBanco, SCHEMA_DO_GENERO[genero])
+      // alguem novo, criado aqui: o campeonato recebe o cadastro inteiro (o
+      // nivel escolhido e o ponto de partida dela la tambem)
+      const novo = !jaNoCampeonato.has(p.id)
+      await upsertTolerante('players', novo ? { ...cadastro, forca_inicial, active } : cadastro, SCHEMA_DO_GENERO[genero])
+      jaNoCampeonato.add(p.id)
+      const doMisto: AtletaDoMisto = {
+        player_id: p.id,
+        forca_inicial: forca_inicial ?? null,
+        active,
+        pausas: pausas ?? null,
+        reativada_em: reativada_em ?? null,
+      }
+      // sem o script 30 nao ha onde guardar: gravar travaria a fila de envio
+      if (avisosDoBanco.tabelas.has('atletas')) return
+      await upsertTolerante('atletas', doMisto)
       return
     }
     await upsertTolerante('players', p)
@@ -388,7 +457,7 @@ export const supabaseRepo: Repo = {
     // e as tabelas dos check-ins nao existem
     const ouvir: [string, string][] = [
       ...(EH_MISTO
-        ? ([['public', 'players'], ['masculino', 'players']] as [string, string][])
+        ? ([['public', 'players'], ['masculino', 'players'], ['misto', 'atletas']] as [string, string][])
         : ([[LIGA.schema, 'players']] as [string, string][])),
       ...['sessions', 'matches', 'streak_choices', 'month_closures'].map((t) => [LIGA.schema, t] as [string, string]),
       ...(EH_MISTO

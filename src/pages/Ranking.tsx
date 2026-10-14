@@ -740,8 +740,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
       <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
         {modo === 'individual' && LIGA.id === 'misto' ? (
           <>
-            Cada um começa com a força do <strong>seu campeonato</strong> (Play de Todas ou Play de Terça), que
-            acompanha sozinha o que acontece lá; os jogos do misto ajustam por cima. A média hoje é {mediaDaForca(data)}.
+            Cada um <strong>começou</strong> com a força que tinha no seu campeonato (Play de Todas ou Play de Terça);
+            daí em diante só os jogos do misto contam. A média hoje é {mediaDaForca(data)}.
           </>
         ) : modo === 'individual' ? (
           <>A força atravessa o ano (não zera com o mês). A média do grupo hoje é {mediaDaForca(data)}.</>
