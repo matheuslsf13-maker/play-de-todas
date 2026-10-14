@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { LIGA } from '../liga'
+import { LIGA, URL_DO_LOGO } from '../liga'
 import { Avatar, Empty, Logo, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { buildMonthPoster } from '../lib/poster'
 import { monthRankingText } from '../lib/share'
@@ -150,7 +150,7 @@ export default function Ranking({
           statusPoints: usou?.bonus,
         }
       })
-      const blob = await buildMonthPoster(rotuloPeriodo, linhas, `${import.meta.env.BASE_URL}logo.png`)
+      const blob = await buildMonthPoster(rotuloPeriodo, linhas, URL_DO_LOGO)
       setPoster({ url: URL.createObjectURL(blob), blob })
     } catch (e) {
       onToast('Não consegui gerar a imagem')

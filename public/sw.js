@@ -14,7 +14,8 @@ const CACHE = DO_ESCOPO + VERSAO
 // guardada depois de carregar uma vez -- na primeira abertura com sinal fraco
 // ela falhava e a tela ficava sem logo. O catch e para uma falha aqui nunca
 // impedir o service worker de instalar.
-const PRECACHE = ['./logo.png', './icon-192.png']
+// o logo vai com a versao na URL, a mesma que o app pede (URL_DO_LOGO)
+const PRECACHE = ['./logo.png?v=' + VERSAO, './icon-192.png']
 
 self.addEventListener('install', (e) => {
   self.skipWaiting()

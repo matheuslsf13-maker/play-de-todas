@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { LIGA } from '../liga'
+import { LIGA, URL_DO_LOGO } from '../liga'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import ClassificacaoDosGrupos from '../components/ClassificacaoDosGrupos'
 import DesempateEmQuadra from '../components/DesempateEmQuadra'
@@ -2311,7 +2311,7 @@ function PlayDetail({
           statusPoints: undefined,
         }
       }
-      const logo = `${import.meta.env.BASE_URL}logo.png`
+      const logo = URL_DO_LOGO
       /*
        * No grupos+duplas a arte coroa o PODIO DA CHAVE, nao os pontos.
        *

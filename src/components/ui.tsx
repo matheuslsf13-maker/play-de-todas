@@ -1,5 +1,5 @@
 import React from 'react'
-import { LIGA } from '../liga'
+import { LIGA, URL_DO_LOGO } from '../liga'
 import type { Player } from '../lib/types'
 
 export function initials(name: string): string {
@@ -106,7 +106,7 @@ export function Logo({ size = 64 }: { size?: number }) {
     return (
       <img
         key={tentativa}
-        src={`${import.meta.env.BASE_URL}logo.png`}
+        src={URL_DO_LOGO}
         alt="Play de Todas"
         width={size}
         height={size}
