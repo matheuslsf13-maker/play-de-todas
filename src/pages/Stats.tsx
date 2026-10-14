@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LIGA } from '../liga'
 import GraficoDeForca from '../components/GraficoDeForca'
 import GraficoDaDupla from '../components/GraficoDaDupla'
 import HistoricoDePartidas from '../components/HistoricoDePartidas'
@@ -767,6 +768,12 @@ function PainelForca() {
           A nota que monta os grupos e as duplas. Atravessa o ano (não zera com o mês) e mede{' '}
           <strong>de quem</strong> você ganhou. A média do grupo hoje é <strong>{mediaHoje}</strong>.
         </p>
+        {LIGA.id === 'misto' && (
+          <p className="tiny muted" style={{ marginTop: 0 }}>
+            👫 No misto, cada um parte da força do <strong>seu campeonato</strong>, e só os jogos do misto mexem
+            daí para frente. Nada daqui volta para o Play de Todas nem para o Play de Terça.
+          </p>
+        )}
 
         <div className="stack" style={{ gap: 10 }}>
           {linhas.map((l, i) => (
@@ -857,7 +864,9 @@ function LinhaDaForca({
         />
       </div>
       <div className="tiny muted">
-        {linha.jogos} {linha.jogos === 1 ? 'partida' : 'partidas'}
+        {linha.jogosDeCasa === undefined
+          ? `${linha.jogos} ${linha.jogos === 1 ? 'partida' : 'partidas'}`
+          : `${linha.jogos} no misto · ${linha.jogosDeCasa} no campeonato`}
         {linha.provisoria && ' · nota provisória'}
         {linha.queda && ` · ${textoDaQueda(linha.queda)}`}
         {' · '}

@@ -74,6 +74,15 @@ liga/            textos do masculino: o código fica no feminino e o build
   primeiro. Duplas fixas no misto: `montarDuplasPorNivel(..., genero)` prioriza H+M.
 - No misto a aba Atletas **não** inativa, pausa nem muda a força inicial: isso vale no
   campeonato da pessoa e mexeria lá. Status: 💎 **Craque do Play** (4) e 👑 **MVP da V3** (5).
+- **A força do misto aparece antes do 1º play misto**: quem tem jogos no campeonato dela
+  (`jogos_de_casa`, só em memória) entra no ranking da força e na média (`mediaDaForca`).
+- **🔁 Trocar de play** (`components/TrocarDePlay.tsx`, nos três apps, no cabeçalho): leva
+  de um app ao outro pelo `liga.pasta` (`''`, `masculino/`, `mista/`) e mostra o `rotulo`
+  ("Play de Todas (feminino)"…, em `liga.config.ts`, fora de `src/` para o tradutor não
+  mexer). A escolha fica em `localStorage['play:app']` (do domínio, vale para os três):
+  na **1ª visita à raiz** aparece "Qual play você quer abrir?" (`EscolhaDeEntrada`, em
+  `main.tsx`); depois a raiz abre direto no play escolhido. Abrir o masculino ou o misto
+  pelo link também grava a escolha.
 - Textos: `liga/masculino.json` (plural neutro) + `liga/misto.json` por cima. Logo:
   `node scripts/liga/gerar-logo.mjs misto` (de `liga/misto/logo.svg` para `public-misto/`).
 

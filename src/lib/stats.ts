@@ -705,7 +705,19 @@ const cacheDaMedia = new WeakMap<AppData, number>()
 export function mediaDaForca(data: AppData): number {
   const c = cacheDaMedia.get(data)
   if (c !== undefined) return c
-  const m = Math.round(calcularElo(data).media())
+  const elo = calcularElo(data)
+  // no misto quem tem forca no proprio campeonato ja conta para a media, mesmo
+  // sem play misto: senao, antes do 1o play, a media seria um 1500 inventado
+  const deCasa = data.players.filter((p) => (p.jogos_de_casa ?? 0) > 0)
+  const m = Math.round(
+    deCasa.length > 0
+      ? (() => {
+          const ids = new Set(deCasa.map((p) => p.id))
+          for (const x of playedMatches(data)) for (const id of [...x.team_a, ...x.team_b]) ids.add(id)
+          return [...ids].reduce((t, id) => t + elo.nota(id), 0) / ids.size
+        })()
+      : elo.media(),
+  )
   cacheDaMedia.set(data, m)
   return m
 }

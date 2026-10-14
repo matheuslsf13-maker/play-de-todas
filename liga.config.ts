@@ -1,7 +1,8 @@
 /**
- * As duas ligas: o Play de Todas (feminino) e a versao masculina.
+ * As tres ligas: o Play de Todas (feminino), o Play de Terca (masculino) e o
+ * Play Mista.
  *
- * O codigo e exatamente o mesmo nas duas -- mesmas regras, mesma forca, mesmos
+ * O codigo e exatamente o mesmo nas tres -- mesmas regras, mesma forca, mesmos
  * grupos e duplas. O que muda: o SCHEMA do banco (os dados nao se misturam), o
  * endereco, o nome e as cores. Escolhida no build pela variavel VITE_LIGA.
  *
@@ -28,6 +29,14 @@ export type Liga = {
   marca: string
   /** Segunda cor da marca, a do comeco do degrade. */
   marca2: string
+  /** A subpasta do site onde o app mora ('' = a raiz). */
+  pasta: string
+  /**
+   * O nome no "Trocar de play" e na escolha de entrada. Fica aqui, fora de
+   * src/, de proposito: o tradutor do masculino so mexe em src/, e "Play de
+   * Todas (feminino)" viraria "Play de Terca (feminino)" no seletor.
+   */
+  rotulo: string
 }
 
 export const LIGAS: Record<LigaId, Liga> = {
@@ -42,6 +51,8 @@ export const LIGAS: Record<LigaId, Liga> = {
     temaClaro: '#efe5d6',
     marca: '#ff5c8a',
     marca2: '#8b5cf0',
+    pasta: '',
+    rotulo: 'Play de Todas (feminino)',
   },
   masculino: {
     id: 'masculino',
@@ -56,6 +67,8 @@ export const LIGAS: Record<LigaId, Liga> = {
     temaClaro: '#e1e8f1',
     marca: '#3fa2ff',
     marca2: '#2f5fd0',
+    pasta: 'masculino/',
+    rotulo: 'Play de Terça (masculino)',
   },
   misto: {
     id: 'misto',
@@ -71,6 +84,8 @@ export const LIGAS: Record<LigaId, Liga> = {
     temaClaro: '#e2ece9',
     marca: '#2ec4b0',
     marca2: '#16807a',
+    pasta: 'mista/',
+    rotulo: 'Play Mista',
   },
 }
 

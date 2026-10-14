@@ -992,6 +992,44 @@ textarea.input { line-height: 1.45; }
 }
 .chip-topo:active { background: rgba(255, 246, 238, .24); }
 
+/* trocar de play: as linhas da janela e a tela da primeira visita */
+.play-opcao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.play-opcao img { flex: none; width: 48px; height: 48px; object-fit: contain; }
+.play-opcao.on { outline: 2px solid var(--pink); outline-offset: -1px; }
+.play-opcao:active { transform: scale(.99); }
+.entrada {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--fundo);
+}
+.entrada-caixa {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 20px 16px;
+  box-shadow: var(--shadow);
+}
+.entrada-titulo { font-size: 22px; font-weight: 900; margin: 0 0 6px; color: var(--text); }
+
 /* atalho para a apresentacao, na tela inicial */
 .card.apresentacao {
   display: flex;

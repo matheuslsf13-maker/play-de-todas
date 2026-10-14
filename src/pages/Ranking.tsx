@@ -688,6 +688,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   <span className="grow" style={{ minWidth: 0 }}>
                     <NomeClicavel id={l.player_id} className="ellipsis">{nameOf(l.player_id)}</NomeClicavel>
                   </span>
+                  {LIGA.id === 'misto' && (
+                    <span className="nowrap tiny muted">{playerById(l.player_id)?.genero === 'F' ? '♀' : '♂'}</span>
+                  )}
                   <span className="nowrap tiny" style={{ color: l.nivel.cor, fontWeight: 800 }}>
                     {l.nivel.emoji}
                   </span>
@@ -729,13 +732,18 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
       {total > 5 && onVerTudo && (
         <button className="btn ghost block sm" style={{ marginTop: 10 }} onClick={onVerTudo}>
           {modo === 'individual'
-            ? `Ver as ${total} jogadoras →`
+            ? `Ver todas as ${total} jogadoras →`
             : `Ver as ${total} duplas →`}
         </button>
       )}
 
       <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
-        {modo === 'individual' ? (
+        {modo === 'individual' && LIGA.id === 'misto' ? (
+          <>
+            Cada um começa com a força do <strong>seu campeonato</strong> (Play de Todas ou Play de Terça), que
+            acompanha sozinha o que acontece lá; os jogos do misto ajustam por cima. A média hoje é {mediaDaForca(data)}.
+          </>
+        ) : modo === 'individual' ? (
           <>A força atravessa o ano (não zera com o mês). A média do grupo hoje é {mediaDaForca(data)}.</>
         ) : (
           <>A força da dupla parte da média das duas e muda com o que rendem <strong>juntas</strong>.</>

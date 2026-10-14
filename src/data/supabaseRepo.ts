@@ -49,7 +49,17 @@ async function jogadoresDosDoisCampeonatos(): Promise<Player[]> {
       // a forca de casa: o mesmo calculo do campeonato dela, com os plays de la
       const casa = { ...emptyData(), players: jogadores, sessions: (sessions.data ?? []) as PlaySession[], matches: (matches.data ?? []) as Match[] }
       const { nota } = calcularElo(casa)
-      return jogadores.map((p) => ({ ...p, genero: g, forca_de_casa: Math.round(nota(p.id)) }))
+      const jogos = new Map<string, number>()
+      for (const m of casa.matches) {
+        if (m.score_a === null || m.score_b === null) continue
+        for (const id of [...m.team_a, ...m.team_b]) jogos.set(id, (jogos.get(id) ?? 0) + 1)
+      }
+      return jogadores.map((p) => ({
+        ...p,
+        genero: g,
+        forca_de_casa: Math.round(nota(p.id)),
+        jogos_de_casa: jogos.get(p.id) ?? 0,
+      }))
     }),
   )
   return lados.flat().sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
@@ -212,7 +222,7 @@ export const supabaseRepo: Repo = {
   async savePlayer(p: Player) {
     if (EH_MISTO) {
       // grava no campeonato da pessoa, sem o que so existe na memoria do misto
-      const { genero, forca_de_casa: _casa, ...noBanco } = p
+      const { genero, forca_de_casa: _casa, jogos_de_casa: _jogos, ...noBanco } = p
       if (!genero) throw new Error('No Play Mista, todo atleta precisa ser do feminino ou do masculino')
       await upsertTolerante('players', noBanco, SCHEMA_DO_GENERO[genero])
       return

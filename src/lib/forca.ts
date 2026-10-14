@@ -68,6 +68,8 @@ export type LinhaDeForca = {
   queda?: QuedaPorFalta
   /** Fora do ranking da forca: pausada na mao, ou por 2 faltas seguidas. */
   pausada?: 'manual' | 'faltas'
+  /** So no misto: as partidas dela no proprio campeonato (`jogos` sao as do misto). */
+  jogosDeCasa?: number
 }
 
 /** "−9 por 3 faltas seguidas", para a ficha e as listas. */
@@ -82,6 +84,9 @@ export function textoDaQueda(q?: QuedaPorFalta): string {
  * Quem nunca jogou fica de fora: a nota dele e exatamente a media, mas por
  * falta de informacao e nao por equilibrio -- lista-la no meio do grupo seria
  * inventar um dado.
+ *
+ * No misto, "jogou" vale tambem no campeonato dela (`jogos_de_casa`): a forca
+ * de la e o ponto de partida, entao a lista ja sai cheia antes do 1o play misto.
  */
 export function rankingDeForca(
   data: AppData,
@@ -98,7 +103,7 @@ export function rankingDeForca(
     for (const id of [...m.team_a, ...m.team_b]) jogos.set(id, (jogos.get(id) ?? 0) + 1)
   }
   return data.players
-    .filter((p) => (jogos.get(p.id) ?? 0) > 0)
+    .filter((p) => (jogos.get(p.id) ?? 0) + (p.jogos_de_casa ?? 0) > 0)
     .map((p) => {
       const nota = notaDeForca(forcas.get(p.id) ?? 2)
       const n = jogos.get(p.id) ?? 0
@@ -106,8 +111,9 @@ export function rankingDeForca(
         player_id: p.id,
         nota,
         jogos: n,
+        jogosDeCasa: p.jogos_de_casa,
         nivel: nivelDeForca(nota, media),
-        provisoria: n < JOGOS_PARA_FIRMAR,
+        provisoria: n + (p.jogos_de_casa ?? 0) < JOGOS_PARA_FIRMAR,
         queda: (quedas.get(p.id)?.perda ?? 0) > 0 ? quedas.get(p.id) : undefined,
         pausada: pausas.get(p.id),
       }

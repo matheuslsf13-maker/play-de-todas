@@ -10,6 +10,12 @@ export type Player = {
    * 1500), que e o ponto de partida da forca do misto.
    */
   forca_de_casa?: number
+  /**
+   * SO NO APP MISTO, so em memoria: quantas partidas ela tem no proprio
+   * campeonato. Quem tem forca la ja aparece na forca do misto, mesmo antes do
+   * primeiro play misto.
+   */
+  jogos_de_casa?: number
   name: string
   photo_url: string | null
   active: boolean

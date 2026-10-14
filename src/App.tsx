@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LIGA } from './liga'
 import { BotaoInstalar } from './components/InstalarApp'
+import { BotaoTrocarDePlay } from './components/TrocarDePlay'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
 import { aplicarTema, temaSalvo, type Tema } from './lib/tema'
@@ -109,6 +110,7 @@ export default function App() {
                 </>
               )}
               <BotaoInstalar />
+              <BotaoTrocarDePlay />
             </div>
           </div>
           <button
