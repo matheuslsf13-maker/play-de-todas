@@ -10,7 +10,8 @@
  *
  * Desenho em docs/superpowers/specs/2026-10-06-campeonato-design.md.
  */
-import { duplasQueEntraram, duplasVivas, filaPorForca, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
+import { chaveDaDupla, classificarDuplas, filaDeDuplas, substituirNasDuplas, type Duo as DuplaFixa } from './duplasFixas'
+import { duplasQueEntraram, duplasVivas, filaPorForca, ordenarFila, type PlannedMatch, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
 import { DUPLAS_NO_PODIO, pairKey, pontosDeBye, rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, MesclaDoPlay, PlaySession } from './types'
@@ -472,6 +473,18 @@ export function aplicarMescla(s: PlaySession, m: MesclaDoPlay): PlaySession {
       const sem = (s.ausentes ?? []).filter((id) => id !== m.id)
       return { ...s, ausentes: m.ausente ? [...sem, m.id] : sem }
     }
+    case 'substituir': {
+      const troca = (d: [string, string]) => substituirNasDuplas([d], m.sai, m.entra)[0]
+      const jaEsta = s.player_ids.includes(m.entra)
+      return {
+        ...s,
+        duplas_definidas: s.duplas_definidas?.map(troca) ?? s.duplas_definidas,
+        duos: s.duos?.map(troca) ?? s.duos,
+        player_ids: jaEsta ? s.player_ids : [...s.player_ids, m.entra],
+        // quem entra de fora vai para o grupo (a categoria) de quem saiu
+        groups: jaEsta ? s.groups : s.groups?.map((g) => (g.includes(m.sai) ? [...g, m.entra] : g)) ?? s.groups,
+      }
+    }
     case 'escolhas': {
       const escolhas = { ...(s.escolhas ?? {}) }
       if (m.matchId) escolhas[m.quadra] = m.matchId
@@ -516,13 +529,18 @@ export function estimativaDaNoite(opts: {
   /** Quantas duplas entram no mata-mata (por categoria). */
   duplasMM: number
   minutos: number[]
+  /** Duplas fixas desde o inicio: a fase 1 e dupla contra dupla (tamanho/2 duplas). */
+  duplasFixas?: boolean
 }): { categorias: { grupos: number; mataMata: number }[]; total: number } {
   const rodadasDe = (partidas: number, quadras: number) => Math.ceil(partidas / Math.max(1, quadras))
   const categorias = opts.grupos.map((tamanhos, c) => {
     const q = Math.max(1, opts.quadras[c] ?? 1)
     // fase de grupos: os grupos dividem as quadras da categoria, mas nenhum
     // anda mais rapido do que o proprio rodizio deixa
-    const porGrupo = tamanhos.map((t) => partidasDoRodizio(t))
+    const porGrupo = tamanhos.map((t) => {
+      const k = Math.floor(t / 2)
+      return opts.duplasFixas ? (k * (k - 1)) / 2 : partidasDoRodizio(t)
+    })
     const total = porGrupo.reduce((a, b) => a + b, 0)
     const lentoDoGrupo = Math.max(0, ...tamanhos.map((t, i) => rodadasDe(porGrupo[i], quadrasSimultaneas([t]) || 1)))
     const grupos = Math.max(rodadasDe(total, q), lentoDoGrupo) * (opts.minutos[0] ?? 0)
@@ -632,4 +650,64 @@ export function esperamOTerceiroLugar(s: PlaySession, partidas: Match[]): Set<st
     }
   })
   return out
+}
+
+/* ------------------------------------------------- duplas fixas desde o inicio */
+
+/** As duplas definidas na criacao que estao nesta categoria. */
+export function duplasDefinidasDaCategoria(s: PlaySession, cat: number): DuplaFixa[] {
+  const cats = categoriasDoPlay(s)
+  return (s.duplas_definidas ?? []).filter((d) => categoriaDaJogadora(cats, s.groups, d[0]) === cat)
+}
+
+/**
+ * A classificacao das duplas fixas de uma categoria, na fase 1 (cada categoria
+ * e um grupo so). `grupo` e o indice global do grupo, que e o que o desempate em
+ * quadra grava.
+ */
+export function classificacaoDasDuplasFixas(s: PlaySession, cat: number, partidas: Match[]) {
+  const c = categoriasDoPlay(s)[cat]
+  const grupo = c?.grupos[0] ?? 0
+  const duplas = duplasDefinidasDaCategoria(s, cat)
+  const daqui = new Set(duplas.flat())
+  const ms = partidas.filter((m) => (m.fase ?? 1) === 1 && daqui.has(m.team_a[0]))
+  const desempates = (s.desempates_grupo ?? []).filter((d) => d.grupo === grupo)
+  return { ...classificarDuplas(duplas, ms, desempates), grupo, partidas: ms }
+}
+
+/** A fase 1 inteira das duplas fixas, categoria por categoria (dupla contra dupla). */
+export function filaDasDuplasFixas(s: PlaySession): PlannedMatch[] {
+  const cats = categoriasDoPlay(s)
+  return filaDeDuplas(
+    cats.map((_, ci) => duplasDefinidasDaCategoria(s, ci)),
+    cats.map((c) => c.grupos[0] ?? 0),
+  )
+}
+
+/**
+ * REFAZER A FILA NAS DUPLAS FIXAS: fica o que ja foi jogado, o que esta em quadra
+ * e o mata-mata; volta para a fila so o confronto dupla x dupla que ainda falta
+ * (com as duplas como estao AGORA, depois de uma troca). O rodizio individual
+ * (`planoDoRefazer`) nao se aplica: aqui ninguem troca de parceira.
+ */
+export function refazerDuplasFixas(
+  s: PlaySession,
+  partidas: Match[],
+  fica: (m: Match) => boolean,
+): { preservadas: Match[]; novas: PlannedMatch[] } {
+  const preservadas = partidas.filter((m) => fica(m) || (m.fase ?? 1) >= 2)
+  const par = (a: readonly string[], b: readonly string[]) => [chaveDaDupla(a), chaveDaDupla(b)].sort().join('x')
+  const jaTem = new Set(preservadas.filter((m) => (m.fase ?? 1) === 1).map((m) => par(m.team_a, m.team_b)))
+  const cats = categoriasDoPlay(s)
+  const novas: PlannedMatch[] = []
+  cats.forEach((c, ci) => {
+    const duplas = duplasDefinidasDaCategoria(s, ci)
+    for (let i = 0; i < duplas.length; i++) {
+      for (let j = i + 1; j < duplas.length; j++) {
+        if (jaTem.has(par(duplas[i], duplas[j]))) continue
+        novas.push({ team_a: duplas[i], team_b: duplas[j], grupo: c.grupos[0] ?? 0, fase: 1 })
+      }
+    }
+  })
+  return { preservadas, novas: ordenarFila(novas) }
 }

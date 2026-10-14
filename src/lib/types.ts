@@ -110,6 +110,12 @@ export type MesclaDoPlay =
   | { campo: 'ausentes'; id: string; ausente: boolean }
   /** a partida escolhida na mao para uma quadra (null = volta a sugestao do app) */
   | { campo: 'escolhas'; quadra: string; matchId: string | null }
+  /**
+   * DUPLAS FIXAS: `entra` assume o lugar de `sai` na dupla (se `entra` ja tinha
+   * dupla, os dois trocam). Quem sai continua na presenca e no grupo, porque as
+   * partidas que ja jogou continuam dela.
+   */
+  | { campo: 'substituir'; sai: string; entra: string }
 
 /** Um "Play de Todas": um dia de jogos. */
 export type PlaySession = {
@@ -192,6 +198,13 @@ export type PlaySession = {
    * todas as quadras -- e o grupos+duplas de sempre (script 21).
    */
   categorias?: Categoria[] | null
+  /**
+   * DUPLAS FIXAS DESDE O INICIO (script 28): as duplas da noite, formadas na
+   * criacao do play. Com isto preenchido, a fase 1 de cada categoria e dupla
+   * contra dupla (todas contra todas) e a classificacao das duplas monta o
+   * mata-mata; `duos` continua sendo so a chave, preenchida depois.
+   */
+  duplas_definidas?: [string, string][] | null
   /**
    * Pontos do mes POR COLOCACAO no grupos+duplas/campeonato:
    * [campea, vice, 3o, semifinal, quartas ou antes, fase de grupos].

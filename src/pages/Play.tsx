@@ -1,6 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
+import {
+  dividirDuplasEmCategorias,
+  filaDeDuplas,
+  montarDuplasPorNivel,
+  moverDupla,
+  partidasEntreDuplas,
+  trocarNasDuplas,
+} from '../lib/duplasFixas'
 import ClassificacaoDosGrupos from '../components/ClassificacaoDosGrupos'
 import DesempateEmQuadra from '../components/DesempateEmQuadra'
 import DivisaoDoCampeonato from '../components/DivisaoDoCampeonato'
@@ -12,6 +21,10 @@ import {
   categoriaDaPartida,
   categoriaTerminou,
   categoriasDoPlay,
+  classificacaoDasDuplasFixas,
+  nomeDaCategoria,
+  filaDasDuplasFixas,
+  refazerDuplasFixas,
   colocacoesDaCategoria,
   duosDaCategoria,
   pontosDeColocacao,
@@ -132,7 +145,7 @@ import { RankTable } from './Ranking'
 
 /** Os formatos, na ordem em que fazem sentido escolher. */
 /** O formato escolhido na tela: o campeonato e um `grupos-duplas` com categorias. */
-type FormatoDaTela = PlayFormat | 'campeonato'
+type FormatoDaTela = PlayFormat | 'campeonato' | 'duplas-fixas'
 
 const FORMATOS: { valor: FormatoDaTela; rotulo: string; explica: string }[] = [
   {
@@ -149,6 +162,11 @@ const FORMATOS: { valor: FormatoDaTela; rotulo: string; explica: string }[] = [
     valor: 'campeonato',
     rotulo: '🏆 Campeonato',
     explica: 'categorias por nível (A, B, C…), grupos em cada uma, duplas fixas e mata-mata, com pódio por categoria',
+  },
+  {
+    valor: 'duplas-fixas',
+    rotulo: '🔗 Duplas fixas',
+    explica: 'a dupla joga a noite toda junta: categorias por força, todas contra todas e mata-mata',
   },
   {
     valor: 'grupos',
@@ -414,7 +432,11 @@ function NewPlay({
   const [title, setTitle] = useState(preset.title ?? 'Play de Todas')
   const [courts, setCourts] = useState(preset.courts ?? 3)
   const [format, setFormat] = useState<FormatoDaTela>(
-    (preset.categorias?.length ?? 0) > 1 ? 'campeonato' : (preset.format ?? 'todas'),
+    preset.duplas_definidas?.length
+      ? 'duplas-fixas'
+      : (preset.categorias?.length ?? 0) > 1
+        ? 'campeonato'
+        : (preset.format ?? 'todas'),
   )
   const [porGrupo, setPorGrupo] = useState(8)
   /** Quantas duplas entram no mata-mata: 8 = 16 jogadoras, quartas de final. */
@@ -448,7 +470,11 @@ function NewPlay({
   // no modo em grupos o app decide quantos grupos cabem: quem escolhe e o
   // tamanho, e a conta sai do numero de meninas que confirmaram
   const emCampeonato = format === 'campeonato'
-  const emDuplas = format === 'grupos-duplas' || emCampeonato
+  /** Duplas fixas desde o inicio: categorias de duplas, todas contra todas, mata-mata. */
+  const emDuplasFixas = format === 'duplas-fixas'
+  const emDuplas = format === 'grupos-duplas' || emCampeonato || emDuplasFixas
+  /** Os dois formatos que dividem as quadras por categoria. */
+  const porCategorias = emCampeonato || emDuplasFixas
   /** Campeonato: quantas categorias e quantos grupos em cada uma. */
   const [nCategorias, setNCategorias] = useState(3)
   const [gruposPorCategoria, setGruposPorCategoria] = useState(2)
@@ -485,16 +511,49 @@ function NewPlay({
     if (format === 'grupos' || format === 'grupos-duplas') return formarGrupos(selected, forca, porGrupo, sorteio)
     return [selected]
   }, [format, selected, forca, porGrupo, sorteio])
-  /** Campeonato: [categoria][grupo][ids], ja com os ajustes na mao. */
+  /**
+   * DUPLAS FIXAS: as duplas por nivel (forte com forte), com as trocas feitas na
+   * mao por cima -- cada troca e um par de pessoas que trocaram de dupla, e so
+   * vale enquanto as duas continuam na lista.
+   */
+  const [trocasDeDupla, setTrocasDeDupla] = useState<[string, string][]>([])
+  /** Duplas levadas na mao para outra categoria (por qualquer uma das duas). */
+  const [duplasMovidas, setDuplasMovidas] = useState<[string, number][]>([])
+  const [tocadaNaDupla, setTocadaNaDupla] = useState<string | null>(null)
+  /** Categorias das duplas fixas; null = automatico (4 a 7 duplas por categoria). */
+  const [nCatsDuplas, setNCatsDuplas] = useState<number | null>(null)
+  const montagem = useMemo(
+    () => (emDuplasFixas ? montarDuplasPorNivel(selected, forca, undefined, sorteio) : null),
+    [emDuplasFixas, selected, forca, sorteio],
+  )
+  const duplasDaNoite = useMemo(() => {
+    if (!montagem) return []
+    return trocasDeDupla
+      .filter(([a, b]) => selected.includes(a) && selected.includes(b))
+      .reduce((ds, [a, b]) => trocarNasDuplas(ds, a, b), montagem.duplas)
+  }, [montagem, trocasDeDupla, selected])
+  // com 12 pessoas o padrao do campeonato (3 categorias) daria 2 duplas e uma
+  // partida em cada; nas duplas fixas o padrao e uma categoria a cada 4 duplas
+  const categoriasDasDuplas = nCatsDuplas ?? Math.max(1, Math.floor(duplasDaNoite.length / 4))
+  const categoriasDeDuplas = useMemo(() => {
+    if (!emDuplasFixas) return []
+    let cats = dividirDuplasEmCategorias(duplasDaNoite, forca, categoriasDasDuplas)
+    for (const [id, c] of duplasMovidas) if (c < cats.length) cats = moverDupla(cats, id, c)
+    return cats
+  }, [emDuplasFixas, duplasDaNoite, forca, categoriasDasDuplas, duplasMovidas])
+
+  /** Campeonato: [categoria][grupo][ids], ja com os ajustes na mao. Duplas fixas: uma categoria = um grupo. */
   const estrutura = useMemo(
     () =>
-      emCampeonato
-        ? aplicarMovidasNoCampeonato(
-            dividirEmCategorias(selected, forca, nCategorias, gruposPorCategoria, sorteio),
-            movidasCat,
-          )
-        : [],
-    [emCampeonato, selected, forca, nCategorias, gruposPorCategoria, sorteio, movidasCat],
+      emDuplasFixas
+        ? categoriasDeDuplas.map((ds) => [ds.flat()])
+        : emCampeonato
+          ? aplicarMovidasNoCampeonato(
+              dividirEmCategorias(selected, forca, nCategorias, gruposPorCategoria, sorteio),
+              movidasCat,
+            )
+          : [],
+    [emDuplasFixas, categoriasDeDuplas, emCampeonato, selected, forca, nCategorias, gruposPorCategoria, sorteio, movidasCat],
   )
   /**
    * Quantas quadras cada categoria tem. O padrao e o que os grupos dela enchem
@@ -503,11 +562,11 @@ function NewPlay({
    */
   const qtdQuadras = useMemo(() => {
     const base = qtdQuadrasEditada ?? estrutura.map((gs) => Math.max(1, quadrasSimultaneas(gs.map((g) => g.length))))
-    return Array.from({ length: nCategorias }, (_, i) => base[i] ?? 1)
+    return Array.from({ length: emDuplasFixas ? estrutura.length : Math.max(nCategorias, estrutura.length) }, (_, i) => base[i] ?? 1)
   }, [qtdQuadrasEditada, nCategorias, estrutura])
   const grupos = useMemo(
-    () => (emCampeonato ? estrutura.flat() : aplicarAjustesDeGrupo(gruposBase, movidas)),
-    [emCampeonato, estrutura, gruposBase, movidas],
+    () => (porCategorias ? estrutura.flat() : aplicarAjustesDeGrupo(gruposBase, movidas)),
+    [porCategorias, estrutura, gruposBase, movidas],
   )
   const tamanhos = grupos.map((g) => g.length)
 
@@ -531,6 +590,9 @@ function NewPlay({
     setMovidas({})
     setMovidasCat({})
     setMovendo(null)
+    setTrocasDeDupla([])
+    setDuplasMovidas([])
+    setTocadaNaDupla(null)
   }
 
   /** Campeonato: menina para outra categoria e grupo (livre; o criar acusa grupo com menos de 4). */
@@ -560,13 +622,15 @@ function NewPlay({
   // tres, e sobram duas de cada grupo esperando
   const maxCourts = quadrasSimultaneas(tamanhos)
   // no campeonato as quadras sao por categoria, e quem decide e o cartao delas
-  const effCourts = emCampeonato
+  const effCourts = porCategorias
     ? quadrasDoCampeonato.reduce((t, q) => t + q.length, 0)
     : Math.min(courts, maxCourts)
   /** O limite veio da divisao em grupos, e nao de faltar gente? */
   const travadoPorGrupo = grupos.length > 1 && maxCourts < Math.floor(selected.length / 4)
 
-  const totalPartidas = tamanhos.reduce((t, n) => t + partidasDoRodizio(n), 0)
+  const totalPartidas = emDuplasFixas
+    ? categoriasDeDuplas.reduce((t, ds) => t + partidasEntreDuplas(ds.length), 0)
+    : tamanhos.reduce((t, n) => t + partidasDoRodizio(n), 0)
   const parceirasMin = Math.min(...tamanhos.map(parceirasDoRodizio))
   const parceirasMax = Math.max(...tamanhos.map(parceirasDoRodizio))
   // jogos e parceiras nao sao a mesma coisa: num grupo de 6 cada uma joga com
@@ -586,12 +650,13 @@ function NewPlay({
   const tempoComFases = useMemo(() => {
     if (!emDuplas || selected.length < 8) return null
     return estimativaDaNoite({
-      grupos: emCampeonato ? estrutura.map((c) => c.map((g) => g.length)) : [tamanhos],
-      quadras: emCampeonato ? quadrasDoCampeonato.map((q) => q.length) : [effCourts],
+      grupos: porCategorias ? estrutura.map((c) => c.map((g) => g.length)) : [tamanhos],
+      quadras: porCategorias ? quadrasDoCampeonato.map((q) => q.length) : [effCourts],
+      duplasFixas: emDuplasFixas,
       duplasMM,
       minutos: alvos.map((a, i) => minutosDaPartida(a, lerRegra(desempates[i] ?? 'nenhum'))),
     })
-  }, [emDuplas, emCampeonato, selected.length, estrutura, tamanhos, quadrasDoCampeonato, effCourts, duplasMM, alvos, desempates])
+  }, [emDuplas, porCategorias, emDuplasFixas, selected.length, estrutura, tamanhos, quadrasDoCampeonato, effCourts, duplasMM, alvos, desempates])
 
   /** Quem foi tocada mas esta devendo: abre o alerta que resolve na hora. */
   const [pendente, setPendente] = useState<Player | null>(null)
@@ -681,11 +746,29 @@ function NewPlay({
         return
       }
     }
+    if (emDuplasFixas && hasSupabase && supabase) {
+      const { error } = await supabase.from('sessions').select('duplas_definidas').limit(1)
+      if (error) {
+        onToast('Antes, rode o script 28-duplas-definidas.sql no Supabase (pasta supabase/)')
+        return
+      }
+    }
+    if (emDuplasFixas) {
+      if (montagem?.semPar) {
+        onToast(`${nameOf(montagem.semPar)} ficou sem dupla: o número de pessoas precisa ser par`)
+        return
+      }
+      const curtas = categoriasDeDuplas.map((ds, c) => (ds.length < 2 ? nomeDaCategoria(c) : '')).filter(Boolean)
+      if (categoriasDeDuplas.length === 0 || curtas.length) {
+        onToast(`Toda categoria precisa de pelo menos 2 duplas${curtas.length ? `: ${curtas.join(', ')}` : ''}`)
+        return
+      }
+    }
     if (emCampeonato && selected.length < nCategorias * gruposPorCategoria * 4) {
       onToast('Faltam meninas para essas categorias -- cada grupo precisa de pelo menos 4')
       return
     }
-    if (grupos.length > 1 && tamanhos.some((t) => t < 4)) {
+    if (!emDuplasFixas && grupos.length > 1 && tamanhos.some((t) => t < 4)) {
       // a arrumacao dos grupos e livre; e aqui que se acusa o que nao fecha
       const nomes = emCampeonato
         ? estrutura.flatMap((gs, c) =>
@@ -702,13 +785,19 @@ function NewPlay({
     setBusy(true)
     try {
       const emGrupos = (format === 'grupos' || emDuplas) && grupos.length > 1
-      const camp = emCampeonato ? montarCategorias(estrutura, quadrasDoCampeonato) : null
-      const fila = gerarFila({
-        playerIds: selected,
-        ratings: forca,
-        history: buildHistory(playedMatches(data)),
-        groups: emGrupos ? (camp ? camp.groups : grupos) : undefined,
-      })
+      const camp = porCategorias ? montarCategorias(estrutura, quadrasDoCampeonato) : null
+      // com fases (grupos+duplas, campeonato, duplas fixas): tabela de pontos,
+      // alvos por fase e o tamanho do mata-mata
+      const comFases = emDuplasFixas || (emGrupos && emDuplas)
+      const fila =
+        emDuplasFixas && camp
+          ? filaDeDuplas(categoriasDeDuplas, camp.categorias.map((c) => c.grupos[0] ?? 0))
+          : gerarFila({
+              playerIds: selected,
+              ratings: forca,
+              history: buildHistory(playedMatches(data)),
+              groups: emGrupos ? (camp ? camp.groups : grupos) : undefined,
+            })
       const session: PlaySession = {
         id: uid(),
         date,
@@ -722,16 +811,17 @@ function NewPlay({
         player_ids: selected,
         status: 'open',
         created_at: new Date().toISOString(),
-        format: emGrupos ? (emDuplas ? 'grupos-duplas' : 'grupos') : 'todas',
+        format: emDuplasFixas ? 'grupos-duplas' : emGrupos ? (emDuplas ? 'grupos-duplas' : 'grupos') : 'todas',
         groups: camp ? camp.groups : emGrupos ? grupos : null,
         categorias: camp ? camp.categorias : null,
         // pontos do mes pela colocacao final; plays antigos nao tem e seguem pelo placar
-        pontuacao: emGrupos && emDuplas && ranked ? pontuacao : null,
+        pontuacao: comFases && ranked ? pontuacao : null,
+        duplas_definidas: emDuplasFixas ? categoriasDeDuplas.flat() : null,
         // todo play novo premia quem venceu mais; os antigos seguem por pontos
         criterio_dia: 'vitorias',
-        duplas_mm: emGrupos && emDuplas ? duplasMM : null,
-        alvos: emGrupos && emDuplas ? alvos : null,
-        desempates: emGrupos && emDuplas ? desempates : null,
+        duplas_mm: comFases ? duplasMM : null,
+        alvos: comFases ? alvos : null,
+        desempates: comFases ? desempates : null,
         ranked,
         conta_status: contaStatus,
       }
@@ -886,6 +976,28 @@ function NewPlay({
         />
       )}
 
+      {emDuplasFixas && montagem && (
+        <DuplasFixasNaCriacao
+          categorias={categoriasDeDuplas}
+          forca={forca}
+          nameOf={nameOf}
+          novatas={novatasAgora}
+          classeDoGrupo={classeDoGrupo}
+          tocada={tocadaNaDupla}
+          setTocada={setTocadaNaDupla}
+          onTrocar={(a, b) => setTrocasDeDupla((t) => [...t, [a, b]])}
+          onMoverDupla={(id, c) => setDuplasMovidas((m) => [...m, [id, c]])}
+          nCategorias={categoriasDasDuplas}
+          setNCategorias={(n) => { setNCatsDuplas(n); setQtdQuadras(null); setDuplasMovidas([]) }}
+          qtdQuadras={qtdQuadras}
+          setQtdQuadras={setQtdQuadras}
+          onRemontar={sortearDeNovo}
+          ajustada={trocasDeDupla.length > 0 || duplasMovidas.length > 0}
+          semPar={montagem.semPar}
+          mesmoGenero={montagem.mesmoGenero}
+        />
+      )}
+
       <div className="card">
         <div className="section-title">⚙️ Detalhes do play</div>
         <div className="stack" style={{ marginTop: 12 }}>
@@ -898,7 +1010,7 @@ function NewPlay({
               <span>Data</span>
               <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
-            {!emCampeonato && <div className="field">
+            {!porCategorias && <div className="field">
               <span>Quadras</span>
               <Stepper value={courts} min={1} max={12} onChange={setCourts} />
               <em className={`hint${selected.length >= 4 && effCourts < courts ? ' aviso' : ''}`}>
@@ -958,12 +1070,15 @@ function NewPlay({
           </div>
           )}
 
-          {emDuplas && grupos.length > 1 && (
+          {emDuplas && (grupos.length > 1 || emDuplasFixas) && (
             <div className="toggle-card">
               <div className="field">
                 <span>Games e desempate, por fase</span>
                 <div className="stack" style={{ gap: 8 }}>
-                  {['Grupos', 'Duplas fixas', 'Semifinal', 'Final'].map((rotulo, i) => (
+                  {(emDuplasFixas
+                    ? ['Classificação', '1ª do mata-mata', 'Semifinal', 'Final']
+                    : ['Grupos', 'Duplas fixas', 'Semifinal', 'Final']
+                  ).map((rotulo, i) => (
                     <div key={rotulo} className="fase-box">
                       <span className="fase-nome">{rotulo}</span>
                       <Stepper
@@ -997,10 +1112,10 @@ function NewPlay({
               </div>
 
               <div className="field" style={{ marginBottom: 0 }}>
-                <span>Duplas no mata-mata{emCampeonato ? ', em cada categoria' : ''}</span>
+                <span>Duplas no mata-mata{porCategorias ? ', em cada categoria' : ''}</span>
                 <Stepper value={duplasMM} min={2} max={16} onChange={setDuplasMM} />
                 <em className="hint">
-                  {emCampeonato
+                  {porCategorias
                     ? (() => {
                         // a mesma regra vale para todas: se as categorias tem o mesmo
                         // tamanho, uma frase so; senao, uma por categoria
@@ -1190,6 +1305,21 @@ function NewPlay({
           <div className="section-title">📋 Como vai ser a noite</div>
           <div className="stack" style={{ gap: 6 }}>
             {/* as partidas: quantas por menina, o total e quanto tempo */}
+            {emDuplasFixas ? (
+              <div className="small">
+                🔗 {plural(categoriasDeDuplas.flat().length, 'dupla')} em {plural(categoriasDeDuplas.length, 'categoria')}: cada
+                dupla enfrenta as outras da categoria uma vez ({totalPartidas} partidas na classificação), e a classificação
+                monta o mata-mata.
+                {tempoComFases && (
+                  <>
+                    {' '}⏱️ Classificação uns {formatarMinutos(Math.max(...tempoComFases.categorias.map((c) => c.grupos)))},
+                    mata-mata uns {formatarMinutos(Math.max(...tempoComFases.categorias.map((c) => c.mataMata)))} —{' '}
+                    <strong>a noite toda, uns {formatarMinutos(tempoComFases.total)}</strong>.
+                  </>
+                )}
+              </div>
+            ) : (
+            <>
             <div className="small">
               🎾 {emDuplas ? 'Na fase de grupos, cada' : 'Cada'} menina joga{' '}
               <strong>
@@ -1218,10 +1348,12 @@ function NewPlay({
               {repetem > 0 ? ` — e repete ${repetem === 1 ? '1 parceira' : `${repetem} parceiras`}, a mesma quantidade para todas` : ''}.
               {emDuplas && ' No mata-mata, 1ª com 1ª dos grupos.'}
             </div>
+            </>
+            )}
             {/* as quadras e o descanso */}
             <div className="small">
               🏐{' '}
-              {emCampeonato ? (
+              {porCategorias ? (
                 <>
                   Quadras:{' '}
                   {quadrasDoCampeonato
@@ -1257,7 +1389,7 @@ function NewPlay({
             </div>
           </div>
           {/* UM aviso so, e so quando precisa da atencao de quem organiza */}
-          {!emCampeonato && effCourts < courts ? (
+          {!porCategorias && effCourts < courts ? (
             <div className="banner warn" style={{ margin: '10px 0 0' }}>
               🏐 Só dá para usar <strong>{plural(effCourts, 'quadra')}</strong>:{' '}
               {travadoPorGrupo
@@ -1447,6 +1579,16 @@ function PlayDetail({
   )
 
   const soFase2 = session.format === 'grupos-duplas'
+  /** Duplas fixas desde o inicio: a fase 1 e dupla contra dupla (`duplas_definidas`). */
+  const duplasFixas = soFase2 && Boolean(session.duplas_definidas?.length)
+  /** O nome de uma dupla fixa a partir de qualquer uma das duas. */
+  const nomeDaDuplaFixa = useCallback(
+    (id: string) => {
+      const d = session.duplas_definidas?.find((x) => x.includes(id))
+      return d ? `${nameOf(d[0])} + ${nameOf(d[1])}` : nameOf(id)
+    },
+    [session.duplas_definidas, nameOf],
+  )
   /** As categorias do campeonato; sem elas, uma so (o grupos+duplas de sempre). */
   const cats = useMemo(() => categoriasDoPlay(session), [session])
   const ehCampeonato = cats.length > 1
@@ -1593,7 +1735,15 @@ function PlayDetail({
         const podeGerarFase2 =
           soFase2 && daFase2.length === 0 && daFase1.length > 0 && daFase1.every(isPlayed)
         /** Empates em tudo que so a quadra resolve (simples 1x1 ou par ou impar). */
-        const desempates = podeGerarFase2 ? colocacoesDaCategoria(session, ci, matches).pendentes : []
+        const desempates = !podeGerarFase2
+          ? []
+          : duplasFixas
+            ? (() => {
+                // com dupla fixa o empate e entre DUPLAS: a quadra decide e grava a 1a de cada
+                const cl = classificacaoDasDuplasFixas(session, ci, matches)
+                return cl.pendente.map((ds) => ({ grupo: cl.grupo, ids: ds.map((d) => d[0]) }))
+              })()
+            : colocacoesDaCategoria(session, ci, matches).pendentes
         /** A rodada atual acabou e ainda ha mais de uma dupla viva. */
         const podeGerarRodada =
           soFase2 &&
@@ -1620,7 +1770,7 @@ function PlayDetail({
           porJogar: daqui.filter((m) => !isPlayed(m)).length,
         }
       }),
-    [cats, matches, catDe, session, soFase2],
+    [cats, matches, catDe, session, soFase2, duplasFixas],
   )
   /** Todas as duplas ainda vivas, de todas as categorias. */
   const vivas = useMemo(() => porCategoria.flatMap((c) => c.vivas), [porCategoria])
@@ -2394,6 +2544,20 @@ function PlayDetail({
   ) {
     const base = opcoes.base ?? matches
     const fixa = (m: Match) => iniciada(m) || m.id === opcoes.fixa
+    if (duplasFixas) {
+      // dupla fixa nao tem rodizio individual para acertar: so volta para a fila o
+      // confronto dupla x dupla que ainda falta
+      const { preservadas, novas: filaNova } = refazerDuplasFixas(sessao, base, (m) => isPlayed(m) || fixa(m))
+      const ultima = preservadas.reduce((n, m) => Math.max(n, m.round), 0)
+      const novas = planToMatches(session.id, filaNova).map((m, i) => ({ ...m, round: ultima + i + 1 }))
+      await replaceSessionMatches(session.id, [...preservadas, ...novas])
+      mesclarNoPlay(session.id, { campo: 'rounds', minimo: preservadas.length + novas.length })
+      if (!silencioso && !opcoes.automatico) {
+        anotarNoPlay(session.id, novoEvento('refazer', `Refazer a fila: ${novas.length} partida${novas.length === 1 ? '' : 's'} na fila`))
+        onToast('Fila refeita 🔄')
+      }
+      return
+    }
     /*
      * SO OS GRUPOS EM QUE A CONTA NAO FECHA (`precisaRefazer`). Grupo certinho
      * fica como esta: em 05/10 o Refazer foi apertado 9 vezes num play que nao
@@ -2583,13 +2747,16 @@ function PlayDetail({
 
   async function regenerate() {
     if (doneCount > 0 && !confirm('Já existem placares lançados. Gerar novas duplas apaga todos os resultados deste play. Continuar?')) return
-    const fila = gerarFila({
-      playerIds: session.player_ids,
-      groups: session.groups ?? undefined,
-      ratings: ratings(data, session.date),
-      entrosamento: ajusteDeEntrosamento(data),
-      history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
-    })
+    // nas duplas fixas a noite recomeca com as MESMAS duplas: so a fila e refeita
+    const fila = duplasFixas
+      ? filaDasDuplasFixas(session)
+      : gerarFila({
+          playerIds: session.player_ids,
+          groups: session.groups ?? undefined,
+          ratings: ratings(data, session.date),
+          entrosamento: ajusteDeEntrosamento(data),
+          history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
+        })
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
     // a noite recomeca do zero: duplas, desempates e quadras cedidas tambem
     await saveSession(
@@ -2605,7 +2772,8 @@ function PlayDetail({
   /** Grava o desempate decidido em quadra (substitui o do mesmo conjunto de empatadas). */
   function salvarDesempate(grupo: number, ordem: string[], como: DesempateDeGrupo['como']) {
     mesclarNoPlay(session.id, { campo: 'desempates_grupo', d: { grupo, ordem, como, at: new Date().toISOString() } })
-    const texto = `Desempate (${como === 'simples' ? 'simples 1x1' : 'par ou ímpar'}): ${ordem.map((id, i) => `${i + 1}ª ${nameOf(id)}`).join(', ')}`
+    const nome = duplasFixas ? nomeDaDuplaFixa : nameOf
+    const texto = `Desempate (${como === 'simples' ? 'simples 1x1' : 'par ou ímpar'}): ${ordem.map((id, i) => `${i + 1}ª ${nome(id)}`).join(', ')}`
     anotarNoPlay(session.id, novoEvento('desempate', texto))
     onToast('Desempate anotado ✅')
   }
@@ -2617,11 +2785,44 @@ function PlayDetail({
   const proximaPosicao = () => matches.reduce((t, m) => Math.max(t, m.round), 0) + 1
 
   /**
+   * DUPLAS FIXAS: a chave sai da classificacao das duplas da categoria (as
+   * duplas ja existem desde a criacao), cortada no `duplas_mm`. Bye para as
+   * melhores e melhor contra pior, como no campeonato.
+   */
+  async function gerarChaveDasDuplasFixas(ci: number) {
+    const c = porCategoria[ci]
+    if (!c) return
+    const cl = classificacaoDasDuplasFixas(session, ci, matches)
+    if (cl.pendente.length > 0) {
+      onToast('Antes, decida o empate em quadra (simples ou par ou ímpar)')
+      return
+    }
+    const duos = cl.linhas.map((l) => l.dupla).slice(0, Math.max(2, session.duplas_mm ?? 8))
+    if (duos.length < 2) {
+      onToast('Poucas duplas para o mata-mata')
+      return
+    }
+    const { byes, jogos } = rodadaDoMataMata(duos)
+    const fila = jogos.map(([a, b]) => ({ team_a: a, team_b: b, grupo: 0, fase: 2 }))
+    const inicio = proximaPosicao()
+    const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: inicio + i }))
+    const daCategoria = c.cat.grupos.flatMap((g) => session.groups?.[g] ?? [])
+    mesclarNoPlay(session.id, { campo: 'duos', tirar: daCategoria, por: duos })
+    mesclarNoPlay(session.id, { campo: 'rounds', minimo: matches.length + novas.length })
+    await saveMatches(novas)
+    onToast(
+      `${ehCampeonato ? `Categoria ${c.cat.nome} — ` : ''}${nomeDaRodada(duos.length)}: ${duos.length} duplas` +
+        (byes.length ? `, ${byes.length} de bye 🤝` : ' 🤝'),
+    )
+  }
+
+  /**
    * FORMAR AS DUPLAS de uma categoria: 1a com 1a, pela classificacao de cada
    * grupo (vitorias, pontos, saldo, confronto justo e o desempate em quadra).
    * Com empate pendente nao forma: a organizadora decide em quadra antes.
    */
   async function gerarFase2(ci: number) {
+    if (duplasFixas) return gerarChaveDasDuplasFixas(ci)
     const c = porCategoria[ci]
     if (!c || c.cat.grupos.length < 2) {
       onToast('Esta categoria não tem grupos')
@@ -2735,6 +2936,26 @@ function PlayDetail({
       onToast(`${nameOf(entra)} ainda não chegou — desmarque em "⏳ Quem não chegou" quando ela aparecer`)
       return
     }
+    if (duplasFixas) {
+      // DUPLA FIXA: quem entra assume o lugar na DUPLA, em todas as partidas que
+      // ela ainda nao jogou (se ja tinha dupla, os dois trocam). As jogadas e a em
+      // quadra ficam com quem jogou.
+      const pendentes = matches.filter((x) => !isPlayed(x) && (x.id === m.id || !iniciada(x)))
+      const mudadas = pendentes
+        .filter((x) => jogadorasDaPartida(x).some((id) => id === sai || id === entra))
+        .map((x) => trocarNaPartida(trocarNaPartida(x, sai, '__troca__'), entra, sai))
+        .map((x) => trocarNaPartida(x, '__troca__', entra))
+      saveMatches(mudadas)
+      mesclarNoPlay(session.id, { campo: 'substituir', sai, entra })
+      anotarNoPlay(
+        session.id,
+        novoEvento('troca', `Trocar na dupla: ${nameOf(sai)} → ${nameOf(entra)} (${mudadas.length} partida${mudadas.length === 1 ? '' : 's'})`, {
+          round: m.round,
+          entra,
+        }),
+      )
+      return
+    }
     const nova = trocarNaPartida(m, sai, entra)
     saveMatches([nova])
     // A FILA SE ARRUMA SOZINHA: a troca deixa uma com partida a mais e outra a
@@ -2777,7 +2998,7 @@ function PlayDetail({
             {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o ranking'}
             {contaNoStatus(session) ? '' : ' · 🧊 sem status'}
             {' · '}
-            {FORMATOS.find((f) => f.valor === (ehCampeonato ? 'campeonato' : (session.format ?? 'todas')))?.rotulo ?? session.format}
+            {FORMATOS.find((f) => f.valor === (duplasFixas ? 'duplas-fixas' : ehCampeonato ? 'campeonato' : (session.format ?? 'todas')))?.rotulo ?? session.format}
             {' · '}
             {soFase2 && session.pontuacao?.length
               ? 'pontos pela colocação'
@@ -2870,7 +3091,8 @@ function PlayDetail({
           <button className="btn ghost sm" onClick={() => setShowRank(true)}>🏆 Ranking do dia</button>
           {editable && (
             <>
-              {!finished && (
+              {/* nas duplas fixas quem sai e substituido NA DUPLA: e o Trocar do cartao */}
+              {!finished && !duplasFixas && (
                 <button className="btn ghost sm" onClick={() => setSubstituindo(true)}>
                   🔁 Entra / sai
                 </button>
@@ -3199,16 +3421,22 @@ function PlayDetail({
               </div>
               <p className="tiny muted" style={{ marginTop: 0 }}>
                 {c.podeGerarFase2
-                  ? `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                  ? duplasFixas
+                    ? `Todas as duplas${ehCampeonato ? ' desta categoria' : ''} já se enfrentaram. O próximo passo é montar a chave do mata-mata pela classificação — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                    : `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
                   : `A rodada terminou e ainda há ${c.vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
               </p>
               {c.podeGerarFase2 &&
                 c.desempates.map((d) => (
                   <DesempateEmQuadra
                     key={`${d.grupo}-${d.ids.join('|')}`}
-                    titulo={`${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`}
+                    titulo={
+                      duplasFixas
+                        ? `${ehCampeonato ? `Categoria ${c.cat.nome} · ` : ''}duplas`
+                        : `${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`
+                    }
                     ids={d.ids}
-                    nameOf={nameOf}
+                    nameOf={duplasFixas ? nomeDaDuplaFixa : nameOf}
                     onSalvar={(ordem, como) => salvarDesempate(d.grupo, ordem, como)}
                   />
                 ))}
@@ -3227,7 +3455,9 @@ function PlayDetail({
                 }}
               >
                 {c.podeGerarFase2
-                  ? `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                  ? duplasFixas
+                    ? `🥅 Montar a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                    : `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
                   : c.vivas.length === 2
                     ? '🥅 Montar final e 3º lugar'
                     : `🥅 Montar ${c.rotuloDaProxima.toLowerCase()}`}

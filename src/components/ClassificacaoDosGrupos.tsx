@@ -1,4 +1,4 @@
-import { categoriasDoPlay, classificarGrupo, colocacoesDaCategoria, duosDaCategoria } from '../lib/campeonato'
+import { categoriasDoPlay, classificacaoDasDuplasFixas, classificarGrupo, colocacoesDaCategoria, duosDaCategoria } from '../lib/campeonato'
 import { duplasDaFase2, ordemDaFase2 } from '../lib/pairing'
 import { isPlayed } from '../lib/scoring'
 import type { Match, PlaySession } from '../lib/types'
@@ -39,6 +39,19 @@ export default function ClassificacaoDosGrupos({
     <>
       {cats.map((c, ci) => {
         if (soCategoria !== null && soCategoria !== ci) return null
+        if (session.duplas_definidas?.length) {
+          return (
+            <DuplasFixasDaCategoria
+              key={ci}
+              session={session}
+              matches={matches}
+              ci={ci}
+              titulo={varias ? `🏆 Categoria ${c.nome}` : '🤝 Duplas fixas'}
+              nameOf={nameOf}
+              alvo={alvo}
+            />
+          )
+        }
         const grupos = c.grupos.map((gi) => {
           const grupo = session.groups?.[gi] ?? []
           const doGrupo = new Set(grupo)
@@ -210,5 +223,92 @@ export default function ClassificacaoDosGrupos({
         )
       })}
     </>
+  )
+}
+
+/**
+ * DUPLAS FIXAS: a classificacao das duplas da categoria na fase 1 (todas contra
+ * todas) e quem vai para a chave. Depois que a chave existe, fica recolhida.
+ */
+function DuplasFixasDaCategoria({
+  session,
+  matches,
+  ci,
+  titulo,
+  nameOf,
+  alvo,
+}: {
+  session: PlaySession
+  matches: Match[]
+  ci: number
+  titulo: string
+  nameOf: (id: string) => string
+  alvo: number
+}) {
+  const { linhas, partidas } = classificacaoDasDuplasFixas(session, ci, matches)
+  const jogou = partidas.some(isPlayed)
+  const chaveMontada = duosDaCategoria(session, ci).length > 0
+  const faltam = partidas.filter((m) => !isPlayed(m)).length
+  const corpo = !jogou ? (
+    <p className="tiny muted" style={{ marginTop: 0 }}>A classificação começa com o primeiro placar.</p>
+  ) : (
+    <>
+      <div className="scroll-x" style={{ marginBottom: 6 }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style={{ textAlign: 'left' }}>Dupla</th>
+              <th title="jogos">J</th>
+              <th title="vitórias">V</th>
+              <th title="pontos">Pts</th>
+              <th title="saldo de games">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l, i) => (
+              <tr key={l.dupla.join('+')} style={i >= alvo ? { opacity: 0.5 } : undefined}>
+                <td>{l.posicao}º</td>
+                <td style={{ textAlign: 'left' }}>
+                  {nameOf(l.dupla[0])} + {nameOf(l.dupla[1])}
+                  {l.empatadas.length > 0 && <span className="tiny muted"> · empatadas</span>}
+                  {i >= alvo && <span className="tiny muted"> · fora da chave</span>}
+                </td>
+                <td>{l.jogos}</td>
+                <td>{l.vitorias}</td>
+                <td>{l.pontos}</td>
+                <td>{l.saldo > 0 ? `+${l.saldo}` : l.saldo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="tiny muted" style={{ marginTop: 0 }}>
+        {faltam > 0
+          ? `Parcial: faltam ${faltam} partida${faltam === 1 ? '' : 's'}. `
+          : ''}
+        A ordem é a da chave: vitórias, depois pontos, saldo, confronto direto e, se ainda empatar,
+        desempate em quadra. As melhores passam de bye quando a chave não fecha.
+      </p>
+    </>
+  )
+  const cabecalho = (
+    <>
+      {titulo} · fase de classificação{' '}
+      <span className="tiny muted" style={{ fontWeight: 600 }}>· não pontua</span>
+    </>
+  )
+  return chaveMontada ? (
+    <details style={{ marginBottom: 14 }}>
+      <summary className="section-title" style={{ fontSize: 13, cursor: 'pointer' }}>
+        {cabecalho} <span className="tiny muted">· toque para conferir</span>
+      </summary>
+      {corpo}
+    </details>
+  ) : (
+    <div style={{ marginBottom: 14 }}>
+      <div className="section-title" style={{ fontSize: 13 }}>{cabecalho}</div>
+      {corpo}
+    </div>
   )
 }

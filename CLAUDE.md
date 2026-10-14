@@ -187,6 +187,17 @@ liga/            textos do masculino: o código fica no feminino e o build
   usam a tabela e grupos por nível (antes: grupos equilibrados, que faziam da 1ª de
   cada grupo uma superdupla). O ranking do dia mostra a **fase de grupos** (classificação
   e duplas “se acabasse agora”) — antes ficava vazio até o mata-mata.
+- **🔗 Duplas fixas desde o início** (`src/lib/duplasFixas.ts`, `sessions.duplas_definidas`,
+  script 28): a dupla joga a noite toda junta. É o campeonato com **uma categoria = um
+  grupo**: o app monta as duplas **por nível** (forte com forte; no misto, mulher i com
+  homem i e a sobra do mesmo gênero, avisada), divide em categorias pela força da dupla
+  (padrão: uma categoria a cada 4 duplas), e a organizadora troca pessoas de dupla e
+  duplas de categoria na mão. Fase 1 = **todas contra todas** entre as duplas da
+  categoria (não pontua); `classificarDuplas` (vitórias → pontos → saldo → confronto
+  direto → desempate em quadra, gravado pela 1ª de cada dupla) monta a chave
+  (`gerarChaveDasDuplasFixas`); dali em diante é o mata-mata do campeonato. Trocar
+  jogador = substituir **na dupla** (mescla `substituir`, nas partidas pendentes); o
+  Entra/sai some nesse modo e o refazer só repõe confronto dupla × dupla que falta.
 - **No `grupos-duplas` quem decide o dia é a DUPLA.** A fase de grupos só forma as
   duplas e **não pontua** — nem no dia, nem no mês (`pontuaveis`); o Elo continua
   contando essas partidas, que aconteceram e só não dão ponto. O pódio é 🥇 campeã,

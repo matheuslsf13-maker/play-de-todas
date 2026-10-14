@@ -826,6 +826,17 @@ mesmos formatos — de propósito, nada de fork.
   Se a classificação de agora daria duplas diferentes das formadas (placar
   corrigido depois, troca no meio do play), aparece um aviso — valem as
   formadas. No campeonato, o seletor de categoria filtra isso também.
+- **Modo dia (14/10/2026)**: o fundo do tema claro virou areia de verdade (`#efe5d6`;
+  masculino `#e1e8f1`), com cartão branco, borda e sombra — com fundo quase branco os
+  cartões sumiam. O cabeçalho é **escuro nos dois temas** (era a intenção: o texto dele
+  é claro), e no claro ele começava claro e o texto pequeno sumia.
+- **Duplas fixas desde o início (14/10/2026)**: pedido do dono, nos três apps, "no estilo
+  campeonato, por categoria, sem grupos dentro". Reaproveita o campeonato inteiro (uma
+  categoria = um grupo; `duos` continua sendo só a chave) para não haver um segundo
+  mata-mata, pódio ou tabela de pontos. As duplas saem **por nível** (forte com forte)
+  porque as categorias saem da força da dupla — "forte com fraco" deixaria todas as
+  categorias iguais. Padrão de uma categoria a cada 4 duplas: com o padrão do
+  campeonato (3) e 12 pessoas, sairiam 2 duplas e 1 partida por categoria.
 - **Masculino = Play de Terça, sem infantilizar (14/10/2026).** O grupo é de homens
   de nível avançado: o nome é **Play de Terça**, a aba é **Atletas** e nenhum texto
   diz "menino" (vira atleta/jogador). Status: Em chamas → Imparável → **Dominando**

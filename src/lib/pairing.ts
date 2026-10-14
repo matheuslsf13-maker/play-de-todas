@@ -629,7 +629,7 @@ function melhorarConfrontos(partidas: Partida[], ctx: Contexto) {
 
 const BYE = '__folga__'
 
-function circleMethod(ids: string[]): Duo[][] {
+export function circleMethod(ids: string[]): Duo[][] {
   const list = ids.slice()
   if (list.length % 2 === 1) list.push(BYE)
   const n = list.length
@@ -958,7 +958,7 @@ function desigualdadeDeJogos(partidas: Partida[], ids: string[]): number {
    jogos cansada enquanto outra espera sentada.
    ------------------------------------------------------------------ */
 
-function ordenarFila(partidas: PlannedMatch[]): PlannedMatch[] {
+export function ordenarFila(partidas: PlannedMatch[]): PlannedMatch[] {
   // varias ordens candidatas, e fica a que menos emenda partidas seguidas:
   // a escolha gulosa se encurrala no fim, e trocar o comeco muda o fim
   let melhor: PlannedMatch[] = partidas

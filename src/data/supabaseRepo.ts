@@ -184,14 +184,21 @@ export const supabaseRepo: Repo = {
     const atual = await sb.from('sessions').select('*').eq('id', sessionId).maybeSingle()
     if (atual.error) throw atual.error
     if (!atual.data) return
-    const coluna = mescla.campo
-    if (!(coluna in atual.data)) {
-      // sem o script 21 a coluna nao existe: fica so na tela deste aparelho
-      avisosDoBanco.colunas.add(`sessions.${coluna}`)
+    // quase toda mescla mexe numa coluna so; a troca de jogador numa dupla fixa
+    // mexe nas duplas, na chave, na presenca e nos grupos de uma vez
+    const colunas: (keyof PlaySession)[] =
+      mescla.campo === 'substituir' ? ['duplas_definidas', 'duos', 'player_ids', 'groups'] : [mescla.campo]
+    const faltando = colunas.filter((c) => !(c in atual.data))
+    if (faltando.length) {
+      // sem o script da coluna ela nao existe: fica so na tela deste aparelho
+      for (const c of faltando) avisosDoBanco.colunas.add(`sessions.${String(c)}`)
       return
     }
     const nova = aplicarMescla(atual.data as PlaySession, mescla)
-    const { error } = await sb.from('sessions').update({ [coluna]: nova[coluna] }).eq('id', sessionId)
+    const { error } = await sb
+      .from('sessions')
+      .update(Object.fromEntries(colunas.map((c) => [c, nova[c]])))
+      .eq('id', sessionId)
     if (error) throw error
   },
   async anotarNoPlay(sessionId: string, evento: EventoDoPlay) {
