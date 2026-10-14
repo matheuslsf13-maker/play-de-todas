@@ -14,13 +14,15 @@
      trocar de tema (foi exatamente esse o bug quando o app virou escuro).
      ================================================================== */
 
-  /* ---- superficies e texto (tema claro) ---- */
-  --fundo:   #fdf6ec;
-  --fundo-2: #fffaf3;
+  /* ---- superficies e texto (tema claro) ----
+     O fundo e um areia de verdade e o cartao e branco com borda e sombra: com
+     fundo quase branco (#fdf6ec) os cartoes sumiam no tema claro (14/10/2026). */
+  --fundo:   #efe5d6;
+  --fundo-2: #f8f2e9;
   --card:    #ffffff;
-  --card-2:  #f9f2e8;
-  --line:    #ebe0d1;
-  --line-2:  #d8c9b5;
+  --card-2:  #f4ece0;
+  --line:    #dccdb8;
+  --line-2:  #c7b49a;
   --text:    #1b1f42;
   --muted:   #6f6a86;
 
@@ -65,7 +67,7 @@
   --sempre-escuro: #14183a;
 
   --radius: 18px;
-  --shadow: 0 8px 24px rgba(20, 26, 60, 0.10);
+  --shadow: 0 1px 3px rgba(60, 40, 10, 0.08), 0 8px 22px rgba(60, 40, 10, 0.10);
   color-scheme: light;
 }
 
@@ -136,8 +138,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   /* instalado na tela de inicio o app ocupa a area do relogio/notch:
      sem esta folga o botao Entrar fica embaixo da barra de status */
   padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
-  background: linear-gradient(135deg, var(--fundo-2) 0%, #2f2570 100%);
-  color: var(--text);
+  /* escuro nos DOIS temas (o texto e as pilulas dele sao claros de proposito):
+     comecando no fundo-2, no tema claro o lado esquerdo ficava claro e o texto
+     pequeno sumia */
+  background: linear-gradient(135deg, var(--sempre-escuro) 0%, #2f2570 100%);
+  color: var(--sempre-claro);
   border-radius: 0 0 22px 22px;
   box-shadow: 0 6px 20px rgba(20, 26, 60, 0.25);
 }
@@ -1439,11 +1444,12 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
    do tema escuro.
    ================================================================== */
 :root[data-liga="masculino"]:not([data-tema="escuro"]) {
-  --fundo:   #f1f5fa;
-  --fundo-2: #f8fafd;
-  --card-2:  #ebf1f8;
-  --line:    #d9e2ee;
-  --line-2:  #bccadc;
+  --fundo:   #e1e8f1;
+  --fundo-2: #f5f8fc;
+  --card:    #ffffff;
+  --card-2:  #edf2f8;
+  --line:    #c8d4e3;
+  --line-2:  #aebdd2;
   --text:    #12203c;
   --muted:   #63708a;
 
@@ -1456,7 +1462,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 
   --sempre-claro:  #f4f8ff;
   --sempre-escuro: #0d1a30;
-  --shadow: 0 8px 24px rgba(13, 26, 48, 0.10);
+  --shadow: 0 1px 3px rgba(13, 26, 48, 0.08), 0 8px 22px rgba(13, 26, 48, 0.11);
 }
 
 :root[data-liga="masculino"][data-tema="escuro"] {
@@ -1486,7 +1492,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 
 /* o cabecalho terminava no roxo do logo feminino */
 :root[data-liga="masculino"] .topbar {
-  background: linear-gradient(135deg, var(--fundo-2) 0%, #17407f 100%);
+  background: linear-gradient(135deg, var(--sempre-escuro) 0%, #17407f 100%);
 }
 
 /* ---------- como pontua e status (Ranking) ----------

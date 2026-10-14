@@ -39,7 +39,7 @@ export const LIGAS: Record<LigaId, Liga> = {
     schema: 'public',
     prefixo: 'play-de-todas',
     tema: '#0e1230',
-    temaClaro: '#fdf6ec',
+    temaClaro: '#efe5d6',
     marca: '#ff5c8a',
     marca2: '#8b5cf0',
   },
@@ -53,7 +53,7 @@ export const LIGAS: Record<LigaId, Liga> = {
     // azul-noite e azul-eletrico no lugar do roxo e do rosa; o por do sol
     // (amarelo e laranja) continua, porque e a praia e nao o genero
     tema: '#0a1626',
-    temaClaro: '#f1f5fa',
+    temaClaro: '#e1e8f1',
     marca: '#3fa2ff',
     marca2: '#2f5fd0',
   },
