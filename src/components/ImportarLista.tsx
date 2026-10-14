@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import EscolherGenero, { precisaDeGenero, type Genero } from './EscolherGenero'
 import { CATEGORIAS, type Categoria } from '../lib/mensalidade'
 import { conciliar, parseRoster, precisaConferir, type ItemDaLista } from '../lib/roster'
 import { useStore } from '../lib/store'
@@ -45,6 +46,8 @@ export default function ImportarLista({
 
   /** Categoria de quem a lista criar. Quem ja existe mantem a dela. */
   const [categoriaNovas, setCategoriaNovas] = useState<Categoria>('isenta')
+  /** So no misto: o campeonato de quem a lista criar (uma lista e de um lado so). */
+  const [generoNovas, setGeneroNovas] = useState<Genero | null>(null)
 
   function trocar(idx: number, valor: string) {
     setItens((atual) =>
@@ -78,6 +81,7 @@ export default function ImportarLista({
           pago_mes: null,
           pago_avulso: false,
           aliases: [],
+          ...(generoNovas ? { genero: generoNovas } : {}),
         }
         savePlayer(nova)
         escolhidas.push(nova.id)
@@ -205,6 +209,7 @@ export default function ImportarLista({
 
         {novas > 0 && (
           <div className="card" style={{ marginTop: 14, marginBottom: 0 }}>
+            <EscolherGenero valor={generoNovas} onChange={setGeneroNovas} />
             <div className="section-title" style={{ fontSize: 13 }}>
               Como {novas === 1 ? 'a nova jogadora paga' : 'as novas jogadoras pagam'}
             </div>
@@ -229,7 +234,7 @@ export default function ImportarLista({
 
         <div className="row" style={{ gap: 8, marginTop: 14 }}>
           <button className="btn ghost grow" onClick={() => setItens(null)}>← Voltar</button>
-          <button className="btn pink grow" onClick={aplicar}>
+          <button className="btn pink grow" disabled={precisaDeGenero && novas > 0 && !generoNovas} onClick={aplicar}>
             Confirmar {itens.length} {novas > 0 ? `(${novas} nova${novas > 1 ? 's' : ''})` : ''}
           </button>
         </div>

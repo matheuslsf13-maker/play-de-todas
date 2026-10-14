@@ -36,7 +36,7 @@ src/data/        armazenamento: localRepo (navegador) e supabaseRepo, com fila
                  de escrita otimista que sobrevive a refresh (queue.ts)
 src/config.ts    URL e chave pública do Supabase (NUNCA a secret/service_role)
 supabase/*.sql   migrações, rodadas na ordem numérica no SQL Editor
-liga.config.ts   as duas ligas: Play de Todas (feminino, schema public, raiz do
+liga.config.ts   as três ligas: Play de Todas (feminino, schema public, raiz do
                  site) e Play de Terça (masculino, schema masculino, /masculino/).
                  Mesmo código; escolhida no build por VITE_LIGA. Migração nova
                  que cria/altera tabela: rodar 27-liga-masculina.sql de novo
@@ -55,6 +55,25 @@ liga/            textos do masculino: o código fica no feminino e o build
 `sessions.rounds` é o **total de partidas do dia**.
 
 `hasSupabase` decide qual driver é usado. Escrita exige login; leitura é pública.
+
+## 👫 Play Misto (`/misto/`, `VITE_LIGA=misto`, schema `misto`, script 29)
+
+- **Não tem jogadores próprios**: lê os `players` do `public` (♀) e do `masculino` (♂)
+  (`jogadoresDosDoisCampeonatos` em `supabaseRepo.ts`) e marca `genero` só em memória.
+  Cadastrar no misto pede ♀/♂ (`EscolherGenero`) e grava no campeonato certo; apagar e
+  juntar ficam bloqueados. Sem a aba Check-ins. O schema `misto` só tem as tabelas do play.
+- **Força própria do misto**: começa da força de casa (`forca_de_casa` = o `calcularElo` do
+  campeonato dela/dele) e só as partidas do misto mexem. Nada volta para os campeonatos.
+- **Duplas do rodízio escolhidas a cada play** (`sessions.duplas_mistas`): 🔀 mistas
+  (padrão) ou 🎲 livres. Mistas = quadrado latino (`rondasMistas`/`rodizioMisto` em
+  `pairing.ts`): cada homem joga uma vez com cada mulher, todos com o mesmo número de
+  jogos (n de cada: n par → n jogos; n ímpar → cada um repete UM parceiro, n+1). Precisa
+  do mesmo número de cada gênero; senão o play sai livre (a tela avisa). Grupos mistos:
+  cada gênero dividido por nível, metade de cada (`formarGruposMistos`). Refazer e
+  `precisaRefazer` só contam duplas H+M (`genero`). Trocar jogador mostra o mesmo gênero
+  primeiro. Duplas fixas no misto: `montarDuplasPorNivel(..., genero)` prioriza H+M.
+- Textos: `liga/masculino.json` (plural neutro) + `liga/misto.json` por cima. Logo:
+  `node scripts/liga/gerar-logo.mjs misto` (de `liga/misto/logo.svg` para `public-misto/`).
 
 ## Regras do campeonato (não invente, elas são específicas)
 

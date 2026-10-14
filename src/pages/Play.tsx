@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
+
+/** O app do Play Misto (homens e mulheres dos dois campeonatos). */
+const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
@@ -44,6 +47,9 @@ import {
   aplicarAjustesDeGrupo,
   duplasQueEntraram,
   formarGrupos,
+  formarGruposMistos,
+  grupoMisto,
+  type Generos,
   gerarFila,
   nomeDaRodada,
   rodadaDoMataMata,
@@ -467,6 +473,26 @@ function NewPlay({
 
   const forca = useMemo(() => ratings(data, date), [data, date])
 
+  /**
+   * PLAY MISTO: as duplas do rodizio podem ser sempre homem + mulher (o padrao)
+   * ou livres. So vale com o mesmo numero de cada genero -- senao alguem
+   * ficaria sem par do outro genero, e o play sai de duplas livres.
+   */
+  const [duplasMistas, setDuplasMistas] = useState(true)
+  const generos = useMemo<Generos>(
+    () => new Map(data.players.filter((p) => p.genero).map((p) => [p.id, p.genero!] as const)),
+    [data.players],
+  )
+  const contagem = useMemo(() => {
+    const f = selected.filter((id) => generos.get(id) === 'F').length
+    return { f, m: selected.length - f }
+  }, [selected, generos])
+  const usarMistas = EH_MISTO && duplasMistas && contagem.f === contagem.m && contagem.f >= 2
+  /** O genero que vai para o rodizio: so quando as duplas sao mistas. */
+  const generoDoRodizio = usarMistas ? generos : undefined
+  /** Grupo de duplas mistas tem metade de cada genero; os outros seguem livres. */
+  const ehMistoOGrupo = (g: string[]) => grupoMisto(g, generoDoRodizio)
+
   // no modo em grupos o app decide quantos grupos cabem: quem escolhe e o
   // tamanho, e a conta sai do numero de meninas que confirmaram
   const emCampeonato = format === 'campeonato'
@@ -508,9 +534,13 @@ function NewPlay({
     // grupos POR NIVEL tambem no grupos+duplas: com grupos equilibrados a 1a de
     // cada grupo era uma das mais fortes do dia, e "1a com 1a" virava uma
     // superdupla. Por nivel, a dupla das primeiras e favorita sem ser imbativel
-    if (format === 'grupos' || format === 'grupos-duplas') return formarGrupos(selected, forca, porGrupo, sorteio)
+    if (format === 'grupos' || format === 'grupos-duplas') {
+      return generoDoRodizio
+        ? formarGruposMistos(selected, forca, porGrupo, generoDoRodizio, sorteio)
+        : formarGrupos(selected, forca, porGrupo, sorteio)
+    }
     return [selected]
-  }, [format, selected, forca, porGrupo, sorteio])
+  }, [format, selected, forca, porGrupo, sorteio, generoDoRodizio])
   /**
    * DUPLAS FIXAS: as duplas por nivel (forte com forte), com as trocas feitas na
    * mao por cima -- cada troca e um par de pessoas que trocaram de dupla, e so
@@ -523,8 +553,9 @@ function NewPlay({
   /** Categorias das duplas fixas; null = automatico (4 a 7 duplas por categoria). */
   const [nCatsDuplas, setNCatsDuplas] = useState<number | null>(null)
   const montagem = useMemo(
-    () => (emDuplasFixas ? montarDuplasPorNivel(selected, forca, undefined, sorteio) : null),
-    [emDuplasFixas, selected, forca, sorteio],
+    // no misto as duplas fixas priorizam homem + mulher (quem sobra, mesmo genero, com aviso)
+    () => (emDuplasFixas ? montarDuplasPorNivel(selected, forca, EH_MISTO ? generos : undefined, sorteio) : null),
+    [emDuplasFixas, selected, forca, sorteio, generos],
   )
   const duplasDaNoite = useMemo(() => {
     if (!montagem) return []
@@ -630,7 +661,7 @@ function NewPlay({
 
   const totalPartidas = emDuplasFixas
     ? categoriasDeDuplas.reduce((t, ds) => t + partidasEntreDuplas(ds.length), 0)
-    : tamanhos.reduce((t, n) => t + partidasDoRodizio(n), 0)
+    : grupos.reduce((t, g) => t + partidasDoRodizio(g.length, ehMistoOGrupo(g)), 0)
   const parceirasMin = Math.min(...tamanhos.map(parceirasDoRodizio))
   const parceirasMax = Math.max(...tamanhos.map(parceirasDoRodizio))
   // jogos e parceiras nao sao a mesma coisa: num grupo de 6 cada uma joga com
@@ -638,9 +669,9 @@ function NewPlay({
   /** A regra e o alvo que a fase de grupos vai usar: e dela que sai a estimativa de tempo. */
   const regraDaNoite = emDuplas ? lerRegra(desempates[0] ?? 'nenhum') : regra
   const minutosDaNoite = minutosDaPartida(emDuplas ? alvos[0] : target, regraDaNoite)
-  const jogosMin = Math.min(...tamanhos.map(jogosDoRodizio))
-  const jogosMax = Math.max(...tamanhos.map(jogosDoRodizio))
-  const repetem = Math.max(...tamanhos.map(repeticoesPorJogadora))
+  const jogosMin = Math.min(...grupos.map((g) => jogosDoRodizio(g.length, ehMistoOGrupo(g))))
+  const jogosMax = Math.max(...grupos.map((g) => jogosDoRodizio(g.length, ehMistoOGrupo(g))))
+  const repetem = Math.max(...grupos.map((g) => repeticoesPorJogadora(g.length, ehMistoOGrupo(g))))
   const restPorVez = selected.length - effCourts * 4
   /**
    * Com fases (grupos + duplas, campeonato), o tempo conta tambem o mata-mata,
@@ -797,6 +828,7 @@ function NewPlay({
               ratings: forca,
               history: buildHistory(playedMatches(data)),
               groups: emGrupos ? (camp ? camp.groups : grupos) : undefined,
+              genero: generoDoRodizio,
             })
       const session: PlaySession = {
         id: uid(),
@@ -817,6 +849,8 @@ function NewPlay({
         // pontos do mes pela colocacao final; plays antigos nao tem e seguem pelo placar
         pontuacao: comFases && ranked ? pontuacao : null,
         duplas_definidas: emDuplasFixas ? categoriasDeDuplas.flat() : null,
+        // a coluna so existe no schema do misto: fora dele nem vai para o banco
+        duplas_mistas: EH_MISTO ? !emDuplasFixas && !!generoDoRodizio : undefined,
         // todo play novo premia quem venceu mais; os antigos seguem por pontos
         criterio_dia: 'vitorias',
         duplas_mm: comFases ? duplasMM : null,
@@ -951,6 +985,40 @@ function NewPlay({
             </button>
           ))}
         </div>
+        {EH_MISTO && !emDuplasFixas && (
+          <>
+            <div className="section-title" style={{ marginTop: 14 }}>👫 Duplas do rodízio</div>
+            <div className="stack" style={{ gap: 8 }}>
+              {[
+                { v: true, rotulo: '🔀 Duplas mistas', explica: 'Sempre um homem e uma mulher. Cada um joga uma vez com cada pessoa do outro gênero.' },
+                { v: false, rotulo: '🎲 Livres', explica: 'Qualquer dupla, como nos campeonatos.' },
+              ].map((o) => (
+                <button key={String(o.v)} className={`opcao${duplasMistas === o.v ? ' on' : ''}`} onClick={() => setDuplasMistas(o.v)}>
+                  <span className="opcao-marca">{duplasMistas === o.v ? '◉' : '○'}</span>
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <strong>{o.rotulo}</strong>
+                    <span className="tiny muted">{o.explica}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="tiny muted" style={{ marginTop: 8 }}>
+              ♀ {contagem.f} · ♂ {contagem.m}
+            </div>
+            {duplasMistas && selected.length > 0 && !usarMistas && (
+              <div className="banner warn" style={{ marginTop: 8 }}>
+                Para duplas mistas, o número de homens e de mulheres precisa ser igual (pelo menos 2 de cada).
+                Do jeito que está, o play sai com <strong>duplas livres</strong>.
+              </div>
+            )}
+            {!duplasMistas && contagem.f > 0 && contagem.m > 0 && (
+              <div className="banner" style={{ marginTop: 8 }}>
+                Nas duplas livres, a força de um homem e a de uma mulher não são a mesma régua no começo: as partidas
+                do misto vão acertando.
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {emCampeonato && (
@@ -1581,6 +1649,14 @@ function PlayDetail({
   const soFase2 = session.format === 'grupos-duplas'
   /** Duplas fixas desde o inicio: a fase 1 e dupla contra dupla (`duplas_definidas`). */
   const duplasFixas = soFase2 && Boolean(session.duplas_definidas?.length)
+  /** Play misto de duplas mistas: o refazer e o regenerar so formam duplas homem + mulher. */
+  const generoDoPlay = useMemo<Generos | undefined>(
+    () =>
+      EH_MISTO && session.duplas_mistas
+        ? new Map(data.players.filter((p) => p.genero).map((p) => [p.id, p.genero!] as const))
+        : undefined,
+    [session.duplas_mistas, data.players],
+  )
   /** O nome de uma dupla fixa a partir de qualquer uma das duas. */
   const nomeDaDuplaFixa = useCallback(
     (id: string) => {
@@ -2573,6 +2649,7 @@ function PlayDetail({
       jogadoras: sessao.player_ids,
       matches: base,
       fixa,
+      genero: generoDoPlay,
     })
     if (precisam.length === 0 && orfas.length === 0) {
       if (!silencioso && !opcoes.automatico) onToast('A fila já está certa — nada para refazer ✅')
@@ -2591,6 +2668,7 @@ function PlayDetail({
       ratings: ratings(data, session.date),
       entrosamento: ajusteDeEntrosamento(data),
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
+      genero: generoDoPlay,
       historyWeight: 1,
     })
     // a fila nova entra depois da ultima posicao ja usada, para nao haver duas
@@ -2756,6 +2834,7 @@ function PlayDetail({
           ratings: ratings(data, session.date),
           entrosamento: ajusteDeEntrosamento(data),
           history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
+          genero: generoDoPlay,
         })
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
     // a noite recomeca do zero: duplas, desempates e quadras cedidas tambem
@@ -4338,11 +4417,15 @@ function TrocarJogadoras({
   // quem e de outro grupo entra no rodizio errado: vai para o fim da lista,
   // com etiqueta, e so deve ser usada quando nao ha ninguem do grupo livre
   const deOutroGrupo = (id: string) => Boolean(mesmoGrupo && !mesmoGrupo.includes(id))
+  // no misto, quem e do mesmo genero de quem sai vem primeiro: troca homem por
+  // homem e a dupla continua mista
+  const deOutroGenero = (id: string) =>
+    EH_MISTO && !!sai && !!playerById(sai)?.genero && playerById(id)?.genero !== playerById(sai)?.genero
   const candidatas = jogadorasDoPlay
     .filter((id) => !noTime.includes(id))
     .sort((a, b) => {
-      const ga = deOutroGrupo(a) ? 1 : 0
-      const gb = deOutroGrupo(b) ? 1 : 0
+      const ga = (deOutroGenero(a) ? 2 : 0) + (deOutroGrupo(a) ? 1 : 0)
+      const gb = (deOutroGenero(b) ? 2 : 0) + (deOutroGrupo(b) ? 1 : 0)
       const oa = ocupadas.has(a) ? 1 : 0
       const ob = ocupadas.has(b) ? 1 : 0
       // do mesmo grupo primeiro, depois livres, e entre elas quem esta fora ha mais tempo
@@ -4394,6 +4477,11 @@ function TrocarJogadoras({
                 {deOutroGrupo(id) && (
                   <span className="tiny" style={{ color: 'var(--yellow)', fontWeight: 700, display: 'block' }}>
                     ⚠️ de outro grupo — ela fica com uma partida a mais no grupo dela
+                  </span>
+                )}
+                {deOutroGenero(id) && (
+                  <span className="tiny" style={{ color: 'var(--yellow)', fontWeight: 700, display: 'block' }}>
+                    ⚠️ outro gênero — a dupla deixa de ser mista
                   </span>
                 )}
               </span>

@@ -1,4 +1,5 @@
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import EscolherGenero, { precisaDeGenero, type Genero } from '../components/EscolherGenero'
 import { LIGA } from '../liga'
 import { useMemo, useRef, useState } from 'react'
 import { Avatar, Empty, Modal } from '../components/ui'
@@ -24,6 +25,8 @@ import { plural, todayISO, uid, type Player } from '../lib/types'
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const { data, savePlayer, deletePlayer, mergePlayers, canEdit, repo } = useStore()
   const [name, setName] = useState('')
+  /** So no misto: de qual campeonato e a pessoa nova (fica para a proxima, como a categoria). */
+  const [generoDaNova, setGeneroDaNova] = useState<Genero | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [juntando, setJuntando] = useState<Player | null>(null)
   const [importando, setImportando] = useState(false)
@@ -105,8 +108,13 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
   async function add() {
     const n = name.trim()
     if (!n) return
+    if (precisaDeGenero && !generoDaNova) {
+      onToast('Escolha se é do feminino ou do masculino')
+      return
+    }
     const p: Player = {
       id: uid(),
+      ...(generoDaNova ? { genero: generoDaNova } : {}),
       name: n,
       photo_url: null,
       active: true,
@@ -173,6 +181,9 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
               onKeyDown={(e) => e.key === 'Enter' && void add()}
             />
             <button className="btn pink" onClick={() => void add()} disabled={!name.trim()}>Add</button>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <EscolherGenero valor={generoDaNova} onChange={setGeneroDaNova} />
           </div>
           <div className="chips-scroll" style={{ marginTop: 8 }}>
             {CATEGORIAS.map((c) => (
@@ -354,6 +365,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                 <div className="grow">
                   <div style={{ fontWeight: 700 }} className="ellipsis">
                     <NomeClicavel id={p.id}>{p.nickname?.trim() || p.name}</NomeClicavel>
+                    {/* so no misto: de qual campeonato a pessoa e */}
+                    {p.genero && <span className="tiny muted"> {p.genero === 'F' ? '♀' : '♂'}</span>}
                   </div>
                   {p.nickname?.trim() && p.nickname.trim() !== p.name && (
                     <div className="tiny muted ellipsis">{p.name}</div>
@@ -449,6 +462,9 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                         </button>
                       )
                     })()}
+                    {/* juntar e apagar sao do campeonato da pessoa: o misto so le */}
+                    {!precisaDeGenero && (
+                    <>
                     <button className="btn ghost sm" title="juntar com outra jogadora" onClick={() => setJuntando(p)}>
                       🔗
                     </button>
@@ -462,6 +478,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                     >
                       🗑
                     </button>
+                    </>
+                    )}
                     </div>
                   </div>
                 )}

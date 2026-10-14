@@ -1,5 +1,15 @@
 export type Player = {
   id: string
+  /**
+   * SO NO APP MISTO, so em memoria (nunca gravado): de qual campeonato a pessoa
+   * veio -- 'F' do Play de Todas (public), 'M' do Play de Terca (masculino).
+   */
+  genero?: 'F' | 'M'
+  /**
+   * SO NO APP MISTO, so em memoria: a forca dela no proprio campeonato (escala
+   * 1500), que e o ponto de partida da forca do misto.
+   */
+  forca_de_casa?: number
   name: string
   photo_url: string | null
   active: boolean
@@ -205,6 +215,11 @@ export type PlaySession = {
    * mata-mata; `duos` continua sendo so a chave, preenchida depois.
    */
   duplas_definidas?: [string, string][] | null
+  /**
+   * PLAY MISTO (script 29, so no schema `misto`): as duplas do rodizio sao
+   * sempre homem + mulher. Escolhido a cada play; sem isso, duplas livres.
+   */
+  duplas_mistas?: boolean | null
   /**
    * Pontos do mes POR COLOCACAO no grupos+duplas/campeonato:
    * [campea, vice, 3o, semifinal, quartas ou antes, fase de grupos].

@@ -396,21 +396,61 @@ export function quadrasSimultaneas(tamanhos: number[]): number {
  * - n % 4 == 2      -> cada uma repete 1 parceira (as repetidas formam pares)
  * - n % 4 == 3      -> cada uma repete 2 (as repetidas formam um ciclo)
  */
-export function repeticoesPorJogadora(jogadoras: number): number {
+export function repeticoesPorJogadora(jogadoras: number, misto = false): number {
+  // misto (metade de cada genero, n de cada): cada um joga com os n do outro
+  // genero. n par fecha; n impar da n*n duplas, impar, e cada um repete UMA
+  if (misto) return (jogadoras / 2) % 2 === 1 ? 1 : 0
   const r = jogadoras % 4
   return r === 2 ? 1 : r === 3 ? 2 : 0
 }
 
 /** Quantas partidas o rodizio de um grupo desse tamanho gera. */
-export function partidasDoRodizio(jogadoras: number): number {
+export function partidasDoRodizio(jogadoras: number, misto = false): number {
   if (jogadoras < 4) return 0
-  return (jogadoras * (jogadoras - 1 + repeticoesPorJogadora(jogadoras))) / 4
+  return (jogadoras * jogosDoRodizio(jogadoras, misto)) / 4
 }
 
 /** Quantos jogos cada uma faz -- igual para todas do grupo. */
-export function jogosDoRodizio(jogadoras: number): number {
+export function jogosDoRodizio(jogadoras: number, misto = false): number {
   if (jogadoras < 4) return 0
+  if (misto) return jogadoras / 2 + repeticoesPorJogadora(jogadoras, true)
   return jogadoras - 1 + repeticoesPorJogadora(jogadoras)
+}
+
+/** Genero de cada um, no play misto de duplas mistas. */
+export type Generos = Map<string, 'F' | 'M'>
+
+/** Dupla de um homem e uma mulher (ou qualquer dupla, sem generos). */
+export function duplaMista(d: readonly string[], genero?: Generos): boolean {
+  if (!genero) return true
+  return genero.get(d[0]) !== genero.get(d[1])
+}
+
+/**
+ * GRUPOS MISTOS: cada genero e dividido por nivel no mesmo numero de grupos e
+ * o grupo i junta as mulheres do nivel i com os homens do nivel i -- metade de
+ * cada, para todo mundo ter com quem formar dupla mista.
+ */
+export function formarGruposMistos(
+  playerIds: string[],
+  ratings: Map<string, number>,
+  tamanho: number,
+  genero: Generos,
+  semente?: number,
+): string[][] {
+  const mulheres = playerIds.filter((id) => genero.get(id) === 'F')
+  const homens = playerIds.filter((id) => genero.get(id) !== 'F')
+  const grupos = numeroDeGrupos(playerIds.length, tamanho)
+  if (grupos <= 1 || mulheres.length !== homens.length) return [playerIds.slice()]
+  const fm = filaPorForca(mulheres, ratings, semente)
+  const fh = filaPorForca(homens, ratings, semente)
+  const out: string[][] = []
+  let i = 0
+  for (const t of tamanhosDosGrupos(mulheres.length, grupos)) {
+    out.push([...fm.slice(i, i + t), ...fh.slice(i, i + t)])
+    i += t
+  }
+  return out
 }
 
 /** Com quantas parceiras diferentes cada uma joga. */
@@ -650,11 +690,24 @@ export function circleMethod(ids: string[]): Duo[][] {
   return out
 }
 
-function umRodizio(ids: string[], ctx: Contexto, repetidas: Duo[]): Partida[] {
+/**
+ * RONDAS MISTAS (quadrado latino): na ronda r, a mulher i faz dupla com o
+ * homem (i + r) mod n. Sao n rondas, cada uma com todo mundo uma vez, e cada
+ * par mulher x homem aparece numa so -- o mesmo papel do metodo do circulo,
+ * so que entre os dois generos.
+ */
+export function rondasMistas(mulheres: string[], homens: string[]): Duo[][] {
+  const n = Math.min(mulheres.length, homens.length)
+  const out: Duo[][] = []
+  for (let r = 0; r < n; r++) out.push(mulheres.slice(0, n).map((m, i) => [m, homens[(i + r) % n]] as Duo))
+  return out
+}
+
+function umRodizio(ids: string[], ctx: Contexto, repetidas: Duo[], rondas?: Duo[][]): Partida[] {
   const partidas: Partida[] = []
   const sobras: Duo[] = []
 
-  circleMethod(shuffle(ids)).forEach((ronda, r) => {
+  ;(rondas ?? circleMethod(shuffle(ids))).forEach((ronda, r) => {
     const pares = ronda.slice()
     if (pares.length % 2 === 1) {
       // Sobra uma dupla desta ronda. A escolhida e a que menos repete
@@ -885,14 +938,67 @@ function rodizioDeSeis(
   return melhor
 }
 
+/**
+ * RODIZIO MISTO: cada homem joga uma vez com cada mulher, e toda partida e
+ * mulher+homem contra mulher+homem. Com n de cada, n par fecha em n jogos
+ * para todos; n impar sobra uma dupla, entao cada um repete UM parceiro (um
+ * pareamento mulher x homem inteiro joga de novo) e todos fazem n + 1.
+ * Varias ordens sorteadas com semente, e fica a mais equilibrada.
+ */
+function rodizioMisto(
+  ids: string[],
+  genero: Generos,
+  ratings: Map<string, number>,
+  antes: Confrontos,
+  diaAteAgora: Confrontos,
+  entrosamento?: Map<string, number>,
+): Partida[] {
+  const mulheres = ids.filter((id) => genero.get(id) === 'F')
+  const homens = ids.filter((id) => genero.get(id) !== 'F')
+  let melhor: Partida[] = []
+  let melhorCusto = Infinity
+  const base = [...ids].sort().join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+  for (let t = 0; t < 120; t++) {
+    sorteio = comSemente(base + t * 7919)
+    const m = shuffle(mulheres)
+    const h = shuffle(homens)
+    const rondas = shuffle(rondasMistas(m, h))
+    // n impar: um pareamento mulher x homem inteiro joga de novo (cada um
+    // repete UM parceiro); qualquer rotacao do quadrado e um pareamento
+    const k = Math.floor(sorteio() * h.length)
+    const repetidas: Duo[] = m.length % 2 === 1 ? m.map((x, i) => [x, h[(i + k) % h.length]] as Duo) : []
+    const ctx: Contexto = { ratings, entrosamento, antes, dia: new Map(diaAteAgora) }
+    const cand = umRodizio(ids, ctx, repetidas, rondas)
+    const custo =
+      desigualdadeDeJogos(cand, ids) * 1e6 +
+      cand.filter((p) => !duplaMista(p.team_a, genero) || !duplaMista(p.team_b, genero)).length * 1e6 +
+      custoDoRodizio(cand, { ratings, entrosamento, antes, dia: diaAteAgora })
+    if (custo < melhorCusto) {
+      melhorCusto = custo
+      melhor = cand
+    }
+  }
+  sorteio = Math.random
+  return melhor
+}
+
+/** O grupo da para duplas mistas? Metade de cada genero, pelo menos 2 de cada. */
+export function grupoMisto(ids: string[], genero?: Generos): boolean {
+  if (!genero) return false
+  const f = ids.filter((id) => genero.get(id) === 'F').length
+  return f >= 2 && f * 2 === ids.length
+}
+
 function rodizioDoGrupo(
   ids: string[],
   ratings: Map<string, number>,
   antes: Confrontos,
   diaAteAgora: Confrontos,
   entrosamento?: Map<string, number>,
+  genero?: Generos,
 ): Partida[] {
   if (ids.length < 4) return []
+  if (grupoMisto(ids, genero)) return rodizioMisto(ids, genero!, ratings, antes, diaAteAgora, entrosamento)
   if (ids.length === 6) return rodizioDeSeis(ids, ratings, antes, diaAteAgora, entrosamento)
   let melhor: Partida[] = []
   let melhorCusto = Infinity
@@ -1117,6 +1223,11 @@ export type ScheduleOptions = {
   historyWeight?: number
   /** No modo em grupos, os grupos ja formados. Sem isso, um grupo so. */
   groups?: string[][]
+  /**
+   * Play misto de duplas mistas: o genero de cada um. Com ele, todo grupo com
+   * metade de cada genero so forma duplas homem + mulher.
+   */
+  genero?: Generos
 }
 
 /** Monta a fila de partidas do dia. */
@@ -1131,7 +1242,7 @@ export function gerarFila(opts: ScheduleOptions): PlannedMatch[] {
   const grupos = opts.groups?.length ? opts.groups : [opts.playerIds]
   const todas: PlannedMatch[] = []
   grupos.forEach((ids, i) => {
-    for (const m of rodizioDoGrupo(ids, opts.ratings, antes, dia, opts.entrosamento)) {
+    for (const m of rodizioDoGrupo(ids, opts.ratings, antes, dia, opts.entrosamento, opts.genero)) {
       todas.push({ ...m, grupo: i })
       marcarConfronto(m.team_a, m.team_b, dia)
     }
@@ -1183,7 +1294,9 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
      * partida, e o refazer antigo ainda a escalava para a dupla que "faltava"
      * com a Lorena: ela fechou com 8, a Vanessa com 6 e a Maria Paula com 9.
      */
-    const alvo = jogosDoRodizio(ids.length)
+    const misto = grupoMisto(ids, opts.genero)
+    const mista = (d: Duo) => !misto || duplaMista(d, opts.genero)
+    const alvo = jogosDoRodizio(ids.length, misto)
     const resta = (id: string) => alvo - totalDe(id)
     const registrar = (a: Duo, b: Duo, repetida: boolean) => {
       partidas.push({ team_a: a, team_b: b, repetida })
@@ -1196,7 +1309,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
     const faltando: Duo[] = []
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
-        if (!vezesJuntas.has(pairKey(ids[i], ids[j]))) faltando.push([ids[i], ids[j]])
+        if (!vezesJuntas.has(pairKey(ids[i], ids[j])) && mista([ids[i], ids[j]])) faltando.push([ids[i], ids[j]])
       }
     }
     // uma dupla so entra se as DUAS ainda tem vaga no plano
@@ -1219,6 +1332,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
       for (let i = 0; i < livres.length; i++) {
         for (let j = i + 1; j < livres.length; j++) {
           const d: Duo = [livres[i], livres[j]]
+          if (!mista(d)) continue
           const c =
             custoDoConfronto(d, orfa, ctx) +
             W_REPETIDA * (vezesJuntas.get(pairKey(d[0], d[1])) ?? 0) +
@@ -1284,6 +1398,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
       let melhor = divisoes[0]
       let melhorCusto = Infinity
       for (const [a, b] of divisoes) {
+        if (!mista(a) || !mista(b)) continue
         const repeticoes = (vezesJuntas.get(pairKey(a[0], a[1])) ?? 0) + (vezesJuntas.get(pairKey(b[0], b[1])) ?? 0)
         const c = custoDoConfronto(a, b, ctx) + W_REPETIDA * repeticoes
         if (c < melhorCusto) {

@@ -9,7 +9,7 @@
  * nao usa nada do navegador.
  */
 
-export type LigaId = 'feminino' | 'masculino'
+export type LigaId = 'feminino' | 'masculino' | 'misto'
 
 export type Liga = {
   id: LigaId
@@ -17,7 +17,7 @@ export type Liga = {
   nomeCurto: string
   descricao: string
   /** Schema do Postgres com as tabelas desta liga (mesmos nomes nas duas). */
-  schema: 'public' | 'masculino'
+  schema: 'public' | 'masculino' | 'misto'
   /** Prefixo das chaves do localStorage: os dois apps moram na mesma origem. */
   prefixo: string
   /** Cor da barra do sistema e do fundo da tela de abertura (tema escuro). */
@@ -57,8 +57,23 @@ export const LIGAS: Record<LigaId, Liga> = {
     marca: '#3fa2ff',
     marca2: '#2f5fd0',
   },
+  misto: {
+    id: 'misto',
+    nome: 'Play Misto',
+    nomeCurto: 'Play Misto',
+    descricao: 'Duplas equilibradas, placares e ranking do Play Misto.',
+    // so as tabelas do play (sessions, matches...): os jogadores continuam no
+    // Play de Todas (public) e no Play de Terca (masculino)
+    schema: 'misto',
+    prefixo: 'play-misto',
+    // verde-agua e laranja: nem o rosa do feminino, nem o azul do masculino
+    tema: '#0b1f22',
+    temaClaro: '#e2ece9',
+    marca: '#2ec4b0',
+    marca2: '#16807a',
+  },
 }
 
 export function ligaDe(id: string | undefined): Liga {
-  return id === 'masculino' ? LIGAS.masculino : LIGAS.feminino
+  return id === 'masculino' ? LIGAS.masculino : id === 'misto' ? LIGAS.misto : LIGAS.feminino
 }

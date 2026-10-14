@@ -22,8 +22,15 @@ import type { Plugin } from 'vite'
 
 const junta = (s: string) => s.replace(/\s+/g, ' ').trim()
 
-export function traduzirParaMasculino(mapaPath: string): Plugin {
-  const mapa: Record<string, string> = JSON.parse(readFileSync(mapaPath, 'utf8'))
+/**
+ * Um mapa ou uma lista deles: o misto usa o do masculino (o plural masculino e
+ * o neutro: "jogadores", "Atletas") e o dele por cima (o nome do app).
+ */
+export function traduzirParaMasculino(mapaPath: string | string[]): Plugin {
+  const mapa: Record<string, string> = Object.assign(
+    {},
+    ...[mapaPath].flat().map((c) => JSON.parse(readFileSync(c, 'utf8')) as Record<string, string>),
+  )
   const usados = new Set<string>()
 
   let arquivo = ''

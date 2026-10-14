@@ -35,12 +35,20 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npx vite build --outDir dist-m
+      - name: Build misto (Play Misto, em /misto/)
+        env:
+          VITE_LIGA: misto
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npx vite build --outDir dist-x
       - name: SPA fallback
         run: |
           cp dist/index.html dist/404.html
           # o masculino mora numa subpasta do mesmo site; o CNAME e da raiz
           rm -f dist-m/CNAME
           cp -r dist-m dist/masculino
+          rm -f dist-x/CNAME
+          cp -r dist-x dist/misto
       - uses: actions/configure-pages@v5
         # liga o GitHub Pages automaticamente na primeira execucao
         with:

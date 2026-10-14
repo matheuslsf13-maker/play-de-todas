@@ -20,6 +20,40 @@ import type {
 } from '../lib/types'
 import type { Repo } from './repo'
 import { aplicarMescla } from '../lib/campeonato'
+import { calcularElo } from '../lib/stats'
+import { emptyData } from '../lib/types'
+
+/**
+ * O APP MISTO nao tem jogadores proprios: le os do Play de Todas (`public`, 'F')
+ * e os do Play de Terca (`masculino`, 'M'), e grava cada um de volta no
+ * campeonato dele. Tambem le os plays dos dois para calcular a FORCA DE CASA de
+ * cada um, o ponto de partida da forca do misto -- que depois anda so com as
+ * partidas do misto. Nada do misto volta para os campeonatos.
+ */
+const EH_MISTO = LIGA.id === 'misto'
+const SCHEMA_DO_GENERO = { F: 'public', M: 'masculino' } as const
+
+async function jogadoresDosDoisCampeonatos(): Promise<Player[]> {
+  const sb = client()
+  const lados = await Promise.all(
+    (['F', 'M'] as const).map(async (g) => {
+      const esquema = sb.schema(SCHEMA_DO_GENERO[g])
+      const [players, sessions, matches] = await Promise.all([
+        esquema.from('players').select('*').order('name'),
+        esquema.from('sessions').select('*'),
+        esquema.from('matches').select('*'),
+      ])
+      const err = players.error || sessions.error || matches.error
+      if (err) throw err
+      const jogadores = (players.data ?? []) as Player[]
+      // a forca de casa: o mesmo calculo do campeonato dela, com os plays de la
+      const casa = { ...emptyData(), players: jogadores, sessions: (sessions.data ?? []) as PlaySession[], matches: (matches.data ?? []) as Match[] }
+      const { nota } = calcularElo(casa)
+      return jogadores.map((p) => ({ ...p, genero: g, forca_de_casa: Math.round(nota(p.id)) }))
+    }),
+  )
+  return lados.flat().sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+}
 
 /**
  * Algo nao coube no banco porque uma migracao ainda nao rodou.
@@ -74,14 +108,19 @@ function colunaQueFaltou(msg?: string): string | null {
  * dados que o banco aceitaria de boa vontade, e em silencio. Aqui cada
  * tentativa devolve o nome de UMA coluna, ela sai, e o resto entra.
  */
-async function upsertTolerante<T extends object>(tabela: string, dados: T | T[]): Promise<void> {
+async function upsertTolerante<T extends object>(
+  tabela: string,
+  dados: T | T[],
+  /** Outro schema que o da liga (o misto grava jogadores no campeonato de cada um). */
+  esquema?: 'public' | 'masculino',
+): Promise<void> {
   const lista: Record<string, unknown>[] = (Array.isArray(dados) ? dados : [dados]).map((d) => ({
     ...(d as object),
   }))
   if (lista.length === 0) return
 
   for (let tentativa = 0; tentativa < 12; tentativa++) {
-    const { error } = await client().from(tabela).upsert(lista)
+    const { error } = await (esquema ? client().schema(esquema) : client()).from(tabela).upsert(lista)
     if (!error) return
     const coluna = colunaQueFaltou(error.message)
     if (!coluna || !(coluna in lista[0])) throw error
@@ -96,22 +135,26 @@ export const supabaseRepo: Repo = {
   kind: 'supabase',
   async load(): Promise<AppData> {
     const sb = client()
+    // o misto nao tem check-ins (o dinheiro e de cada campeonato): nem pergunta
+    const semCheckins = EH_MISTO ? Promise.resolve({ data: [], error: null }) : null
     const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos] =
       await Promise.all([
-        sb.from('players').select('*').order('name'),
+        EH_MISTO
+          ? jogadoresDosDoisCampeonatos().then((data) => ({ data, error: null }), (error) => ({ data: null, error }))
+          : sb.from('players').select('*').order('name'),
         sb.from('sessions').select('*').order('date', { ascending: false }),
         sb.from('matches').select('*'),
         sb.from('streak_choices').select('*'),
         sb.from('month_closures').select('*'),
-        sb.from('checkin_locais').select('*').order('ordem'),
-        sb.from('checkin_contas').select('*'),
-        sb.from('checkin_dias').select('*').order('date', { ascending: false }),
-        sb.from('checkins').select('*'),
+        semCheckins ?? sb.from('checkin_locais').select('*').order('ordem'),
+        semCheckins ?? sb.from('checkin_contas').select('*'),
+        semCheckins ?? sb.from('checkin_dias').select('*').order('date', { ascending: false }),
+        semCheckins ?? sb.from('checkins').select('*'),
         // estas duas so quem esta logada le: para anon voltam vazias, sem erro
-        sb.from('checkin_pagamentos').select('*'),
-        sb.from('caixa').select('*'),
-        sb.from('checkin_acertos').select('*'),
-        sb.from('checkin_planos').select('*').order('ordem'),
+        semCheckins ?? sb.from('checkin_pagamentos').select('*'),
+        semCheckins ?? sb.from('caixa').select('*'),
+        semCheckins ?? sb.from('checkin_acertos').select('*'),
+        semCheckins ?? sb.from('checkin_planos').select('*').order('ordem'),
       ])
     const err = players.error || sessions.error || matches.error
     if (err) throw err
@@ -167,9 +210,18 @@ export const supabaseRepo: Repo = {
     }
   },
   async savePlayer(p: Player) {
+    if (EH_MISTO) {
+      // grava no campeonato da pessoa, sem o que so existe na memoria do misto
+      const { genero, forca_de_casa: _casa, ...noBanco } = p
+      if (!genero) throw new Error('No Play Misto, todo atleta precisa ser do feminino ou do masculino')
+      await upsertTolerante('players', noBanco, SCHEMA_DO_GENERO[genero])
+      return
+    }
     await upsertTolerante('players', p)
   },
   async deletePlayer(id: string) {
+    // apagar alguem e coisa do campeonato dela: o misto so le
+    if (EH_MISTO) throw new Error('No Play Misto não dá para apagar atleta: apague no app do campeonato dele')
     const { error } = await client().from('players').delete().eq('id', id)
     if (error) throw error
   },
@@ -322,22 +374,22 @@ export const supabaseRepo: Repo = {
   },
   subscribe(cb: () => void) {
     const sb = client()
-    const ch = sb
-      .channel(`tempo-real-${LIGA.id}`)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'players' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'sessions' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'matches' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'streak_choices' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'month_closures' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_locais' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_contas' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_dias' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkins' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_pagamentos' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'caixa' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_acertos' }, cb)
-      .on('postgres_changes', { event: '*', schema: LIGA.schema, table: 'checkin_planos' }, cb)
-      .subscribe()
+    // no misto os jogadores moram nos dois campeonatos (e nao no schema dele),
+    // e as tabelas dos check-ins nao existem
+    const ouvir: [string, string][] = [
+      ...(EH_MISTO
+        ? ([['public', 'players'], ['masculino', 'players']] as [string, string][])
+        : ([[LIGA.schema, 'players']] as [string, string][])),
+      ...['sessions', 'matches', 'streak_choices', 'month_closures'].map((t) => [LIGA.schema, t] as [string, string]),
+      ...(EH_MISTO
+        ? []
+        : ['checkin_locais', 'checkin_contas', 'checkin_dias', 'checkins', 'checkin_pagamentos', 'caixa', 'checkin_acertos', 'checkin_planos'].map(
+            (t) => [LIGA.schema, t] as [string, string],
+          )),
+    ]
+    let ch = sb.channel(`tempo-real-${LIGA.id}`)
+    for (const [schema, table] of ouvir) ch = ch.on('postgres_changes', { event: '*', schema, table }, cb)
+    ch.subscribe()
     return () => {
       void sb.removeChannel(ch)
     }

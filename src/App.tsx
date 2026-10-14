@@ -19,13 +19,16 @@ type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
  * dos check-ins tambem so se leem logada (script 23), porque esconder a aba
  * nao esconde o dado de quem tem a chave publica do site.
  */
-const TABS: { id: Tab; label: string; icon: string; soAdmin?: boolean }[] = [
+type Aba = { id: Tab; label: string; icon: string; soAdmin?: boolean }
+const TABS: Aba[] = ([
   { id: 'ranking', label: 'Ranking', icon: '🏆' },
   { id: 'play', label: 'Play', icon: '🎾' },
   { id: 'stats', label: 'Stats', icon: '📊' },
   { id: 'players', label: 'Meninas', icon: '👯', soAdmin: true },
   { id: 'checkins', label: 'Check-ins', icon: '✅', soAdmin: true },
-]
+] as Aba[])
+  // o misto nao tem check-ins: o dinheiro e de cada campeonato
+  .filter((t) => !(LIGA.id === 'misto' && t.id === 'checkins'))
 
 /**
  * A aba aberta fica guardada no aparelho: o app recarrega ao voltar para a

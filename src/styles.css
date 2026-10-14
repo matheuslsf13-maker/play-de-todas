@@ -1495,6 +1495,59 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   background: linear-gradient(135deg, var(--sempre-escuro) 0%, #17407f 100%);
 }
 
+/* ==================================================================
+   PLAY MISTO -- verde-agua (o mar) com o laranja do por do sol: nem o rosa
+   do feminino nem o azul do masculino. Mesmo esquema dos blocos acima.
+   ================================================================== */
+:root[data-liga="misto"]:not([data-tema="escuro"]) {
+  --fundo:   #e2ece9;
+  --fundo-2: #f4f9f7;
+  --card:    #ffffff;
+  --card-2:  #ecf4f1;
+  --line:    #c5d8d2;
+  --line-2:  #a8c2ba;
+  --text:    #10272a;
+  --muted:   #5c7270;
+
+  --pink:    #0f8f84;
+  /* tom medio: os cartoes desta cor levam texto escuro por cima */
+  --purple:  #f08a3c;
+  --por-do-sol: linear-gradient(100deg, #0b4f4a 0%, #0f8f84 52%, #f08a3c 100%);
+  --pink-suave:   rgba(15, 143, 132, 0.10);
+  --purple-suave: rgba(240, 138, 60, 0.14);
+
+  --sempre-claro:  #f2fbf8;
+  --sempre-escuro: #0b1f22;
+  --shadow: 0 1px 3px rgba(11, 31, 34, 0.08), 0 8px 22px rgba(11, 31, 34, 0.11);
+}
+
+:root[data-liga="misto"][data-tema="escuro"] {
+  --fundo:   #0b1f22;
+  --fundo-2: #10292c;
+  --card:    #153438;
+  --card-2:  #1b3f43;
+  --line:    rgba(230, 250, 245, 0.14);
+  --line-2:  rgba(230, 250, 245, 0.28);
+  --text:    #ecfaf6;
+  --muted:   #8fb0aa;
+
+  --pink:    #2ec4b0;
+  --purple:  #ff9d52;
+  --por-do-sol: linear-gradient(100deg, #16807a 0%, #2ec4b0 52%, #ff8a3d 100%);
+  --pink-suave:   rgba(46, 196, 176, 0.16);
+  --purple-suave: rgba(255, 157, 82, 0.18);
+
+  --sempre-claro:  #f2fbf8;
+  --sempre-escuro: #0b1f22;
+}
+
+:root[data-liga="misto"]:not([data-tema="escuro"]) { --g1: #0f8f84; --g6: #b45309; }
+:root[data-liga="misto"][data-tema="escuro"] { --g1: #2ec4b0; --g6: #fbbf24; }
+
+:root[data-liga="misto"] .topbar {
+  background: linear-gradient(135deg, var(--sempre-escuro) 0%, #0f5a55 100%);
+}
+
 /* ---------- como pontua e status (Ranking) ----------
    Blocos curtos e numeros grandes: e lido no celular, de relance, por quem
    acabou de perguntar "quanto vale um 4x2?". */

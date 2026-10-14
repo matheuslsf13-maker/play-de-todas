@@ -11,7 +11,7 @@ import { resolve } from 'node:path'
 // endereco quebraria o site enquanto o DNS nao propagasse.
 const versao = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')
 
-// qual liga esta sendo compilada: feminino (padrao) ou masculino
+// qual liga esta sendo compilada: feminino (padrao), masculino ou misto
 const liga = ligaDe(process.env.VITE_LIGA)
 
 const manifesto = {
@@ -35,7 +35,9 @@ export default defineConfig({
   base: './',
   plugins: [
     // no masculino, os textos de tela passam para o masculino antes de compilar
+    // no misto, os do masculino (o plural neutro) e os do misto por cima
     ...(liga.id === 'masculino' ? [traduzirParaMasculino('liga/masculino.json')] : []),
+    ...(liga.id === 'misto' ? [traduzirParaMasculino(['liga/masculino.json', 'liga/misto.json'])] : []),
     react(),
     {
       // nome, cor e manifesto da liga no index.html (que nao passa pelo React)
@@ -48,11 +50,11 @@ export default defineConfig({
           .replace(/%LIGA_DESCRICAO%/g, liga.descricao)
           .replace(/%LIGA_TEMA%/g, liga.tema)
           .replace(/%LIGA_MARCA%/g, liga.marca),
-      // o masculino tem logo e icones proprios (public-masculino/), que vao
+      // masculino e misto tem logo e icones proprios (public-<liga>/), que vao
       // por cima dos do public/ depois que o build copia a pasta publica
       writeBundle(opcoes) {
-        const pasta = resolve('public-masculino')
-        if (liga.id === 'masculino' && existsSync(pasta) && opcoes.dir) cpSync(pasta, opcoes.dir, { recursive: true })
+        const pasta = resolve(`public-${liga.id}`)
+        if (liga.id !== 'feminino' && existsSync(pasta) && opcoes.dir) cpSync(pasta, opcoes.dir, { recursive: true })
       },
       generateBundle() {
         this.emitFile({ type: 'asset', fileName: 'manifest.webmanifest', source: JSON.stringify(manifesto, null, 2) })

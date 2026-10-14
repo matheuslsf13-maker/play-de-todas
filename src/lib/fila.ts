@@ -9,8 +9,11 @@
 import { isPlayed } from './scoring'
 import { pairKey } from './stats'
 import {
+  duplaMista,
+  grupoMisto,
   jogadorasDaPartida,
   jogosDoRodizio,
+  type Generos,
   ordemDeEspera,
   ordemPrevista,
   proximasDasQuadras,
@@ -176,9 +179,11 @@ export function proximasPelaFila(
  * play que nao precisava, e cada toque desmontava o rodizio de 6 que evita
  * alguem emendar 3.
  */
-export function precisaRefazer(grupo: string[], partidasDoGrupo: Match[]): boolean {
+export function precisaRefazer(grupo: string[], partidasDoGrupo: Match[], genero?: Generos): boolean {
   if (grupo.length < 4) return false
-  const alvo = jogosDoRodizio(grupo.length)
+  // play de duplas mistas: so contam as duplas homem + mulher
+  const misto = grupoMisto(grupo, genero)
+  const alvo = jogosDoRodizio(grupo.length, misto)
   const jogos = new Map(grupo.map((id) => [id, 0]))
   const duplas = new Set<string>()
   for (const m of partidasDoGrupo) {
@@ -189,7 +194,10 @@ export function precisaRefazer(grupo: string[], partidasDoGrupo: Match[]): boole
   }
   if ([...jogos.values()].some((n) => n !== alvo)) return true
   for (let i = 0; i < grupo.length; i++) {
-    for (let j = i + 1; j < grupo.length; j++) if (!duplas.has(pairKey(grupo[i], grupo[j]))) return true
+    for (let j = i + 1; j < grupo.length; j++) {
+      if (misto && !duplaMista([grupo[i], grupo[j]], genero)) continue
+      if (!duplas.has(pairKey(grupo[i], grupo[j]))) return true
+    }
   }
   return false
 }
@@ -211,13 +219,15 @@ export function planoDoRefazer(opts: {
   matches: Match[]
   /** A partida fica onde esta (em quadra, ou a que acabou de ser trocada). */
   fixa: (m: Match) => boolean
+  /** Play de duplas mistas: o genero de cada um. */
+  genero?: Generos
 }): { precisam: string[][]; orfas: Match[]; naFila: Match[]; preservadas: Match[] } {
   const noPlay = new Set(opts.jogadoras)
   const pendente = (m: Match) => (m.fase ?? 1) === 1 && !isPlayed(m) && !opts.fixa(m)
   const orfas = opts.matches.filter((m) => pendente(m) && jogadorasDaPartida(m).some((id) => !noPlay.has(id)))
   const semOrfas = opts.matches.filter((m) => !orfas.includes(m))
   const doGrupo = (g: Set<string>) => (m: Match) => jogadorasDaPartida(m).some((id) => g.has(id))
-  const precisam = opts.grupos.filter((g) => precisaRefazer(g, semOrfas.filter(doGrupo(new Set(g)))))
+  const precisam = opts.grupos.filter((g) => precisaRefazer(g, semOrfas.filter(doGrupo(new Set(g))), opts.genero))
   const daFilaNova = doGrupo(new Set(precisam.flat()))
   const naFila = semOrfas.filter((m) => pendente(m) && daFilaNova(m))
   return { precisam, orfas, naFila, preservadas: semOrfas.filter((m) => !naFila.includes(m)) }

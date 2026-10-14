@@ -1049,3 +1049,11 @@ toda novata**. O **Glicko-2** (volatilidade: surpresa grande demais para ser aca
 incerteza do play seguinte, `glicko.volatilidade`) não ganhou: 15 → 0,869 (igual), 25 → 0,841,
 40 → 0,833 — numa partida até 4 games ele confunde noite de sorte com mudança de nível.
 Histórico real: 51–52% em todas. Fica o Glicko sem volatilidade.
+
+**Play Misto (14/10/2026).** App à parte em `/misto/`, com ranking, histórico e força próprios
+(começando da força de casa) — o dono não quis que o misto mexesse na força nem no 🔥 dos
+campeonatos. Jogadores continuam nos dois campeonatos (um cadastro só por pessoa). O rodízio
+de duplas mistas usa o quadrado latino em vez do método do círculo: com n homens e n mulheres
+são n² duplas mistas, e n ímpar não fecha em partidas inteiras — a saída é a mesma regra do
+rodízio de sempre (cada um repete a mesma quantidade: um pareamento H×M inteiro joga de novo).
+Medido em `tests/misto.test.ts` (2+2 a 6+6): toda dupla H+M, todos os pares, jogos iguais.
