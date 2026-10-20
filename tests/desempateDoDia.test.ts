@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ordenarComDesempates } from '../src/lib/desempateDoDia'
+import { ordenarComDesempates, partidasDoConfronto } from '../src/lib/desempateDoDia'
 import { computeStreaks, empatesNoPodio, podiosDoDia } from '../src/lib/streaks'
 import { computeStats, rankPlayers, type PlayerStat } from '../src/lib/stats'
 import { emptyData, type DesempateDeGrupo, type Match, type PlaySession } from '../src/lib/types'
@@ -95,4 +95,25 @@ test('🔥 e dia vencido seguem o desempate; sem ele, o titulo e dividido como a
   s.desempates_grupo = [desempate(0, ['b', 'a'])]
   const comDesempate = computeStreaks(d, (id) => id)
   assert.deepEqual(comDesempate.winnersOf.get('s1'), ['b'])
+})
+
+test('confronto direto justo decide antes da quadra; injusto vai para a quadra', () => {
+  const p = (n: number, a: [string, string], b: [string, string], sa: number, sb: number): Match => ({
+    id: `c${n}`, session_id: 's', round: n, court: 1, team_a: a, team_b: b, score_a: sa, score_b: sb,
+  })
+  // b na frente pela ordem de entrada, mas a venceu b duas vezes com as mesmas parceiras (c e d)
+  const dia = [linha('b', 2, 5), linha('a', 2, 5), linha('e', 0, 0)]
+  const justo = [p(1, ['a', 'c'], ['b', 'd'], 4, 1), p(2, ['a', 'd'], ['b', 'c'], 4, 2)]
+  const r = ordenarComDesempates(dia, [], justo)
+  assert.deepEqual(r.lista.map((x) => x.player_id), ['a', 'b', 'e'])
+  assert.equal(r.posicao.get('b'), 2)
+  assert.equal(r.abertos.length, 0)
+  // parceiras diferentes: o confronto nao e justo, segue para a quadra
+  const injusto = [p(1, ['a', 'c'], ['b', 'd'], 4, 1), p(2, ['a', 'e'], ['b', 'c'], 4, 2)]
+  assert.deepEqual(ordenarComDesempates(dia, [], injusto).abertos, [{ posicao: 1, ids: ['b', 'a'] }])
+  // o decidido na quadra vale mesmo contra o confronto
+  assert.deepEqual(ordenarComDesempates(dia, [desempate(0, ['b', 'a'])], justo).lista.map((x) => x.player_id), ['b', 'a', 'e'])
+  // play de antes de 19/10: sem confronto (o podio anunciado nao muda)
+  assert.equal(partidasDoConfronto({ date: '2026-10-12' }, justo), undefined)
+  assert.equal(partidasDoConfronto({ date: '2026-10-19' }, justo), justo)
 })

@@ -30,7 +30,7 @@ import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
 import { NomesDaDupla } from '../components/NomeClicavel'
-import { dateLabel, monthLabel, monthOf, todayISO, type DesempateDeGrupo, type MonthClosure } from '../lib/types'
+import { dateLabel, monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
 const HISTORICO = 'all'
@@ -556,6 +556,7 @@ export function RankTable({
   fire,
   vagas = 3,
   desempates,
+  partidas,
 }: {
   rows: PlayerStat[]
   fire?: Map<string, number>
@@ -563,9 +564,11 @@ export function RankTable({
   vagas?: number
   /** Desempates em quadra que valem para estas linhas (o grupo, ou o dia no todas). */
   desempates?: DesempateDeGrupo[]
+  /** As partidas do dia, para o confronto direto justo entre duas empatadas. */
+  partidas?: Match[]
 }) {
-  // empatadas em tudo dividem a posicao; o desempate em quadra decide a ordem
-  const { lista: rows, posicao } = ordenarComDesempates(linhas, desempates)
+  // empatadas em tudo dividem a posicao; o confronto direto justo ou a quadra decidem
+  const { lista: rows, posicao } = ordenarComDesempates(linhas, desempates, partidas)
   const posicoes = rows.map((r) => posicao.get(r.player_id) ?? 0)
   const { nameOf, playerById } = useStore()
   const showBonus = rows.some((r) => r.bonus > 0)

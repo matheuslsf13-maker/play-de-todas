@@ -130,7 +130,7 @@ import {
   type Categoria,
 } from '../lib/mensalidade'
 import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
-import { desempatesDoGrupo, ordenarComDesempates } from '../lib/desempateDoDia'
+import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
@@ -1952,15 +1952,21 @@ function PlayDetail({
       // aparece com os pontos de "fase de grupos" quando a categoria fecha
       return rankPlayers(aplicarColocacao(computeStatsComPontos([session], todas), pontosDeColocacao(session, todas)), nameOf)
     }
-    // empate exato decidido na quadra: a ordem e a da quadra (todas e grupos)
+    // empate exato: decidido na quadra ou pelo confronto direto justo (todas e grupos)
     return ordenarComDesempates(
       rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia),
       soFase2 ? [] : (session.desempates_grupo ?? []),
+      soFase2 ? undefined : partidasDoConfronto(session, ms),
     ).lista
   }, [data, session, nameOf, soFase2, criterioDoDia])
 
   /** Os desempates em quadra do dia (so nos formatos todas e grupos). */
   const desempatesDoDia = useMemo(() => (soFase2 ? [] : (session.desempates_grupo ?? [])), [soFase2, session.desempates_grupo])
+  /** As partidas do dia que valem para o confronto direto (plays desde 19/10, todas e grupos). */
+  const partidasConfronto = useMemo(
+    () => (soFase2 ? undefined : partidasDoConfronto(session, playedMatches(data, { sessionId: session.id }))),
+    [soFase2, session, data],
+  )
 
   /**
    * Como o dia e dividido para o podio.
@@ -1970,8 +1976,8 @@ function PlayDetail({
    * em diante. Nos outros formatos continua sendo o grupo.
    */
   const podios = useMemo(
-    () => podiosDoDia(dayRows, soFase2 ? null : session.groups, criterioDoDia, desempatesDoDia),
-    [dayRows, session.groups, soFase2, criterioDoDia, desempatesDoDia],
+    () => podiosDoDia(dayRows, soFase2 ? null : session.groups, criterioDoDia, desempatesDoDia, partidasConfronto),
+    [dayRows, session.groups, soFase2, criterioDoDia, desempatesDoDia, partidasConfronto],
   )
 
   /**
@@ -1986,8 +1992,8 @@ function PlayDetail({
       const g = session.groups?.length ? new Set(session.groups[gi]) : null
       return matches.every((m) => isPlayed(m) || (g !== null && !jogadorasDaPartida(m).some((id) => g.has(id))))
     }
-    return empatesNoPodio(dayRows, session.groups, desempatesDoDia).filter((e) => grupoAcabou(e.grupo))
-  }, [soFase2, session.groups, matches, dayRows, desempatesDoDia])
+    return empatesNoPodio(dayRows, session.groups, desempatesDoDia, partidasConfronto).filter((e) => grupoAcabou(e.grupo))
+  }, [soFase2, session.groups, matches, dayRows, desempatesDoDia, partidasConfronto])
 
   /**
    * QUEM JA PODE IR EMBORA
@@ -3795,7 +3801,7 @@ function PlayDetail({
                     Todas juntas, pelos pontos que vão para o ranking do mês. O pódio é por grupo —
                     toque num grupo para vê-lo com as medalhas.
                   </p>
-                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} desempates={desempatesDoDia} />
+                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} desempates={desempatesDoDia} partidas={partidasConfronto} />
                 </>
               )}
               {podios.length > 1 &&
@@ -3817,6 +3823,7 @@ function PlayDetail({
                           fire={streaksDoDia}
                           vagas={p.rows.length}
                           desempates={desempatesDoGrupo(desempatesDoDia, (p.grupo ?? 1) - 1)}
+                          partidas={partidasConfronto}
                         />
                       </div>
                     )
@@ -3826,6 +3833,7 @@ function PlayDetail({
                   rows={ehCampeonato ? rowsSel : dayRows}
                   fire={streaksDoDia}
                   desempates={ehCampeonato ? undefined : desempatesDoGrupo(desempatesDoDia, 0)}
+                  partidas={ehCampeonato ? undefined : partidasConfronto}
                 />
               )}
               {podios.length > 1 && (

@@ -281,8 +281,10 @@ liga/            textos do masculino: o código fica no feminino e o build
   o nível, e ela já entra no play (com o portão do pagamento, como todas).
 - **Empate no pódio se decide na quadra em TODOS os formatos** (`src/lib/desempateDoDia.ts`,
   `empatesNoPodio`/`podiosDoDia` em `streaks.ts`). Empate exato (vitórias, pontos e saldo)
-  divide a posição — **nunca ordem alfabética**. No todas e no grupos, quando o empate mexe no
-  pódio (1º–3º, ou as vagas do grupo) e o grupo já não tem partida por jogar, o play mostra o
+  divide a posição — **nunca ordem alfabética**. Ordem igual à do campeonato: vitórias →
+  pontos → saldo → **confronto direto** (só entre duas e só quando justo, `confrontoJusto`;
+  nos plays desde `CONFRONTO_NO_DIA_DESDE` = 19/10) → quadra. No todas e no grupos, quando o
+  empate ainda aberto mexe no pódio (1º–3º, ou as vagas do grupo) e o grupo já não tem partida por jogar, o play mostra o
   card "⚖️ Empate no pódio" (`DesempateEmQuadra`: simples 1x1 ou par ou ímpar), também em play
   já finalizado. Grava em `sessions.desempates_grupo` (grupo = índice em `groups`, 0 no todas),
   vale só para o mesmo conjunto de empatadas e decide ordem, pódio, 🔥 e "dia vencido"; na

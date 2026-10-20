@@ -1,5 +1,6 @@
+import { confrontoJusto } from './campeonato'
 import { balance, type PlayerStat } from './stats'
-import type { DesempateDeGrupo } from './types'
+import type { DesempateDeGrupo, Match, PlaySession } from './types'
 
 /*
  * EMPATE NO DIA (formatos todas e grupos)
@@ -12,8 +13,20 @@ import type { DesempateDeGrupo } from './types'
  * para o MESMO conjunto de empatadas: se um placar foi corrigido depois e o
  * empate mudou, ele nao serve mais.
  *
- * Sem desempate gravado tudo sai como sempre saiu: o play antigo nao muda.
+ * Antes da quadra vem o CONFRONTO DIRETO, como no campeonato: so entre duas
+ * empatadas e so quando e justo (`confrontoJusto`: nas partidas em que se
+ * enfrentaram, as duas tiveram as mesmas parceiras). Vale nos plays desde
+ * `CONFRONTO_NO_DIA_DESDE`; nos de antes, sem desempate gravado tudo sai como
+ * sempre saiu -- o pódio e o 🔥 ja anunciados nao mudam.
  */
+
+/** A partir deste play o confronto direto desempata o dia (todas e grupos). */
+export const CONFRONTO_NO_DIA_DESDE = '2026-10-19'
+
+/** As partidas que podem decidir pelo confronto direto, ou nada se o play e de antes. */
+export function partidasDoConfronto(s: Pick<PlaySession, 'date'>, partidas: Match[]): Match[] | undefined {
+  return s.date >= CONFRONTO_NO_DIA_DESDE ? partidas : undefined
+}
 
 /** Empate exato: o mesmo em vitorias, pontos e saldo (vale para os dois criterios do dia). */
 export function empateExato(x: PlayerStat, y: PlayerStat): boolean {
@@ -33,8 +46,16 @@ export type DiaOrdenado = {
   abertos: { posicao: number; ids: string[] }[]
 }
 
-/** Aplica os desempates gravados a uma lista ja ordenada (`rankPlayers`). */
-export function ordenarComDesempates(lista: PlayerStat[], gravados: DesempateDeGrupo[] = []): DiaOrdenado {
+/**
+ * Aplica os desempates a uma lista ja ordenada (`rankPlayers`): primeiro o
+ * decidido na quadra (gravado), depois o confronto direto justo entre duas.
+ */
+export function ordenarComDesempates(
+  lista: PlayerStat[],
+  gravados: DesempateDeGrupo[] = [],
+  /** As partidas do dia, para o confronto direto (sem elas, so a quadra decide). */
+  partidas?: Match[],
+): DiaOrdenado {
   const out: PlayerStat[] = []
   const posicao = new Map<string, number>()
   const abertos: DiaOrdenado['abertos'] = []
@@ -44,8 +65,16 @@ export function ordenarComDesempates(lista: PlayerStat[], gravados: DesempateDeG
     while (j < lista.length && empateExato(lista[i], lista[j])) j++
     let bloco = lista.slice(i, j)
     const ids = bloco.map((x) => x.player_id)
-    const decidido = bloco.length > 1 ? gravados.find((d) => mesmoConjunto(d.ordem, ids)) : undefined
-    if (decidido) bloco = decidido.ordem.map((id) => bloco.find((x) => x.player_id === id) as PlayerStat)
+    const gravado = bloco.length > 1 ? gravados.find((d) => mesmoConjunto(d.ordem, ids)) : undefined
+    let decidido = Boolean(gravado)
+    if (gravado) bloco = gravado.ordem.map((id) => bloco.find((x) => x.player_id === id) as PlayerStat)
+    else if (bloco.length === 2 && partidas) {
+      const c = confrontoJusto(bloco[0].player_id, bloco[1].player_id, partidas)
+      if (c !== 0) {
+        if (c < 0) bloco = [bloco[1], bloco[0]]
+        decidido = true
+      }
+    }
     bloco.forEach((x, k) => {
       out.push(x)
       posicao.set(x.player_id, bloco.length === 1 || decidido ? i + k + 1 : i + 1)
