@@ -5,7 +5,7 @@ import type { DesempateDeGrupo } from '../lib/types'
  * DESEMPATE EM QUADRA, no fim da fase de grupos.
  *
  * Quando duas ou mais empatam em tudo (vitorias, pontos, saldo e o confronto
- * direto, que so conta quando e justo), quem decide e a quadra: uma simples
+ * direto deste play), quem decide e a quadra: uma simples
  * 1x1 ou um par ou impar. A organizadora marca como foi e toca em quem ficou
  * na frente, na ordem. Nunca ordem alfabetica.
  */
@@ -43,7 +43,7 @@ export default function DesempateEmQuadra({
         🎾 Desempate no {titulo}: {ids.map(nameOf).join(' × ')}
       </strong>
       <div className="tiny" style={{ marginTop: 4 }}>
-        Empataram em vitórias, pontos e saldo, e o confronto direto não decide. Resolvam na quadra:
+        Empataram em vitórias, pontos e saldo, e no confronto direto de hoje (se se enfrentaram) ficou igual. Resolvam na quadra:
       </div>
       <div className="row wrap" style={{ gap: 6, marginTop: 8 }}>
         <button className={`chip ${como === 'simples' ? 'on' : 'off'}`} onClick={() => setComo('simples')}>

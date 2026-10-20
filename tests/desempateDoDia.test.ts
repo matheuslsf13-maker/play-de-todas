@@ -97,23 +97,26 @@ test('🔥 e dia vencido seguem o desempate; sem ele, o titulo e dividido como a
   assert.deepEqual(comDesempate.winnersOf.get('s1'), ['b'])
 })
 
-test('confronto direto justo decide antes da quadra; injusto vai para a quadra', () => {
+test('confronto direto: quem venceu mais vezes a outra neste play, sem olhar as parceiras', () => {
   const p = (n: number, a: [string, string], b: [string, string], sa: number, sb: number): Match => ({
     id: `c${n}`, session_id: 's', round: n, court: 1, team_a: a, team_b: b, score_a: sa, score_b: sb,
   })
-  // b na frente pela ordem de entrada, mas a venceu b duas vezes com as mesmas parceiras (c e d)
+  // b na frente pela ordem de entrada, mas a venceu b duas vezes
   const dia = [linha('b', 2, 5), linha('a', 2, 5), linha('e', 0, 0)]
-  const justo = [p(1, ['a', 'c'], ['b', 'd'], 4, 1), p(2, ['a', 'd'], ['b', 'c'], 4, 2)]
-  const r = ordenarComDesempates(dia, [], justo)
+  const duasDeA = [p(1, ['a', 'c'], ['b', 'd'], 4, 1), p(2, ['a', 'e'], ['b', 'c'], 4, 2)]
+  const r = ordenarComDesempates(dia, [], duasDeA)
   assert.deepEqual(r.lista.map((x) => x.player_id), ['a', 'b', 'e'])
   assert.equal(r.posicao.get('b'), 2)
-  assert.equal(r.abertos.length, 0)
-  // parceiras diferentes: o confronto nao e justo, segue para a quadra
-  const injusto = [p(1, ['a', 'c'], ['b', 'd'], 4, 1), p(2, ['a', 'e'], ['b', 'c'], 4, 2)]
-  assert.deepEqual(ordenarComDesempates(dia, [], injusto).abertos, [{ posicao: 1, ids: ['b', 'a'] }])
+  assert.equal(r.abertos.length, 0, 'parceiras diferentes nao impedem mais')
+  // 1x1 no confronto: vai para a quadra
+  const umAUm = [p(1, ['a', 'c'], ['b', 'd'], 4, 1), p(2, ['a', 'e'], ['b', 'c'], 1, 4)]
+  assert.deepEqual(ordenarComDesempates(dia, [], umAUm).abertos, [{ posicao: 1, ids: ['b', 'a'] }])
+  // nunca se enfrentaram (jogaram juntas ou contra outras): vai para a quadra
+  const nunca = [p(1, ['a', 'b'], ['c', 'd'], 4, 1), p(2, ['a', 'c'], ['d', 'e'], 4, 2)]
+  assert.deepEqual(ordenarComDesempates(dia, [], nunca).abertos, [{ posicao: 1, ids: ['b', 'a'] }])
   // o decidido na quadra vale mesmo contra o confronto
-  assert.deepEqual(ordenarComDesempates(dia, [desempate(0, ['b', 'a'])], justo).lista.map((x) => x.player_id), ['b', 'a', 'e'])
+  assert.deepEqual(ordenarComDesempates(dia, [desempate(0, ['b', 'a'])], duasDeA).lista.map((x) => x.player_id), ['b', 'a', 'e'])
   // play de antes de 19/10: sem confronto (o podio anunciado nao muda)
-  assert.equal(partidasDoConfronto({ date: '2026-10-12' }, justo), undefined)
-  assert.equal(partidasDoConfronto({ date: '2026-10-19' }, justo), justo)
+  assert.equal(partidasDoConfronto({ date: '2026-10-12' }, duasDeA), undefined)
+  assert.equal(partidasDoConfronto({ date: '2026-10-19' }, duasDeA), duasDeA)
 })

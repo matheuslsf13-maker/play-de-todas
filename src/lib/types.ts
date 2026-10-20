@@ -98,7 +98,7 @@ export type Categoria = { nome: string; grupos: number[]; quadras: number[] }
 
 /**
  * Desempate decidido EM QUADRA no fim da fase de grupos, quando duas ou mais
- * empataram em tudo (vitorias, pontos, saldo e confronto direto justo): a
+ * empataram em tudo (vitorias, pontos, saldo e confronto direto): a
  * organizadora marca como foi e a ordem em que ficaram.
  */
 export type DesempateDeGrupo = { grupo: number; ordem: string[]; como: 'simples' | 'par-impar'; at: string }

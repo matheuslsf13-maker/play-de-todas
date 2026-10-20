@@ -58,7 +58,7 @@ test('play sem categorias vira uma categoria com tudo', () => {
 })
 
 /* ------------------------------------------- classificacao do grupo */
-import { classificarGrupo, confrontoJusto } from '../src/lib/campeonato'
+import { classificarGrupo, confrontoDireto } from '../src/lib/campeonato'
 import type { Match } from '../src/lib/types'
 
 let seq = 0
@@ -114,19 +114,21 @@ test('saldo de games desempata pontos', () => {
   assert.ok(pos('A') < pos('B'))
 })
 
-test('confronto justo: as duas tiveram as mesmas parceiras contra a outra', () => {
+test('confronto direto: quem venceu mais vezes a outra', () => {
   const ms = [partida(['A', 'B'], ['C', 'D'], 4, 2), partida(['A', 'D'], ['C', 'B'], 4, 2)]
-  assert.ok(confrontoJusto('A', 'C', ms) > 0)
-  assert.ok(confrontoJusto('C', 'A', ms) < 0)
+  assert.ok(confrontoDireto('A', 'C', ms) > 0)
+  assert.ok(confrontoDireto('C', 'A', ms) < 0)
 })
 
-test('confronto com parceiras diferentes nao decide', () => {
+test('confronto com parceiras diferentes tambem decide (so conta quem venceu)', () => {
   const ms = [partida(['A', 'B'], ['C', 'D'], 4, 2), partida(['A', 'E'], ['C', 'F'], 4, 2)]
-  assert.equal(confrontoJusto('A', 'C', ms), 0)
+  assert.ok(confrontoDireto('A', 'C', ms) > 0)
 })
 
-test('quem nunca se enfrentou nao tem confronto', () => {
-  assert.equal(confrontoJusto('A', 'B', [partida(['A', 'B'], ['C', 'D'], 4, 2)]), 0)
+test('1x1 no confronto, ou nunca se enfrentaram: nao decide', () => {
+  const umAUm = [partida(['A', 'B'], ['C', 'D'], 4, 2), partida(['A', 'E'], ['C', 'F'], 2, 4)]
+  assert.equal(confrontoDireto('A', 'C', umAUm), 0)
+  assert.equal(confrontoDireto('A', 'B', [partida(['A', 'B'], ['C', 'D'], 4, 2)]), 0)
 })
 
 const empateDeDuas = () => [

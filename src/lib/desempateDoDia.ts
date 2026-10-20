@@ -1,4 +1,4 @@
-import { confrontoJusto } from './campeonato'
+import { confrontoDireto } from './campeonato'
 import { balance, type PlayerStat } from './stats'
 import type { DesempateDeGrupo, Match, PlaySession } from './types'
 
@@ -14,8 +14,8 @@ import type { DesempateDeGrupo, Match, PlaySession } from './types'
  * empate mudou, ele nao serve mais.
  *
  * Antes da quadra vem o CONFRONTO DIRETO, como no campeonato: so entre duas
- * empatadas e so quando e justo (`confrontoJusto`: nas partidas em que se
- * enfrentaram, as duas tiveram as mesmas parceiras). Vale nos plays desde
+ * empatadas, quem venceu mais vezes a outra NESTE PLAY (`confrontoDireto`; o
+ * historico da atleta nao entra). Vale nos plays desde
  * `CONFRONTO_NO_DIA_DESDE`; nos de antes, sem desempate gravado tudo sai como
  * sempre saiu -- o pódio e o 🔥 ja anunciados nao mudam.
  */
@@ -48,12 +48,12 @@ export type DiaOrdenado = {
 
 /**
  * Aplica os desempates a uma lista ja ordenada (`rankPlayers`): primeiro o
- * decidido na quadra (gravado), depois o confronto direto justo entre duas.
+ * decidido na quadra (gravado), depois o confronto direto entre duas.
  */
 export function ordenarComDesempates(
   lista: PlayerStat[],
   gravados: DesempateDeGrupo[] = [],
-  /** As partidas do dia, para o confronto direto (sem elas, so a quadra decide). */
+  /** As partidas DO PLAY, para o confronto direto (sem elas, so a quadra decide). */
   partidas?: Match[],
 ): DiaOrdenado {
   const out: PlayerStat[] = []
@@ -69,7 +69,7 @@ export function ordenarComDesempates(
     let decidido = Boolean(gravado)
     if (gravado) bloco = gravado.ordem.map((id) => bloco.find((x) => x.player_id === id) as PlayerStat)
     else if (bloco.length === 2 && partidas) {
-      const c = confrontoJusto(bloco[0].player_id, bloco[1].player_id, partidas)
+      const c = confrontoDireto(bloco[0].player_id, bloco[1].player_id, partidas)
       if (c !== 0) {
         if (c < 0) bloco = [bloco[1], bloco[0]]
         decidido = true

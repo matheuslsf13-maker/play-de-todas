@@ -564,10 +564,10 @@ export function RankTable({
   vagas?: number
   /** Desempates em quadra que valem para estas linhas (o grupo, ou o dia no todas). */
   desempates?: DesempateDeGrupo[]
-  /** As partidas do dia, para o confronto direto justo entre duas empatadas. */
+  /** As partidas do dia, para o confronto direto entre duas empatadas. */
   partidas?: Match[]
 }) {
-  // empatadas em tudo dividem a posicao; o confronto direto justo ou a quadra decidem
+  // empatadas em tudo dividem a posicao; o confronto direto ou a quadra decidem
   const { lista: rows, posicao } = ordenarComDesempates(linhas, desempates, partidas)
   const posicoes = rows.map((r) => posicao.get(r.player_id) ?? 0)
   const { nameOf, playerById } = useStore()

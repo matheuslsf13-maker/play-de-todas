@@ -215,8 +215,8 @@ liga/            textos do masculino: o código fica no feminino e o build
   🔥 e texto/arte **por categoria**; para o app é **um** play (ninguém “falta” na
   categoria em que não estava — era o defeito de criar 3 plays no mesmo dia).
   **Classificação do grupo** (`classificarGrupo`): vitórias → pontos → saldo de games →
-  confronto direto **só quando justo** (as duas tiveram as mesmas parceiras contra a
-  outra; num grupo de 4 empatadas em vitórias sempre ficam 1x1) → **desempate em
+  **confronto direto** (só entre duas: quem venceu mais vezes a outra **neste play**, sem
+  olhar as parceiras — o "só quando justo" saiu em 20/10, quase nunca decidia) → **desempate em
   quadra** (simples 1x1 ou par ou ímpar, `desempates_grupo`, vale só para o mesmo
   conjunto de empatadas). **Nunca ordem alfabética.** **Pontos do mês por colocação**
   (`pontuacao`, padrão 16/12/10/8/6/3 = campeã, vice, 3º, semifinal, quartas ou antes,
@@ -282,8 +282,11 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **Empate no pódio se decide na quadra em TODOS os formatos** (`src/lib/desempateDoDia.ts`,
   `empatesNoPodio`/`podiosDoDia` em `streaks.ts`). Empate exato (vitórias, pontos e saldo)
   divide a posição — **nunca ordem alfabética**. Ordem igual à do campeonato: vitórias →
-  pontos → saldo → **confronto direto** (só entre duas e só quando justo, `confrontoJusto`;
-  nos plays desde `CONFRONTO_NO_DIA_DESDE` = 19/10) → quadra. No todas e no grupos, quando o
+  pontos → saldo → **confronto direto** (só entre duas: quem venceu mais vezes a outra neste
+  play, `confrontoDireto`; nos plays desde `CONFRONTO_NO_DIA_DESDE` = 19/10) → quadra. Isso
+  vale só para o pódio porque no todas/grupos a colocação não forma dupla; no grupos + duplas,
+  campeonato e duplas fixas **todo** empate da classificação vai para a quadra e trava o
+  "Montar a chave" até ser decidido. No todas e no grupos, quando o
   empate ainda aberto mexe no pódio (1º–3º, ou as vagas do grupo) e o grupo já não tem partida por jogar, o play mostra o
   card "⚖️ Empate no pódio" (`DesempateEmQuadra`: simples 1x1 ou par ou ímpar), também em play
   já finalizado. Grava em `sessions.desempates_grupo` (grupo = índice em `groups`, 0 no todas),

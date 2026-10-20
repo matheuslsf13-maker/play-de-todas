@@ -167,8 +167,8 @@ export type LinhaDaDupla = {
 
 /**
  * A classificacao das duplas da categoria: vitorias -> pontos -> saldo ->
- * confronto direto (entre DUAS empatadas; com dupla fixa ele e sempre justo,
- * porque nao ha parceira para dar sorte) -> desempate em quadra. Nunca ordem
+ * confronto direto (entre DUAS empatadas: quem venceu mais vezes a outra
+ * neste play) -> desempate em quadra. Nunca ordem
  * alfabetica.
  *
  * O desempate gravado (`DesempateDeGrupo.ordem`) guarda a PRIMEIRA de cada

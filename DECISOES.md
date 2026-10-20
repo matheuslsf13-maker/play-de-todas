@@ -1071,3 +1071,9 @@ posição e, quando mexe no pódio, a quadra decide (simples ou par ou ímpar), 
 Escolhas (o dono não respondeu, ficou o recomendado): só empate que mexe no pódio pede desempate;
 na última vaga, decidido o desempate, só a vencedora sobe; sem desempate gravado, nada muda no
 histórico.
+
+**Confronto direto sem o "justo" (20/10/2026).** O confronto só contava quando as duas tinham
+enfrentado uma à outra com as mesmas parceiras — no rodízio isso quase nunca acontece, e o empate
+caía sempre na quadra. Agora é o simples: quem venceu mais vezes a outra **naquele play** (nunca o
+histórico); 1x1 ou nunca se enfrentaram → quadra. Vale em todos os formatos. Num grupo de 4 dá o
+mesmo resultado de antes.

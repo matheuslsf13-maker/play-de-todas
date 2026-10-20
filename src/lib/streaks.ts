@@ -109,7 +109,7 @@ export function podiosDoDia(
    * como sempre foi; com eles, sobe so quem venceu na quadra.
    */
   desempates?: DesempateDeGrupo[] | null,
-  /** As partidas do dia, para o confronto direto justo (`partidasDoConfronto`). */
+  /** As partidas do dia, para o confronto direto (`partidasDoConfronto`). */
   partidas?: Match[],
 ): PodioDoDia[] {
   // `rank` ja vem ordenado pelo criterio do dia; empate e o empate exato

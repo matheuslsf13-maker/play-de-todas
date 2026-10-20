@@ -151,18 +151,17 @@ export type LinhaDoGrupo = {
 }
 
 /**
- * O confronto direto entre duas, SO QUANDO E JUSTO.
+ * O CONFRONTO DIRETO entre duas: quem venceu mais vezes a outra NESTE PLAY,
+ * nas partidas em que estiveram em lados opostos (`partidas` sao so as do
+ * play -- o historico da atleta nunca entra). Nao olha as parceiras: antes so
+ * contava quando as duas tinham tido as mesmas parceiras, e no rodizio isso
+ * quase nunca acontecia (o dono pediu o simples, 20/10). Num grupo de 4 da o
+ * mesmo resultado de antes.
  *
- * Em dupla, quem vence o confronto depende tambem da parceira. Ele so conta
- * quando, nas partidas em que as duas se enfrentaram, cada uma teve AS MESMAS
- * parceiras -- o que sempre acontece num grupo de 4 (a sorte da parceira se
- * anula). Fora disso devolve 0 e o empate vai para a quadra.
- *
- * > 0: `a` na frente; < 0: `b` na frente; 0: nao decide.
+ * > 0: `a` na frente; < 0: `b` na frente; 0: empatou no confronto ou nunca se
+ * enfrentaram -- o empate vai para a quadra.
  */
-export function confrontoJusto(a: string, b: string, partidas: Match[]): number {
-  const parceirasDeA: string[] = []
-  const parceirasDeB: string[] = []
+export function confrontoDireto(a: string, b: string, partidas: Match[]): number {
   let saldo = 0
   for (const m of partidas) {
     if (!isPlayed(m)) continue
@@ -171,21 +170,16 @@ export function confrontoJusto(a: string, b: string, partidas: Match[]): number 
     const bNoA = m.team_a.includes(b)
     const bNoB = m.team_b.includes(b)
     if (!((aNoA && bNoB) || (aNoB && bNoA))) continue
-    const timeDeA = aNoA ? m.team_a : m.team_b
-    const timeDeB = aNoA ? m.team_b : m.team_a
-    parceirasDeA.push(timeDeA[0] === a ? timeDeA[1] : timeDeA[0])
-    parceirasDeB.push(timeDeB[0] === b ? timeDeB[1] : timeDeB[0])
     const aVenceu = aNoA ? (m.score_a as number) > (m.score_b as number) : (m.score_b as number) > (m.score_a as number)
     saldo += aVenceu ? 1 : -1
   }
-  if (parceirasDeA.length === 0) return 0
-  const iguais = [...parceirasDeA].sort().join('|') === [...parceirasDeB].sort().join('|')
-  return iguais ? saldo : 0
+  return saldo
 }
 
 /**
  * A classificacao de um grupo: vitorias -> pontos -> saldo de games ->
- * confronto direto (so justo, so entre duas) -> desempate em quadra.
+ * confronto direto (so entre duas: quem venceu mais vezes a outra neste play)
+ * -> desempate em quadra.
  * NUNCA ordem alfabetica: empate que nada decide fica `pendente` ate a
  * organizadora gravar o desempate (simples 1x1 ou par ou impar).
  *
@@ -239,7 +233,7 @@ export function classificarGrupo(
     let bloco = ordem.slice(i, j)
     let resolvido = bloco.length === 1
     if (!resolvido && bloco.length === 2) {
-      const c = confrontoJusto(bloco[0].id, bloco[1].id, jogadas)
+      const c = confrontoDireto(bloco[0].id, bloco[1].id, jogadas)
       if (c !== 0) {
         if (c < 0) bloco = [bloco[1], bloco[0]]
         resolvido = true

@@ -1952,7 +1952,7 @@ function PlayDetail({
       // aparece com os pontos de "fase de grupos" quando a categoria fecha
       return rankPlayers(aplicarColocacao(computeStatsComPontos([session], todas), pontosDeColocacao(session, todas)), nameOf)
     }
-    // empate exato: decidido na quadra ou pelo confronto direto justo (todas e grupos)
+    // empate exato: decidido na quadra ou pelo confronto direto (todas e grupos)
     return ordenarComDesempates(
       rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia),
       soFase2 ? [] : (session.desempates_grupo ?? []),
@@ -2926,7 +2926,7 @@ function PlayDetail({
 
   /**
    * FORMAR AS DUPLAS de uma categoria: 1a com 1a, pela classificacao de cada
-   * grupo (vitorias, pontos, saldo, confronto justo e o desempate em quadra).
+   * grupo (vitorias, pontos, saldo, confronto direto e o desempate em quadra).
    * Com empate pendente nao forma: a organizadora decide em quadra antes.
    */
   async function gerarFase2(ci: number) {
