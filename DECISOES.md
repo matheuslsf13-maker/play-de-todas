@@ -1063,3 +1063,11 @@ casa a cada abertura e somava o misto por cima; o dono preferiu o misto **totalm
 a força do campeonato é puxada **uma vez** (a foto em `misto.atletas`) e, dali em diante, força,
 faltas, pausa e inativar são do misto — com o mesmo cálculo de todos os plays. Só o cadastro
 (nome, apelido, foto) continua compartilhado.
+
+**Empate no pódio em todos os formatos (20/10/2026).** No play de 19/10 duas meninas empataram
+em tudo e o app não pediu desempate: fora do campeonato, o ranking do dia desempatava pela ordem
+alfabética e o pódio levava as duas empatadas na última vaga. Agora o empate exato divide a
+posição e, quando mexe no pódio, a quadra decide (simples ou par ou ímpar), como no campeonato.
+Escolhas (o dono não respondeu, ficou o recomendado): só empate que mexe no pódio pede desempate;
+na última vaga, decidido o desempate, só a vencedora sobe; sem desempate gravado, nada muda no
+histórico.

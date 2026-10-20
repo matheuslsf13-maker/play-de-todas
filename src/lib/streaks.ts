@@ -1,14 +1,13 @@
 import {
-  compararPeloCriterio,
   type CriterioDoDia,
-  balance,
   computeStats,
   playedMatches,
   rankPlayers,
   type PlayerStat,
 } from './stats'
 import { podioDoMataMata } from './campeonato'
-import type { AppData, PlaySession, StreakChoice } from './types'
+import { desempatesDoGrupo, ordenarComDesempates } from './desempateDoDia'
+import type { AppData, DesempateDeGrupo, PlaySession, StreakChoice } from './types'
 import { monthOf, todayISO } from './types'
 
 /**
@@ -103,24 +102,61 @@ export type PodioDoDia = {
 export function podiosDoDia(
   rank: PlayerStat[],
   grupos?: string[][] | null,
-  criterio: CriterioDoDia = 'pontos',
+  _criterio: CriterioDoDia = 'pontos',
+  /**
+   * Os desempates em quadra do play (`sessions.desempates_grupo`), so nos
+   * formatos todas e grupos. Sem eles, o empate exato na ultima vaga sobe junto,
+   * como sempre foi; com eles, sobe so quem venceu na quadra.
+   */
+  desempates?: DesempateDeGrupo[] | null,
 ): PodioDoDia[] {
-  const primeiras = (lista: PlayerStat[], vagas: number): PlayerStat[] => {
-    if (lista.length === 0) return []
-    const corte = lista[Math.min(vagas, lista.length) - 1]
-    // empate exato na ultima vaga sobe junto -- pelo mesmo criterio que ordenou
-    return lista.filter((x) => compararPeloCriterio(x, corte, criterio) <= 0)
+  // `rank` ja vem ordenado pelo criterio do dia; empate e o empate exato
+  // (vitorias, pontos e saldo), o mesmo nos dois criterios
+  const primeiras = (lista: PlayerStat[], vagas: number, grupo: number): PlayerStat[] => {
+    const { lista: ordem, posicao } = ordenarComDesempates(lista, desempatesDoGrupo(desempates, grupo))
+    return ordem.filter((x) => (posicao.get(x.player_id) ?? Infinity) <= vagas)
   }
 
   if (!grupos || grupos.length <= 1) {
-    return [{ grupo: null, rows: primeiras(rank, PODIO), membros: rank.map((x) => x.player_id) }]
+    return [{ grupo: null, rows: primeiras(rank, PODIO, 0), membros: rank.map((x) => x.player_id) }]
   }
 
   return grupos.map((g, i) => {
     const doGrupo = new Set(g)
     // `rank` ja vem ordenado, entao filtrar preserva a classificacao
     const doRank = rank.filter((x) => doGrupo.has(x.player_id))
-    return { grupo: i + 1, rows: primeiras(doRank, vagasDoPodio(g.length)), membros: g }
+    return { grupo: i + 1, rows: primeiras(doRank, vagasDoPodio(g.length), i), membros: g }
+  })
+}
+
+/** Um empate que mexe no podio e ainda nao foi decidido na quadra. */
+export type EmpateNoPodio = {
+  /** Indice do grupo em `session.groups` (0 no todas) -- e o que vai gravado. */
+  grupo: number
+  /** Numero do grupo para a tela (1, 2...) ou null no todas. */
+  numero: number | null
+  /** A posicao em que o empate comeca (2 = empate em 2o). */
+  posicao: number
+  ids: string[]
+}
+
+/**
+ * Os empates que a organizadora precisa decidir na quadra: so os que mexem no
+ * podio (o empate la embaixo divide a posicao e pronto).
+ */
+export function empatesNoPodio(
+  rank: PlayerStat[],
+  grupos: string[][] | null | undefined,
+  desempates: DesempateDeGrupo[] | null | undefined,
+): EmpateNoPodio[] {
+  const doBloco = (lista: PlayerStat[], vagas: number, grupo: number, numero: number | null) =>
+    ordenarComDesempates(lista, desempatesDoGrupo(desempates, grupo))
+      .abertos.filter((a) => a.posicao <= vagas)
+      .map((a) => ({ grupo, numero, posicao: a.posicao, ids: a.ids }))
+  if (!grupos || grupos.length <= 1) return doBloco(rank, PODIO, 0, null)
+  return grupos.flatMap((g, i) => {
+    const doGrupo = new Set(g)
+    return doBloco(rank.filter((x) => doGrupo.has(x.player_id)), vagasDoPodio(g.length), i, i + 1)
   })
 }
 
@@ -300,14 +336,12 @@ export function computeStreaks(data: AppData): Streaks {
     } else if (mataMata) {
       winnersOf.set(s.id, mataMata.campeas)
     } else {
-      const top = rank[0]
+      // empate exato no topo divide o titulo -- a nao ser que a quadra tenha
+      // decidido (desempate gravado para aquele mesmo conjunto)
+      const { lista, posicao } = ordenarComDesempates(rank, soFase2 ? [] : (s.desempates_grupo ?? []))
       winnersOf.set(
         s.id,
-        rank
-          .filter(
-            (x) => x.points === top.points && balance(x) === balance(top) && x.wins === top.wins,
-          )
-          .map((c) => c.player_id),
+        lista.filter((x) => posicao.get(x.player_id) === 1).map((c) => c.player_id),
       )
     }
 
@@ -321,7 +355,11 @@ export function computeStreaks(data: AppData): Streaks {
      */
     const noPodio = mataMata
       ? new Set(mataMata.podio)
-      : new Set(podiosDoDia(rank, s.groups, criterio).flatMap((p) => p.rows.map((x) => x.player_id)))
+      : new Set(
+          podiosDoDia(rank, s.groups, criterio, soFase2 ? null : s.desempates_grupo).flatMap((p) =>
+            p.rows.map((x) => x.player_id),
+          ),
+        )
     if (vaiProMes) podiumOf.set(s.id, [...noPodio])
     // play fora do status: quem subiu nao soma, quem ficou fora ou faltou nao perde
     if (!contaNoStatus(s)) continue

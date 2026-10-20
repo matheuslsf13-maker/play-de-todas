@@ -129,7 +129,8 @@ import {
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
-import { computeStreaks, contaNoStatus, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { desempatesDoGrupo, ordenarComDesempates } from '../lib/desempateDoDia'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
@@ -1951,8 +1952,15 @@ function PlayDetail({
       // aparece com os pontos de "fase de grupos" quando a categoria fecha
       return rankPlayers(aplicarColocacao(computeStatsComPontos([session], todas), pontosDeColocacao(session, todas)), nameOf)
     }
-    return rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia)
+    // empate exato decidido na quadra: a ordem e a da quadra (todas e grupos)
+    return ordenarComDesempates(
+      rankPlayers(aplicarBye(computeStats(ms), byeDoDia.porJogadora), nameOf, criterioDoDia),
+      soFase2 ? [] : (session.desempates_grupo ?? []),
+    ).lista
   }, [data, session, nameOf, soFase2, criterioDoDia])
+
+  /** Os desempates em quadra do dia (so nos formatos todas e grupos). */
+  const desempatesDoDia = useMemo(() => (soFase2 ? [] : (session.desempates_grupo ?? [])), [soFase2, session.desempates_grupo])
 
   /**
    * Como o dia e dividido para o podio.
@@ -1962,9 +1970,24 @@ function PlayDetail({
    * em diante. Nos outros formatos continua sendo o grupo.
    */
   const podios = useMemo(
-    () => podiosDoDia(dayRows, soFase2 ? null : session.groups, criterioDoDia),
-    [dayRows, session.groups, soFase2, criterioDoDia],
+    () => podiosDoDia(dayRows, soFase2 ? null : session.groups, criterioDoDia, desempatesDoDia),
+    [dayRows, session.groups, soFase2, criterioDoDia, desempatesDoDia],
   )
+
+  /**
+   * EMPATE NO PODIO (todas e grupos): empatadas em tudo que mexem no podio,
+   * ainda sem desempate em quadra. So aparece quando o grupo (ou o play, no
+   * todas) ja nao tem partida por jogar -- antes disso o empate ainda pode
+   * se desfazer sozinho.
+   */
+  const empatesAbertos = useMemo(() => {
+    if (soFase2) return []
+    const grupoAcabou = (gi: number) => {
+      const g = session.groups?.length ? new Set(session.groups[gi]) : null
+      return matches.every((m) => isPlayed(m) || (g !== null && !jogadorasDaPartida(m).some((id) => g.has(id))))
+    }
+    return empatesNoPodio(dayRows, session.groups, desempatesDoDia).filter((e) => grupoAcabou(e.grupo))
+  }, [soFase2, session.groups, matches, dayRows, desempatesDoDia])
 
   /**
    * QUEM JA PODE IR EMBORA
@@ -2985,6 +3008,14 @@ function PlayDetail({
     if (doneCount < matches.length && !confirm(`Ainda faltam ${matches.length - doneCount} partidas sem placar. Finalizar mesmo assim?`)) return
     // categoria que nao fechou a chave fica sem podio, sem fogo e sem pontos de colocacao
     if (faltaFase && !confirm(`${ehCampeonato ? 'Uma categoria ainda' : 'O play ainda'} tem fase pela frente (duplas ou próxima rodada). Sem ela não há pódio${session.pontuacao?.length ? ' nem pontos de colocação' : ''}. Finalizar mesmo assim?`)) return
+    // empate no podio sem desempate: nao trava, mas as empatadas sobem juntas
+    if (
+      empatesAbertos.length > 0 &&
+      !confirm(
+        `Há empate no pódio sem desempate (${empatesAbertos.map((e) => e.ids.map(nameOf).join(' × ')).join('; ')}). Sem ele, as empatadas sobem juntas. Finalizar assim?`,
+      )
+    )
+      return
     await saveSession({ ...session, status: 'finished' })
     // o credito da avulsa vale por UM play: finalizado, ela volta a dever
     for (const p of consumirAvulsos(session.player_ids, data)) await savePlayer(p)
@@ -3462,6 +3493,7 @@ function PlayDetail({
         target={session.target}
         editable={editable}
         onCorrigir={(m) => setCorrigindo(m)}
+        filtravel
       />
 
       {(session.eventos?.length ?? 0) > 0 && (
@@ -3543,6 +3575,26 @@ function PlayDetail({
               </button>
             </div>
           ))}
+
+      {/* tambem no play ja finalizado: o empate do ultimo play ainda pode ser decidido */}
+      {canEdit && empatesAbertos.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--marca)' }}>
+          <div className="section-title" style={{ marginTop: 0 }}>⚖️ Empate no pódio</div>
+          <p className="tiny muted" style={{ marginTop: 0 }}>
+            Empataram em tudo (vitórias, pontos e saldo). Quem decide é a quadra — sem desempate, as empatadas
+            sobem juntas ao pódio.
+          </p>
+          {empatesAbertos.map((e) => (
+            <DesempateEmQuadra
+              key={`${e.grupo}-${e.ids.join('|')}`}
+              titulo={`${e.numero === null ? 'pódio do dia' : `pódio do grupo ${e.numero}`} (${e.posicao}º lugar)`}
+              ids={e.ids}
+              nameOf={nameOf}
+              onSalvar={(ordem, como) => salvarDesempate(e.grupo, ordem, como)}
+            />
+          ))}
+        </div>
+      )}
 
       {editable && (
         <button className={`btn ${faltaFase ? 'ghost' : 'teal'} block`} onClick={() => void finish()}>
@@ -3652,6 +3704,12 @@ function PlayDetail({
 
       {showRank && (
         <Modal title={`Ranking do dia — ${dateLabel(session.date)}`} onClose={() => setShowRank(false)}>
+          {empatesAbertos.length > 0 && (
+            <div className="banner warn" style={{ marginBottom: 10 }}>
+              ⚖️ <strong>Empate no pódio</strong>: {empatesAbertos.map((e) => e.ids.map(nameOf).join(' × ')).join('; ')}.
+              {canEdit ? ' Decida no card “⚖️ Empate no pódio”, na tela do play.' : ' Ainda sem desempate: sobem juntas.'}
+            </div>
+          )}
           {/* o seletor de categoria manda na fase de grupos e no ranking abaixo */}
           {ehCampeonato && (
             <div className="chips-scroll" style={{ marginBottom: 8 }}>
@@ -3737,7 +3795,7 @@ function PlayDetail({
                     Todas juntas, pelos pontos que vão para o ranking do mês. O pódio é por grupo —
                     toque num grupo para vê-lo com as medalhas.
                   </p>
-                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} />
+                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} desempates={desempatesDoDia} />
                 </>
               )}
               {podios.length > 1 &&
@@ -3758,11 +3816,18 @@ function PlayDetail({
                           rows={dayRows.filter((s) => doGrupo.has(s.player_id))}
                           fire={streaksDoDia}
                           vagas={p.rows.length}
+                          desempates={desempatesDoGrupo(desempatesDoDia, (p.grupo ?? 1) - 1)}
                         />
                       </div>
                     )
                   })}
-              {podios.length <= 1 && <RankTable rows={ehCampeonato ? rowsSel : dayRows} fire={streaksDoDia} />}
+              {podios.length <= 1 && (
+                <RankTable
+                  rows={ehCampeonato ? rowsSel : dayRows}
+                  fire={streaksDoDia}
+                  desempates={ehCampeonato ? undefined : desempatesDoGrupo(desempatesDoDia, 0)}
+                />
+              )}
               {podios.length > 1 && (
                 <p className="tiny muted" style={{ marginTop: 10, marginBottom: 8 }}>
                   📤 O texto e a imagem saem com {grupoArte === null ? 'todos os grupos' : `só o grupo ${grupoArte}`},
@@ -4181,6 +4246,7 @@ function ListaDePartidas({
   target,
   editable,
   onCorrigir,
+  filtravel,
 }: {
   titulo: string
   vazio: string
@@ -4206,24 +4272,104 @@ function ListaDePartidas({
   target?: number
   editable?: boolean
   onCorrigir?: (m: Match) => void
+  /** Chips por grupo e busca pelo nome ("e o grupo 2?", "quero ver as minhas"). */
+  filtravel?: boolean
 }) {
-  const { nameOf } = useStore()
+  const { nameOf, playerById } = useStore()
   const [aberta, setAberta] = useState(false)
+  const [grupoFiltro, setGrupoFiltro] = useState<number | null>(null)
+  const [busca, setBusca] = useState('')
   const LIMITE = 5
-  const visiveis = aberta ? partidas : partidas.slice(0, LIMITE)
+
+  // quem casa com a busca: apelido ou nome de cadastro, sem acento nem maiuscula
+  const termo = normalizar(busca)
+  const achadas = useMemo(() => {
+    if (!filtravel || !termo) return []
+    const ids = new Set(partidas.flatMap((m) => jogadorasDaPartida(m)))
+    return [...ids].filter((id) =>
+      [nameOf(id), playerById(id)?.name ?? ''].some((n) => normalizar(n).includes(termo)),
+    )
+  }, [filtravel, termo, partidas, nameOf, playerById])
+  const filtradas = useMemo(() => {
+    let ms = partidas
+    if (filtravel && grupoFiltro !== null) ms = ms.filter((m) => grupoDe.get(m.team_a[0]) === grupoFiltro)
+    if (filtravel && termo) ms = ms.filter((m) => jogadorasDaPartida(m).some((id) => achadas.includes(id)))
+    return ms
+  }, [partidas, filtravel, grupoFiltro, grupoDe, termo, achadas])
+  const filtrando = filtravel && (grupoFiltro !== null || termo !== '')
+  // com filtro a lista mostra tudo o que casa: quem procura quer ver todas
+  const visiveis = aberta || filtrando ? filtradas : filtradas.slice(0, LIMITE)
+  /** V-D de quem foi procurada, nas partidas da lista. */
+  const resumo = (id: string) => {
+    let v = 0
+    let d = 0
+    for (const m of filtradas) {
+      if (!isPlayed(m)) continue
+      const naA = m.team_a.includes(id)
+      if (!naA && !m.team_b.includes(id)) continue
+      const venceuA = (m.score_a as number) > (m.score_b as number)
+      if (naA === venceuA) v++
+      else d++
+    }
+    return `${v}V ${d}D`
+  }
 
   return (
     <div className="card">
       <div className="row spread">
         <div className="section-title" style={{ margin: 0 }}>{titulo}</div>
-        {partidas.length > LIMITE && (
+        {!filtrando && partidas.length > LIMITE && (
           <button className="btn ghost sm" onClick={() => setAberta((v) => !v)}>
             {aberta ? 'Ver menos' : `Ver todas (${partidas.length})`}
           </button>
         )}
       </div>
+      {filtravel && partidas.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          {totalGrupos > 1 && (
+            <div className="chips-scroll" style={{ marginBottom: 8 }}>
+              <button
+                className={`chip ${grupoFiltro === null ? 'on' : 'off'}`}
+                style={{ flex: 'none' }}
+                onClick={() => setGrupoFiltro(null)}
+              >
+                Todos
+              </button>
+              {Array.from({ length: totalGrupos }, (_, i) => i + 1).map((g) => (
+                <button
+                  key={g}
+                  className={`chip ${grupoFiltro === g ? 'on' : 'off'}`}
+                  style={{ flex: 'none' }}
+                  onClick={() => setGrupoFiltro(g)}
+                >
+                  {nomesDosGrupos ? `Categoria ${nomesDosGrupos[g - 1]}` : `Grupo ${g}`}
+                </button>
+              ))}
+            </div>
+          )}
+          <input
+            className="input"
+            type="search"
+            value={busca}
+            placeholder="🔎 Procurar pelo nome"
+            onChange={(e) => setBusca(e.target.value)}
+          />
+          {termo && (
+            <p className="tiny muted" style={{ margin: '6px 0 0' }}>
+              {achadas.length === 0
+                ? 'Ninguém com esse nome nestas partidas.'
+                : achadas
+                    .slice(0, 4)
+                    .map((id) => `${nameOf(id)}: ${resumo(id)}`)
+                    .join(' · ')}
+            </p>
+          )}
+        </div>
+      )}
       {partidas.length === 0 ? (
         <Empty>{vazio}</Empty>
+      ) : filtradas.length === 0 ? (
+        <Empty>Nenhuma partida com esse filtro.</Empty>
       ) : (
         <div className="stack" style={{ marginTop: 10 }}>
           {visiveis.map((m, i) => {

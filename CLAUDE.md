@@ -279,6 +279,17 @@ liga/            textos do masculino: o código fica no feminino e o build
   embaixo — um número era difícil de chutar e quase ninguém usava. Dá para **cadastrar na
   tela de montar o play** ("➕ Nova atleta", `components/NovaAtleta.tsx`): nome, quem paga e
   o nível, e ela já entra no play (com o portão do pagamento, como todas).
+- **Empate no pódio se decide na quadra em TODOS os formatos** (`src/lib/desempateDoDia.ts`,
+  `empatesNoPodio`/`podiosDoDia` em `streaks.ts`). Empate exato (vitórias, pontos e saldo)
+  divide a posição — **nunca ordem alfabética**. No todas e no grupos, quando o empate mexe no
+  pódio (1º–3º, ou as vagas do grupo) e o grupo já não tem partida por jogar, o play mostra o
+  card "⚖️ Empate no pódio" (`DesempateEmQuadra`: simples 1x1 ou par ou ímpar), também em play
+  já finalizado. Grava em `sessions.desempates_grupo` (grupo = índice em `groups`, 0 no todas),
+  vale só para o mesmo conjunto de empatadas e decide ordem, pódio, 🔥 e "dia vencido"; na
+  última vaga só a vencedora sobe. Sem desempate, as empatadas sobem juntas (como sempre foi:
+  play antigo não muda). O Finalizar avisa, mas não trava.
+- **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
+  "🔎 procurar pelo nome" (apelido ou cadastro, sem acento), com o V-D de quem foi procurada.
 - **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,
   script 14). Ganhar 5 de 6 apertado vale mais no dia do que ganhar 3 atropelando;
   os pontos só desempatam. O critério fica **gravado no play**: os antigos (sem

@@ -16,16 +16,6 @@ import {
   type PlayerStat, mediaDaForca } from '../lib/stats'
 import { PONTUACAO_PADRAO, colocacaoNoRecorte } from '../lib/campeonato'
 
-/** Empate de verdade (mesmos pontos, saldo e vitorias) fica na mesma posicao. */
-function positionsOf(rows: PlayerStat[]): number[] {
-  const pos: number[] = []
-  rows.forEach((s, i) => {
-    const ant = rows[i - 1]
-    const igual = ant && ant.points === s.points && balance(ant) === balance(s) && ant.wins === s.wins
-    pos.push(igual ? pos[i - 1] : i + 1)
-  })
-  return pos
-}
 import {
   applyBonuses,
   computeStreaks,
@@ -37,9 +27,10 @@ import {
 } from '../lib/streaks'
 import { forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
+import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
 import { NomesDaDupla } from '../components/NomeClicavel'
-import { dateLabel, monthLabel, monthOf, todayISO, type MonthClosure } from '../lib/types'
+import { dateLabel, monthLabel, monthOf, todayISO, type DesempateDeGrupo, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
 const HISTORICO = 'all'
@@ -120,7 +111,11 @@ export default function Ranking({
     return { games: ms.length, days, players: rows.length }
   }, [data, activeMonth, historico, rows.length])
 
-  const posicoes = useMemo(() => positionsOf(rows), [rows])
+  // empate de verdade (mesmos pontos, saldo e vitorias) fica na mesma posicao
+  const posicoes = useMemo(() => {
+    const { posicao } = ordenarComDesempates(rows)
+    return rows.map((r) => posicao.get(r.player_id) ?? 0)
+  }, [rows])
   // cinco basta para saber quem esta na briga; a lista inteira fica a um toque
   const TOPO = 5
   const visiveis = verTodas ? rows : rows.slice(0, TOPO)
@@ -557,15 +552,21 @@ function ConfirmarFechamento({
 }
 
 export function RankTable({
-  rows,
+  rows: linhas,
   fire,
   vagas = 3,
+  desempates,
 }: {
   rows: PlayerStat[]
   fire?: Map<string, number>
   /** Quantas posicoes ganham cor de podio: num grupo pequeno o podio tem menos de 3. */
   vagas?: number
+  /** Desempates em quadra que valem para estas linhas (o grupo, ou o dia no todas). */
+  desempates?: DesempateDeGrupo[]
 }) {
+  // empatadas em tudo dividem a posicao; o desempate em quadra decide a ordem
+  const { lista: rows, posicao } = ordenarComDesempates(linhas, desempates)
+  const posicoes = rows.map((r) => posicao.get(r.player_id) ?? 0)
   const { nameOf, playerById } = useStore()
   const showBonus = rows.some((r) => r.bonus > 0)
   // a coluna so aparece quando ha bye no recorte: nos plays sem chave
@@ -573,7 +574,6 @@ export function RankTable({
   const showBye = rows.some((r) => r.bye > 0)
   // idem para os pontos por colocacao do campeonato
   const showColocacao = rows.some((r) => (r.colocacao ?? 0) > 0)
-  const posicoes = positionsOf(rows)
   return (
     <div className="scroll-x">
       <table className="table">
