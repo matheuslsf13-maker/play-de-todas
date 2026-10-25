@@ -263,7 +263,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   **Com o play já criado**, enquanto nenhuma partida foi iniciada nem lançada, o cartão
   "👥 Grupos" tem **"✏️ Arrumar grupos"** (`ArrumarGrupos`/`salvarGrupos` em Play.tsx): o
   mesmo toque-e-move, num rascunho; o Salvar recusa grupo com menos de 4, grava os grupos e
-  refaz a fila do zero (como o "Refazer tudo") e anota no diário (`tipo: 'grupos'`). Antes,
+  refaz a fila do zero (como o "Refazer tudo") e anota no diário (`tipo: 'grupos'`). A fila
+  nova é **conferida antes de gravar** (`src/lib/arrumarGrupos.ts`: cada uma em um grupo só,
+  partidas só com gente do grupo, todas com `jogosDoRodizio` jogos, toda dupla do rodízio — H+M
+  no misto equilibrado —, total = `partidasDoRodizio`); se não fecha, nada é gravado. Se
+  alguém entrou/saiu em outro celular no meio da arrumação, o Salvar recusa.
+  `tests/arrumarGrupos.test.ts` simula a noite inteira depois de grupos mexidos. Antes,
   mudar alguém de grupo era apagar e criar o play de novo. Depois do 1º "▶️ Partida
   iniciada" o botão some (o caminho é o Entra / sai); nas duplas fixas não aparece.
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,

@@ -134,6 +134,7 @@ import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '..
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
+import { filaDosGruposArrumados, moverNoRascunho } from '../lib/arrumarGrupos'
 import { hasSupabase, supabase } from '../lib/supabase'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -2897,9 +2898,11 @@ function PlayDetail({
       setArrumando(null)
       return
     }
-    const curto = groups.findIndex((g) => g.length < 4)
-    if (curto >= 0) {
-      onToast(`${nomeDoGrupo(curto)} ficaria com menos de 4 — mova alguém para lá`)
+    // o rascunho saiu do play de antes: alguem entrou ou saiu (Entra / sai) em outro celular
+    const noRascunho = groups.flat()
+    if (noRascunho.length !== session.player_ids.length || session.player_ids.some((id) => !noRascunho.includes(id))) {
+      onToast('Alguém entrou ou saiu do play enquanto você arrumava — abra o ✏️ Arrumar grupos de novo')
+      setArrumando(null)
       return
     }
     const grupoDe = (gs: string[][], id: string) => gs.findIndex((g) => g.includes(id))
@@ -2908,14 +2911,21 @@ function PlayDetail({
       setArrumando(null)
       return
     }
-    const fila = gerarFila({
+    // a fila nova sai CONFERIDA (grupos, jogos de cada uma, duplas do rodizio):
+    // se nao fechar, nada e gravado e o play fica como estava
+    const { fila, problemas } = filaDosGruposArrumados({
       playerIds: session.player_ids,
       groups,
+      nomeDoGrupo,
       ratings: ratings(data, session.date),
       entrosamento: ajusteDeEntrosamento(data),
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
       genero: generoDoPlay,
     })
+    if (problemas.length) {
+      onToast(`Não salvei: ${problemas[0]}`)
+      return
+    }
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
     const texto = `Grupos arrumados antes de começar: ${mudaram.map((id) => `${nameOf(id)} → ${nomeDoGrupo(grupoDe(groups, id))}`).join(', ')}`
     await saveSession(
@@ -5227,7 +5237,7 @@ function ArrumarGrupos({
   const { nameOf } = useStore()
   const [movendo, setMovendo] = useState<string | null>(null)
   function mover(id: string, para: number) {
-    onChange(grupos.map((g, i) => (i === para ? [...g.filter((x) => x !== id), id] : g.filter((x) => x !== id))))
+    onChange(moverNoRascunho(grupos, id, para))
     setMovendo(null)
   }
   const curto = grupos.some((g) => g.length < 4)
