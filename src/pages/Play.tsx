@@ -1612,6 +1612,8 @@ function PlayDetail({
     useStore()
   const [showRank, setShowRank] = useState(false)
   const [substituindo, setSubstituindo] = useState(false)
+  /** "✏️ Arrumar grupos" aberto: o rascunho dos grupos, so gravado no Salvar. */
+  const [arrumando, setArrumando] = useState<string[][] | null>(null)
   const [arte, setArte] = useState<{ url: string; blob: Blob } | null>(null)
   const [gerando, setGerando] = useState(false)
   /** Partida escolhida na mao para uma quadra, no lugar da sugestao. */
@@ -2877,6 +2879,52 @@ function PlayDetail({
     onToast('Novas duplas geradas 🔄')
   }
 
+  /**
+   * ARRUMAR OS GRUPOS ANTES DE COMECAR
+   *
+   * Criado o play, as vezes alguem precisa mudar de grupo (chegou outra menina,
+   * a dupla de amigas pediu, o grupo ficou forte demais) -- e o unico jeito era
+   * apagar e criar de novo. Enquanto NENHUMA partida foi iniciada nem lancada,
+   * os grupos se arrumam como na criacao e a fila e refeita do zero, igual ao
+   * "Refazer tudo". Depois do 1º "Partida iniciada" o caminho e o Entra / sai.
+   * Nas duplas fixas o grupo e a categoria das duplas: la nao aparece.
+   */
+  const podeArrumarGrupos = canEdit && !finished && !duplasFixas && matches.every((m) => !isPlayed(m) && !iniciada(m))
+  async function salvarGrupos(groups: string[][]) {
+    // conferido de novo aqui: outro celular pode ter iniciado uma partida
+    if (matches.some((m) => isPlayed(m) || iniciada(m))) {
+      onToast('O play já começou — agora só pelo 🔁 Entra / sai')
+      setArrumando(null)
+      return
+    }
+    const curto = groups.findIndex((g) => g.length < 4)
+    if (curto >= 0) {
+      onToast(`${nomeDoGrupo(curto)} ficaria com menos de 4 — mova alguém para lá`)
+      return
+    }
+    const grupoDe = (gs: string[][], id: string) => gs.findIndex((g) => g.includes(id))
+    const mudaram = session.player_ids.filter((id) => grupoDe(session.groups ?? [], id) !== grupoDe(groups, id))
+    if (mudaram.length === 0) {
+      setArrumando(null)
+      return
+    }
+    const fila = gerarFila({
+      playerIds: session.player_ids,
+      groups,
+      ratings: ratings(data, session.date),
+      entrosamento: ajusteDeEntrosamento(data),
+      history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
+      genero: generoDoPlay,
+    })
+    await replaceSessionMatches(session.id, planToMatches(session.id, fila))
+    const texto = `Grupos arrumados antes de começar: ${mudaram.map((id) => `${nameOf(id)} → ${nomeDoGrupo(grupoDe(groups, id))}`).join(', ')}`
+    await saveSession(
+      comEvento({ ...session, groups, rounds: fila.length, duos: null, desempates_grupo: null, quadras_cedidas: null }, 'grupos', texto),
+    )
+    setArrumando(null)
+    onToast('Grupos salvos e fila refeita 👥')
+  }
+
   /** Grava o desempate decidido em quadra (substitui o do mesmo conjunto de empatadas). */
   function salvarDesempate(grupo: number, ordem: string[], como: DesempateDeGrupo['como']) {
     mesclarNoPlay(session.id, { campo: 'desempates_grupo', d: { grupo, ordem, como, at: new Date().toISOString() } })
@@ -3234,9 +3282,28 @@ function PlayDetail({
       )}
       {editable && <OpcoesDoPlay session={session} />}
 
-      {grupos && grupos.length > 1 && (
+      {grupos && grupos.length > 1 && arrumando && podeArrumarGrupos && (
+        <ArrumarGrupos
+          grupos={arrumando}
+          nomeDoGrupo={nomeDoGrupo}
+          classe={(i) => classeDoGrupo(ehCampeonato ? Math.max(0, cats.findIndex((c) => c.grupos.includes(i))) + 1 : i + 1)}
+          nota={(id) => notaDeForca(forcaDoDia.get(id) ?? 2)}
+          genero={generoDoPlay}
+          onChange={setArrumando}
+          onCancelar={() => setArrumando(null)}
+          onSalvar={() => void salvarGrupos(arrumando)}
+        />
+      )}
+      {grupos && grupos.length > 1 && !(arrumando && podeArrumarGrupos) && (
         <div className="card">
-          <div className="section-title">👥 Grupos</div>
+          <div className="row spread" style={{ alignItems: 'baseline' }}>
+            <div className="section-title">👥 Grupos</div>
+            {podeArrumarGrupos && (
+              <button className="btn ghost sm" onClick={() => setArrumando(grupos.map((g) => [...g]))}>
+                ✏️ Arrumar grupos
+              </button>
+            )}
+          </div>
           <div className="stack">
             {grupos.map((g, i) => {
               const notas = g.map((id) => notaDeForca(forcaDoDia.get(id) ?? 2))
@@ -3514,7 +3581,7 @@ function PlayDetail({
                 <span className="fila-num">{horaLocal(e.at)}</span>
                 <div className="grow">
                   <span className="fila-time">
-                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : '♻️'} {e.texto}
+                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : '♻️'} {e.texto}
                   </span>
                   <span className="tiny muted">
                     {e.jogadas === 0
@@ -5132,6 +5199,92 @@ function PlacarManual({
   )
 }
 
+
+/**
+ * "✏️ Arrumar grupos" do play ainda nao comecado: o mesmo toque-e-move da
+ * criacao (livre, mesmo deixando um grupo com menos de 4 no meio da arrumacao);
+ * so o Salvar grava e refaz a fila.
+ */
+function ArrumarGrupos({
+  grupos,
+  nomeDoGrupo,
+  classe,
+  nota,
+  genero,
+  onChange,
+  onCancelar,
+  onSalvar,
+}: {
+  grupos: string[][]
+  nomeDoGrupo: (i: number) => string
+  classe: (i: number) => string
+  nota: (id: string) => number
+  genero?: Generos
+  onChange: (g: string[][]) => void
+  onCancelar: () => void
+  onSalvar: () => void
+}) {
+  const { nameOf } = useStore()
+  const [movendo, setMovendo] = useState<string | null>(null)
+  function mover(id: string, para: number) {
+    onChange(grupos.map((g, i) => (i === para ? [...g.filter((x) => x !== id), id] : g.filter((x) => x !== id))))
+    setMovendo(null)
+  }
+  const curto = grupos.some((g) => g.length < 4)
+  return (
+    <div className="card">
+      <div className="section-title">✏️ Arrumar grupos</div>
+      <div className="stack">
+        {grupos.map((g, i) => {
+          const media = Math.round(g.reduce((t, id) => t + nota(id), 0) / Math.max(1, g.length))
+          return (
+            <div key={i} className={`grupo-box ${classe(i)}`}>
+              <div className="grupo-nome">{nomeDoGrupo(i)} · {g.length} meninas</div>
+              <div className="tiny muted" style={{ marginBottom: 6 }}>💪 força média <strong>{media}</strong></div>
+              {g.length < 4 && (
+                <em className="hint aviso" style={{ marginBottom: 6 }}>
+                  ⚠️ Precisa de pelo menos 4 para ter rodízio — mova alguém para cá
+                </em>
+              )}
+              {genero && g.length >= 4 && !grupoMisto(g, genero) && (
+                <em className="hint aviso" style={{ marginBottom: 6 }}>
+                  ⚠️ Sem o mesmo número de cada gênero: o rodízio deste grupo sai com duplas livres
+                </em>
+              )}
+              <div className="row wrap" style={{ gap: 6 }}>
+                {g.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`chip ${movendo === id ? 'on' : ''}`}
+                    onClick={() => setMovendo(movendo === id ? null : id)}
+                  >
+                    {nameOf(id)}
+                    <span className="tiny muted" style={{ fontWeight: 600 }}>{nota(id)}</span>
+                  </button>
+                ))}
+              </div>
+              {movendo && !g.includes(movendo) && (
+                <button type="button" className="btn ghost sm block" style={{ marginTop: 8 }} onClick={() => mover(movendo, i)}>
+                  ↪️ Mover {nameOf(movendo)} para cá
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <em className="hint">
+        {'Toque numa menina e escolha o grupo dela. Ao salvar, a fila do play é montada de novo — dá para arrumar só enquanto nenhuma partida foi iniciada.'}
+      </em>
+      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+        <button className="btn ghost grow" onClick={onCancelar}>Cancelar</button>
+        <button className="btn pink grow" disabled={curto} onClick={onSalvar}>
+          ✅ Salvar e refazer a fila
+        </button>
+      </div>
+    </div>
+  )
+}
 
 /** O modal do entra/sai: quem sai, quem entra e onde entra. */
 function SubstituirJogadora({

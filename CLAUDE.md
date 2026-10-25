@@ -260,6 +260,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   do sorteio; **livre**, mesmo deixando um grupo com menos de 4 no meio da arrumação: o grupo
   mostra ⚠️ e o "criar o play" recusa dizendo qual grupo) e **sortear de novo**. Cada
   chip mostra a nota e o cabeçalho a média do grupo.
+  **Com o play já criado**, enquanto nenhuma partida foi iniciada nem lançada, o cartão
+  "👥 Grupos" tem **"✏️ Arrumar grupos"** (`ArrumarGrupos`/`salvarGrupos` em Play.tsx): o
+  mesmo toque-e-move, num rascunho; o Salvar recusa grupo com menos de 4, grava os grupos e
+  refaz a fila do zero (como o "Refazer tudo") e anota no diário (`tipo: 'grupos'`). Antes,
+  mudar alguém de grupo era apagar e criar o play de novo. Depois do 1º "▶️ Partida
+  iniciada" o botão some (o caminho é o Entra / sai); nas duplas fixas não aparece.
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
   as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
   cabeçalho, "avulso" marcado), 4 plays por vez com "ver mais". Segue o período do Stats.
