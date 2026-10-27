@@ -469,6 +469,13 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **O placar só é lançável depois de "▶️ Partida iniciada"** (botões de "venceu"
   desabilitados). Corrigir placar é o ✏️ da lista "Já jogadas", que abre um modal
   e **preserva o `ended_at`** — não devolve a partida para a fila.
+- **🔓 Reabrir o play para corrigir placar** (play finalizado, logada; `reabrir` em
+  Play.tsx): volta o `status` para `open` e anota no diário (`tipo: 'reabrir'`); o ✏️ das
+  "Já jogadas" corrige e o Finalizar fecha de novo. Ranking, pódio e força saem do placar,
+  então se recalculam sozinhos; o 🔥 só conta play finalizado, por isso enquanto está
+  reaberto ele não entra. Se o mês já foi fechado, o confirmar avisa que o ranking final
+  muda. O 2º Finalizar **não gasta de novo o crédito da avulsa** (já gasto na 1ª vez;
+  gastar comeria o que ela pagou para o próximo play).
 
 ## A tela é um celular na beira da quadra
 

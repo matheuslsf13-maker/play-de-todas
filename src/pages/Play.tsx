@@ -129,7 +129,7 @@ import {
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
-import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
@@ -141,6 +141,8 @@ import {
   type DesempateDeGrupo,
   type EventoDoPlay,
   dateLabel,
+  monthLabel,
+  monthOf,
   plural,
   todayISO,
   uid,
@@ -3080,11 +3082,35 @@ function PlayDetail({
       )
     )
       return
+    // reaberto para corrigir: o credito da avulsa ja foi gasto na 1a vez (gastar
+    // de novo comeria o que ela pagou para o PROXIMO play)
+    const jaFinalizado = (session.eventos ?? []).some((e) => e.tipo === 'reabrir')
     await saveSession({ ...session, status: 'finished' })
     // o credito da avulsa vale por UM play: finalizado, ela volta a dever
-    for (const p of consumirAvulsos(session.player_ids, data)) await savePlayer(p)
+    if (!jaFinalizado) for (const p of consumirAvulsos(session.player_ids, data)) await savePlayer(p)
     setShowRank(true)
-    onToast('Play finalizado! Pontos somados ao ranking do mês 🏆')
+    onToast(jaFinalizado ? 'Play finalizado de novo, com as correções 🏆' : 'Play finalizado! Pontos somados ao ranking do mês 🏆')
+  }
+
+  /**
+   * REABRIR PARA CORRIGIR: o play finalizado volta a ficar aberto, o ✏️ das
+   * "Já jogadas" corrige o placar e o Finalizar fecha de novo. Ranking, pódio
+   * e força sao recalculados do placar, entao nada fica para desfazer na mao;
+   * so o 🔥 espera o play ser finalizado de novo (ele so conta play finalizado).
+   */
+  async function reabrir() {
+    const mes = monthOf(session.date)
+    const aviso = mesFechado(data, mes)
+      ? `\n\n⚠️ ${monthLabel(mes)} já foi fechado: corrigir um placar muda o ranking final do mês.`
+      : ''
+    if (
+      !confirm(
+        `Reabrir este play para corrigir placar?\n\nO placar se corrige no ✏️ da lista "Já jogadas". Depois, toque em "Finalizar" de novo — enquanto estiver aberto, o 🔥 não conta este play.${aviso}`,
+      )
+    )
+      return
+    await saveSession(comEvento({ ...session, status: 'open' }, 'reabrir', 'Play reaberto para corrigir placar'))
+    onToast('Play reaberto 🔓 Corrija no ✏️ das "Já jogadas" e finalize de novo')
   }
 
   /**
@@ -3591,7 +3617,7 @@ function PlayDetail({
                 <span className="fila-num">{horaLocal(e.at)}</span>
                 <div className="grow">
                   <span className="fila-time">
-                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : '♻️'} {e.texto}
+                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : e.tipo === 'reabrir' ? '🔓' : '♻️'} {e.texto}
                   </span>
                   <span className="tiny muted">
                     {e.jogadas === 0
@@ -3682,6 +3708,12 @@ function PlayDetail({
       {editable && (
         <button className={`btn ${faltaFase ? 'ghost' : 'teal'} block`} onClick={() => void finish()}>
           ✅ Finalizar o play e somar os pontos
+        </button>
+      )}
+
+      {finished && canEdit && (
+        <button className="btn ghost block" onClick={() => void reabrir()}>
+          🔓 Reabrir o play para corrigir placar
         </button>
       )}
 
