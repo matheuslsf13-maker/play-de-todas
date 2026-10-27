@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { forcaDasDuplasNasPartidas } from '../lib/forca'
+import { forcaNasPartidas } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { dateLabel, type Match } from '../lib/types'
 
@@ -9,7 +11,27 @@ const PLAYS_POR_VEZ = 4
  * O HISTORICO: as ultimas partidas, da mais recente para a mais antiga,
  * agrupadas por play. Do ponto de vista de uma jogadora (com quem jogou, contra
  * quem e o placar dela) ou de uma dupla (contra quem e o placar da dupla).
+ * Cada partida mostra quanto mexeu na forca (a dela, ou a da dupla) e o
+ * cabecalho do play, o total da noite -- o mesmo numero do grafico.
  */
+
+/** "+12" / "−8" / "0", verde quando sobe e vermelho quando cai. */
+function Variacao({ v, forte }: { v: number | undefined; forte?: boolean }) {
+  if (v === undefined) return null
+  return (
+    <span
+      className="nowrap"
+      title="força ganha ou perdida"
+      style={{
+        fontVariantNumeric: 'tabular-nums',
+        fontWeight: forte ? 800 : 700,
+        color: v > 0 ? 'var(--verde)' : v < 0 ? 'var(--danger)' : 'var(--muted)',
+      }}
+    >
+      {v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : '0'}
+    </span>
+  )
+}
 export default function HistoricoDePartidas({
   partidas,
   jogadora,
@@ -22,6 +44,15 @@ export default function HistoricoDePartidas({
   const { data, nameOf } = useStore()
   const [mostrar, setMostrar] = useState(PLAYS_POR_VEZ)
   const sessao = useMemo(() => new Map(data.sessions.map((s) => [s.id, s])), [data.sessions])
+  // quanto cada partida (e cada play) mexeu na forca: da jogadora, ou da dupla
+  const chaveDaDupla = dupla ? [...dupla].sort().join('|') : null
+  const forca = useMemo(
+    () => (jogadora ? forcaNasPartidas(data) : chaveDaDupla ? forcaDasDuplasNasPartidas(data) : null),
+    [data, jogadora, chaveDaDupla],
+  )
+  const quem = jogadora ?? chaveDaDupla
+  const mudouNaPartida = (id: string) => (forca && quem ? forca.porPartida.get(`${id}|${quem}`) : undefined)
+  const mudouNoPlay = (sid: string) => (forca && quem ? forca.porPlay.get(`${sid}|${quem}`) : undefined)
 
   const porPlay = useMemo(() => {
     const doLado = (m: Match) =>
@@ -68,7 +99,15 @@ export default function HistoricoDePartidas({
                 {dateLabel(s?.date ?? '')}
                 {s?.ranked === false ? ' · avulso' : ''}
               </span>
-              <span className="muted">{v}V {ps.length - v}D</span>
+              <span className="muted">
+                {v}V {ps.length - v}D
+                {mudouNoPlay(sid) !== undefined && (
+                  <>
+                    {' · '}
+                    <Variacao v={mudouNoPlay(sid)} forte />
+                  </>
+                )}
+              </span>
             </div>
             <div className="stack" style={{ gap: 3 }}>
               {ps.map(({ m, parceira, deles, pro, contra }) => (
@@ -83,6 +122,11 @@ export default function HistoricoDePartidas({
                     <span className="muted">vs</span> {nameOf(deles[0])} + {nameOf(deles[1])}
                   </span>
                   <strong className="nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>{pro}x{contra}</strong>
+                  {forca && (
+                    <span className="tiny" style={{ width: 30, flex: 'none', textAlign: 'right' }}>
+                      <Variacao v={mudouNaPartida(m.id)} />
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

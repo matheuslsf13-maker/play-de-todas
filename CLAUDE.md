@@ -274,6 +274,12 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
   as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
   cabeçalho, "avulso" marcado), 4 plays por vez com "ver mais". Segue o período do Stats.
+  Cada partida mostra **quanto mexeu na força** (verde/vermelho; da jogadora, ou da
+  **dupla** na ficha da dupla) e o cabeçalho do play o total da noite
+  (`forcaNasPartidas` em `stats.ts`, `forcaDasDuplasNasPartidas` em `forca.ts`). O
+  arredondamento é na nota acumulada: as partidas somam o total do play, e o total é a
+  mesma variação do gráfico (`tests/forcaNoHistorico.test.ts`). O gráfico, ao tocar num
+  ponto, também mostra "−15 de força em relação ao play anterior".
 - **🆕 Novata** (`novatas(data, sessionId?)` em `stats.ts`): quem não tem partida jogada fora
   do play. Aparece ao montar o play (chips, grupos, divisão do campeonato) e, com o play
   **aberto**, nos cartões de partida (`Duo`, via contexto `NovatasDoPlay`) e no cartão dos

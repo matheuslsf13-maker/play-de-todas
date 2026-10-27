@@ -177,8 +177,8 @@ export function forcaDeDuplas(data: AppData): Map<string, ForcaDeDupla> {
   return percorrerDuplas(data)
 }
 
-/** Uma partida da dupla: o play, se venceu, e a nota da dupla depois dela. */
-type JogoDaDupla = { key: string; sessionId: string; venceu: boolean; nota: number }
+/** Uma partida da dupla: o play, se venceu, e a nota da dupla antes e depois dela. */
+type JogoDaDupla = { key: string; matchId: string; sessionId: string; venceu: boolean; antes: number; nota: number }
 
 function percorrerDuplas(data: AppData, aoJogar?: (j: JogoDaDupla) => void): Map<string, ForcaDeDupla> {
   const individuais = ratings(data)
@@ -218,9 +218,10 @@ function percorrerDuplas(data: AppData, aoJogar?: (j: JogoDaDupla) => void): Map
         out.set(k, d)
       }
       const esperado = 1 / (1 + Math.pow(10, (base(rival[0], rival[1]) - d.nota) / 400))
+      const antes = d.nota
       d.nota += K_DUPLA * (favor / (favor + contra) - esperado)
       d.jogos++
-      aoJogar?.({ key: k, sessionId: m.session_id, venceu: favor > contra, nota: d.nota })
+      aoJogar?.({ key: k, matchId: m.id, sessionId: m.session_id, venceu: favor > contra, antes, nota: d.nota })
     }
   }
 
@@ -229,6 +230,31 @@ function percorrerDuplas(data: AppData, aoJogar?: (j: JogoDaDupla) => void): Map
     d.entrosamento = d.nota - d.base
     d.provisoria = d.jogos < JOGOS_PARA_ENTROSAMENTO
   }
+  return out
+}
+
+/**
+ * QUANTO CADA PARTIDA MEXEU NA FORCA DA DUPLA (para o 🕑 Historico da dupla).
+ * `porPartida`: `${matchId}|${chave}`; `porPlay`: `${sessionId}|${chave}`, com a
+ * chave da dupla (`a|b` em ordem). Arredondado na nota, como no individual: as
+ * partidas somam o total do play, e o total bate com o grafico da dupla.
+ */
+const cacheDuplasNasPartidas = new WeakMap<AppData, { porPartida: Map<string, number>; porPlay: Map<string, number> }>()
+
+export function forcaDasDuplasNasPartidas(data: AppData): { porPartida: Map<string, number>; porPlay: Map<string, number> } {
+  const c = cacheDuplasNasPartidas.get(data)
+  if (c) return c
+  const out = { porPartida: new Map<string, number>(), porPlay: new Map<string, number>() }
+  const play = new Map<string, { antes: number; depois: number }>()
+  percorrerDuplas(data, (j) => {
+    out.porPartida.set(`${j.matchId}|${j.key}`, Math.round(j.nota) - Math.round(j.antes))
+    const k = `${j.sessionId}|${j.key}`
+    const noPlay = play.get(k)
+    if (noPlay) noPlay.depois = j.nota
+    else play.set(k, { antes: j.antes, depois: j.nota })
+  })
+  for (const [k, x] of play) out.porPlay.set(k, Math.round(x.depois) - Math.round(x.antes))
+  cacheDuplasNasPartidas.set(data, out)
   return out
 }
 

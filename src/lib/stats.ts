@@ -730,6 +730,48 @@ export function historicoDeForca(data: AppData, id: string, comInicio = false): 
   return [{ date: historico[0].date, sessionId: 'inicio', nota: Math.round(inicial(id)), jogou: false }, ...historico]
 }
 
+/**
+ * QUANTO CADA PARTIDA MEXEU NA FORCA DE CADA UMA (para o 🕑 Historico).
+ *
+ * `porPartida`: `${matchId}|${id}`; `porPlay`: `${sessionId}|${id}` (a nota no
+ * fim do play contra a de logo antes dele -- a mesma conta do grafico). O
+ * arredondamento e feito na nota acumulada, nao em cada passo: assim as
+ * partidas de um play somam exatamente o total do play, e o total bate com o
+ * grafico. Guardado por `data`.
+ */
+export type ForcaNasPartidas = { porPartida: Map<string, number>; porPlay: Map<string, number> }
+const cacheForcaNasPartidas = new WeakMap<AppData, ForcaNasPartidas>()
+
+export function forcaNasPartidas(data: AppData): ForcaNasPartidas {
+  const c = cacheForcaNasPartidas.get(data)
+  if (c) return c
+  // o quanto a nota de cada uma ja andou desde o ponto de partida (partidas e faltas)
+  const andou = new Map<string, number>()
+  const passos: { chave: string; id: string; antes: number; depois: number }[] = []
+  const play = new Map<string, { id: string; antes: number; depois: number }>()
+  const { inicial } = calcularElo(data, undefined, undefined, {
+    ...REGRA_DA_FORCA,
+    aoMudar: (p) => {
+      const antes = andou.get(p.id) ?? 0
+      const depois = antes + p.delta
+      andou.set(p.id, depois)
+      if (p.motivo !== 'partida' || !p.match) return
+      passos.push({ chave: `${p.match.id}|${p.id}`, id: p.id, antes, depois })
+      const k = `${p.sessionId}|${p.id}`
+      const noPlay = play.get(k)
+      if (noPlay) noPlay.depois = depois
+      else play.set(k, { id: p.id, antes, depois })
+    },
+  })
+  const dif = (id: string, antes: number, depois: number) =>
+    Math.round(inicial(id) + depois) - Math.round(inicial(id) + antes)
+  const out: ForcaNasPartidas = { porPartida: new Map(), porPlay: new Map() }
+  for (const x of passos) out.porPartida.set(x.chave, (out.porPartida.get(x.chave) ?? 0) + dif(x.id, x.antes, x.depois))
+  for (const [k, x] of play) out.porPlay.set(k, dif(x.id, x.antes, x.depois))
+  cacheForcaNasPartidas.set(data, out)
+  return out
+}
+
 export function ratings(data: AppData, upToDate?: string): Map<string, number> {
   const { nota } = calcularElo(data, upToDate)
   // devolve na escala 0-4 (a mesma da media de pontos), para os pesos do
