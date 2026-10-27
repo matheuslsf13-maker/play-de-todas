@@ -290,6 +290,14 @@ liga/            textos do masculino: o código fica no feminino e o build
   embaixo — um número era difícil de chutar e quase ninguém usava. Dá para **cadastrar na
   tela de montar o play** ("➕ Nova atleta", `components/NovaAtleta.tsx`): nome, quem paga e
   o nível, e ela já entra no play (com o portão do pagamento, como todas).
+  **Ao montar o play, toda atleta nova sem nível é perguntada, uma de cada vez**
+  (`components/NivelDaNovata.tsx`, `semNivel` em Play.tsx): quem está no play, nunca jogou
+  e tem `forca_inicial` nula — venha da lista colada, do toque no nome ou do "Todas" — abre
+  "🆕 Atleta nova (1 de N)" com o mesmo nível em três toques; "Salvar e ir para a próxima",
+  "Pular (fica na média)" ou "Pular todas". Espera as outras janelas fecharem (a lista
+  colada termina antes), não pergunta de novo nesta tela quem já respondeu (`nivelVisto`) nem
+  quem foi cadastrada pelo "➕ Nova atleta", e o "Criar" espera as respostas: a força da
+  novata decide grupo e duplas. No misto, quem tem jogos no campeonato não é perguntado.
 - **Empate no pódio se decide na quadra em TODOS os formatos** (`src/lib/desempateDoDia.ts`,
   `empatesNoPodio`/`podiosDoDia` em `streaks.ts`). Empate exato (vitórias, pontos e saldo)
   divide a posição — **nunca ordem alfabética**. Ordem igual à do campeonato: vitórias →

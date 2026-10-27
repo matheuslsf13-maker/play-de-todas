@@ -40,6 +40,7 @@ import {
 } from '../lib/campeonato'
 import ImportarLista from '../components/ImportarLista'
 import NovaAtleta from '../components/NovaAtleta'
+import NivelDaNovata from '../components/NivelDaNovata'
 import { Avatar, Empty, Modal, StatBox, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
   duplasDaFase2,
@@ -478,6 +479,33 @@ function NewPlay({
   const forca = useMemo(() => ratings(data, date), [data, date])
 
   /**
+   * ATLETA NOVA SEM NIVEL: quem esta no play, nunca jogou e nao tem forca
+   * inicial escolhida aparece, uma de cada vez, para escolher o nivel
+   * (`NivelDaNovata`) -- venha da lista colada, do toque no nome ou do "Todas".
+   * `nivelVisto`: ja respondidas nesta tela (escolheu ou pulou), para nao
+   * perguntar de novo. No misto, quem tem jogos no campeonato ja vem com forca.
+   */
+  const [nivelVisto, setNivelVisto] = useState<Set<string>>(() => new Set())
+  const semNivel = useMemo(
+    () =>
+      selected.filter((id) => {
+        if (nivelVisto.has(id) || !novatasAgora.has(id)) return false
+        const p = data.players.find((x) => x.id === id)
+        return Boolean(p) && p?.forca_inicial == null && !p?.jogos_de_casa
+      }),
+    [selected, nivelVisto, novatasAgora, data.players],
+  )
+  /** Quantas desta leva ja foram respondidas (o "2 de 3" da janela). */
+  const [nivelFeitas, setNivelFeitas] = useState(0)
+  useEffect(() => {
+    if (semNivel.length === 0) setNivelFeitas(0)
+  }, [semNivel.length])
+  function nivelRespondido(ids: string[]) {
+    setNivelVisto((cur) => new Set([...cur, ...ids]))
+    setNivelFeitas((n) => n + ids.length)
+  }
+
+  /**
    * PLAY MISTO: as duplas do rodizio podem ser sempre homem + mulher (o padrao)
    * ou livres. So vale com o mesmo numero de cada genero -- senao alguem
    * ficaria sem par do outro genero, e o play sai de duplas livres.
@@ -770,6 +798,11 @@ function NewPlay({
   }
 
   async function create() {
+    // a forca da novata decide grupo e duplas: o nivel vem antes
+    if (semNivel.length > 0) {
+      onToast('Antes, escolha o nível das atletas novas')
+      return
+    }
     // sem o script 21 o banco descartaria as categorias e a tabela de pontos
     // calado, e o campeonato viraria um grupos+duplas comum. Pergunta ao banco
     // antes (a copia local nao serve: um play criado agora traz a chave mesmo
@@ -1353,16 +1386,34 @@ function NewPlay({
           onClose={() => setCadastrando(false)}
           onCriada={(p) => {
             setCadastrando(false)
+            setNivelVisto((cur) => new Set([...cur, p.id]))
             // mensalista sem o mes pago passa pelo mesmo portao de todas
             if (!situacaoDoAtleta(p, data).liberado) {
               setPendente(p)
               return
             }
+            // o nivel ja foi escolhido no cadastro
+            setNivelVisto((cur) => new Set([...cur, p.id]))
             setSelected((s) => (s.includes(p.id) ? s : [...s, p.id]))
             onToast(`${p.nickname?.trim() || p.name} cadastrada e no play 🆕`)
           }}
         />
       )}
+
+      {/* uma de cada vez, e so com as outras janelas fechadas (a lista colada termina antes) */}
+      {semNivel.length > 0 && !pendente && !cadastrando && !importando && (() => {
+        const jogadora = data.players.find((p) => p.id === semNivel[0])
+        return jogadora ? (
+          <NivelDaNovata
+            key={jogadora.id}
+            jogadora={jogadora}
+            posicao={nivelFeitas + 1}
+            total={nivelFeitas + semNivel.length}
+            onPronto={() => nivelRespondido([jogadora.id])}
+            onPularTodas={() => nivelRespondido(semNivel)}
+          />
+        ) : null
+      })()}
 
       {importando && (
         <ImportarLista
