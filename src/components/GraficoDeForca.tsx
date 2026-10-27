@@ -57,6 +57,18 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
 
   const sel = tocado !== null ? pontos[tocado] : null
   const resumo = sel && sel.jogou ? resumoDoPlay(data, sel.sessionId, playerId) : null
+  // quanto ESTE dia mexeu na forca: a nota dele contra a de logo antes (o play
+  // anterior, ou a falta que veio depois dele)
+  const mudou = tocado !== null && tocado > 0 ? pontos[tocado].nota - pontos[tocado - 1].nota : null
+  const antes = tocado !== null && tocado > 0 && pontos[tocado - 1].sessionId === 'inicio' ? 'do ponto de partida' : 'do play anterior'
+  const variacao =
+    mudou === null ? null : (
+      <strong style={{ color: mudou > 0 ? 'var(--verde)' : mudou < 0 ? 'var(--danger)' : 'var(--muted)' }}>
+        {mudou === 0
+          ? `força igual à ${antes}`
+          : `${mudou > 0 ? '+' : '−'}${Math.abs(mudou)} de força em relação ${antes === 'do ponto de partida' ? 'ao ponto de partida' : 'ao play anterior'}`}
+      </strong>
+    )
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -160,13 +172,23 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
         </text>
       </svg>
       <p className="tiny muted" style={{ margin: '4px 0 0' }}>
-        {sel
-          ? sel.sessionId === 'inicio'
-            ? `Ponto de partida: ${sel.nota}.`
-            : sel.jogou
-              ? `${dateLabel(sel.date)}: terminou o play com ${sel.nota}${resumo ? ` · ${resumo}` : ''}.`
-              : `${dateLabel(sel.date)}: faltou, e a nota caiu para ${sel.nota}.`
-          : 'Cada ponto cheio é um play; o vazado, uma falta que baixou a nota. Toque num ponto para ver o dia.'}
+        {sel ? (
+          sel.sessionId === 'inicio' ? (
+            `Ponto de partida: ${sel.nota}.`
+          ) : sel.jogou ? (
+            <>
+              {`${dateLabel(sel.date)}: terminou o play com ${sel.nota}${resumo ? ` · ${resumo}` : ''}`}
+              {variacao && <> · {variacao}</>}.
+            </>
+          ) : (
+            <>
+              {`${dateLabel(sel.date)}: faltou, e a nota caiu para ${sel.nota}`}
+              {variacao && <> · {variacao}</>}.
+            </>
+          )
+        ) : (
+          'Cada ponto cheio é um play; o vazado, uma falta que baixou a nota. Toque num ponto para ver o dia.'
+        )}
       </p>
     </div>
   )
