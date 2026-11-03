@@ -522,6 +522,220 @@ function rodape(c: CanvasRenderingContext2D) {
   c.fillText('Mais que um play, uma experiência!', W / 2, H - 42)
 }
 
+/* ------------------------------------------------ podio com foto */
+
+/**
+ * A ARTE DO PODIO COM A FOTO DA NOITE (desde 03/11/2026).
+ *
+ * A organizadora tira a foto do podio na hora (ou escolhe da galeria) e ela
+ * vira o fundo: a foto em cima, escurecendo para baixo, e o resultado do grupo
+ * num painel de vidro -- as tres medalhistas com medalha nas cores das fitas de
+ * verdade (ouro, prata e laranja) e da 4a a 6a em pilulas. Um grupo por arte,
+ * porque cada foto de podio e de um grupo. Os titulos usam Anton e a frase do
+ * rodape Caveat Brush (public/fontes, carregadas so aqui); sem elas, a fonte do
+ * sistema.
+ */
+export async function buildPosterComFoto(opts: {
+  data: string
+  /** "PÓDIO · GRUPO 5", "PÓDIO DO DIA". */
+  titulo: string
+  /** A classificacao do grupo, na ordem; as tres primeiras sao o podio. */
+  rows: PosterRow[]
+  foto: Blob
+  logoUrl?: string
+  /** Quantas sao do podio (empate pode fazer subir mais de tres). */
+  noPodio?: number
+}): Promise<Blob> {
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const c = canvas.getContext('2d')
+  if (!c) throw new Error('Este navegador não conseguiu gerar a imagem.')
+  await carregarFontes()
+  const urlDaFoto = URL.createObjectURL(opts.foto)
+  const [foto, logo] = await Promise.all([loadImage(urlDaFoto), loadImage(opts.logoUrl ?? null)])
+  URL.revokeObjectURL(urlDaFoto)
+  if (!foto) throw new Error('Não consegui abrir a foto.')
+
+  const ESCURO = '#0d0a12'
+  c.fillStyle = ESCURO
+  c.fillRect(0, 0, W, H)
+
+  // a foto cobre a parte de cima (como o object-fit: cover), com o foco um
+  // pouco acima do meio: e onde ficam os rostos numa foto de podio
+  const altFoto = 900
+  const escala = Math.max(W / foto.width, altFoto / foto.height)
+  const fw = foto.width * escala
+  const fh = foto.height * escala
+  const fx = (W - fw) / 2
+  const fy = Math.min(0, (altFoto - fh) * 0.3)
+  c.drawImage(foto, fx, fy, fw, fh)
+
+  // escurece em cima (titulo) e embaixo (resultado)
+  const g = c.createLinearGradient(0, 0, 0, H)
+  g.addColorStop(0, 'rgba(13,10,18,.78)')
+  g.addColorStop(0.17, 'rgba(13,10,18,0)')
+  g.addColorStop(0.46, 'rgba(13,10,18,0)')
+  g.addColorStop(0.61, 'rgba(13,10,18,.9)')
+  g.addColorStop(0.67, ESCURO)
+  c.fillStyle = g
+  c.fillRect(0, 0, W, H)
+
+  // cabecalho: logo, titulo e a data
+  if (logo) discoDoLogo(c, logo, 64 + 52, 50 + 52, 52)
+  const xTexto = logo ? 64 + 104 + 26 : 64
+  c.textAlign = 'left'
+  c.fillStyle = '#fff'
+  c.font = `68px ${FONTE_TITULO}`
+  c.fillText(cortar(c, opts.titulo.toUpperCase(), W - xTexto - 50), xTexto, 50 + 62)
+  c.font = '900 26px system-ui, Segoe UI, Arial, sans-serif'
+  const larg = c.measureText(opts.data).width + 44
+  c.fillStyle = PINK
+  faixa(c, xTexto, 50 + 78, larg, 44, 22)
+  c.fillStyle = '#fff'
+  c.fillText(opts.data, xTexto + 22, 50 + 109)
+
+  // o painel das medalhistas
+  const noPodio = Math.min(opts.rows.length, Math.max(1, opts.noPodio ?? 3), 4)
+  const podio = opts.rows.slice(0, noPodio)
+  const alturaLinha = noPodio > 3 ? 92 : 108
+  const x0 = 56
+  const larguraPainel = W - 2 * x0
+  // o painel desce quando o grupo e pequeno: sem 4a a 6a, sobra o espaco das pilulas
+  const y0 = 800 - (opts.rows.length > noPodio ? 0 : 50)
+  const alturaPainel = alturaLinha * podio.length
+  vidro(c, x0, y0, larguraPainel, alturaPainel, 36)
+  const cores = [GOLD, SILVER, BRONZE, BRONZE]
+  podio.forEach((r, i) => {
+    const y = y0 + i * alturaLinha
+    if (i > 0) {
+      c.fillStyle = 'rgba(255,255,255,.1)'
+      c.fillRect(x0 + 24, y, larguraPainel - 48, 1.5)
+    }
+    const meio = y + alturaLinha / 2
+    medalhaRedonda(c, x0 + 26 + 35, meio, 35, cores[i], String(i + 1))
+    c.textAlign = 'left'
+    c.fillStyle = '#fff'
+    c.font = '900 42px system-ui, Segoe UI, Arial, sans-serif'
+    c.fillText(cortar(c, r.name, 640), x0 + 128, meio - 4)
+    c.font = '700 23px system-ui, Segoe UI, Arial, sans-serif'
+    c.fillStyle = 'rgba(255,255,255,.72)'
+    const vd = `${r.wins}V · ${r.losses}D`
+    c.fillText(vd, x0 + 128, meio + 32)
+    if (r.statusTitle) {
+      c.fillStyle = GOLD
+      c.fillText(` · ${r.statusEmoji ?? ''} ${r.statusTitle}`, x0 + 128 + c.measureText(vd).width, meio + 32)
+    }
+    c.textAlign = 'right'
+    c.fillStyle = '#fff'
+    c.font = `52px ${FONTE_TITULO}`
+    c.fillText(String(r.points), W - x0 - 28, meio + 10)
+    c.font = '800 15px system-ui, Segoe UI, Arial, sans-serif'
+    c.fillStyle = 'rgba(255,255,255,.6)'
+    c.fillText(r.points === 1 ? 'PT' : 'PTS', W - x0 - 28, meio + 34)
+  })
+
+  // da 4a em diante: pilulas lado a lado (ate tres)
+  const resto = opts.rows.slice(noPodio, noPodio + 3)
+  if (resto.length > 0) {
+    const yp = y0 + alturaPainel + 18
+    const gap = 14
+    const lp = (larguraPainel - gap * 2) / 3
+    resto.forEach((r, i) => {
+      const xp = x0 + i * (lp + gap)
+      vidro(c, xp, yp, lp, 66, 22)
+      c.textAlign = 'left'
+      c.font = '900 26px system-ui, Segoe UI, Arial, sans-serif'
+      c.fillStyle = 'rgba(255,255,255,.55)'
+      const pos = `${noPodio + i + 1}º`
+      c.fillText(pos, xp + 18, yp + 43)
+      const xn = xp + 18 + c.measureText(pos).width + 10
+      c.textAlign = 'right'
+      c.font = `30px ${FONTE_TITULO}`
+      c.fillStyle = GOLD
+      c.fillText(String(r.points), xp + lp - 18, yp + 45)
+      const larguraPts = c.measureText(String(r.points)).width
+      c.textAlign = 'left'
+      c.fillStyle = '#fff'
+      c.font = '800 26px system-ui, Segoe UI, Arial, sans-serif'
+      c.fillText(cortar(c, r.name, lp - (xn - xp) - larguraPts - 30), xn, yp + 43)
+    })
+  }
+
+  // rodape manuscrito
+  c.textAlign = 'center'
+  c.fillStyle = PINK
+  c.font = `44px ${FONTE_MAO}`
+  c.fillText('mais que um play, uma experiência!', W / 2, H - 40)
+
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao gerar a imagem'))), 'image/jpeg', 0.92),
+  )
+}
+
+const FONTE_TITULO = "'Anton', Impact, 'Arial Narrow', sans-serif"
+const FONTE_MAO = "'Caveat Brush', 'Segoe Print', cursive"
+let fontesProntas: Promise<void> | null = null
+
+/** Anton e Caveat Brush, uma vez por sessao; se falhar, fica a do sistema. */
+function carregarFontes(): Promise<void> {
+  if (fontesProntas) return fontesProntas
+  const base = import.meta.env.BASE_URL
+  fontesProntas = Promise.all(
+    [
+      ['Anton', `${base}fontes/anton.woff2`],
+      ['Caveat Brush', `${base}fontes/caveat-brush.woff2`],
+    ].map(async ([nome, url]) => {
+      try {
+        const f = new FontFace(nome, `url(${url})`)
+        await f.load()
+        document.fonts.add(f)
+      } catch {
+        // sem a fonte, o desenho usa a reserva do FONTE_TITULO/FONTE_MAO
+      }
+    }),
+  ).then(() => undefined)
+  return fontesProntas
+}
+
+/** Painel de vidro fosco: claro translucido com a borda fininha. */
+function vidro(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  c.save()
+  c.fillStyle = 'rgba(255,255,255,.1)'
+  faixa(c, x, y, w, h, r)
+  c.strokeStyle = 'rgba(255,255,255,.2)'
+  c.lineWidth = 1.5
+  c.beginPath()
+  c.moveTo(x + r, y)
+  c.arcTo(x + w, y, x + w, y + h, r)
+  c.arcTo(x + w, y + h, x, y + h, r)
+  c.arcTo(x, y + h, x, y, r)
+  c.arcTo(x, y, x + w, y, r)
+  c.closePath()
+  c.stroke()
+  c.restore()
+}
+
+/** Medalha redonda com brilho, na cor da fita (ouro, prata, laranja). */
+function medalhaRedonda(c: CanvasRenderingContext2D, cx: number, cy: number, raio: number, cor: string, texto: string) {
+  const g = c.createRadialGradient(cx - raio * 0.3, cy - raio * 0.35, raio * 0.1, cx, cy, raio)
+  g.addColorStop(0, '#ffffff')
+  g.addColorStop(0.45, cor)
+  g.addColorStop(1, escurecer(cor))
+  c.save()
+  c.shadowColor = 'rgba(0,0,0,.35)'
+  c.shadowBlur = 14
+  c.fillStyle = g
+  c.beginPath()
+  c.arc(cx, cy, raio, 0, Math.PI * 2)
+  c.fill()
+  c.restore()
+  c.textAlign = 'center'
+  c.fillStyle = '#1b1220'
+  c.font = `${Math.round(raio * 1.05)}px ${FONTE_TITULO}`
+  c.fillText(texto, cx, cy + raio * 0.38)
+}
+
 /* ---------------------------------------------------------- desenho */
 
 /** Coroa dourada, desenhada em vetor para nao depender de fonte de emoji. */

@@ -329,6 +329,15 @@ liga/            textos do masculino: o código fica no feminino e o build
   vale só para o mesmo conjunto de empatadas e decide ordem, pódio, 🔥 e "dia vencido"; na
   última vaga só a vencedora sobe. Sem desempate, as empatadas sobem juntas (como sempre foi:
   play antigo não muda). O Finalizar avisa, mas não trava.
+- **📷 Arte do pódio com a foto da noite** (`buildPosterComFoto` em `poster.ts`, desde
+  03/11/2026): no modal do ranking do dia, com **um** grupo escolhido (ou o play todo no
+  `todas`), "📷 Tirar foto do pódio" (`capture="environment"`: abre a câmera) ou "🖼️ Foto da
+  galeria". A foto vira o fundo (em cima, escurecendo para baixo) e o resultado entra num
+  painel de vidro: medalhistas com medalha nas cores das fitas (ouro, prata, laranja), da
+  4ª à 6ª em pílulas, título em **Anton** e o rodapé em **Caveat Brush** (`public/fontes`,
+  OFL, carregadas só nessa arte). No grupos + duplas (pódio de duplas) não aparece. A arte
+  de sempre (sem foto) continua; nela o nome longo quebra em duas linhas, a inicial ignora
+  caractere invisível ("\u2060" colado do WhatsApp) e "1 pt" no singular.
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
   "🔎 procurar pelo nome" (apelido ou cadastro, sem acento), com o V-D de quem foi procurada.
 - **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,

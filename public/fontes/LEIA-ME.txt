@@ -1,0 +1,4 @@
+Fontes usadas na arte do podio com foto (src/lib/poster.ts, buildPosterComFoto):
+- anton.woff2: Anton, de Vernon Adams -- SIL Open Font License 1.1
+- caveat-brush.woff2: Caveat Brush, de Impallari Type -- SIL Open Font License 1.1
+Arquivos tirados do @fontsource (subconjunto latin).

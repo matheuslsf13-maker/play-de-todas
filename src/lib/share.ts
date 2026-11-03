@@ -204,7 +204,7 @@ export function dayRankingText(opts: DayTextOpts): string {
             `${award.streak} pódios seguidos: o nome fica dourado com a coroa no app para sempre ` +
             `e ela ganha um presente misterioso 🎁. O status recomeça.`
         : `\n${lvl.emoji} *${nameOf(award.player_id)} está ${lvl.title.toUpperCase()}!*\n` +
-            `${award.streak} pódios seguidos. Faltam ${MAX_STREAK - award.streak} para virar 👑 Duquesa.`,
+            `${award.streak} pódios seguidos. ${MAX_STREAK - award.streak === 1 ? 'Falta 1' : `Faltam ${MAX_STREAK - award.streak}`} para virar 👑 Duquesa.`,
     )
   }
 

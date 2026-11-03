@@ -99,7 +99,7 @@ import {
   novatas,
   pausaAberta,
 } from '../lib/stats'
-import { buildDayPoster, buildDayPosterGrupos, type PosterRow } from '../lib/poster'
+import { buildDayPoster, buildDayPosterGrupos, buildPosterComFoto, type PosterRow } from '../lib/poster'
 import {
   MODOS,
   REGRA_PADRAO,
@@ -2666,26 +2666,59 @@ function PlayDetail({
 
   useWakeLock(!finished)
 
+  // o status vai em TODAS as do podio: quem olha a arte quer saber em que
+  // degrau cada uma esta, nao so a campea
+  const linhaDe = (s: (typeof dayRows)[number], comStatus: boolean): PosterRow => {
+    const n = comStatus ? (streaksDoDia.get(s.player_id) ?? 0) : 0
+    const lvl = n >= 2 ? streakLevel(n) : null
+    return {
+      name: nameOf(s.player_id),
+      points: s.points,
+      wins: s.wins,
+      losses: s.losses,
+      photo: playerById(s.player_id)?.photo_url ?? null,
+      streak: n,
+      statusTitle: lvl?.title,
+      statusEmoji: lvl?.emoji,
+      statusPoints: undefined,
+    }
+  }
+
+  /**
+   * A ARTE COM A FOTO DO PODIO: a organizadora tira a foto na hora (ou escolhe
+   * da galeria) e ela vira o fundo da arte do grupo (`buildPosterComFoto`). Um
+   * grupo por arte -- cada foto de podio e de um grupo; no grupos + duplas o
+   * podio e de duplas, e la vale a arte de sempre.
+   */
+  const podeArteComFoto = !soFase2 && podiosSel.length === 1
+  async function gerarArteComFoto(foto: File) {
+    const um = podiosSel.length === 1 ? podiosSel[0] : null
+    if (!um) {
+      onToast('Escolha um grupo para a arte com foto')
+      return
+    }
+    setGerando(true)
+    try {
+      const blob = await buildPosterComFoto({
+        data: dateLabel(session.date),
+        titulo: um.grupo === null ? 'Pódio do dia' : `Pódio · Grupo ${um.grupo}`,
+        rows: rowsSel.slice(0, 7).map((s, i) => linhaDe(s, i < um.rows.length)),
+        noPodio: um.rows.length,
+        foto,
+        logoUrl: URL_DO_LOGO,
+      })
+      setArte({ url: URL.createObjectURL(blob), blob })
+    } catch (e) {
+      onToast('Não consegui montar a arte com essa foto')
+      console.error(e)
+    } finally {
+      setGerando(false)
+    }
+  }
+
   async function gerarArteDoDia() {
     setGerando(true)
     try {
-      // o status vai em TODAS as do podio: quem olha a arte quer saber em que
-      // degrau cada uma esta, nao so a campea
-      const linhaDe = (s: (typeof dayRows)[number], comStatus: boolean): PosterRow => {
-        const n = comStatus ? (streaksDoDia.get(s.player_id) ?? 0) : 0
-        const lvl = n >= 2 ? streakLevel(n) : null
-        return {
-          name: nameOf(s.player_id),
-          points: s.points,
-          wins: s.wins,
-          losses: s.losses,
-          photo: playerById(s.player_id)?.photo_url ?? null,
-          streak: n,
-          statusTitle: lvl?.title,
-          statusEmoji: lvl?.emoji,
-          statusPoints: undefined,
-        }
-      }
       const logo = URL_DO_LOGO
       /*
        * No grupos+duplas a arte coroa o PODIO DA CHAVE, nao os pontos.
@@ -3982,7 +4015,7 @@ function PlayDetail({
                   ) : (
                     <>
                       {awardLevel.emoji} <strong>{nameOf(award.player_id)}</strong> está {awardLevel.title}!
-                      {' '}{award.streak} pódios seguidos — faltam {MAX_STREAK - award.streak} para 👑 Duquesa.
+                      {' '}{award.streak} pódios seguidos — {MAX_STREAK - award.streak === 1 ? 'falta 1' : `faltam ${MAX_STREAK - award.streak}`} para 👑 Duquesa.
                     </>
                   )}
                 </div>
@@ -4135,6 +4168,46 @@ function PlayDetail({
                   ? 'Montando a arte…'
                   : `🏐 Imagem ${grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`}`}
               </button>
+              {podeArteComFoto ? (
+                <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                  {/* capture abre a camera direto no celular; o outro, a galeria */}
+                  <label className={`btn ghost grow${gerando ? ' off' : ''}`} style={{ textAlign: 'center' }}>
+                    📷 Tirar foto do pódio
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      hidden
+                      disabled={gerando}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        e.target.value = ''
+                        if (f) void gerarArteComFoto(f)
+                      }}
+                    />
+                  </label>
+                  <label className={`btn ghost grow${gerando ? ' off' : ''}`} style={{ textAlign: 'center' }}>
+                    🖼️ Foto da galeria
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      disabled={gerando}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        e.target.value = ''
+                        if (f) void gerarArteComFoto(f)
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                !soFase2 && (
+                  <p className="tiny muted" style={{ margin: '6px 0 0' }}>
+                    📷 Para a arte com a foto do pódio, escolha um grupo acima.
+                  </p>
+                )
+              )}
             </>
           )}
         </Modal>
