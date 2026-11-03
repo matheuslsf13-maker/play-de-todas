@@ -189,6 +189,8 @@
  "⚖️ Intermediária": "⚖️ Intermediário",
  "⚠️ de outro grupo — ela fica com uma partida a mais no grupo dela": "⚠️ de outro grupo — ele fica com uma partida a mais no grupo dele",
  "➕ Nova atleta": "➕ Novo atleta",
+ "🔍 Em avaliação (menos de 3 plays): a força ainda não aparece, e o grupo dela é a recomendação do app.": "🔍 Em avaliação (menos de 3 plays): a força ainda não aparece, e o grupo dele é a recomendação do app.",
+ "🔍 Força da dupla em avaliação: uma das duas ainda não completou": "🔍 Força da dupla em avaliação: um dos dois ainda não completou",
  "🆕 Atleta nova": "🆕 Atleta novo",
  "Ainda não jogou aqui. Qual o nível dela? Ajuda a montar grupos e duplas equilibrados desde o primeiro play — depois as partidas mandam.": "Ainda não jogou aqui. Qual o nível dele? Ajuda a montar grupos e duplas equilibrados desde o primeiro play — depois as partidas mandam.",
  "NivelDaNovata.tsx::Pular todas": "Pular todos",

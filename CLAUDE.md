@@ -142,6 +142,17 @@ liga/            textos do masculino: o código fica no feminino e o build
   12 sextas com 16 jogadoras, que espalhou o grupo de −107 a +91. Abaixo de
   `JOGOS_PARA_FIRMAR` a nota sai marcada como **provisória**, e quem nunca jogou
   fica fora da lista.
+- **🔍 Força em avaliação nos 3 primeiros plays** (`emAvaliacao`/`PLAYS_EM_AVALIACAO` em
+  `forca.ts`, desde 03/11/2026): até completar 3 plays jogados (noites, não partidas), a nota
+  fica **oculta para quem não é admin** — ranking da força (Stats e o card da tela inicial),
+  ficha (sem número, nível nem gráfico), +/− do 🕑 Histórico, cartão dos grupos do play
+  ("🔍" no lugar da nota e "o grupo dela é a recomendação do app") e a força da **dupla** com
+  ela (a dupla parte da média das duas: mostraria a dela). A admin (logada) vê o número com
+  "🔍". O app usa a nota normalmente para grupos e duplas. Motivo: no 1º play a nota da novata
+  anda mediana 21 e até 55 (a veterana ~7), e as meninas reclamavam de quem "acabou de chegar
+  e já tem força grande". No misto, quem tem jogos no campeonato não entra. O multiplicador do
+  passo foi medido (×1,65/×2/×3: precisão 0,864 → 0,850/0,851/0,840) e o dono preferiu não
+  mexer. `tests/emAvaliacao.test.ts`.
 - **Medir antes de mexer na força** (`RegraDaForca` em `stats.ts`, padrão = a regra de hoje):
   `node scripts/medir-forca.mjs` mede cada variante no histórico real; `--simular` em
   temporadas simuladas; `--par "a" "b"` compara duas com intervalo. Em 12/10 o passo por

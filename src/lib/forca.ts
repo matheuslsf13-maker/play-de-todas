@@ -58,6 +58,47 @@ export function nivelDeForca(nota: number, media: number = FORCA_MEDIA): NivelDe
  */
 export const JOGOS_PARA_FIRMAR = 12
 
+/**
+ * FORCA EM AVALIACAO: nos primeiros plays a nota da novata pula muito (no 1o
+ * play, mediana de 21 pontos e ate 55; a veterana anda ~7) e as meninas
+ * reclamavam de quem "acabou de chegar e ja tem forca grande". Ate completar
+ * `PLAYS_EM_AVALIACAO` plays jogados, o numero fica oculto para quem nao e
+ * admin (so quem esta logada ve, marcado "em avaliacao"); o app continua usando
+ * a nota para montar grupos e duplas -- o grupo dela e uma recomendacao. No
+ * misto, quem tem jogos no proprio campeonato ja chega com forca e nao entra.
+ */
+export const PLAYS_EM_AVALIACAO = 3
+
+const cacheDaAvaliacao = new WeakMap<AppData, Map<string, number>>()
+
+/** Quem esta em avaliacao: id -> quantos plays ja jogou (0, 1 ou 2). */
+export function emAvaliacao(data: AppData): Map<string, number> {
+  const c = cacheDaAvaliacao.get(data)
+  if (c) return c
+  const plays = new Map<string, Set<string>>()
+  for (const m of data.matches) {
+    if (m.score_a === null || m.score_b === null) continue
+    for (const id of [...m.team_a, ...m.team_b]) {
+      const s = plays.get(id) ?? new Set<string>()
+      s.add(m.session_id)
+      plays.set(id, s)
+    }
+  }
+  const out = new Map<string, number>()
+  for (const p of data.players) {
+    if ((p.jogos_de_casa ?? 0) > 0) continue
+    const n = plays.get(p.id)?.size ?? 0
+    if (n < PLAYS_EM_AVALIACAO) out.set(p.id, n)
+  }
+  cacheDaAvaliacao.set(data, out)
+  return out
+}
+
+/** "🔍 em avaliação · play 2 de 3" (o play que ela vai jogar agora conta como o proximo). */
+export function textoDaAvaliacao(plays: number): string {
+  return `🔍 em avaliação · ${plays} de ${PLAYS_EM_AVALIACAO} plays`
+}
+
 export type LinhaDeForca = {
   player_id: string
   nota: number
@@ -70,6 +111,8 @@ export type LinhaDeForca = {
   pausada?: 'manual' | 'faltas'
   /** So no misto: as partidas dela no proprio campeonato (`jogos` sao as do misto). */
   jogosDeCasa?: number
+  /** Em avaliacao (`emAvaliacao`): quantos plays ja jogou. A nota so aparece para a admin. */
+  emAvaliacao?: number
 }
 
 /** "−9 por 3 faltas seguidas", para a ficha e as listas. */
@@ -97,6 +140,7 @@ export function rankingDeForca(
   const quedas = quedaPorFalta(data, ate)
   const pausas = pausaNaForca(data)
   const media = mediaDaForca(data)
+  const avaliacao = emAvaliacao(data)
   const jogos = new Map<string, number>()
   for (const m of data.matches) {
     if (m.score_a === null || m.score_b === null) continue
@@ -116,6 +160,7 @@ export function rankingDeForca(
         provisoria: n + (p.jogos_de_casa ?? 0) < JOGOS_PARA_FIRMAR,
         queda: (quedas.get(p.id)?.perda ?? 0) > 0 ? quedas.get(p.id) : undefined,
         pausada: pausas.get(p.id),
+        emAvaliacao: avaliacao.get(p.id),
       }
     })
     .sort((a, b) => b.nota - a.nota || nameOf(a.player_id).localeCompare(nameOf(b.player_id), 'pt-BR'))

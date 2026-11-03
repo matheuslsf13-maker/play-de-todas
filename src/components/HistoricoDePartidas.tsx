@@ -36,10 +36,13 @@ export default function HistoricoDePartidas({
   partidas,
   jogadora,
   dupla,
+  semForca,
 }: {
   partidas: Match[]
   jogadora?: string
   dupla?: [string, string]
+  /** Forca oculta (atleta em avaliacao, para quem nao e admin): sem o +/− das partidas. */
+  semForca?: boolean
 }) {
   const { data, nameOf } = useStore()
   const [mostrar, setMostrar] = useState(PLAYS_POR_VEZ)
@@ -47,8 +50,8 @@ export default function HistoricoDePartidas({
   // quanto cada partida (e cada play) mexeu na forca: da jogadora, ou da dupla
   const chaveDaDupla = dupla ? [...dupla].sort().join('|') : null
   const forca = useMemo(
-    () => (jogadora ? forcaNasPartidas(data) : chaveDaDupla ? forcaDasDuplasNasPartidas(data) : null),
-    [data, jogadora, chaveDaDupla],
+    () => (semForca ? null : jogadora ? forcaNasPartidas(data) : chaveDaDupla ? forcaDasDuplasNasPartidas(data) : null),
+    [data, jogadora, chaveDaDupla, semForca],
   )
   const quem = jogadora ?? chaveDaDupla
   const mudouNaPartida = (id: string) => (forca && quem ? forca.porPartida.get(`${id}|${quem}`) : undefined)

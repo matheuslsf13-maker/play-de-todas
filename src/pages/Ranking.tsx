@@ -25,7 +25,7 @@ import {
   STREAK_LADDER,
   streakLevel,
 } from '../lib/streaks'
-import { forcaDeDuplas, rankingDeForca } from '../lib/forca'
+import { emAvaliacao, forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
@@ -643,18 +643,21 @@ export function RankTable({
  * o ranking do mes, o proximo play e o status.
  */
 function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
-  const { data, nameOf, playerById } = useStore()
+  const { data, nameOf, playerById, canEdit } = useStore()
   const [modo, setModo] = useState<'individual' | 'duplas'>('individual')
 
-  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca
-  const individuais = useMemo(() => rankingDeForca(data, nameOf).filter((l) => !l.pausada), [data, nameOf])
-  const duplas = useMemo(
-    () =>
-      [...forcaDeDuplas(data).values()].sort(
-        (a, b) => b.nota - a.nota || nameOf(a.a).localeCompare(nameOf(b.a), 'pt-BR'),
-      ),
-    [data, nameOf],
+  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca; quem
+  // esta em avaliacao so aparece para a admin (marcada 🔍), e a dupla dela tambem
+  const individuais = useMemo(
+    () => rankingDeForca(data, nameOf).filter((l) => !l.pausada && (canEdit || l.emAvaliacao === undefined)),
+    [data, nameOf, canEdit],
   )
+  const duplas = useMemo(() => {
+    const avaliacao = emAvaliacao(data)
+    return [...forcaDeDuplas(data).values()]
+      .filter((d) => canEdit || (!avaliacao.has(d.a) && !avaliacao.has(d.b)))
+      .sort((a, b) => b.nota - a.nota || nameOf(a.a).localeCompare(nameOf(b.a), 'pt-BR'))
+  }, [data, nameOf, canEdit])
 
   const total = modo === 'individual' ? individuais.length : duplas.length
   if (individuais.length === 0) return null
@@ -689,7 +692,10 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   </span>
                   <Avatar player={playerById(l.player_id)} size={28} />
                   <span className="grow" style={{ minWidth: 0 }}>
-                    <NomeClicavel id={l.player_id} className="ellipsis">{nameOf(l.player_id)}</NomeClicavel>
+                    <NomeClicavel id={l.player_id} className="ellipsis">
+                      {nameOf(l.player_id)}
+                      {l.emAvaliacao !== undefined && ' 🔍'}
+                    </NomeClicavel>
                   </span>
                   {LIGA.id === 'misto' && (
                     <span className="nowrap tiny muted">{playerById(l.player_id)?.genero === 'F' ? '♀' : '♂'}</span>

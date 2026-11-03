@@ -120,7 +120,7 @@ import {
   type Regra,
   type Tie,
 } from '../lib/desempate'
-import { ajusteDeEntrosamento, nivelDeForca, notaDeForca } from '../lib/forca'
+import { ajusteDeEntrosamento, emAvaliacao, nivelDeForca, notaDeForca } from '../lib/forca'
 import { OPCOES_DE_FASE, resumoDaFase } from '../lib/desempate'
 import {
   CATEGORIAS,
@@ -2117,6 +2117,11 @@ function PlayDetail({
   const grupos = session.groups ?? null
   /** A forca de cada pessoa na data do play, como ela estava ao montar os grupos. */
   const forcaDoDia = useMemo(() => ratings(data, session.date), [data, session.date])
+  /** Em avaliacao (menos de 3 plays ANTES deste): a nota fica oculta para quem nao e admin. */
+  const avaliacaoNoPlay = useMemo(
+    () => emAvaliacao({ ...data, matches: data.matches.filter((m) => m.session_id !== session.id) }),
+    [data, session.id],
+  )
   const grupoDe = useMemo(() => {
     const map = new Map<string, number>()
     grupos?.forEach((g, i) => g.forEach((id) => map.set(id, i + 1)))
@@ -3467,7 +3472,13 @@ function PlayDetail({
                     total <strong>{total}</strong>
                   </div>
                   <div className="tiny">
-                    {g.map((id, k) => `${nameOf(id)}${novatasDoPlay.has(id) ? ' 🆕' : ''} ${notas[k]}`).join(' · ')}
+                    {g
+                      .map((id, k) =>
+                        `${nameOf(id)}${novatasDoPlay.has(id) ? ' 🆕' : ''} ${
+                          avaliacaoNoPlay.has(id) ? (canEdit ? `${notas[k]} 🔍` : '🔍') : notas[k]
+                        }`,
+                      )
+                      .join(' · ')}
                   </div>
                 </div>
               )
@@ -3477,6 +3488,11 @@ function PlayDetail({
             Cada grupo é um rodízio próprio e tem o seu pódio (1º, 2º e 3º). Os pontos continuam
             individuais e a classificação do dia é uma só.
           </p>
+          {grupos.some((g) => g.some((id) => avaliacaoNoPlay.has(id))) && (
+            <p className="tiny muted" style={{ marginBottom: 0 }}>
+              {'🔍 Em avaliação (menos de 3 plays): a força ainda não aparece, e o grupo dela é a recomendação do app.'}
+            </p>
+          )}
         </div>
       )}
 

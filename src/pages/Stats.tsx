@@ -34,7 +34,10 @@ import {
   NIVEIS_DE_FORCA,
   forcaDeDuplas,
   nivelDeForca,
+  emAvaliacao,
+  PLAYS_EM_AVALIACAO,
   rankingDeForca,
+  textoDaAvaliacao,
   textoDaQueda,
   type ForcaDeDupla,
   type LinhaDeForca,
@@ -98,7 +101,7 @@ export default function Stats({
   // sem ninguem escolhida, abre na 1a da forca que nao esta pausada (antes era
   // a primeira em ordem alfabetica, que nao diz nada)
   const topoDaForca = useMemo(
-    () => rankingDeForca(data, nameOf).find((l) => !l.pausada && comJogo.some((p) => p.id === l.player_id))?.player_id,
+    () => rankingDeForca(data, nameOf).find((l) => !l.pausada && l.emAvaliacao === undefined && comJogo.some((p) => p.id === l.player_id))?.player_id,
     [data, nameOf, comJogo],
   )
   const selected = playerId || topoDaForca || comJogo[0]?.id || data.players[0]?.id || ''
@@ -197,14 +200,19 @@ function PainelJogadora({
   streaks: ReturnType<typeof computeStreaks>
   period: string
 }) {
-  const { data, nameOf, playerById } = useStore()
+  const { data, nameOf, playerById, canEdit } = useStore()
 
   // a forca e sempre do historico inteiro, mesmo com o periodo filtrado: ela
   // nao e desempenho do mes, e o que o app aprendeu sobre a jogadora ate hoje
   const forcas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
-  // a posicao conta so quem esta no ranking; a pausada continua com a ficha
-  const noRanking = useMemo(() => forcas.filter((l) => !l.pausada), [forcas])
+  // a posicao conta so quem esta no ranking; a pausada continua com a ficha. Para
+  // quem nao e admin, quem esta em avaliacao tambem nao conta (a nota e oculta)
+  const noRanking = useMemo(
+    () => forcas.filter((l) => !l.pausada && (canEdit || l.emAvaliacao === undefined)),
+    [forcas, canEdit],
+  )
   const minhaForca = forcas.find((l) => l.player_id === selected) ?? null
+  const forcaOculta = !canEdit && minhaForca?.emAvaliacao !== undefined
   const posicaoNaForca = noRanking.findIndex((l) => l.player_id === selected) + 1
   const totalNaForca = noRanking.length
 
@@ -324,8 +332,15 @@ function PainelJogadora({
 
       <div className="card">
         <div className="section-title">💪 Força</div>
-        {minhaForca ? (
+        {minhaForca && forcaOculta ? (
+          <EmAvaliacao plays={minhaForca.emAvaliacao as number} />
+        ) : minhaForca ? (
           <>
+            {minhaForca.emAvaliacao !== undefined && (
+              <div className="tiny" style={{ fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
+                {textoDaAvaliacao(minhaForca.emAvaliacao)} — só você (admin) vê o número
+              </div>
+            )}
             <div className="row" style={{ gap: 10 }}>
               <span style={{ fontSize: 26 }}>{minhaForca.nivel.emoji}</span>
               <div className="grow" style={{ minWidth: 0 }}>
@@ -352,7 +367,7 @@ function PainelJogadora({
 
       <div className="card">
         <div className="section-title">🕑 Histórico</div>
-        <HistoricoDePartidas partidas={matches} jogadora={selected} />
+        <HistoricoDePartidas partidas={matches} jogadora={selected} semForca={forcaOculta} />
       </div>
 
       <div className="card">
@@ -455,9 +470,13 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
 
   // a forca sai do historico INTEIRO da dupla, e nao do periodo filtrado:
   // e o que as duas renderam juntas desde sempre
-  const { data } = useStore()
+  const { data, canEdit } = useStore()
   const forcas = useMemo(() => forcaDeDuplas(data), [data])
-  const forcaDe = (d: DuoStat) => forcas.get(d.key)?.nota ?? 1500
+  // a forca da dupla parte da media das duas: com uma em avaliacao, entregaria a dela
+  const avaliacao = useMemo(() => emAvaliacao(data), [data])
+  const duplaOculta = (d: { a: string; b: string }) => !canEdit && (avaliacao.has(d.a) || avaliacao.has(d.b))
+  // a oculta vai para o fim no "mais fortes" (a posicao tambem diria a forca)
+  const forcaDe = (d: DuoStat) => (duplaOculta(d) ? 0 : forcas.get(d.key)?.nota ?? 1500)
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -471,7 +490,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
       if (ordem === 'aproveitamento') return aprov(b) - aprov(a) || b.matches - a.matches
       return b.matches - a.matches || b.wins - a.wins
     })
-  }, [duplas, busca, ordem, nameOf])
+  }, [duplas, busca, ordem, nameOf, forcas, avaliacao, canEdit])
 
   if (duplas.length === 0) {
     return (
@@ -526,7 +545,11 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
                     </span>
                     <span className="mini-barra"><i style={{ width: `${Math.round(pct * 100)}%` }} /></span>
                     <span className="tiny muted">{plural(d.matches, 'jogo')} · {d.wins}V {d.losses}D · {d.points} pts</span>
-                    <ForcaDaDupla f={forcas.get(d.key)} />
+                    {duplaOculta(d) ? (
+                      <span className="tiny muted" style={{ display: 'block', marginTop: 2 }}>🔍 força em avaliação</span>
+                    ) : (
+                      <ForcaDaDupla f={forcas.get(d.key)} />
+                    )}
                   </span>
                   <span className="duo-pct">{Math.round(pct * 100)}%</span>
                 </button>
@@ -555,8 +578,10 @@ function DetalheDupla({
   matches: ReturnType<typeof playedMatches>
   onClose: () => void
 }) {
-  const { data, nameOf, playerById } = useStore()
+  const { data, nameOf, playerById, canEdit } = useStore()
   const forca = useMemo(() => forcaDeDuplas(data).get(duo.key), [data, duo.key])
+  const avaliacao = useMemo(() => emAvaliacao(data), [data])
+  const oculta = !canEdit && (avaliacao.has(duo.a) || avaliacao.has(duo.b))
   const jogos = useMemo(() => duoMatches(matches, duo.a, duo.b), [matches, duo])
   const pct = duo.matches === 0 ? 0 : duo.wins / duo.matches
 
@@ -583,7 +608,12 @@ function DetalheDupla({
           <Avatar player={playerById(duo.a)} size={46} />
           <Avatar player={playerById(duo.b)} size={46} />
         </span>
-        {forca && (
+        {forca && oculta && (
+          <div className="grow tiny muted" style={{ minWidth: 0 }}>
+            🔍 Força da dupla em avaliação: uma das duas ainda não completou {PLAYS_EM_AVALIACAO} plays.
+          </div>
+        )}
+        {forca && !oculta && (
           <div className="grow" style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 800, color: nivelDeForca(forca.nota, mediaDaForca(data)).cor }}>
               {nivelDeForca(forca.nota, mediaDaForca(data)).emoji} Força da dupla {forca.nota}
@@ -604,7 +634,7 @@ function DetalheDupla({
         <StatBox k="Pontos" v={duo.points} />
       </div>
 
-      <GraficoDaDupla data={data} a={duo.a} b={duo.b} />
+      {!oculta && <GraficoDaDupla data={data} a={duo.a} b={duo.b} />}
 
       {rivais.length > 0 && (
         <>
@@ -623,7 +653,7 @@ function DetalheDupla({
       )}
 
       <div className="section-title" style={{ marginTop: 16 }}>🕑 Histórico</div>
-      <HistoricoDePartidas partidas={jogos} dupla={[duo.a, duo.b]} />
+      <HistoricoDePartidas partidas={jogos} dupla={[duo.a, duo.b]} semForca={oculta} />
     </Modal>
   )
 }
@@ -743,10 +773,18 @@ function ForcaDaDupla({ f }: { f?: ForcaDeDupla }) {
  * numero que nao e usado para nada -- o equilibrio das duplas le o total.
  */
 function PainelForca() {
-  const { data, nameOf, playerById } = useStore()
-  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca
+  const { data, nameOf, playerById, canEdit } = useStore()
+  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca; quem
+  // esta em avaliacao so aparece com o numero para a admin
   const todasAsLinhas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
-  const linhas = useMemo(() => todasAsLinhas.filter((l) => !l.pausada), [todasAsLinhas])
+  const linhas = useMemo(
+    () => todasAsLinhas.filter((l) => !l.pausada && (canEdit || l.emAvaliacao === undefined)),
+    [todasAsLinhas, canEdit],
+  )
+  const emAvaliacaoOcultas = useMemo(
+    () => (canEdit ? [] : todasAsLinhas.filter((l) => !l.pausada && l.emAvaliacao !== undefined)),
+    [todasAsLinhas, canEdit],
+  )
   const foraDoRanking = useMemo(() => todasAsLinhas.filter((l) => l.pausada), [todasAsLinhas])
 
   if (linhas.length === 0) {
@@ -781,6 +819,18 @@ function PainelForca() {
             <LinhaDaForca key={l.player_id} linha={l} pos={i + 1} maior={maior} media={mediaHoje} nome={nameOf(l.player_id)} foto={playerById(l.player_id)} />
           ))}
         </div>
+        {emAvaliacaoOcultas.length > 0 && (
+          <p className="tiny muted" style={{ marginBottom: 0 }}>
+            🔍 <strong>Em avaliação:</strong>{' '}
+            {emAvaliacaoOcultas.map((l, i) => (
+              <span key={l.player_id}>
+                {i > 0 && ', '}
+                <NomeClicavel id={l.player_id}>{nameOf(l.player_id)}</NomeClicavel> ({l.emAvaliacao} de {PLAYS_EM_AVALIACAO})
+              </span>
+            ))}
+            . A força aparece depois do {PLAYS_EM_AVALIACAO}º play; até lá o app já usa para montar grupos e duplas.
+          </p>
+        )}
         {foraDoRanking.length > 0 && (
           <p className="tiny muted" style={{ marginBottom: 0 }}>
             ⏸️ <strong>Fora do ranking agora:</strong>{' '}
@@ -845,7 +895,10 @@ function LinhaDaForca({
       <div className="row" style={{ gap: 8 }}>
         <span className={`rank-pos top${pos}`} style={{ fontWeight: 800, minWidth: 22 }}>{pos}</span>
         <Avatar player={foto} size={28} />
-        <NomeClicavel id={linha.player_id} className="grow ellipsis">{nome}</NomeClicavel>
+        <NomeClicavel id={linha.player_id} className="grow ellipsis">
+          {nome}
+          {linha.emAvaliacao !== undefined && ' 🔍'}
+        </NomeClicavel>
         <span className="nowrap tiny" style={{ color: linha.nivel.cor, fontWeight: 800 }}>
           {linha.nivel.emoji} {linha.nivel.titulo}
         </span>
@@ -894,6 +947,22 @@ function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'fa
       {pausada === 'manual'
         ? `${aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam baixando a força, como as de todo mundo. Volta sozinha quando jogar de novo.`
         : ' por 2 ou mais faltas seguidas — fora do ranking da força. Volta sozinha quando jogar de novo.'}
+    </div>
+  )
+}
+
+/** A ficha de quem esta em avaliacao, para quem nao e admin: sem numero, sem nivel, sem grafico. */
+function EmAvaliacao({ plays }: { plays: number }) {
+  return (
+    <div className="row" style={{ gap: 10 }}>
+      <span style={{ fontSize: 26 }}>🔍</span>
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800 }}>Em avaliação</div>
+        <div className="tiny muted">
+          {plays} de {PLAYS_EM_AVALIACAO} plays. Nos primeiros plays a força ainda muda muito; ela aparece depois do{' '}
+          {PLAYS_EM_AVALIACAO}º. Até lá o app já usa para montar grupos e duplas.
+        </div>
+      </div>
     </div>
   )
 }
