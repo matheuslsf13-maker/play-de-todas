@@ -135,7 +135,7 @@ import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '..
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
-import { filaDosGruposArrumados, moverNoRascunho } from '../lib/arrumarGrupos'
+import { filaDosGruposArrumados, moverNoRascunho, problemasDaFila } from '../lib/arrumarGrupos'
 import { hasSupabase, supabase } from '../lib/supabase'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -2180,6 +2180,9 @@ function PlayDetail({
   function alternarAusente(id: string) {
     const ausente = !ausentes.has(id)
     mesclarNoPlay(session.id, { campo: 'ausentes', id, ausente })
+    const proximos = new Set(ausentes)
+    if (ausente) proximos.add(id)
+    else proximos.delete(id)
     setAusentesLocais((prev) => {
       const next = new Set(prev)
       if (ausente) next.add(id)
@@ -2187,6 +2190,51 @@ function PlayDetail({
       saveAusentes({ ...loadAusentes(), [session.id]: [...next] })
       return next
     })
+    void replanejarPelaAtrasada(id, proximos, ausente)
+  }
+
+  /**
+   * A ATRASADA E O GRUPO DELA (02/11: a Ana Pretti atrasou; no grupo de 6 em
+   * quartetos a unica partida sem ela tirava tambem a Wanessa, que esperou 1
+   * hora enquanto as outras 4 emendavam 3). Enquanto o grupo dela nao comecou,
+   * marcar "nao chegou" remonta o rodizio do grupo para que as partidas sem ela
+   * girem entre todas as presentes (`ausentes` em `gerarFila`); desmarcar antes
+   * de comecar volta ao plano normal. Grupo ja comecado: so empurra as partidas
+   * dela para o fim, como sempre. A fila nova e conferida (`problemasDaFila`).
+   */
+  async function replanejarPelaAtrasada(id: string, proximos: Set<string>, ausente: boolean) {
+    if (duplasFixas || finished) return
+    const gruposDoPlay = session.groups?.length ? session.groups : [session.player_ids]
+    const gi = gruposDoPlay.findIndex((g) => g.includes(id))
+    if (gi < 0) return
+    const grupo = gruposDoPlay[gi]
+    const doGrupo = matches.filter((m) => (m.fase ?? 1) === 1 && jogadorasDaPartida(m).some((x) => grupo.includes(x)))
+    if (doGrupo.length === 0 || doGrupo.some((m) => isPlayed(m) || iniciada(m))) return
+    const nome = (i: number) => (session.groups?.length ? nomeDoGrupo(gi) : `Grupo ${i + 1}`)
+    const fila = gerarFila({
+      playerIds: grupo,
+      ratings: ratings(data, session.date),
+      entrosamento: ajusteDeEntrosamento(data),
+      history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
+      genero: generoDoPlay,
+      ausentes: new Set([...proximos].filter((x) => grupo.includes(x))),
+    })
+    if (problemasDaFila([grupo], fila, nome, generoDoPlay).length > 0) return
+    const ultima = matches.reduce((n, m) => Math.max(n, m.round), 0)
+    const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: ultima + i + 1 }))
+    const doGrupoIds = new Set(doGrupo.map((m) => m.id))
+    await replaceSessionMatches(session.id, [...matches.filter((m) => !doGrupoIds.has(m.id)), ...novas])
+    const onde = session.groups?.length ? `do ${nomeDoGrupo(gi)}` : 'do play'
+    anotarNoPlay(
+      session.id,
+      novoEvento(
+        'refazer',
+        ausente
+          ? `Fila ${onde} refeita: ${nameOf(id)} ainda não chegou — as partidas sem ela giram entre todas`
+          : `Fila ${onde} refeita: ${nameOf(id)} chegou antes de começar — volta o plano normal`,
+      ),
+    )
+    onToast(ausente ? `Fila ${onde} refeita para ninguém ficar esperando ${nameOf(id)} ⏳` : `${nameOf(id)} chegou — fila ${onde} de volta ao normal`)
   }
 
   function marcarInicio(id: string, quando: string | null) {
@@ -2276,28 +2324,39 @@ function PlayDetail({
    * as que estao em quadra, na ordem em que terminaram -- dentro do grupo
    * dela: a quadra do outro grupo terminar nao e descanso para ninguem daqui.
    * E com isto que a proxima partida evita mandar alguem para a terceira.
+   *
+   * MAS O RELOGIO CONTA: grupo que ficou fora esperando quadra (uma quadra a
+   * menos, os grupos revezando) descansou de verdade. Em 02/11 o "jogaria a 3ª
+   * seguida" aparecia para quem estava parada havia meia hora. Se entre uma
+   * partida dela e a seguinte (ou agora) passou mais de ~60% de uma partida, a
+   * sequencia quebra. Calculado na hora de abrir a lista (o relogio anda).
    */
-  const seguidas = useMemo(() => {
-    const ordem = [...jogadas]
-      .sort((a, b) => {
-        const ta = Date.parse(a.ended_at ?? fins[a.id] ?? '') || 0
-        const tb = Date.parse(b.ended_at ?? fins[b.id] ?? '') || 0
-        return ta - tb || a.round - b.round
-      })
-      .concat(emJogo)
+  const duracaoDaPartida = minutosDaPartida(session.target, regraDoPlay) * 60000
+  function seguidasAgora(): Map<string, number> {
+    const agora = Date.now()
+    const descanso = duracaoDaPartida * 0.6
+    const emQuadraAgora = new Set(emJogo.map((m) => m.id))
+    const fimDe = (m: Match) => (emQuadraAgora.has(m.id) ? agora : Date.parse(m.ended_at ?? fins[m.id] ?? '') || 0)
+    const ordem = [...jogadas].sort((a, b) => fimDe(a) - fimDe(b) || a.round - b.round).concat(emJogo)
     const map = new Map<string, number>()
     for (const id of session.player_ids) {
       const grupo = grupos?.find((g) => g.includes(id)) ?? session.player_ids
       const doGrupo = ordem.filter((m) => grupo.includes(m.team_a[0]))
       let seq = 0
+      // quando comecaria a proxima dela: agora
+      let depois = agora
       for (let i = doGrupo.length - 1; i >= 0; i--) {
-        if (!jogadorasDaPartida(doGrupo[i]).includes(id)) break
+        const m = doGrupo[i]
+        if (!jogadorasDaPartida(m).includes(id)) break
+        const fim = fimDe(m)
+        if (depois - fim >= descanso) break
         seq++
+        depois = fim - duracaoDaPartida
       }
       map.set(id, seq)
     }
     return map
-  }, [jogadas, emJogo, fins, session.player_ids, grupos])
+  }
 
   /** Duplas que ja jogaram ou estao jogando hoje: a segunda vez vai para o fim da fila. */
   const jaFormadas = useMemo(() => {
@@ -3843,7 +3902,7 @@ function PlayDetail({
           grupoDe={ehCampeonato ? categoriaDe : grupoDe}
           totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
           nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
-          seguidas={seguidas}
+          seguidas={seguidasAgora()}
           jaFormadas={jaFormadas}
           onEscolher={(m) => {
             escolherNaMao(escolhendo, m.id)
@@ -4872,7 +4931,7 @@ function EscolherPartida({
                   <span className="tiny" style={{ color: 'var(--yellow)', fontWeight: 700, display: 'block' }}>
                     {repetida ? '🔁 dupla repetida — melhor deixar para o fim' : ''}
                     {repetida && terceira.length > 0 ? ' · ' : ''}
-                    {terceira.length > 0 ? `⚠️ ${terceira.map(nameOf).join(' e ')} jogaria a 3ª seguida` : ''}
+                    {terceira.length > 0 ? `⚠️ ${terceira.map(nameOf).join(' e ')} ${terceira.length > 1 ? 'jogariam' : 'jogaria'} a 3ª seguida` : ''}
                   </span>
                 )}
                 <span className="fila-time">{nameOf(m.team_a[0])} + {nameOf(m.team_a[1])}</span>

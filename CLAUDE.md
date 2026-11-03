@@ -455,6 +455,14 @@ liga/            textos do masculino: o código fica no feminino e o build
   tempo sem jogar. **Fica no play** (`sessions.ausentes`, script 22), igual em todos
   os celulares — em 05/10 era só do aparelho e o outro celular mostrava outra fila.
   Se ela **não vem**, o caminho é o Entra / sai, não este.
+  **Marcada antes de o grupo dela começar, o rodízio do grupo é remontado**
+  (`replanejarPelaAtrasada` em Play.tsx, `ScheduleOptions.ausentes` → `custoDaEspera` em
+  `pairing.ts`): as partidas sem ela giram entre **todas** as presentes. Em 02/11 a Ana
+  Pretti atrasou num grupo de 6; nos quartetos (`rodizioDeSeis`) a única partida sem ela
+  tirava também a parceira de par dela — a Wanessa esperou 1 hora (3,3,**0**,3,3 → agora
+  2,2,2,3,3). Com atrasada, o grupo de 6 usa o rodízio geral. Desmarcar antes de começar
+  volta ao plano normal; grupo já começado só empurra as partidas dela para o fim. Anota no
+  diário e a fila é conferida (`problemasDaFila`). `tests/atrasada.test.ts`.
 - **A fila mostrada é a que acontece** (`src/lib/fila.ts`): `filaPorGrupo` ordena as
   pendentes de cada grupo e a quadra que vaga pega **a primeira da fila do grupo dela
   com as quatro livres** (`proximasPelaFila`). Antes a lista era uma previsão feita de
@@ -464,6 +472,11 @@ liga/            textos do masculino: o código fica no feminino e o build
   noites contra 4/20) — a troca aceita por a lista ser a verdade. A escolha na mão
   ("🔀 Trocar por outra partida") fica no play (`sessions.escolhas`, script 22). O
   início guardado no aparelho só vale 3 minutos; depois manda o banco.
+- **"⚠️ jogaria a 3ª seguida" conta o relógio** (`seguidasAgora` em Play.tsx, no "🔀 Trocar
+  por outra partida"): a sequência é dentro do grupo, mas quebra se entre uma partida dela e a
+  seguinte (ou agora) passou mais de ~60% de uma partida (`minutosDaPartida`). Em 02/11, com
+  uma quadra a menos e os grupos revezando, o aviso aparecia para quem estava parada havia
+  meia hora esperando quadra.
 - **Quadra a mais no meio do play** ("➕ quadra" no card das quadras): só muda
   `sessions.courts`; a quadra nova aparece livre e já puxa a próxima da fila. Tirar
   só a última, e só vazia — reduzir com jogo em andamento sumiria com ele da tela.

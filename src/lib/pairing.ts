@@ -952,7 +952,9 @@ function rodizioMisto(
   antes: Confrontos,
   diaAteAgora: Confrontos,
   entrosamento?: Map<string, number>,
+  ausentes?: Set<string>,
 ): Partida[] {
+  const comAtrasada = ids.some((id) => ausentes?.has(id))
   const mulheres = ids.filter((id) => genero.get(id) === 'F')
   const homens = ids.filter((id) => genero.get(id) !== 'F')
   let melhor: Partida[] = []
@@ -972,6 +974,7 @@ function rodizioMisto(
     const custo =
       desigualdadeDeJogos(cand, ids) * 1e6 +
       cand.filter((p) => !duplaMista(p.team_a, genero) || !duplaMista(p.team_b, genero)).length * 1e6 +
+      (comAtrasada ? custoDaEspera(cand, ids, ausentes as Set<string>) * 1e4 : 0) +
       custoDoRodizio(cand, { ratings, entrosamento, antes, dia: diaAteAgora })
     if (custo < melhorCusto) {
       melhorCusto = custo
@@ -996,10 +999,14 @@ function rodizioDoGrupo(
   diaAteAgora: Confrontos,
   entrosamento?: Map<string, number>,
   genero?: Generos,
+  ausentes?: Set<string>,
 ): Partida[] {
   if (ids.length < 4) return []
-  if (grupoMisto(ids, genero)) return rodizioMisto(ids, genero!, ratings, antes, diaAteAgora, entrosamento)
-  if (ids.length === 6) return rodizioDeSeis(ids, ratings, antes, diaAteAgora, entrosamento)
+  if (grupoMisto(ids, genero)) return rodizioMisto(ids, genero!, ratings, antes, diaAteAgora, entrosamento, ausentes)
+  // alguem do grupo ainda nao chegou: os quartetos prendiam a parceira de par
+  // dela fora da quadra; o rodizio geral, escolhido pela espera, gira todas
+  const comAtrasada = ids.some((id) => ausentes?.has(id))
+  if (ids.length === 6 && !comAtrasada) return rodizioDeSeis(ids, ratings, antes, diaAteAgora, entrosamento)
   let melhor: Partida[] = []
   let melhorCusto = Infinity
   /*
@@ -1035,6 +1042,7 @@ function rodizioDoGrupo(
     // confronto: uma partida a mais para duas meninas e injustica visivel
     const custo =
       desigualdadeDeJogos(cand, ids) * 1e6 +
+      (comAtrasada ? custoDaEspera(cand, ids, ausentes as Set<string>) * 1e4 : 0) +
       custoDoRodizio(cand, { ratings, entrosamento, antes, dia: diaAteAgora })
     if (custo < melhorCusto) {
       melhorCusto = custo
@@ -1046,6 +1054,22 @@ function rodizioDoGrupo(
 }
 
 /** Diferenca entre quem mais joga e quem menos joga no grupo. */
+/**
+ * QUANTO A ATRASADA PRENDE AS OUTRAS: enquanto ela nao chega so andam as
+ * partidas sem ela. Bom e (1) haver o maximo delas, (2) ninguem presente ficar
+ * de fora de todas e (3) as presentes entrarem em numeros parecidos.
+ */
+export function custoDaEspera(partidas: readonly { team_a: Duo; team_b: Duo }[], ids: string[], ausentes: Set<string>): number {
+  const presentes = ids.filter((id) => !ausentes.has(id))
+  const semAtrasada = partidas.filter((p) => jogadorasDaPartida(p).every((id) => !ausentes.has(id)))
+  const vezes = new Map(presentes.map((id) => [id, 0]))
+  for (const p of semAtrasada) for (const id of jogadorasDaPartida(p)) vezes.set(id, (vezes.get(id) ?? 0) + 1)
+  const v = [...vezes.values()]
+  if (v.length === 0) return 0
+  const media = v.reduce((t, x) => t + x, 0) / v.length
+  return -semAtrasada.length * 10 + v.filter((x) => x === 0).length * 100 + v.reduce((t, x) => t + (x - media) ** 2, 0)
+}
+
 function desigualdadeDeJogos(partidas: Partida[], ids: string[]): number {
   const jogos = new Map(ids.map((id) => [id, 0]))
   for (const p of partidas) {
@@ -1228,6 +1252,13 @@ export type ScheduleOptions = {
    * metade de cada genero so forma duplas homem + mulher.
    */
   genero?: Generos
+  /**
+   * Quem ainda nao chegou ("⏳ Quem nao chegou"). O grupo dela e montado para
+   * que as partidas SEM ela girem entre todas as presentes (`custoDaEspera`):
+   * no grupo de 6 em quartetos, a unica partida sem a atrasada tirava tambem a
+   * parceira de par dela -- em 02/11 a Wanessa esperou a Ana Pretti por 1 hora.
+   */
+  ausentes?: Set<string>
 }
 
 /** Monta a fila de partidas do dia. */
@@ -1242,7 +1273,7 @@ export function gerarFila(opts: ScheduleOptions): PlannedMatch[] {
   const grupos = opts.groups?.length ? opts.groups : [opts.playerIds]
   const todas: PlannedMatch[] = []
   grupos.forEach((ids, i) => {
-    for (const m of rodizioDoGrupo(ids, opts.ratings, antes, dia, opts.entrosamento, opts.genero)) {
+    for (const m of rodizioDoGrupo(ids, opts.ratings, antes, dia, opts.entrosamento, opts.genero, opts.ausentes)) {
       todas.push({ ...m, grupo: i })
       marcarConfronto(m.team_a, m.team_b, dia)
     }
