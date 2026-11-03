@@ -170,7 +170,7 @@ function blocoDeGrupo(
     c.textAlign = 'right'
     c.fillStyle = GOLD
     c.font = '800 31px system-ui, Segoe UI, Arial, sans-serif'
-    c.fillText(`${r.points} pts`, W - 112, meio + 10)
+    c.fillText(pontos(r.points), W - 112, meio + 10)
     c.textAlign = 'left'
   })
 }
@@ -336,7 +336,12 @@ function podio(
     const r = rows[b.i]
     if (!r) continue
     const topoBarra = chao - b.alturaBarra
-    const cy = topoBarra - b.raio - 78 // espaco para o nome entre a foto e a barra
+    // nome longo quebra em duas linhas ("Carolina Magal..." cortava o sobrenome);
+    // a foto sobe o tanto da linha a mais
+    c.font = `800 ${b.i === 0 ? 40 : 34}px system-ui, Segoe UI, Arial, sans-serif`
+    const linhas = quebrarEmDuas(c, r.name, b.i === 0 ? 300 : 270)
+    const extra = (linhas.length - 1) * (b.i === 0 ? 44 : 38)
+    const cy = topoBarra - b.raio - 78 - extra // espaco para o nome entre a foto e a barra
 
     if (b.i === 0) {
       if (r.statusTitle) chamas(c, b.x, cy, b.raio) // usou o status: pega fogo
@@ -348,7 +353,7 @@ function podio(
     c.textAlign = 'center'
     c.fillStyle = '#fff'
     c.font = `800 ${b.i === 0 ? 40 : 34}px system-ui, Segoe UI, Arial, sans-serif`
-    c.fillText(cortar(c, r.name, 270), b.x, topoBarra - 26)
+    linhas.forEach((l, k) => c.fillText(l, b.x, topoBarra - 26 - (linhas.length - 1 - k) * (b.i === 0 ? 44 : 38)))
 
     // barra do podio
     const larguraBarra = b.i === 0 ? 300 : 250
@@ -362,7 +367,7 @@ function podio(
     c.font = '900 62px system-ui, Segoe UI, Arial, sans-serif'
     c.fillText(b.rotulo, b.x, topoBarra + 70)
     c.font = '800 40px system-ui, Segoe UI, Arial, sans-serif'
-    c.fillText(`${r.points} pts`, b.x, topoBarra + 122)
+    c.fillText(pontos(r.points), b.x, topoBarra + 122)
     c.font = '700 26px system-ui, Segoe UI, Arial, sans-serif'
     c.fillStyle = 'rgba(0,0,0,.55)'
     c.fillText(`${r.wins}V · ${r.losses}D`, b.x, topoBarra + 164)
@@ -504,7 +509,7 @@ function demais(c: CanvasRenderingContext2D, rows: PosterRow[], apartirDe: numbe
     c.textAlign = 'right'
     c.fillStyle = GOLD
     c.font = '800 27px system-ui, Segoe UI, Arial, sans-serif'
-    c.fillText(`${r.points} pts`, W - 132, y)
+    c.fillText(pontos(r.points), W - 132, y)
     c.textAlign = 'left'
     y += 54
   })
@@ -629,10 +634,28 @@ function loadImage(url: string | null): Promise<HTMLImageElement | null> {
 }
 
 function iniciais(nome: string): string {
-  const p = nome.trim().split(/\s+/)
+  // sem caracteres invisiveis ("\u2060Karine De Pra" saia so "P")
+  const p = nome.replace(/\p{Cf}/gu, '').trim().split(/\s+/).filter(Boolean)
   if (p.length === 0) return '?'
   if (p.length === 1) return p[0].slice(0, 2).toUpperCase()
   return (p[0][0] + p[p.length - 1][0]).toUpperCase()
+}
+
+/** "1 pt", "5 pts". */
+function pontos(n: number): string {
+  return `${n} ${n === 1 ? 'pt' : 'pts'}`
+}
+
+/** O nome em ate duas linhas, quebrando entre palavras; so corta se nem assim couber. */
+function quebrarEmDuas(c: CanvasRenderingContext2D, texto: string, max: number): string[] {
+  if (c.measureText(texto).width <= max) return [texto]
+  const palavras = texto.split(' ')
+  for (let k = palavras.length - 1; k > 0; k--) {
+    const a = palavras.slice(0, k).join(' ')
+    const b = palavras.slice(k).join(' ')
+    if (c.measureText(a).width <= max) return [a, cortar(c, b, max)]
+  }
+  return [cortar(c, texto, max)]
 }
 
 function cortar(c: CanvasRenderingContext2D, texto: string, max: number): string {

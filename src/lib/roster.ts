@@ -18,7 +18,7 @@ import type { Player } from './types'
  * marcador na lista do grupo (check, quadradinho, estrela).
  */
 const ICONES =
-  /[\p{Extended_Pictographic}\p{So}\uFE0F\u200D\u20E3\u{1F3FB}-\u{1F3FF}]/gu
+  /[\p{Extended_Pictographic}\p{So}\p{Cf}\uFE0F\u200D\u20E3\u{1F3FB}-\u{1F3FF}]/gu
 
 /** Tira icone, numeracao, marcadores e espacos sobrando de cada linha. */
 export function parseRoster(texto: string): string[] {
