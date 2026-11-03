@@ -146,6 +146,43 @@ export function proximasPelaFila(
     for (const id of jogadorasDaPartida(m)) tomadas.add(id)
   }
   const casaDe = (gi: number) => quadrasDaCasa?.[gi] ?? gi + 1
+  /*
+   * MENOS QUADRAS QUE GRUPOS: os grupos revezam. Em 02/11 uma quadra ficou
+   * indisponivel e o grupo 5, sem "quadra da casa", so jogava quando outro grupo
+   * nao tinha partida -- a organizadora trocava na mao a cada vez. Com mais
+   * grupos com partida pela frente do que quadras, a quadra que vaga vai para o
+   * grupo SEM partida em quadra que esta parado ha mais tempo (o fim da ultima
+   * partida dele; quem nunca jogou primeiro). O campeonato (quadras fixas por
+   * categoria) segue com as quadras dele.
+   */
+  const comPartida = filas.filter((f) => f.length > 0).length
+  if (!quadrasDaCasa && filas.length > 1 && comPartida > (n.quadras ?? quadrasLivres.length)) {
+    const grupos = n.grupos?.length ? n.grupos : [n.jogadoras]
+    const fim = (m: Match) => Date.parse(m.ended_at ?? '') || 0
+    const paradoDesde = grupos.map((g) => {
+      const doGrupo = e.jogadas.filter((m) => g.includes(m.team_a[0]))
+      return doGrupo.length === 0 ? -Infinity : Math.max(...doGrupo.map(fim))
+    })
+    const emQuadra = new Set(
+      e.emJogo.concat(reservadas).map((m) => grupos.findIndex((g) => g.includes(m.team_a[0]))),
+    )
+    for (const q of quadrasLivres) {
+      let melhor = -1
+      for (let gi = 0; gi < filas.length; gi++) {
+        if (emQuadra.has(gi) || !primeiraLivre(filas[gi])) continue
+        if (melhor < 0 || paradoDesde[gi] < paradoDesde[melhor]) melhor = gi
+      }
+      // todos os grupos com partida ja estao em quadra: a quadra vai para quem
+      // tem partida possivel (um grupo grande pode ocupar duas)
+      if (melhor < 0)
+        for (let gi = 0; gi < filas.length; gi++)
+          if (primeiraLivre(filas[gi]) && (melhor < 0 || paradoDesde[gi] < paradoDesde[melhor])) melhor = gi
+      if (melhor < 0) continue
+      tomar(q, primeiraLivre(filas[melhor]) as Match)
+      emQuadra.add(melhor)
+    }
+    return out
+  }
   // primeiro cada quadra recebe o grupo da casa; depois as que sobraram
   const sobrando: number[] = []
   for (const q of quadrasLivres) {

@@ -477,6 +477,13 @@ liga/            textos do masculino: o código fica no feminino e o build
   seguinte (ou agora) passou mais de ~60% de uma partida (`minutosDaPartida`). Em 02/11, com
   uma quadra a menos e os grupos revezando, o aviso aparecia para quem estava parada havia
   meia hora esperando quadra.
+- **Menos quadras que grupos: os grupos revezam sozinhos** (`proximasPelaFila` em `fila.ts`).
+  Com mais grupos com partida pela frente do que quadras, a quadra que vaga vai para o grupo
+  **sem partida em quadra parado há mais tempo** (fim da última partida dele; quem nunca
+  jogou primeiro) — sem "quadra da casa". Em 02/11 (5 grupos de 6, uma quadra
+  indisponível) o grupo sem quadra só entrava quando outro não tinha partida e a organizadora
+  trocava na mão; medido em `tests/revezar.test.ts`: a maior espera de um grupo caiu de 137
+  para 15 min. O campeonato (quadras fixas por categoria) não muda.
 - **Quadra a mais no meio do play** ("➕ quadra" no card das quadras): só muda
   `sessions.courts`; a quadra nova aparece livre e já puxa a próxima da fila. Tirar
   só a última, e só vazia — reduzir com jogo em andamento sumiria com ele da tela.
