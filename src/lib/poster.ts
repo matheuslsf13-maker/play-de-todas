@@ -605,7 +605,8 @@ export async function buildPosterComFoto(opts: {
   const y0 = 800 - (opts.rows.length > noPodio ? 0 : 50)
   const alturaPainel = alturaLinha * podio.length
   vidro(c, x0, y0, larguraPainel, alturaPainel, 36)
-  const cores = [GOLD, SILVER, BRONZE, BRONZE]
+  // as cores das fitas das medalhas de verdade (a do 3o e laranja, nao bronze)
+  const cores = [GOLD, SILVER, '#ff8a3d', '#ff8a3d']
   podio.forEach((r, i) => {
     const y = y0 + i * alturaLinha
     if (i > 0) {
@@ -613,7 +614,7 @@ export async function buildPosterComFoto(opts: {
       c.fillRect(x0 + 24, y, larguraPainel - 48, 1.5)
     }
     const meio = y + alturaLinha / 2
-    medalhaRedonda(c, x0 + 26 + 35, meio, 35, cores[i], String(i + 1))
+    medalhaRedonda(c, x0 + 26 + 32, meio + 8, 30, cores[i], String(i + 1))
     c.textAlign = 'left'
     c.fillStyle = '#fff'
     c.font = '900 42px system-ui, Segoe UI, Arial, sans-serif'
@@ -716,24 +717,52 @@ function vidro(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: 
   c.restore()
 }
 
-/** Medalha redonda com brilho, na cor da fita (ouro, prata, laranja). */
+/**
+ * A medalha da colocacao, como a de verdade do Play de Todas: disco PRETO com o
+ * numero na cor da fita, o aro na mesma cor e a fitinha em V em cima (ouro,
+ * prata ou laranja). A bolinha brilhante de antes parecia bola de sinuca.
+ */
 function medalhaRedonda(c: CanvasRenderingContext2D, cx: number, cy: number, raio: number, cor: string, texto: string) {
-  const g = c.createRadialGradient(cx - raio * 0.3, cy - raio * 0.35, raio * 0.1, cx, cy, raio)
-  g.addColorStop(0, '#ffffff')
-  g.addColorStop(0.45, cor)
-  g.addColorStop(1, escurecer(cor))
+  const escura = escurecer(cor)
+  // a fita: duas tiras que descem ate o disco, uma mais clara e outra mais escura
+  const alto = cy - raio - raio * 0.78
+  const baixo = cy - raio * 0.45
+  const tira = (de: number, ate: number, tom: string) => {
+    c.fillStyle = tom
+    c.beginPath()
+    c.moveTo(cx + de * raio, alto)
+    c.lineTo(cx + (de + 0.55) * raio, alto)
+    c.lineTo(cx + (ate + 0.5) * raio, baixo)
+    c.lineTo(cx + ate * raio, baixo)
+    c.closePath()
+    c.fill()
+  }
+  tira(-1.0, -0.15, cor)
+  tira(0.45, -0.35, escura)
+  // o disco
   c.save()
-  c.shadowColor = 'rgba(0,0,0,.35)'
-  c.shadowBlur = 14
-  c.fillStyle = g
+  c.shadowColor = 'rgba(0,0,0,.45)'
+  c.shadowBlur = 12
+  c.fillStyle = '#141016'
   c.beginPath()
   c.arc(cx, cy, raio, 0, Math.PI * 2)
   c.fill()
   c.restore()
+  c.lineWidth = Math.max(3, raio * 0.13)
+  c.strokeStyle = cor
+  c.beginPath()
+  c.arc(cx, cy, raio - c.lineWidth / 2, 0, Math.PI * 2)
+  c.stroke()
+  c.lineWidth = 1.5
+  c.strokeStyle = 'rgba(255,255,255,.18)'
+  c.beginPath()
+  c.arc(cx, cy, raio * 0.74, 0, Math.PI * 2)
+  c.stroke()
+  // o numero, na cor da fita
   c.textAlign = 'center'
-  c.fillStyle = '#1b1220'
-  c.font = `${Math.round(raio * 1.05)}px ${FONTE_TITULO}`
-  c.fillText(texto, cx, cy + raio * 0.38)
+  c.fillStyle = cor
+  c.font = `${Math.round(raio * 1.1)}px ${FONTE_TITULO}`
+  c.fillText(texto, cx, cy + raio * 0.4)
 }
 
 /* ---------------------------------------------------------- desenho */
