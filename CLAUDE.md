@@ -125,9 +125,9 @@ liga/            textos do masculino: o código fica no feminino e o build
   Escada: 🔥 Em chamas (2) → ⚡ Imparável (3) → 💎 Rainha do Play (4) → 👑 **Duquesa da
   V3** (5, `MAX_STREAK`). **Não vale pontos e não tem vida** (desde `STATUS_NOVO_DESDE`
   = 06/10/2026): segue atravessando o mês e zera fora do pódio ou faltando. No 5º pódio
-  ela entra no **Hall das Duquesas** (`streaks.duquesas`), ganha camisa dourada + presente,
+  ela vira Duquesa (`streaks.duquesas`): ganha um **presente misterioso** (não revelar o que é),
   o status zera e o **nome fica dourado com 👑 para sempre** (`useStore().duquesas` →
-  `NomeClicavel`, classe `nome-duquesa`). O perfil mostra as conquistas (`conquistas`:
+  `NomeClicavel`, classe `nome-duquesa`). **Não existe Hall das Duquesas** (o card saiu do Ranking em 03/11/2026): o que fica é o nome dourado. O perfil mostra as conquistas (`conquistas`:
   maior nível e quantas vezes chegou em cada um). Antes da data vale a regra antiga
   (usar = pontos no fechamento, preservar = 1 vida): os +3 de setembro ficam.
 - **O mês fecha na mão**, no botão "🏁 Finalizar o mês" do Ranking (dá para

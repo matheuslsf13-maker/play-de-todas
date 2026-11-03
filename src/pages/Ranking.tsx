@@ -342,8 +342,6 @@ export default function Ranking({
         </div>
       )}
 
-      <HallDasDuquesas duquesas={streaks.duquesas} />
-
       {decisoes.length > 0 && (
         <div className="card">
           <div className="section-title">🏁 Status em {monthLabel(activeMonth)}</div>
@@ -483,8 +481,8 @@ export default function Ranking({
           <li>⭐ Não vale pontos: o ranking é só o que foi jogado</li>
         </ul>
         <div className="premio">
-          👑 <strong>Duquesa da V3</strong> entra no Hall das Duquesas, ganha a camisa dourada com o nome e um
-          presente surpresa. O status recomeça, mas o nome fica dourado com a coroa para sempre.
+          👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
+          presente misterioso 🎁. O status recomeça.
         </div>
       </div>
     </>
@@ -493,36 +491,6 @@ export default function Ranking({
 
 /** O nome de cada posicao da tabela de pontos por colocacao (PONTUACAO_PADRAO). */
 const ROTULOS_DA_COLOCACAO = ['🥇 Campeã', '🥈 Vice', '🥉 3º lugar', 'Semifinal', 'Quartas', 'Grupos']
-
-/**
- * O Hall das Duquesas: quem ja chegou a 5 podios seguidos, para sempre.
- * O status dela recomeca, mas a conquista fica aqui e no nome dourado.
- */
-function HallDasDuquesas({ duquesas }: { duquesas: { player_id: string; date: string }[] }) {
-  const { nameOf, playerById } = useStore()
-  if (duquesas.length === 0) return null
-  return (
-    <div className="card hall-duquesas">
-      <div className="section-title">👑 Hall das Duquesas</div>
-      <div className="stack">
-        {[...duquesas].reverse().map((d) => (
-          <div key={`${d.player_id}:${d.date}`} className="row">
-            <Avatar player={playerById(d.player_id)} size={42} />
-            <div className="grow" style={{ minWidth: 0 }}>
-              <div className="ellipsis" style={{ fontWeight: 800 }}>
-                <NomeClicavel id={d.player_id}>{nameOf(d.player_id)}</NomeClicavel>
-              </div>
-              <div className="tiny muted">Duquesa da V3 em {dateLabel(d.date)}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="tiny muted" style={{ marginBottom: 0 }}>
-        🎁 Cada Duquesa ganha a camisa dourada com o nome e um presente surpresa.
-      </p>
-    </div>
-  )
-}
 
 /** Fechar o mes so trava o ranking dele: o status nao depende mais do fechamento. */
 function ConfirmarFechamento({

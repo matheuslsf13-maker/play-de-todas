@@ -201,8 +201,8 @@ export function dayRankingText(opts: DayTextOpts): string {
     partes.push(
       award.streak >= MAX_STREAK
         ? `\n👑 *${nameOf(award.player_id)} VIROU DUQUESA DA V3!*\n` +
-            `${award.streak} pódios seguidos: entra no Hall das Duquesas, ganha a camisa dourada ` +
-            `e um presente surpresa. O status recomeça, mas a coroa fica para sempre.`
+            `${award.streak} pódios seguidos: o nome fica dourado com a coroa no app para sempre ` +
+            `e ela ganha um presente misterioso 🎁. O status recomeça.`
         : `\n${lvl.emoji} *${nameOf(award.player_id)} está ${lvl.title.toUpperCase()}!*\n` +
             `${award.streak} pódios seguidos. Faltam ${MAX_STREAK - award.streak} para virar 👑 Duquesa.`,
     )

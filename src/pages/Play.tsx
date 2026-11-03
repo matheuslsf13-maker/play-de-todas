@@ -3976,8 +3976,8 @@ function PlayDetail({
                   {award.streak >= MAX_STREAK ? (
                     <>
                       👑 <strong>{nameOf(award.player_id)}</strong> virou <strong>Duquesa da V3</strong>!
-                      {' '}{award.streak} pódios seguidos: entra no Hall das Duquesas, ganha a camisa
-                      dourada e o presente surpresa, e o status recomeça.
+                      {' '}{award.streak} pódios seguidos: nome dourado com a coroa para sempre e o presente
+                      misterioso 🎁, e o status recomeça.
                     </>
                   ) : (
                     <>

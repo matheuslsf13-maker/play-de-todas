@@ -20,9 +20,9 @@ import { monthOf, todayISO } from './types'
  *
  * REGRA NOVA (plays desde `STATUS_NOVO_DESDE`): o status NAO vale pontos. Ele
  * segue de play em play, atravessando o mes, e zera quando ela sai do podio ou
- * falta -- sem vida. No 5o podio seguido ela vira DUQUESA: entra no Hall, ganha
- * os premios (camisa dourada + presente) e o status recomeca do zero, mas o nome
- * fica dourado com a coroa para sempre. Os pontos de status "roubavam" o podio
+ * falta -- sem vida. No 5o podio seguido ela vira DUQUESA: ganha o presente
+ * misterioso e o status recomeca do zero, mas o nome fica dourado com a coroa no
+ * app para sempre (nao ha "Hall": a lista `duquesas` so alimenta o nome dourado). Os pontos de status "roubavam" o podio
  * do mes de quem tinha jogado mais, e isso desanimava.
  *
  * REGRA ANTIGA (ate 05/10/2026, so para o passado nao mudar): no fechamento do

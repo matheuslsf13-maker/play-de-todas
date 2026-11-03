@@ -1441,7 +1441,6 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   -webkit-text-fill-color: transparent;
   font-weight: 800;
 }
-.hall-duquesas { border: 1.5px solid var(--ouro); background: var(--ouro-suave); }
 .nome-duquesa .coroa { -webkit-text-fill-color: initial; color: initial; }
 
 /* ---------- Hall das Duquesas ---------- */
