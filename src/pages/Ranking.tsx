@@ -689,10 +689,10 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   <span className="grow" style={{ minWidth: 0 }}>
                     <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
                   </span>
-                  {d.entrosamento !== 0 && (
-                    <span className="nowrap tiny muted">
-                      {d.entrosamento > 0 ? '+' : ''}
-                      {d.entrosamento} juntas
+                  {(
+                    <span className="tiny muted" style={{ maxWidth: 100, textAlign: 'right' }} title="Ajuste da força da dupla em relação à média individual; não soma pontos ao ranking.">
+                      Entrosamento {d.entrosamento > 0 ? '+' : ''}
+                      {d.entrosamento}
                     </span>
                   )}
                   <span

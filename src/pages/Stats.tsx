@@ -620,7 +620,7 @@ function DetalheDupla({
             </div>
             <div className="tiny muted">
               média das duas {forca.base}
-              {forca.entrosamento !== 0 && ` · ${forca.entrosamento > 0 ? '+' : ''}${forca.entrosamento} juntas`}
+              {` · Entrosamento ${forca.entrosamento > 0 ? '+' : ''}${forca.entrosamento}`}
               {forca.provisoria && ` · provisória (menos de ${JOGOS_PARA_ENTROSAMENTO} jogos)`}
             </div>
           </div>
@@ -752,13 +752,13 @@ function ForcaDaDupla({ f }: { f?: ForcaDeDupla }) {
   if (!f) return null
   const n = nivelDeForca(f.nota, mediaDaForca(data))
   return (
-    <span className="tiny nowrap" style={{ display: 'block', marginTop: 2 }}>
+    <span className="tiny" style={{ display: 'block', marginTop: 2 }} title="Entrosamento ajusta a força da dupla em relação à média individual; não soma pontos ao ranking.">
       <span style={{ color: n.cor, fontWeight: 800 }}>{n.emoji} força {f.nota}</span>
-      {f.entrosamento !== 0 && (
+      {(
         <span className="muted">
           {' '}
-          ({f.entrosamento > 0 ? '+' : ''}
-          {f.entrosamento} juntas{f.provisoria ? '?' : ''})
+          (Entrosamento {f.entrosamento > 0 ? '+' : ''}
+          {f.entrosamento}{f.provisoria ? ' · provisório' : ''})
         </span>
       )}
     </span>

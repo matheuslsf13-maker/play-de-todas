@@ -28,7 +28,7 @@ function Variacao({ v, forte }: { v: number | undefined; forte?: boolean }) {
         color: v > 0 ? 'var(--verde)' : v < 0 ? 'var(--danger)' : 'var(--muted)',
       }}
     >
-      {v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : '0'}
+      Força {v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : '0'}
     </span>
   )
 }
@@ -126,7 +126,7 @@ export default function HistoricoDePartidas({
                   </span>
                   <strong className="nowrap" style={{ fontVariantNumeric: 'tabular-nums' }}>{pro}x{contra}</strong>
                   {forca && (
-                    <span className="tiny" style={{ width: 30, flex: 'none', textAlign: 'right' }}>
+                    <span className="tiny" style={{ minWidth: 68, flex: 'none', textAlign: 'right' }}>
                       <Variacao v={mudouNaPartida(m.id)} />
                     </span>
                   )}

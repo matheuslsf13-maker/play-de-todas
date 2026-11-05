@@ -137,15 +137,6 @@ export default function App() {
       ) : (
         error && <div className="banner err">{error}</div>
       )}
-      {online && !canEdit && (
-        <div className="banner warn row spread" style={{ gap: 12 }}>
-          <span className="grow">
-            Você está no <strong>modo leitura</strong>: dá para ver tudo, mas não para lançar resultados.
-            Quem organiza o play precisa entrar.
-          </span>
-          <button className="btn pink sm nowrap" onClick={() => setLogin(true)}>🔑 Entrar</button>
-        </div>
-      )}
       {!online && (
         <div className="banner warn">
           Modo local: os dados ficam salvos só neste navegador. Configure o Supabase (veja o README) para todo mundo do grupo acessar.
