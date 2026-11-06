@@ -332,6 +332,17 @@ label.field { display: block; }
 .badge.finished { background: var(--teal-suave); color: var(--teal); }
 /* play avulso: acontece, conta no historico, mas nao vale para o campeonato */
 .badge.avulso { background: var(--purple-suave); color: var(--purple); }
+/* o selo do play na lista (selos.ts): um so, o mais raro que ele detem agora */
+.selo-do-play {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--ouro-suave);
+  color: var(--ouro);
+}
 
 /* ---------- avatar ---------- */
 .avatar {

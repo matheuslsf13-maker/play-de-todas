@@ -130,6 +130,7 @@ import {
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
+import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
 import { useWakeLock } from '../lib/wakelock'
@@ -271,6 +272,7 @@ function PlayList({
               const done = ms.filter(isPlayed).length
               const grupos = s.groups?.length ?? 0
               const categorias = s.categorias?.length ?? 0
+              const selo = selosDosPlays(data).get(s.id)
               return (
                 <div key={s.id} className="row" style={{ borderBottom: '1px dashed var(--line)', paddingBottom: 10 }}>
                   <div className="grow" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer', minWidth: 0 }}>
@@ -283,7 +285,9 @@ function PlayList({
                     <div className="tiny muted">
                       {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {s.courts} quadras
                       {categorias > 1 ? ` · ${categorias} categorias` : grupos > 1 ? ` · ${grupos} grupos` : ''} · {done}/{ms.length} partidas
+                      {selo && <> · <span className="nowrap" title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span></>}
                     </div>
+                    {selo?.selo && <span className="selo-do-play">{selo.selo.emoji} {selo.selo.nome}</span>}
                   </div>
                   <button className="btn ghost sm" onClick={() => onOpen(s.id)}>Abrir</button>
                   {canEdit && (

@@ -416,6 +416,13 @@ liga/            textos do masculino: o código fica no feminino e o build
   mas **não soma no ranking do mês nem mexe nas sequências**. Serve para o jogo
   fora de calendário que não é o campeonato. As duas opções (mês e 🔥) aparecem na criação e, com o play
   aberto, no "⚙️ Vale para o mês e para o 🔥?" (`OpcoesDoPlay`, grava só a coluna).
+- **💪 Força do play e selos na lista de plays** (`src/lib/selos.ts`, `tests/selos.test.ts`):
+  cada play finalizado mostra a média da força **do dia** (antes do play) de quem jogou —
+  o número nunca muda depois — e no máximo **um** selo, o mais raro que ele detém agora
+  (ordem em `SELOS`: recordes de força e de público, 👑 coroação, zebra, mais forte,
+  disputado, ties, casa cheia, estreias, maratona do mês). Empate: fica o mais antigo. O
+  líder que já mostra selo mais raro não passa o menor para o 2º. Avulso mostra a força,
+  mas não concorre (como no ranking do mês). Uma passada de `calcularElo` (`aoMudar`), por `data`.
 - **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 a 19): a planilha da
   organizadora. **A cota é por arena e vem do plano** (`checkin_planos`, script 18):
   Wellhub Gold dá 12 na V3 e 12 na GW (não aceita Itaparica); Gold+ e TotalPass dão
