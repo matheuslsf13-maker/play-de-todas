@@ -514,9 +514,13 @@ label.field { display: block; }
   pointer-events: none;
 }
 
+/* janela aberta: a pagina de tras nao rola (ver useTravarFundo em ui.tsx) */
+html.janela-aberta { overflow: hidden; }
 .modal-bg {
   position: fixed;
   inset: 0;
+  overscroll-behavior: contain;
+  touch-action: none; /* arrastar no escuro em volta nao rola o fundo */
   background: rgba(20, 26, 60, .5);
   display: flex;
   align-items: flex-end;
@@ -531,7 +535,10 @@ label.field { display: block; }
   max-width: 480px;
   padding: 16px;
   max-height: 86vh;
+  max-height: 86dvh; /* no iPhone o vh ignora a barra do Safari e o fim da janela ficava escondido */
   overflow: auto;
+  overscroll-behavior: contain; /* chegou ao fim da janela: o arraste para aqui */
+  -webkit-overflow-scrolling: touch;
 }
 @media (min-width: 560px) { .modal-bg { align-items: center; } }
 

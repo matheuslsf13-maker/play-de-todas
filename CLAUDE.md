@@ -85,6 +85,11 @@ liga/            textos do masculino: o código fica no feminino e o build
   (`jogos_de_casa`, só em memória) entra no ranking da força e na média (`mediaDaForca`).
 - **`Modal` é desenhado no `<body>`** (`createPortal` em `ui.tsx`): aberto de dentro do
   cabeçalho (sticky, camada própria), ficava atrás da barra de abas.
+  **Com janela aberta o fundo não rola** (`useTravarFundo`, classe `janela-aberta` no
+  `<html>`, `overscroll-behavior: contain` e `86dvh` no `.modal`): no celular o arraste
+  passava da janela para a tela de trás (perfil da dupla, 06/11/2026). Travar só o `html`:
+  travar o `body` (altura 100%) jogava a página para o topo; `position: fixed` mexeria no
+  scrollY e o topo que encolhe piscaria. Teste fora do repo: `pdt-teste/modal-rolagem.mjs`.
 - **🔁 Trocar de play** (`components/TrocarDePlay.tsx`, nos três apps, no cabeçalho): leva
   de um app ao outro pelo `liga.pasta` (`''`, `masculino/`, `mista/`) e mostra o `rotulo`
   ("Play de Todas (feminino)"…, em `liga.config.ts`, fora de `src/` para o tradutor não

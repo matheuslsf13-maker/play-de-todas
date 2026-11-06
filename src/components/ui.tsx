@@ -156,7 +156,28 @@ export function StatBox({ k, v }: { k: string; v: React.ReactNode }) {
   )
 }
 
+// quantas janelas estao abertas agora (uma pode abrir outra por cima)
+let janelasAbertas = 0
+
+/**
+ * Trava a rolagem da pagina de fundo enquanto houver janela aberta: sem isso o
+ * arraste no celular passava da janela para a tela de tras (perfil da dupla,
+ * 06/11/2026). overflow no <html>, e nao position:fixed, para nao mexer no
+ * scrollY -- o topo que encolhe ao rolar piscaria ao abrir e fechar.
+ */
+function useTravarFundo() {
+  React.useEffect(() => {
+    janelasAbertas++
+    document.documentElement.classList.add('janela-aberta')
+    return () => {
+      janelasAbertas--
+      if (janelasAbertas === 0) document.documentElement.classList.remove('janela-aberta')
+    }
+  }, [])
+}
+
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useTravarFundo()
   // direto no <body>: aberto de dentro do cabecalho (sticky, z-index proprio),
   // o modal ficava preso na camada dele e a barra de abas o cobria -- o
   // "Trocar de play" escondia o Play Mista atras dela
