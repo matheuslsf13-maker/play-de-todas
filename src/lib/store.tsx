@@ -1,4 +1,3 @@
-import { semFinanceiro } from './pagamentoNaLista'
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { localRepo } from '../data/localRepo'
 import { loadCache, loadQueue, saveCache, saveQueue, type WriteOp } from '../data/queue'
@@ -226,7 +225,7 @@ function upsert<T extends { id: string }>(list: T[], item: T): T[] {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const repo = hasSupabase ? supabaseRepo : localRepo
   // no modo online o app abre com o ultimo estado conhecido, mesmo sem sinal
-  const cached = hasSupabase ? (() => { const c = loadCache<AppData>(); return c ? semFinanceiro(c) : null })() : null
+  const cached = hasSupabase ? loadCache<AppData>() : null
   // o cache gravado por uma versao anterior nao tem as chaves novas: sem o
   // espalhamento, `data.checkins.filter` quebraria na abertura
   const [data, setData] = useState<AppData>(() => (cached ? { ...emptyData(), ...cached } : emptyData()))
@@ -353,8 +352,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     void supabase.auth.getSession().then(({ data: s }) => setUserEmail(s.session?.user.email ?? null))
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setUserEmail(s?.user.email ?? null)
-      if (!s) setData((d) => semFinanceiro(d))
-      window.setTimeout(() => void reload(), 0)
       void drain()
     })
     return () => sub.subscription.unsubscribe()

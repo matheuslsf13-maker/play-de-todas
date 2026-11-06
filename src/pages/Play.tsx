@@ -7,6 +7,7 @@ import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import CriarLista, { ListasRecentes, MensagemDoLink } from '../components/CriarLista'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista } from '../lib/listaDePresenca'
+import { diaParaLigar } from '../lib/pagamentoNaLista'
 import { TEM_LISTA } from '../lib/useLista'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
@@ -204,7 +205,7 @@ export default function Play({
   onMontou?: () => void
   onAbrirLista?: (codigo: string) => void
 }) {
-  const { data, repo, canEdit } = useStore()
+  const { data, repo, canEdit, saveCheckinDia } = useStore()
   const [openId, setOpenId] = useState<string | null>(null)
   /** A lista de onde este Novo Play esta sendo montado. */
   const [daLista, setDaLista] = useState<Montagem | null>(null)
@@ -268,6 +269,9 @@ export default function Play({
           // a lista guarda de qual play ela virou (serve ao financeiro)
           if (daLista) {
             const l = daLista.lista
+            // o dia de check-in criado pelo 💰 da lista antes do play passa a ser deste play
+            const dia = diaParaLigar(data, l, id)
+            if (dia) saveCheckinDia(dia)
             void repo.carregarLista({ id: l.id })
               .then((atual) => repo.salvarLista({ ...(atual?.lista ?? l), fechada: true, session_id: id }))
               .catch(() => onToast('O play foi criado, mas a lista não guardou o vínculo com ele'))
