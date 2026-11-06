@@ -113,20 +113,21 @@ export default function DuplasFixasNaCriacao({
               )}
               <div className="stack" style={{ gap: 6 }}>
                 {duplas.map((d) => (
-                  <div key={d.join('+')} className="row wrap" style={{ gap: 6 }}>
+                  <div key={d.join('+')} className="linha-dupla">
                     {d.map((id) => (
                       <button
                         key={id}
                         type="button"
                         className={`chip ${tocada === id ? 'on' : ''}`}
+                        title={nameOf(id)}
                         onClick={() => tocar(id)}
                       >
-                        {nameOf(id)}
+                        <span className="nome-atleta">{nameOf(id)}</span>
                         {novatas?.has(id) && <span className="tag-novata" title="primeiro play dela">🆕</span>}
                         <span className="tiny muted" style={{ fontWeight: 600 }}>{nota(id)}</span>
                       </button>
                     ))}
-                    <span className="tiny muted">= {forcaDaDupla(d)}</span>
+                    <span className="tiny muted total-dupla">= {forcaDaDupla(d)}</span>
                   </div>
                 ))}
               </div>
