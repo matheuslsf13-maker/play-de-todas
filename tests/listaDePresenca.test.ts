@@ -23,6 +23,8 @@ import {
   urlDaLista,
   validarNome,
   vinculoAutomatico,
+  sugestaoDeVinculo,
+  sugestaoSegura,
   AVISO_DE_SAIDA,
   AVISO_DAS_MENSALISTAS,
   type Lista,
@@ -258,4 +260,19 @@ test('mensagem de atualizacao: confirmadas numeradas com 📅, suplentes, o mesm
   assert.ok(msg.includes(url))
   assert.ok(msg.includes(AVISO_DE_SAIDA))
   assert.ok(msg.includes(AVISO_DAS_MENSALISTAS))
+})
+
+test('sugestao para a organizadora: as duas Bruna aparecem e nenhuma ganha o toque unico', () => {
+  const ps = [
+    jogadora('b1', { name: 'Bruna' }),
+    jogadora('b2', { name: 'Bruna Caiban de Castro Menezes', nickname: 'Bruna' }),
+    jogadora('c', { name: 'Camila P.' }),
+    jogadora('m', { name: 'Maria Paula Morini', nickname: 'Maria Paula', aliases: ['maria'] }),
+  ]
+  assert.deepEqual(sugestaoDeVinculo('Bruna', ps).map((s) => s.player.id).sort(), ['b1', 'b2'])
+  assert.equal(sugestaoSegura('Bruna', ps), undefined)
+  assert.equal(sugestaoSegura('Camila Pereira', ps)?.player.id, 'c')
+  // so o primeiro nome igual nao basta para o botao de um toque
+  assert.equal(sugestaoSegura('Maria Teste Silva', ps), undefined)
+  assert.equal(sugestaoDeVinculo('Maria Teste Silva', ps)[0]?.player.id, 'm', 'mas aparece no menu')
 })

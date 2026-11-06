@@ -1,5 +1,5 @@
 import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
-import { conciliar, normalizar, type Sugestao } from './roster'
+import { normalizar, semelhanca, type Sugestao } from './roster'
 import { notaDeForca } from './forca'
 import { pausaAberta, ratings } from './stats'
 import { plural, type AppData, type Player } from './types'
@@ -341,9 +341,37 @@ export function vinculoAutomatico(texto: string, players: Player[]): string | nu
   return achou.length === 1 ? achou[0].id : null
 }
 
-/** Os palpites para a organizadora, do mais provavel para o menos (o mesmo do "Colar lista"). */
-export function sugestaoDeVinculo(texto: string, players: Player[]): Sugestao[] {
-  return conciliar([texto], players)[0]?.sugestoes ?? []
+/**
+ * Os palpites para a organizadora, do mais provavel para o menos: a mesma
+ * `semelhanca` do "Colar lista", so que SEM parar no primeiro identico -- com
+ * duas "Bruna" as duas aparecem, e quem escolhe e ela.
+ */
+export function sugestaoDeVinculo(texto: string, players: Player[], soComposto = false): Sugestao[] {
+  return players
+    .map((p) => ({
+      player: p,
+      score: Math.max(
+        0,
+        ...[p.name, p.nickname ?? '', ...(p.aliases ?? [])]
+          .filter((x) => (soComposto ? normalizar(x).includes(' ') : !!x))
+          .map((x) => semelhanca(texto, x)),
+      ),
+    }))
+    .filter((s) => s.score >= 0.62)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+}
+
+/**
+ * O palpite que merece o botao de um toque na linha: quase certo, sem empate
+ * (as duas Bruna nao) e por um nome de duas palavras ou mais -- um apelido de
+ * uma palavra so ("maria") casaria com toda Maria que chegar.
+ */
+export function sugestaoSegura(texto: string, players: Player[]): Sugestao | undefined {
+  const a = sugestaoDeVinculo(texto, players, true)[0]
+  const [x, y] = sugestaoDeVinculo(texto, players)
+  // o empate conta com TODAS as grafias: a "Bruna" de uma palavra empata com a outra
+  return a && a.score >= 0.93 && x?.player.id === a.player.id && !(y && y.score >= x.score) ? a : undefined
 }
 
 /** A grafia ainda nao e conhecida do cadastro? Entao vale guardar em `aliases`. */
