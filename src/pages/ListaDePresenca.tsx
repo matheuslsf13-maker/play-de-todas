@@ -593,7 +593,7 @@ export function CartaoDaLista({ onAbrir }: { onAbrir: (codigo: string) => void }
   const { lista } = lc
   const aberta = estaAberta(lista, new Date())
   return (
-    <button className="card proximo lista-aberta" onClick={() => onAbrir(lista.codigo)}>
+    <button className={`card proximo lista-aberta${aberta ? '' : ' lista-fechada'}`} onClick={() => onAbrir(lista.codigo)}>
       <span className="prox-selo">📋</span>
       <span className="grow" style={{ minWidth: 0 }}>
         <span className="prox-titulo">{aberta ? 'Lista aberta' : 'Lista fechada'}</span>

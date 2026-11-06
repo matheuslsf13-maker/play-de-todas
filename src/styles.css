@@ -1840,3 +1840,6 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 .card.proximo.lista-aberta { border-color: var(--teal); background: linear-gradient(135deg, var(--card), var(--teal-suave)); }
 .card.lista-aberta .prox-titulo { color: var(--teal); }
 .card.lista-aberta .prox-selo { background: var(--teal); }
+.card.proximo.lista-fechada { border-color: var(--danger); background: linear-gradient(135deg, var(--card), color-mix(in srgb, var(--danger) 14%, transparent)); }
+.card.lista-fechada .prox-titulo { color: var(--danger); }
+.card.lista-fechada .prox-selo { background: var(--danger); }
