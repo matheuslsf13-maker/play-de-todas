@@ -128,6 +128,20 @@ export function situacaoDoAtleta(p: Player, data: AppData, hoje = todayISO()): S
       }
 }
 
+/**
+ * MENSALISTA EM DIA PARA UM PLAY (lista de presenca): pagou o mes do play (ou
+ * adiantado), ou o play e ate o dia 5 e ela pagou o mes anterior -- ainda esta
+ * no prazo da mensalidade (dono, 06/11). Atrasada ha mais tempo, nao.
+ */
+export function mensalistaEmDiaNoPlay(p: Player, dataDoPlay: string): boolean {
+  if (categoriaDe(p) !== 'mensalista' || !p.pago_mes) return false
+  const mes = monthOf(dataDoPlay)
+  if (p.pago_mes >= mes) return true
+  const [a, m] = mes.split('-').map(Number)
+  const anterior = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`
+  return Number(dataDoPlay.slice(8, 10)) <= 5 && p.pago_mes === anterior
+}
+
 /** Marca o pagamento conforme a categoria, devolvendo a atleta atualizada. */
 export function confirmarPagamento(p: Player, hoje = todayISO()): Player {
   const categoria = categoriaDe(p)
