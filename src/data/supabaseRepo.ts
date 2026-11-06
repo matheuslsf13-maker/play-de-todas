@@ -20,6 +20,7 @@ import type {
 } from '../lib/types'
 import type { Repo } from './repo'
 import type { Lista, ListaCompleta, NomeNaLista, RespostaDaLista } from '../lib/listaDePresenca'
+import { FECHADA_NA_TELA_MS } from '../lib/listaDePresenca'
 import { aplicarMescla } from '../lib/campeonato'
 import { calcularElo } from '../lib/stats'
 import { emptyData } from '../lib/types'
@@ -511,8 +512,8 @@ export const supabaseRepo: Repo = {
     const r = await client()
       .from('listas')
       .select('*')
-      .eq('fechada', false)
-      .gt('fecha_em', new Date().toISOString())
+      .is('session_id', null)
+      .gt('play_em', new Date(Date.now() - FECHADA_NA_TELA_MS).toISOString())
       .order('play_em')
       .limit(1)
       .maybeSingle()

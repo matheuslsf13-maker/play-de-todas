@@ -297,8 +297,9 @@ export default function Play({
 
   return (
     <>
-      <PlayList sessions={sessions} onOpen={setOpenId} onNew={() => setCreating({})} />
+      {/* a lista em cima: embaixo de todos os plays ninguem achava (dono, 06/11) */}
       {onAbrirLista && <ListasRecentes onAbrir={onAbrirLista} />}
+      <PlayList sessions={sessions} onOpen={setOpenId} onNew={() => setCreating({})} />
       {mensagemDaCriada}
     </>
   )

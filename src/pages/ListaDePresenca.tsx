@@ -591,15 +591,17 @@ export function CartaoDaLista({ onAbrir }: { onAbrir: (codigo: string) => void }
   const { lista: lc } = useLista(TEM_LISTA ? 'aberta' : null)
   if (!lc) return null
   const { lista } = lc
+  const aberta = estaAberta(lista, new Date())
   return (
     <button className="card proximo lista-aberta" onClick={() => onAbrir(lista.codigo)}>
       <span className="prox-selo">📋</span>
       <span className="grow" style={{ minWidth: 0 }}>
-        <span className="prox-titulo">Lista aberta</span>
+        <span className="prox-titulo">{aberta ? 'Lista aberta' : 'Lista fechada'}</span>
         <span className="prox-info">
-          {quando(lista.play_em)} · {ocupacao(lista, lc.nomes)} · <span className="nowrap">fecha {quando(lista.fecha_em)}</span>
+          {quando(lista.play_em)} · {ocupacao(lista, lc.nomes)}
+          {aberta && <> · <span className="nowrap">fecha {quando(lista.fecha_em)}</span></>}
         </span>
-        <span className="prox-acao">{meuNome(lista.id) ? 'ver a lista →' : 'ver a lista e colocar seu nome →'}</span>
+        <span className="prox-acao">{meuNome(lista.id) || !aberta ? 'ver a lista →' : 'ver a lista e colocar seu nome →'}</span>
       </span>
     </button>
   )

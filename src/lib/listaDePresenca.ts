@@ -149,6 +149,9 @@ export function posicaoDe(nomes: NomeNaLista[], id: string): number {
   return ativosEmOrdem(nomes).findIndex((n) => n.id === id) + 1
 }
 
+/** Ate quanto depois da hora do play a lista (aberta ou fechada, sem play montado) segue na tela inicial. */
+export const FECHADA_NA_TELA_MS = 6 * 60 * 60 * 1000
+
 export function estaAberta(lista: Lista, agora: Date): boolean {
   return !lista.fechada && agora.getTime() < Date.parse(lista.fecha_em)
 }

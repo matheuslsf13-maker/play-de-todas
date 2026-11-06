@@ -260,8 +260,11 @@ export async function baixarOuCompartilhar(arquivo: File, texto: string): Promis
 
 export function shareOrCopy(text: string): Promise<boolean> {
   const nav = navigator as Navigator & { share?: (d: { text: string }) => Promise<void> }
+  // copia E abre o compartilhar: no celular o share abria o WhatsApp sem deixar o texto copiado (dono, 06/11).
+  // Os dois comecam no mesmo toque (o share exige o gesto; esperar a copia antes poderia perde-lo).
+  const copia = copyText(text)
   if (nav.share) {
-    return nav.share({ text }).then(() => true).catch(() => copyText(text))
+    return nav.share({ text }).then(() => true).catch(() => copia)
   }
-  return copyText(text)
+  return copia
 }
