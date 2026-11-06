@@ -5,6 +5,7 @@ import { LIGA, URL_DO_LOGO } from '../liga'
 const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import CriarLista, { ListasRecentes, MensagemDoLink } from '../components/CriarLista'
+import CartaoDoMomento from '../components/CartaoDoMomento'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista } from '../lib/listaDePresenca'
 import { diaParaLigar } from '../lib/pagamentoNaLista'
@@ -298,7 +299,8 @@ export default function Play({
 
   return (
     <>
-      {/* a lista em cima: embaixo de todos os plays ninguem achava (dono, 06/11) */}
+      {/* o mesmo cartao da tela inicial, e a lista em cima: embaixo de todos os plays ninguem achava (dono, 06/11) */}
+      <CartaoDoMomento onAbrirPlay={setOpenId} onAbrirLista={onAbrirLista ?? (() => {})} />
       {onAbrirLista && <ListasRecentes onAbrir={onAbrirLista} />}
       <PlayList sessions={sessions} onOpen={setOpenId} onNew={() => setCreating({})} />
       {mensagemDaCriada}
