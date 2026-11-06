@@ -21,6 +21,7 @@ import type {
 import type { Repo } from './repo'
 import { desdeDaListaDoMomento, escolherListaDoMomento, type Lista, type ListaCompleta, type NomeNaLista, type RespostaDaLista } from '../lib/listaDePresenca'
 import { aplicarMescla } from '../lib/campeonato'
+import { semInvisiveis } from '../lib/roster'
 import { calcularElo } from '../lib/stats'
 import { emptyData } from '../lib/types'
 
@@ -548,7 +549,8 @@ export const supabaseRepo: Repo = {
   },
   async incluirNaLista(nomes) {
     if (nomes.length === 0) return
-    const { error } = await client().from('lista_nomes').insert(nomes)
+    // o nome copiado do cadastro (ou da lista apagada) pode vir com o invisivel colado do WhatsApp
+    const { error } = await client().from('lista_nomes').insert(nomes.map((n) => ({ ...n, nome: semInvisiveis(n.nome).trim() })))
     if (error) throw error
   },
   async mexerNoNome(id, campos) {

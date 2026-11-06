@@ -1915,7 +1915,7 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   background: var(--text);
 }
 /* "mata-mata" embaixo do tracinho; a barra ganha espaco embaixo para a linha de baixo nao encostar */
-.momento-barra:has(.momento-marca) { margin-bottom: 13px; }
+.momento-barra.com-marca { margin-bottom: 13px; }
 .momento-marca-rotulo {
   position: absolute;
   top: calc(100% + 4px);

@@ -18,14 +18,15 @@ import type { Player } from './types'
  * marcador na lista do grupo (check, quadradinho, estrela).
  */
 const ICONES =
-  /[\p{Extended_Pictographic}\p{So}\p{Cf}\uFE0F\u200D\u20E3\u{1F3FB}-\u{1F3FF}]/gu
+  /[\p{Extended_Pictographic}\p{So}\uFE0F\u200D\u20E3\u{1F3FB}-\u{1F3FF}]/gu
 
 /** Tira icone, numeracao, marcadores e espacos sobrando de cada linha. */
 export function parseRoster(texto: string): string[] {
   const vistos = new Set<string>()
   const nomes: string[] = []
   for (const linha of texto.split(/\r?\n/)) {
-    const limpo = linha
+    // o invisivel sai sem virar espaco ("Ana Sou<U+200B>za" e "Ana Souza")
+    const limpo = semInvisiveis(linha)
       // os icones saem PRIMEIRO: num "OK 3 - Bia" e o emoji que esconde a
       // numeracao do regex de baixo
       .replace(ICONES, ' ')

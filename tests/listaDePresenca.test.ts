@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { limparCadastro, semInvisiveis } from '../src/lib/roster'
+import { limparCadastro, semInvisiveis, parseRoster, normalizar } from '../src/lib/roster'
 import {
   ativosEmOrdem,
   avisosAoApagar,
@@ -422,4 +422,15 @@ test('copia da apagada: trazidos primeiro, mensalistas sem repetir', () => {
     ['Ana Souza', 'Bia Lima', 'Mara Nova', 'Cris', 'Duda', 'Eva'],
     'depois da ultima garantida; quem tinha saido (px) nao volta',
   )
+})
+
+
+test('WhatsApp: invisiveis no meio da palavra nao separam nem duplicam nomes importados', () => {
+  for (const c of ['\u200B', '\u200C', '\u200D', '\u2060', '\uFEFF']) {
+    const nome = `Ana Sou${c}za`
+    assert.equal(semInvisiveis(nome), 'Ana Souza')
+    assert.equal(normalizar(nome), 'ana souza')
+    assert.deepEqual(parseRoster(`1. ${nome}\n2. Ana Souza`), ['Ana Souza'])
+  }
+  assert.deepEqual(parseRoster('1. 👩‍👧 Ana Souza'), ['Ana Souza'])
 })

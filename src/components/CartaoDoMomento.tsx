@@ -42,8 +42,8 @@ export default function CartaoDoMomento({
     return () => window.clearInterval(t)
   }, [comRelogio])
 
-  // lista ainda carregando: so o ao vivo nao depende dela (sem isso o "Proximo play" piscaria antes)
-  if (!momento || (TEM_LISTA && lista === undefined && momento.tipo !== 'ao-vivo')) return null
+  // lista ainda carregando: nada (ate o ao vivo espera, porque a lista aberta de outro play prevalece sobre ele)
+  if (!momento || (TEM_LISTA && lista === undefined)) return null
   return <Cartao momento={momento} agora={agora} onAbrirPlay={onAbrirPlay} onAbrirLista={onAbrirLista} />
 }
 
@@ -165,6 +165,7 @@ function Quadro(p: {
 }) {
   const { barra } = p
   const pct = barra && barra.max > 0 ? Math.min(100, (100 * barra.valor) / barra.max) : 0
+  const marca = barra?.marca != null && barra.marca > 0 && barra.marca < 1 ? barra.marca : null
   // a barra nasce vazia e enche ao abrir a tela (com movimento reduzido, a transicao e 0s)
   const [montou, setMontou] = useState(false)
   useEffect(() => {
@@ -184,7 +185,7 @@ function Quadro(p: {
       {p.info && <div className="momento-info">{p.info}</div>}
       {barra && (
         <div
-          className="momento-barra"
+          className={`momento-barra${marca != null ? ' com-marca' : ''}`}
           role="progressbar"
           aria-label={barra.rotulo}
           aria-valuemin={0}
@@ -192,11 +193,11 @@ function Quadro(p: {
           aria-valuenow={Math.min(barra.valor, barra.max)}
         >
           <span style={{ width: `${montou ? pct : 0}%` }} />
-          {barra.marca != null && barra.marca > 0 && barra.marca < 1 && (
+          {marca != null && (
             <>
-              <i className="momento-marca" style={{ left: `${barra.marca * 100}%` }} title="começa o mata-mata" />
+              <i className="momento-marca" style={{ left: `${marca * 100}%` }} title="começa o mata-mata" />
               {/* o rotulo fica centrado no tracinho, sem passar da borda da barra; small, nao span: o `.momento-barra > span` e o preenchimento da barra */}
-              <small className="momento-marca-rotulo" aria-hidden="true" style={{ left: `clamp(28px, ${barra.marca * 100}%, calc(100% - 28px))` }}>
+              <small className="momento-marca-rotulo" aria-hidden="true" style={{ left: `clamp(28px, ${marca * 100}%, calc(100% - 28px))` }}>
                 mata-mata
               </small>
             </>

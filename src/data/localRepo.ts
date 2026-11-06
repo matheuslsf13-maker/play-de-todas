@@ -33,7 +33,7 @@ import {
   type ListaCompleta,
   type NomeNaLista,
 } from '../lib/listaDePresenca'
-import { normalizar } from '../lib/roster'
+import { normalizar, semInvisiveis } from '../lib/roster'
 import { aplicarMescla } from '../lib/campeonato'
 
 const KEY = CHAVE.dados
@@ -354,7 +354,7 @@ export const localRepo: Repo = {
     for (const x of novos) {
       if (conflito(l, x.lista_id, x.nome, x.player_id)) throw new Error('Esse nome (ou essa atleta) já está na lista')
       l.nomes.push({
-        ...x, id: crypto.randomUUID(), chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1,
+        ...x, nome: semInvisiveis(x.nome).trim(), id: crypto.randomUUID(), chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1,
         entrou_em: new Date().toISOString(), saiu_em: null, saiu_por: null, avisou_24h: null,
       })
     }
