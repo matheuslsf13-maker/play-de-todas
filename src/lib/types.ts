@@ -118,8 +118,16 @@ export type MesclaDoPlay =
   | { campo: 'quadras_cedidas'; quadra: string; categoria: number }
   /** o total de partidas so cresce: fica o maior */
   | { campo: 'rounds'; minimo: number }
-  /** quantas quadras o play tem (abrir/tirar quadra no meio do campeonato) */
+  /** quantas quadras o play tem: so as escritas antigas da fila (antes da D44) */
   | { campo: 'courts'; valor: number }
+  /**
+   * ABRE UMA QUADRA (D44), aplicada sobre o banco: dois celulares abrindo ao
+   * mesmo tempo abrem duas. `quadra` e a preferida (se ja abriu, vai a menor
+   * livre); `para` manda a quadra aberta para uma categoria (campeonato).
+   */
+  | { campo: 'abrir_quadra'; quadra?: number; para?: number }
+  /** TIRA A QUADRA `quadra` (D44); ja tirada, ou a unica, nao faz nada */
+  | { campo: 'tirar_quadra'; quadra: number }
   /** se o play soma no ranking do mes / se mexe no status 🔥 */
   | { campo: 'ranked'; valor: boolean }
   | { campo: 'conta_status'; valor: boolean }
@@ -139,7 +147,14 @@ export type PlaySession = {
   id: string
   date: string // YYYY-MM-DD
   title: string
+  /** Quantas quadras ABERTAS o play tem agora (os numeros estao em `quadras_abertas`). */
   courts: number
+  /**
+   * OS NUMEROS das quadras abertas (D44, script 33): tirar a quadra 2 nao
+   * renumera a 4. Nulo (play antigo, ou banco sem o 33) = 1..courts. Sempre
+   * com `courts` elementos; leia por `quadrasAbertas` (src/lib/quadras.ts).
+   */
+  quadras_abertas?: number[] | null
   /**
    * Quantas partidas o play tem no total.
    * A coluna do banco se chama `rounds` de quando o play era organizado em
