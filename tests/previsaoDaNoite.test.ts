@@ -14,6 +14,7 @@ import { duplasQueEntraram, duplasVivas, nomeDaRodada } from '../src/lib/pairing
 import {
   chavesDoPlay,
   formatarMinutos,
+  quadrasEmUso,
   quadrasDaCategoriaAgora,
   regrasDoPlay,
   restanteDaNoite,
@@ -278,4 +279,183 @@ test('formatarMinutos segue igual', () => {
   assert.equal(formatarMinutos(45), '45 min')
   assert.equal(formatarMinutos(120), '2h')
   assert.equal(formatarMinutos(95), '1h35')
+})
+
+/* ------------------------------------------------------------------
+   D43: A HORA DE INICIO GUARDADA E AS QUADRAS EM USO DE VERDADE
+   ------------------------------------------------------------------ */
+
+const MIN = 60000
+
+/**
+ * A noite com a hora de inicio de cada partida, como o app passa a guardar:
+ * a anterior da mesma quadra terminou, 2 min depois a proxima comeca; a
+ * primeira de cada quadra comeca 15 min antes de terminar. (A semente nao tem
+ * inicio: e o que o app gravava antes da D43.)
+ */
+function comInicio(ms: Match[]): Match[] {
+  const ordem = [...ms].sort((a, b) => a.ended_at!.localeCompare(b.ended_at!))
+  const fimDaQuadra = new Map<number, number>()
+  return ordem.map((m) => {
+    const fim = Date.parse(m.ended_at!)
+    const antes = fimDaQuadra.get(m.court)
+    fimDaQuadra.set(m.court, fim)
+    return { ...m, started_at: new Date(antes === undefined ? fim - 15 * MIN : antes + 2 * MIN).toISOString() }
+  })
+}
+
+/** A noite com `k` partidas lancadas: a hora e o fim da k-esima; quem ja tinha comecado esta em quadra. */
+function aoVivo(ms: Match[], k: number): { matches: Match[]; agora: number } {
+  const ordem = comInicio(ms)
+  const agora = Date.parse(ordem[k - 1].ended_at!)
+  const matches = ordem.map((m, i) =>
+    i < k
+      ? m
+      : Date.parse(m.started_at!) <= agora
+        ? { ...m, score_a: null, score_b: null, tie: null, ended_at: null }
+        : { ...m, score_a: null, score_b: null, tie: null, ended_at: null, started_at: null, court: 0 },
+  )
+  return { matches, agora }
+}
+
+const S2: PlaySession = { ...SESSOES.find((x) => x.id === 's2')!, status: 'open' }
+const DE_S2 = PARTIDAS.filter((m) => m.session_id === 's2')
+const QUADRAS = (n: number) => Array.from({ length: n }, (_, i) => i + 1)
+
+test('D43: o cartao ao vivo mostra a hora em que a 1a partida comecou (nao a que terminou)', () => {
+  const { matches } = aoVivo(DE_S2, 22)
+  const primeira = matches.filter((m) => m.started_at).sort((a, b) => a.started_at!.localeCompare(b.started_at!))[0]
+  const r = resumoAoVivo(S2, matches)
+  assert.equal(r.comecouEm, primeira.started_at)
+  assert.ok(Date.parse(r.comecouEm!) < Date.parse(matches.filter(isPlayed).map((m) => m.ended_at!).sort()[0]))
+  // a jogada com inicio guardado nao conta como quadra jogando
+  assert.equal(r.jogando, matches.filter((m) => !isPlayed(m) && m.started_at).length)
+  assert.ok(r.jogando >= 1 && r.jogando <= 4)
+})
+
+test('D43: 02/11 -- 5 quadras no app e so 4 de verdade: a previsao usa as 4', () => {
+  // na semente as quadras 1 a 4 levam a noite; a 5 so aparece no fim
+  const { matches, agora } = aoVivo(DE_S2, 22)
+  assert.equal(quadrasEmUso(matches, QUADRAS(5), agora, 30), 4)
+  // 23 partidas por fazer, 15 min cada: em 5 quadras 5 levas (75 min), em 4 sao 6 (90; faltaram 103 de verdade)
+  assert.equal(Math.round(resumoAoVivo(S2, matches).minutos), 75)
+  assert.equal(Math.round(resumoAoVivo(S2, matches, agora).minutos), 90)
+  const k15 = aoVivo(DE_S2, 15)
+  assert.equal(Math.round(resumoAoVivo(S2, k15.matches, k15.agora).minutos), 120)
+  const k30 = aoVivo(DE_S2, 30)
+  assert.equal(Math.round(resumoAoVivo(S2, k30.matches, k30.agora).minutos), 60)
+})
+
+test('D43: sem dados suficientes a previsao e IDENTICA a de hoje', () => {
+  // partidas antigas (sem inicio): a semente pela metade, nos 3 formatos. A
+  // unica hora de inicio nela e a das que estao em quadra, 10 min antes de
+  // `agora`: ainda nao da uma janela inteira
+  const agora = Date.parse('2026-11-09T23:40:00.000Z')
+  for (const c of cenarios()) {
+    const ms = [...c.matches].sort((a, b) => a.round - b.round || a.court - b.court)
+    const emJogo = ms.filter((m) => !isPlayed(m) && !!m.started_at)
+    const regras = regrasDoPlay(c.session, ms)
+    const chaves = chavesDoPlay(c.session, ms, regras)
+    const emQuadra = new Map<number, Match>()
+    for (const m of emJogo) if (!emQuadra.has(m.court)) emQuadra.set(m.court, m)
+    const q = quadrasDaCategoriaAgora(c.session, chaves, emQuadra, regras.catDe)
+    const r = restanteDaNoite(c.session, ms, regras, chaves, q, agora)
+    assert.deepEqual(
+      r && r.categorias.map((x) => x.minutos).concat(r.minutos),
+      (({ restante }) => restante && restante.categorias.map((x) => x.minutos).concat(restante.minutos))(contaAntiga(c.session, ms, emJogo)),
+      c.nome,
+    )
+  }
+  // comeco da noite: com inicio, mas ninguem comecou ha mais de uma janela
+  const k1 = aoVivo(DE_S2, 1)
+  assert.equal(quadrasEmUso(k1.matches, QUADRAS(5), k1.agora, 30), null)
+  assert.equal(resumoAoVivo(S2, k1.matches, k1.agora).minutos, resumoAoVivo(S2, k1.matches).minutos)
+  // sem `agora`
+  const k22 = aoVivo(DE_S2, 22)
+  assert.equal(quadrasEmUso(k22.matches, QUADRAS(5), undefined, 30), null)
+  // noite de transicao: jogadas sem inicio (app antigo) e 2 rolando ha 40 min -- a trava pede JOGADA com inicio
+  const antigas = cenarios().find((c) => c.session.id === 's2' && c.nome.endsWith('q=2') && c.matches.filter(isPlayed).length >= 15)!.matches.map((m) =>
+    !isPlayed(m) && m.started_at ? { ...m, started_at: new Date(agora - 40 * MIN).toISOString() } : m,
+  )
+  assert.equal(quadrasEmUso(antigas, QUADRAS(5), agora, 30), null)
+})
+
+test('D43: pausa e volta escalonada nao derrubam as quadras (o pico da noite)', () => {
+  // 22 jogadas, nada rolando, 50 min de pausa e so a quadra 1 volta
+  const { matches, agora } = aoVivo(DE_S2, 22)
+  const parado = matches.map((m) => (isPlayed(m) ? m : { ...m, started_at: null, court: 0 }))
+  const volta = agora + 50 * MIN
+  const i = parado.findIndex((m) => !isPlayed(m))
+  const umaVolta = parado.map((m, k) => (k === i ? { ...m, court: 1, started_at: new Date(volta - MIN).toISOString() } : m))
+  assert.equal(quadrasEmUso(parado, QUADRAS(5), volta, 30), 4)
+  assert.equal(quadrasEmUso(umaVolta, QUADRAS(5), volta, 30), 4)
+  assert.equal(Math.round(resumoAoVivo(S2, umaVolta, volta).minutos), 90)
+  // a hora de quem olha nao muda a conta (o Play recalcula so ao tocar, o cartao a cada 30 s)
+  assert.equal(resumoAoVivo(S2, umaVolta, volta + 25 * MIN).minutos, resumoAoVivo(S2, umaVolta, volta).minutos)
+})
+
+test('D43: jogada sem fim (o banco nao guarda o ended_at) e um ponto, nao vai ate agora', () => {
+  const t0 = Date.parse('2026-11-02T22:00:00.000Z')
+  const iso = (min: number) => new Date(t0 + min * MIN).toISOString()
+  const base = { session_id: 'x', round: 1, team_a: [], team_b: [], score_a: 6, score_b: 3, tie: null } as unknown as Match
+  // quadras 1 a 3 a noite toda; a 4 so no comeco e a 5 so no meio, as duas sem ended_at
+  const ms: Match[] = [
+    ...[1, 2, 3].flatMap((q) => [0, 15, 30, 45, 60, 75].map((t) => ({ ...base, id: `${q}-${t}`, court: q, started_at: iso(t), ended_at: iso(t + 14) }))),
+    { ...base, id: 'q4', court: 4, started_at: iso(0), ended_at: null },
+    { ...base, id: 'q5', court: 5, started_at: iso(60), ended_at: null },
+  ]
+  assert.equal(quadrasEmUso(ms, QUADRAS(5), t0 + 95 * MIN, 30), 4)
+})
+
+test('D43: quadra a mais conta quando a 1a partida comeca nela; quadra tirada sai na hora', () => {
+  const { matches, agora } = aoVivo(DE_S2, 22)
+  const seis: PlaySession = { ...S2, courts: 6 }
+  assert.equal(quadrasEmUso(matches, QUADRAS(6), agora, 30), 4)
+  assert.equal(Math.round(resumoAoVivo(seis, matches, agora).minutos), 90)
+  // uma pendente entra na quadra 6
+  const i = matches.findIndex((m) => !isPlayed(m) && !m.started_at)
+  const naSeis = matches.map((m, k) => (k === i ? { ...m, court: 6, started_at: new Date(agora - MIN).toISOString() } : m))
+  assert.equal(quadrasEmUso(naSeis, QUADRAS(6), agora, 30), 5)
+  assert.equal(Math.round(resumoAoVivo(seis, naSeis, agora).minutos), 75)
+  // tirar quadras: 3 no app vale na hora, as partidas da 4 ficam de fora
+  const tres: PlaySession = { ...S2, courts: 3 }
+  assert.equal(quadrasEmUso(matches, QUADRAS(3), agora, 30), 3)
+  assert.equal(resumoAoVivo(tres, matches, agora).minutos, resumoAoVivo(tres, matches).minutos)
+})
+
+test('D43: horas trocadas e relogio adiantado nao quebram a conta', () => {
+  const { matches, agora } = aoVivo(DE_S2, 22)
+  // fim antes do inicio (celulares com relogios diferentes)
+  const trocadas = matches.map((m) => (isPlayed(m) ? { ...m, started_at: m.ended_at, ended_at: m.started_at } : m))
+  assert.equal(quadrasEmUso(trocadas, QUADRAS(5), agora, 30), 4)
+  // o outro celular 20 min adiantado: o que ele gravou esta "no futuro"
+  const mais20 = (iso?: string | null) => iso && new Date(Date.parse(iso) + 20 * MIN).toISOString()
+  const adiantadas = matches.map((m) => ({ ...m, started_at: mais20(m.started_at), ended_at: mais20(m.ended_at) }))
+  assert.equal(quadrasEmUso(adiantadas, QUADRAS(5), agora, 30), 4)
+  // so o fim (partida lancada por um app antigo, sem o inicio) tambem conta
+  const soFim = matches.map((m) => (isPlayed(m) && m.court === 4 ? { ...m, started_at: null } : m))
+  assert.equal(quadrasEmUso(soFim, QUADRAS(5), agora, 30), 4)
+})
+
+test('D43: campeonato -- a categoria com uma quadra parada demora mais, as outras nao mudam', () => {
+  const s0 = SESSOES.find((x) => x.id === 's1')!
+  const s: PlaySession = { ...s0, status: 'open', duos: null }
+  const fase1 = PARTIDAS.filter((m) => m.session_id === 's1' && (m.fase ?? 1) === 1)
+  const { matches, agora } = aoVivo(fase1, 10)
+  // a categoria A (quadras 1 e 2) so usou a quadra 1
+  const regras0 = regrasDoPlay(s, matches)
+  const soUma = matches.map((m) => (regras0.catDe(m) === 0 && m.court === 2 ? { ...m, court: 1 } : m))
+  const conta = (ms: Match[], t?: number) => {
+    const regras = regrasDoPlay(s, ms)
+    const chaves = chavesDoPlay(s, ms, regras)
+    const emQuadra = new Map<number, Match>()
+    for (const m of ms.filter((x) => !isPlayed(x) && x.started_at)) if (!emQuadra.has(m.court)) emQuadra.set(m.court, m)
+    return restanteDaNoite(s, ms, regras, chaves, quadrasDaCategoriaAgora(s, chaves, emQuadra, regras.catDe), t)!.categorias.map((c) => c.minutos)
+  }
+  const hoje = conta(soUma)
+  const novo = conta(soUma, agora)
+  assert.ok(novo[0] > hoje[0], `A: ${hoje[0]} -> ${novo[0]}`)
+  assert.deepEqual(novo.slice(1), hoje.slice(1))
+  // com as duas quadras em uso nada muda
+  assert.deepEqual(conta(matches, agora), conta(matches))
 })

@@ -118,8 +118,16 @@ export type MesclaDoPlay =
   | { campo: 'quadras_cedidas'; quadra: string; categoria: number }
   /** o total de partidas so cresce: fica o maior */
   | { campo: 'rounds'; minimo: number }
-  /** quantas quadras o play tem (abrir/tirar quadra no meio do campeonato) */
+  /** quantas quadras o play tem: so as escritas antigas da fila (antes da D44) */
   | { campo: 'courts'; valor: number }
+  /**
+   * ABRE UMA QUADRA (D44), aplicada sobre o banco: dois celulares abrindo ao
+   * mesmo tempo abrem duas, se houver jogos prontos. Usa o menor numero livre
+   * e manda a quadra para a categoria com jogo pronto (campeonato).
+   */
+  | { campo: 'abrir_quadra' }
+  /** TIRA UMA QUADRA LIVRE (D44); reavalia no banco e mantem pelo menos uma. */
+  | { campo: 'tirar_quadra' }
   /** se o play soma no ranking do mes / se mexe no status 🔥 */
   | { campo: 'ranked'; valor: boolean }
   | { campo: 'conta_status'; valor: boolean }
@@ -139,7 +147,16 @@ export type PlaySession = {
   id: string
   date: string // YYYY-MM-DD
   title: string
+  /** Quantas quadras ABERTAS o play tem agora (os numeros estao em `quadras_abertas`). */
   courts: number
+  /**
+   * OS NUMEROS das quadras abertas (D44, script 33): tirar a quadra 2 nao
+   * renumera a 4. Nulo (play antigo, ou banco sem o 33) = 1..courts. Sempre
+   * com `courts` elementos; leia por `quadrasAbertas` (src/lib/quadras.ts).
+   */
+  quadras_abertas?: number[] | null
+  /** IDs ja aplicados: reenvio offline nao repete um toque (script 33). */
+  quadras_operacoes?: string[] | null
   /**
    * Quantas partidas o play tem no total.
    * A coluna do banco se chama `rounds` de quando o play era organizado em
@@ -286,7 +303,11 @@ export type Match = {
    * saber qual rodada e (1 jogo = final, 2 = semifinal).
    */
   disputa_3o?: boolean | null
-  /** Quando a partida entrou em quadra. Null = ainda nao comecou. */
+  /**
+   * Quando a partida entrou em quadra. Null = ainda nao comecou (ou foi
+   * jogada antes da D43, quando o placar apagava o inicio). Fica guardado
+   * depois do placar: "em quadra" e comecou E ainda nao tem placar.
+   */
   started_at?: string | null
   /** Quando o placar foi lancado. Alimenta o "quem esta fora ha mais tempo". */
   ended_at?: string | null

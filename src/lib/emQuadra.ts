@@ -10,6 +10,11 @@
  *
  * O fim alimenta o "quem esta fora ha mais tempo", que decide quem entra na
  * proxima partida.
+ *
+ * Desde a D43 o placar NAO apaga o `started_at`: o inicio daqui vai junto com
+ * o placar para o banco e fica na partida (duracao real, quadras em uso da
+ * previsao). O inicio local da partida jogada e limpo, porque passa a morar
+ * nela. "Em quadra" = comecou E ainda nao tem placar.
  */
 
 import { CHAVE } from './chaves'

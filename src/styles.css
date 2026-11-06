@@ -2031,3 +2031,8 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   .bolinha-viva { animation: none; }
   .card.momento:active { transform: none; }
 }
+.btn.controle-quadra { position: relative; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 7px 9px; white-space: nowrap; }
+.selo-quadras { position: absolute; top: -9px; right: 1px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; background: var(--pink); color: var(--sempre-claro); font-size: 12px; line-height: 20px; font-weight: 700; }
+@keyframes negar-quadra { 25%, 75% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
+.quadra-negada { animation: negar-quadra 180ms ease-in-out; }
+@media (prefers-reduced-motion: reduce) { .quadra-negada { animation: none; } }

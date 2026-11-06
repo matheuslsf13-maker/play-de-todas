@@ -92,7 +92,7 @@ function Cartao({
     }
     case 'ao-vivo': {
       const s = momento.session
-      const r = resumoAoVivo(s, data.matches)
+      const r = resumoAoVivo(s, data.matches, agora.getTime())
       const fim = r.minutos > 0 ? ` · termina por volta das ${horaLocal(new Date(agora.getTime() + r.minutos * 60000).toISOString())}` : ''
       return (
         <Quadro

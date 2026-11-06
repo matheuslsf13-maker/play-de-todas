@@ -637,6 +637,9 @@ encerra. Quem organiza é quem sabe. O início fica gravado no banco
 (`src/lib/emQuadra.ts`) — sem a cópia local o tempo real devolvia a partida sem
 o início e o botão "voltava" sozinho.
 
+Desde a **D43** o placar não apaga mais o início: "em quadra" é **começou E ainda não
+tem placar** (todos os lugares já testavam `!isPlayed(m) && started_at`).
+
 Em cima disso funcionam o aviso **"⏳ fulana ainda está jogando em outra quadra"**
 com o botão **"🔄 Chamar quem está livre"** (`liberarPartida`, mesmos critérios
 do sorteio) e o "livre / em quadra" na troca de jogadoras.
@@ -1278,3 +1281,111 @@ momentos. Decidido e feito assim:
     era "Ana Souza"). Nome já gravado com o caractere continua no banco até alguém salvar o cadastro
     dela; o `lista_normalizar` do 31 já troca o invisível por espaço (no começo ou entre palavras
     bate; no meio da palavra, não — sem script novo).
+
+## D43 — Guardar a hora de início e prever com as quadras em uso (06/11/2026)
+
+Aprovado pelo dono em 06/11: "pode sim guardar a hora para o tempo estimado ser cada vez mais
+preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidades das quadras".
+
+- **A hora de início fica na partida depois do placar** (`setScore` em Play.tsx grava
+  `started_at: m.started_at ?? inicios[m.id]`; antes gravava `null`). Apagar o placar ainda limpa.
+  O início local deste celular é usado sem o limite de 3 min, porque é o toque daqui. Todo "está em
+  quadra agora" do app já era `!isPlayed(m) && started_at` (fila, quadra parada, quem não chegou,
+  trocar, entra/sai, arrumar grupos, refazer, tirar quadra, cartão ao vivo), então nada mais mudou;
+  só a lista da tela (`matchesDaTela`) deixou de apagar o início das jogadas. Voltar para a fila
+  (`cancelarInicio`, só com a partida rolando) continua limpando. Partidas antigas (início nulo)
+  seguem iguais. Sem SQL: a coluna é a do script 04; onde ela não existe, a gravação tolerante a
+  tira e a previsão fica a de antes.
+- **Na tela**: o "começou HHhMM · há X" do cartão ao vivo passa a ser o início real da 1ª
+  partida (antes, o 1º placar: uns 15 min depois).
+- **A previsão usa as quadras em uso de verdade** (`quadrasEmUso` em `previsaoDaNoite.ts`). Em
+  02/11 havia 5 quadras no app e só 4 existiam: na metade da noite previu 75 min e faltavam 103.
+  Conta as quadras **diferentes** (dentro das do play, ou das da categoria no campeonato) com
+  partida tocando uma mesma janela de `max(30, 2 × minutosDaPartida(alvo, regra do play))` min, e
+  fica com o **pico da noite** (o maior número de qualquer janela); a partida vai do início (ou do
+  fim, se não tem início) até o fim, a rolando até agora e a jogada sem fim é só um ponto (o banco
+  sem o script 05 não guarda `ended_at`: senão ela ficaria "rolando" para sempre).
+  - Quadras, e não partidas sobrepostas: o intervalo entre partidas some sozinho (numa janela de
+    duas partidas cabe uma) e relógios diferentes não somam quadra a mais. Horas trocadas viram a
+    faixa certa.
+  - **Pico, e não a janela de agora** (revisão do mesmo dia): a janela recente media a demanda, não
+    as quadras. Depois de 45 min de pausa a 1ª partida que voltava dava 1 quadra e a previsão ia de
+    1h30 para 6h ("termina por volta das 03h02"); o mesmo na cauda da fase de grupos, em começo
+    escalonado e com relógio de celular atrasado. O pico só sobe com dado de verdade e não depende
+    da hora de quem olha, então o Play (que recalcula ao tocar) e o cartão (relógio de 30 s) dão os
+    mesmos minutos. O que se perde: quadra que quebra no meio da noite sem ninguém tocar em ➖
+    quadra continua contando (o ➖ vale na hora).
+  - **Sem dados a conta é idêntica à de antes**: sem `agora`, ou as partidas **jogadas** com início
+    ainda não cobrem uma janela inteira (do 1º início de jogada à hora mais recente gravada):
+    começo da noite, noites antigas sem início, e também a noite de transição em que só as rolando
+    têm início (app antigo em outro celular). Provado nas noites da semente pela metade
+    (`tests/previsaoDaNoite.test.ts`).
+  - Fora do grupos+duplas: `min(em uso, quadrasSimultaneas(grupos))` — o limite dos grupos só entra
+    quando há dados (antes a conta ao vivo nunca o usava, e mudaria o caso sem dados). No
+    grupos+duplas, por categoria, o mesmo número vale para a fase de grupos e para o mata-mata.
+  - **➕ quadra** entra na conta quando a 1ª partida começa nela; **tirar quadra** vale na hora
+    (as acima do total saem).
+  - Quem passa a hora: a tela do play (`Date.now()` ao recalcular, isto é, a cada partida
+    iniciada/lançada) e o cartão ao vivo (relógio de 30 s). A hora só serve de "fim" da rolando;
+    o pico não muda com ela.
+  - **Aceitos e registrados** (revisão): quadra tirada e reposta (mesmo número) volta a contar na
+    hora, sem esperar partida nela, porque já estava no pico (raro; no máximo o configurado). Quadra
+    **cedida** no campeonato só conta para a categoria que a recebeu depois que uma partida dela
+    começa lá (a mesma regra do ➕ quadra); partida da categoria jogada numa quadra fora da lista
+    dela fica fora da conta. Celular com o app antigo em cache grava `started_at: null` ao lançar
+    ou corrigir: essas partidas ficam sem início e **não servem para calibrar** a duração (não são
+    partidas curtas). Pendência fora da D43: os registros locais `inicios`/`fins` (emQuadra.ts)
+    nunca apagam entradas de partidas apagadas nem as de `fins`; limpar as de mais de 1 dia.
+- **Medido** na noite de 02/11 com inícios sintéticos (fim anterior da quadra + 2 min): com 15, 22 e
+  30 jogadas a previsão era 90/75/45 min, passa a 120/90/60, e o real foi 131/103/69. A diferença
+  que sobra é a duração por partida (`MINUTOS_POR_GAME`), a calibragem que vem com as horas reais.
+
+## D44 — Quadras agora: números físicos, jogos prontos e dois celulares (06/11/2026)
+
+- A escolha na criação continua igual. Durante o play, ➖ tira a **quadra livre de maior
+  número**, inclusive uma fixa de categoria no Campeonato e nas Duplas fixas. Uma sugestão
+  ainda não iniciada é uma quadra livre. Não renumera as restantes: `[1, 3, 4]` tem 3 quadras,
+  mas a partida na 4 continua na 4. ➕ usa o **menor número fechado**.
+- **Pelo menos 1 quadra**, confirmado pelo dono nesta conversa. Com uma só, ➖ dá a mesma
+  tremidinha e avisa **"O play precisa de pelo menos 1 quadra"**. Com várias, todas ocupadas:
+  **"Todas as quadras estão em jogo"**. O botão continua tocável (44px); movimento reduzido
+  desliga a animação, sem desligar o aviso. Cabeçalho: "1 quadra".
+- **Selo do ➕**: partidas completas que podem entrar agora, com quatro atletas livres,
+  sem quem não chegou, descontando as quadras abertas vazias. Sai da **mesma fila dos cards**
+  (`estadoDasQuadras`, `src/lib/quadras.ts`, usando `filaPorGrupo`/`proximasPelaFila`), reservando
+  as sugestões e escolhas manuais sem repetir atletas. 2 → abre uma → 1. Zero: o selo some, o ➕ não abre e avisa
+  **"Nenhum jogo pronto para outra quadra agora"**. Mata-mata ainda não montado não conta.
+- Categorias: a quadra aberta vai para a categoria do jogo pronto; números fechados saem da
+  distribuição e da previsão. Se uma categoria ficou com menos quadras que grupos, os grupos
+  **revezam por espera**, em vez de a antiga "quadra da casa" monopolizar o jogo. Se perdeu
+  todas as suas quadras e existe uma vazia de outra categoria **sem jogo pronto**, usa essa
+  quadra; sem isso, uma única quadra vazia impediria jogar, abrir (+ zero) e retirar (mínimo 1).
+  Uma partida iniciada mantém a quadra e a categoria até terminar.
+- **Persistência**: `sessions.quadras_abertas integer[]` guarda os números; `courts` segue como
+  quantidade. Nulo significa `1..courts`. `quadras_operacoes text[]` guarda os IDs dos toques
+  já processados, inclusive os que não puderam mudar nada, para reenvio offline não repetir.
+  A fila manda **abrir/tirar uma**, não o total calculado no celular. O driver relê sessão e
+  partidas, calcula a operação pura e só atualiza se as colunas ainda são as lidas; se outro
+  celular ganhou, relê e tenta novamente (8 tentativas; depois, a fila tenta de novo). Edição
+  de título/grupos/finalização não regrava o retrato antigo das quadras. Após enviar o toque,
+  recarrega o resultado do banco, mesmo se o evento de tempo real chegou durante a fila.
+- **Script `33-quadras-abertas.sql`**, idempotente nos schemas existentes `public`, `masculino`
+  e `misto`: duas colunas opcionais e dois gatilhos, sem apagar dados ou alterar permissões.
+  Retirar une as quadras solicitadas às ocupadas; iniciar atualiza a mesma linha da sessão e
+  reabre a quadra se a retirada chegou primeiro. Os dois caminhos se serializam pela linha da
+  sessão. Funções `security invoker`: continuam valendo as permissões e RLS existentes.
+  O modo local espelha a restauração. A tela sempre inclui as quadras com jogos iniciados,
+  mesmo com sessão atrasada; se dois registros iniciados caíram na mesma quadra, mostra ambos.
+- **Antes do 33**: mantém a representação antiga, só remove a última se estiver livre e não
+  for fixa de categoria. A abertura/retirada compara o total antes de gravar, evitando perda
+  de toques concorrentes. Sem as colunas/gatilhos ainda não há retirada do meio, deduplicação
+  de resposta perdida nem restauração persistente no servidor; os cards ativos são preservados
+  na tela nova. Não é necessário recriar plays depois de aplicar o 33; basta recarregar.
+- **Verificação**: TDD com falha inicial e uma regressão de revezamento reproduzida antes de
+  corrigir; 263 testes (16 novos), typecheck e builds feminino/masculino/misto. PGlite: 27
+  verificações nos três schemas. Adaptador com banco simulado: 6 cenários de concorrência,
+  reenvio e banco sem o 33. Navegador local: 14 prints de 360px (claro/escuro), incluindo os
+  avisos, números físicos e mínimo de uma; também duplas fixas, cards concorrentes, alvos de
+  toque e movimento reduzido. Relatório e roteiros em `pdt-teste/RELATORIO-QUADRAS.md`.
+  Sem push, publicação, login ou SQL real. PostgREST/Realtime reais e celulares físicos não
+  foram usados; aparelhos com PWA antigo precisam carregar a versão nova para os novos cards.

@@ -137,7 +137,8 @@ import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '..
 import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante } from '../lib/previsaoDaNoite'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
-import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
+import { planoDoRefazer } from '../lib/fila'
+import { estadoDasQuadras, quadrasAbertas } from '../lib/quadras'
 import { filaDosGruposArrumados, moverNoRascunho, problemasDaFila } from '../lib/arrumarGrupos'
 import { hasSupabase, supabase } from '../lib/supabase'
 import { avisosDoBanco } from '../data/supabaseRepo'
@@ -2431,22 +2432,21 @@ function PlayDetail({
   }, [jogadas, fins, session.player_ids])
 
   const quadras = useMemo(
-    () => Array.from({ length: Math.max(1, session.courts) }, (_, i) => i + 1),
-    [session.courts],
+    () => quadrasAbertas(session, emJogo),
+    [session, emJogo],
   )
   const emQuadra = useMemo(() => {
     const map = new Map<number, Match>()
     for (const m of emJogo) if (!map.has(m.court)) map.set(m.court, m)
     return map
   }, [emJogo])
-  const quadrasLivres = quadras.filter((q) => !emQuadra.has(q))
   /**
    * CAMPEONATO: as quadras que cada categoria usa agora -- as fixas dela, e as
    * de quem ja terminou tudo (para a categoria escolhida, ou a com mais jogo).
    */
   const quadrasDaCategoria = useMemo(
-    () => quadrasDaCategoriaAgora(session, porCategoria, emQuadra, catDe),
-    [session, porCategoria, emQuadra, catDe],
+    () => quadrasDaCategoriaAgora({ ...session, ausentes: [...ausentes] }, porCategoria, emQuadra, catDe),
+    [session, porCategoria, emQuadra, catDe, ausentes],
   )
   /** CAMPEONATO: de qual categoria a quadra e agora (null fora do campeonato). */
   const donaDa = (q: number): number | null => {
@@ -2461,7 +2461,7 @@ function PlayDetail({
    * mesmo tempo, a noite acaba com a mais longa).
    */
   const restanteDaNoite = useMemo(() => {
-    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria)
+    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria, Date.now())
     return r && { ...r, categorias: r.categorias.map((c) => ({ ...c, situacao: situacaoDaCategoria(porCategoria[c.ci]) })) }
   }, [matches, session, regras, porCategoria, quadrasDaCategoria])
 
@@ -2482,66 +2482,21 @@ function PlayDetail({
   const matchesDaTela = useMemo(
     () =>
       matches.map((m) => {
-        const inicio = inicioDe(m)
+        // jogada: o inicio guardado no banco (D43); rolando: o do banco ou o deste celular
+        const inicio = isPlayed(m) ? m.started_at ?? null : inicioDe(m)
         const fim = m.ended_at ?? fins[m.id] ?? null
         return inicio !== m.started_at || fim !== m.ended_at ? { ...m, started_at: inicio, ended_at: fim } : m
       }),
     [matches, inicios, fins],
   )
 
-  /**
-   * A FILA DE CADA GRUPO -- a que a tela mostra E a que as quadras consomem
-   * (`proximasPelaFila`): a quadra que vaga pega a primeira partida da fila do
-   * grupo dela com as quatro livres. Em 05/10 a lista era uma previsao feita de
-   * um jeito e a quadra escolhia de outro, e a partida que entrava nao era a
-   * escrita. Medido em tests/fila.test.ts.
-   */
-  const filas = useMemo(
-    () =>
-      filaPorGrupo({
-        jogadoras: session.player_ids,
-        grupos: grupos ?? null,
-        matches: matchesDaTela,
-        ausentes,
-        quadras: session.courts,
-      }),
-    [session.player_ids, grupos, matchesDaTela, ausentes, session.courts],
+  const estadoQuadras = useMemo(
+    () => estadoDasQuadras({ ...session, ausentes: [...ausentes] }, matchesDaTela, manuais),
+    [session, matchesDaTela, manuais, ausentes],
   )
-
-  /** Sugestao de proxima partida por quadra livre, respeitando escolhas na mao. */
-  const proximas = useMemo(() => {
-    const escolhidasNaMao = new Map<number, Match>()
-    for (const q of quadrasLivres) {
-      const id = manuais[q]
-      const m = id ? pendentes.find((x) => x.id === id) : undefined
-      // a escolha so vale se as quatro estiverem livres (ninguem em quadra)
-      if (m && jogadorasDaPartida(m).every((x) => !ocupadas.has(x))) escolhidasNaMao.set(q, m)
-    }
-    const restantes = quadrasLivres.filter((q) => !escolhidasNaMao.has(q))
-    const noite = { jogadoras: session.player_ids, grupos: grupos ?? null, matches: matchesDaTela, ausentes, quadras: session.courts }
-    const reservadas = [...escolhidasNaMao.values()]
-    const out = new Map(escolhidasNaMao)
-    if (!quadrasDaCategoria) {
-      for (const [q, m] of proximasPelaFila(noite, restantes, undefined, filas, reservadas)) out.set(q, m)
-      return out
-    }
-    // CAMPEONATO: cada categoria nas quadras dela (mais as cedidas), com as
-    // filas dos grupos dela; o grupo mora na sua quadra
-    cats.forEach((cat, ci) => {
-      const livresDaCat = restantes.filter((q) => quadrasDaCategoria[ci]?.includes(q))
-      if (livresDaCat.length === 0) return
-      const auto = proximasPelaFila(
-        noite,
-        livresDaCat,
-        cat.quadras,
-        cat.grupos.map((g) => filas[g] ?? []),
-        [...reservadas, ...out.values()],
-      )
-      for (const [q, m] of auto) out.set(q, m)
-    })
-    return out
-  }, [quadrasLivres, manuais, pendentes, ocupadas, session.player_ids, grupos, matchesDaTela, ausentes, session.courts, filas, quadrasDaCategoria, cats])
-
+  const { filas, proximas } = estadoQuadras
+  const [negandoQuadra, setNegandoQuadra] = useState(0)
+  const legadoQuadras = hasSupabase && !('quadras_abertas' in session)
 
   /**
    * Quem nao esta disponivel para esta partida: as que estao em quadra agora e
@@ -2629,11 +2584,14 @@ function PlayDetail({
     // corrigir um placar antigo nao muda a hora em que a partida terminou:
     // senao aquelas quatro voltariam para o fim da fila de espera
     const fim = encerrando ? m.ended_at ?? fins[m.id] ?? new Date().toISOString() : null
+    // a hora de inicio fica guardada (D43): da a duracao real da partida e as
+    // quadras em uso da previsao. O "em quadra" e "comecou E nao tem placar".
+    const inicio = encerrando ? m.started_at ?? inicios[m.id] ?? null : null
     marcarInicio(m.id, null)
     marcarFim(m.id, fim)
     // `tie` vem so quando a partida foi decidida no tie; apagar o placar limpa
     saveMatches([
-      { ...m, score_a: a, score_b: b, tie: encerrando ? tie ?? null : null, started_at: null, ended_at: fim },
+      { ...m, score_a: a, score_b: b, tie: encerrando ? tie ?? null : null, started_at: inicio, ended_at: fim },
     ])
   }
 
@@ -3342,7 +3300,7 @@ function PlayDetail({
                 : 'dia por pontos'}
           </div>
           <div className="small muted">
-            {dateLabel(session.date)} · {session.player_ids.length} jogadoras · {session.courts} quadras
+            {dateLabel(session.date)} · {session.player_ids.length} jogadoras · {quadras.length} quadra{quadras.length === 1 ? '' : 's'}
             {ehCampeonato
               ? ` · ${cats.length} categorias`
               : grupos && grupos.length > 1
@@ -3525,38 +3483,52 @@ function PlayDetail({
           <div className="section-title">🏐 Quadras agora</div>
           {editable && !finished && (
             <div className="row" style={{ gap: 6 }}>
-              {/* uma quadra vagou no meio da noite: entra na hora e ja puxa a proxima
-                  da fila. Tirar so a ultima, e so vazia, para nao sumir com jogo em andamento */}
-              {session.courts > 1 && (!ehCampeonato || !cats.some((c) => c.quadras.includes(session.courts))) && (
-                <button
-                  className="btn ghost sm"
-                  disabled={emQuadra.has(session.courts)}
-                  title={emQuadra.has(session.courts) ? `A quadra ${session.courts} está em jogo: lance o placar antes de tirá-la` : 'Tirar a última quadra'}
-                  onClick={() => {
-                    // conferido de novo aqui: a tela pode estar um passo atrasada em relacao ao banco
-                    if (emQuadra.has(session.courts)) {
-                      onToast(`A quadra ${session.courts} está em jogo — lance o placar antes de tirá-la`)
-                      return
-                    }
-                    // so o numero de quadras: no campeonato outro celular pode ter mexido no resto
-                    mesclarNoPlay(session.id, { campo: 'courts', valor: session.courts - 1 })
-                    anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${session.courts} tirada`))
-                    onToast(`Agora são ${session.courts - 1} quadra${session.courts - 1 === 1 ? '' : 's'}`)
-                  }}
-                >
-                  ➖ quadra
-                </button>
-              )}
               <button
-                className="btn ghost sm"
-                title="Abriu mais uma quadra"
+                onAnimationEnd={() => setNegandoQuadra(0)}
+                className={`btn ghost sm controle-quadra${negandoQuadra ? ' quadra-negada' : ''}`}
+                title="Tirar uma quadra sem uso"
                 onClick={() => {
-                  // no campeonato a quadra nova e "cedida": vai para a categoria com mais jogo
-                  mesclarNoPlay(session.id, { campo: 'courts', valor: session.courts + 1 })
-                  anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${session.courts + 1} aberta`))
-                  onToast(`Quadra ${session.courts + 1} aberta: já sugeri a próxima partida`)
+                  if (quadras.length <= 1) {
+                    setNegandoQuadra((n) => n + 1)
+                    onToast('O play precisa de pelo menos 1 quadra')
+                    return
+                  }
+                  if (!estadoQuadras.livres.length) {
+                    setNegandoQuadra((n) => n + 1)
+                    onToast('Todas as quadras estão em jogo')
+                    return
+                  }
+                  if (legadoQuadras && (!estadoQuadras.livres.includes(session.courts) || cats.some((c) => ehCampeonato && c.quadras.includes(session.courts)))) {
+                    onToast('Para tirar esta quadra, aplique o script 33 no banco')
+                    return
+                  }
+                  // a mesma escolha de mudarQuadra; outro celular pode mudar o resultado no banco
+                  const q = legadoQuadras ? session.courts : estadoQuadras.livres[estadoQuadras.livres.length - 1]
+                  mesclarNoPlay(session.id, { campo: 'tirar_quadra' })
+                  anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${q} tirada`))
+                  onToast(`Quadra ${q} tirada`)
                 }}
               >
+                ➖ quadra
+              </button>
+              <button
+                className="btn ghost sm controle-quadra"
+                title="Abrir outra quadra"
+                aria-label={`Abrir outra quadra: ${estadoQuadras.abrir.length} disponíveis agora`}
+                onClick={() => {
+                  if (!estadoQuadras.abrir.length) {
+                    onToast('Nenhum jogo pronto para outra quadra agora')
+                    return
+                  }
+                  let q = 1
+                  if (legadoQuadras) q = session.courts + 1
+                  else while (quadras.includes(q)) q++
+                  mesclarNoPlay(session.id, { campo: 'abrir_quadra' })
+                  anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${q} aberta`))
+                  onToast(`Quadra ${q} aberta: já sugeri a próxima partida`)
+                }}
+              >
+                {estadoQuadras.abrir.length > 0 && <span className="selo-quadras" aria-hidden="true">{estadoQuadras.abrir.length}</span>}
                 ➕ quadra
               </button>
               <button className="btn ghost sm" onClick={() => setMarcandoAusentes(true)}>
@@ -3623,13 +3595,15 @@ function PlayDetail({
         )}
         {matches.length === 0 ? (
           <Empty>Nenhuma partida gerada.</Empty>
-        ) : ehCampeonato && filtroCat !== null && porCategoria[filtroCat]?.terminou ? (
+        ) : ehCampeonato && filtroCat !== null && porCategoria[filtroCat]?.terminou && !emJogo.some((m) => catDe(m) === filtroCat) ? (
           <Empty icon="🏆">
             A categoria {cats[filtroCat].nome} terminou — as quadras dela foram para quem ainda está jogando.
           </Empty>
         ) : (
-          quadras.map((q) => {
-            const atual = emQuadra.get(q)
+          quadras.flatMap<{ q: number; atual?: Match }>((q) => {
+            const atuais = emJogo.filter((m) => m.court === q)
+            return atuais.length ? atuais.map((atual) => ({ q, atual })) : [{ q, atual: undefined }]
+          }).map(({ q, atual }) => {
             const proxima = proximas.get(q)
             const m = atual ?? proxima
             const cessao = cessaoDa(q)

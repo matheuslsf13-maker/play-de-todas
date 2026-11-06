@@ -42,8 +42,9 @@ Abre <http://localhost:5173> no navegador. É o app inteiro, apontando para o
 Faça login normalmente para editar.
 
 > Quer testar sem mexer nos dados reais? Crie um arquivo `.env.local` na pasta
-> com `VITE_SUPABASE_URL=` e `VITE_SUPABASE_ANON_KEY=` vazios. O app cai no
-> **modo local** e guarda tudo só no navegador.
+> com `VITE_SUPABASE_URL=local` e `VITE_SUPABASE_ANON_KEY=local`. O app cai no
+> **modo local** e guarda tudo só no navegador. (Vazias não servem: aí o app usa
+> o Supabase de verdade de `src/config.ts`.)
 
 Para parar o servidor: `Ctrl + C` no terminal.
 

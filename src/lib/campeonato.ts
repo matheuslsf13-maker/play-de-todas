@@ -13,6 +13,7 @@
 import { chaveDaDupla, classificarDuplas, filaDeDuplas, substituirNasDuplas, type Duo as DuplaFixa } from './duplasFixas'
 import { duplasQueEntraram, duplasVivas, filaPorForca, ordenarFila, type PlannedMatch, nomeDaRodada, partidasDoRodizio, quadrasSimultaneas, type Colocacao } from './pairing'
 import { isPlayed, matchPoints } from './scoring'
+import { quadrasAbertas } from './quadras'
 import { DUPLAS_NO_PODIO, pairKey, pontosDeBye, rankDuplasDoDia } from './stats'
 import type { Categoria, DesempateDeGrupo, Match, MesclaDoPlay, PlaySession } from './types'
 
@@ -109,7 +110,7 @@ export function montarCategorias(
 
 /** As categorias do play; sem elas, uma categoria so com todos os grupos e todas as quadras. */
 export function categoriasDoPlay(
-  s: Pick<PlaySession, 'categorias' | 'groups' | 'courts'>,
+  s: Pick<PlaySession, 'categorias' | 'groups' | 'courts' | 'quadras_abertas'>,
 ): Categoria[] {
   if (s.categorias?.length) return s.categorias
   const grupos = s.groups?.length ? s.groups.map((_, i) => i) : [0]
@@ -117,7 +118,7 @@ export function categoriasDoPlay(
     {
       nome: nomeDaCategoria(0),
       grupos,
-      quadras: Array.from({ length: Math.max(1, s.courts) }, (_, i) => i + 1),
+      quadras: quadrasAbertas(s),
     },
   ]
 }
@@ -370,11 +371,13 @@ export function quadrasEfetivas(
   pendentes: number[],
   cedidas?: Record<string, number> | null,
   /** Total de quadras do play: as que passam das fixas (aberta com "➕ quadra") entram como cedidas. */
-  totalQuadras?: number,
+  totalQuadras?: number | number[],
 ): number[][] {
-  const out = cats.map((c, i) => (terminou[i] ? [] : c.quadras.slice()))
+  const abertas = Array.isArray(totalQuadras) ? totalQuadras : null
+  const fixasDa = (c: Categoria) => c.quadras.filter((q) => !abertas || abertas.includes(q))
+  const out = cats.map((c, i) => (terminou[i] ? [] : fixasDa(c)))
   const ativas = cats.map((_, i) => i).filter((i) => !terminou[i])
-  if (ativas.length === 0) return cats.map((c) => c.quadras.slice())
+  if (ativas.length === 0) return cats.map(fixasDa)
   const maisCheia = ativas.reduce((melhor, i) => ((pendentes[i] ?? 0) > (pendentes[melhor] ?? 0) ? i : melhor), ativas[0])
   const ceder = (q: number) => {
     const escolhida = cedidas?.[String(q)]
@@ -382,11 +385,17 @@ export function quadrasEfetivas(
     out[destino].push(q)
   }
   cats.forEach((c, i) => {
-    if (terminou[i]) c.quadras.forEach(ceder)
+    if (terminou[i]) fixasDa(c).forEach(ceder)
   })
   // quadra aberta no meio do campeonato nao e de categoria nenhuma
   const fixas = new Set(cats.flatMap((c) => c.quadras))
-  for (let q = 1; q <= (totalQuadras ?? 0); q++) if (!fixas.has(q)) ceder(q)
+  const todas = abertas ?? Array.from({ length: typeof totalQuadras === 'number' ? totalQuadras : 0 }, (_, i) => i + 1)
+  for (const q of todas) {
+    if (cedidas?.[String(q)] !== undefined && ativas.includes(cedidas[String(q)])) {
+      out.forEach((qs) => { const i = qs.indexOf(q); if (i >= 0) qs.splice(i, 1) })
+      ceder(q)
+    } else if (!fixas.has(q)) ceder(q)
+  }
   return out.map((qs) => [...new Set(qs)].sort((a, b) => a - b))
 }
 
@@ -458,7 +467,10 @@ export function aplicarMescla(s: PlaySession, m: MesclaDoPlay): PlaySession {
     case 'rounds':
       return { ...s, rounds: Math.max(s.rounds ?? 0, m.minimo) }
     case 'courts':
-      return { ...s, courts: Math.max(1, m.valor) }
+      return s.quadras_abertas ? s : { ...s, courts: Math.max(1, m.valor) }
+    case 'abrir_quadra':
+    case 'tirar_quadra':
+      return s // precisam tambem das partidas e do ID da operacao (mudarQuadra)
     case 'ranked':
       return { ...s, ranked: m.valor }
     case 'conta_status':

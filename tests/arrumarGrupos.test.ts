@@ -59,7 +59,7 @@ function jogarANoite(ids: string[], grupos: string[][], fila: PlannedMatch[], qu
     const id = naQuadra.get(q)
     naQuadra.delete(q)
     matches = matches.map((x) =>
-      x.id === id ? { ...x, score_a: 4, score_b: Math.floor(r() * 4), started_at: null, ended_at: new Date(agora * 60000).toISOString() } : x,
+      x.id === id ? { ...x, score_a: 4, score_b: Math.floor(r() * 4), ended_at: new Date(agora * 60000).toISOString() } : x,
     )
   }
   const jogadas = matches.filter((m) => m.score_a !== null)
