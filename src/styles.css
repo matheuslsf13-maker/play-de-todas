@@ -1696,3 +1696,29 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   font-size: 13px;
   line-height: 1.45;
 }
+
+/* ---------- area de toque de 44px, sem mexer no desenho ----------
+   O botao continua do tamanho que e; um pseudo-elemento transparente aumenta
+   so a area que responde ao dedo (centralizado, no minimo 44x44). Na fileira
+   rolavel o pseudo ficaria cortado, entao ela ganha folga em cima e embaixo. */
+.chip-topo, .btn.sm, .btn.step, .chip, .bt-tema, .linkish, .segmented button { position: relative; }
+.chip-topo::after, .btn.sm::after, .btn.step::after, .chip::after, .bt-tema::after, .linkish::after, .segmented button::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+.chips-scroll { padding: 7px 2px; margin-block: -5px; }
+/* nome-botao: o pseudo seria cortado pelo ellipsis, entao a folga e padding
+   com margem negativa (o layout nao muda). 14px < menor vao entre nomes (15px):
+   a area de um nome nunca alcanca o texto do vizinho. */
+.nome-link { padding-block: 14px; margin-block: -14px; }
+
+/* ha mais fichas escondidas a direita: esmaece a borda (some ao chegar no fim) */
+.chips-scroll.mais-dir {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}

@@ -1,3 +1,4 @@
+import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LIGA } from './liga'
 import { BotaoInstalar } from './components/InstalarApp'
@@ -60,6 +61,7 @@ export default function App() {
       /* sem localStorage: paciencia */
     }
   }, [tab])
+  useEffect(() => vigiarFileirasRolaveis(), [])
   /** Aba de Stats pedida por outra tela (o “ver a força” do Ranking). */
   const [abrirStats, setAbrirStats] = useState<'jogadora' | 'duplas' | 'forca' | { jogadora: string } | null>(null)
   /** Tocar no nome de uma menina (no Ranking) abre a ficha dela no Stats. */

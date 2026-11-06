@@ -740,6 +740,8 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [tudo, setTudo] = useState(false)
+  // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
+  const [aberto, setAberto] = useState<(typeof data.caixa)[number] | null>(null)
 
   const resumo = useMemo(() => resumoDoCaixa(data), [data])
   const doMes = data.caixa.filter((l) => monthOf(l.date) === mes).sort((a, b) => b.date.localeCompare(a.date))
@@ -889,7 +891,12 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
         ) : (
           <div className="stack">
             {doMes.map((l) => (
-              <div key={l.id} className="fila-linha">
+              <div
+                key={l.id}
+                className="fila-linha"
+                style={podeEditar ? { cursor: 'pointer', minHeight: 44 } : undefined}
+                {...(podeEditar ? { role: 'button', tabIndex: 0, onClick: () => setAberto(l), onKeyDown: (e: React.KeyboardEvent) => e.key === 'Enter' && setAberto(l) } : {})}
+              >
                 <span className="fila-num">{dateLabel(l.date).slice(0, 5)}</span>
                 <div className="grow">
                   <span className="fila-time"><b>{l.descricao || CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo}</b></span>
@@ -898,22 +905,36 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 <span className={l.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'}>
                   {l.tipo === 'entrada' ? '+' : '−'} {formatarReais(l.valor)}
                 </span>
-                {podeEditar && (
-                  <button
-                    className="btn danger sm"
-                    onClick={() => {
-                      if (!confirm(`Apagar "${l.descricao || 'este lançamento'}" (${formatarReais(l.valor)})?`)) return
-                      deleteCaixa(l.id)
-                    }}
-                  >
-                    🗑
-                  </button>
-                )}
               </div>
             ))}
           </div>
         )}
       </div>
+      {aberto && (
+        <Modal title="Lançamento do caixa" onClose={() => setAberto(null)}>
+          <div className="stack">
+            <div>
+              <b>{aberto.descricao || CATEGORIAS_DE_CAIXA.find((c) => c.valor === aberto.categoria)?.rotulo}</b>
+              <div className="tiny muted">{CATEGORIAS_DE_CAIXA.find((c) => c.valor === aberto.categoria)?.rotulo ?? aberto.categoria}</div>
+            </div>
+            <div className="tiny muted">{dateLabel(aberto.date)}</div>
+            <div className={aberto.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'} style={{ fontSize: 22, fontWeight: 800 }}>
+              {aberto.tipo === 'entrada' ? '+' : '−'} {formatarReais(aberto.valor)}
+            </div>
+            <button
+              className="btn danger block"
+              onClick={() => {
+                if (!confirm(`Apagar "${aberto.descricao || 'este lançamento'}" (${formatarReais(aberto.valor)})?`)) return
+                deleteCaixa(aberto.id)
+                setAberto(null)
+                onToast('Lançamento apagado')
+              }}
+            >
+              🗑 Apagar lançamento
+            </button>
+          </div>
+        </Modal>
+      )}
     </>
   )
 }
