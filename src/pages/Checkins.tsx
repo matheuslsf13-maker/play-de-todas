@@ -958,7 +958,6 @@ function SecaoPadroes({ podeEditar, onToast }: { podeEditar: boolean; onToast: (
                 {renomeando?.id === l.id ? (
                   <input
                     className="input"
-                    autoFocus
                     value={renomeando.nome}
                     onChange={(e) => setRenomeando({ id: l.id, nome: e.target.value })}
                     onKeyDown={(e) => {

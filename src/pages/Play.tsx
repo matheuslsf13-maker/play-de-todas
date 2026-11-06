@@ -5407,7 +5407,6 @@ function PlacarManual({
             inputMode="numeric"
             min={0}
             value={aTexto}
-            autoFocus
             onChange={(e) => setA(e.target.value)}
           />
         </label>
@@ -5616,7 +5615,6 @@ function SubstituirJogadora({
               style={{ marginTop: 8 }}
               placeholder="Nome de quem entra"
               value={nome}
-              autoFocus
               onChange={(e) => setNome(e.target.value)}
             />
             <em className="hint" style={{ marginTop: 6 }}>

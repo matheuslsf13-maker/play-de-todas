@@ -39,6 +39,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const [editando, setEditando] = useState<Player | null>(null)
   /** Filtro da lista: nome, apelido ou outra grafia, sem acento. */
   const [busca, setBusca] = useState('')
+  // o formulario de cadastro fica fechado: a lista e o que se usa toda hora
+  const [novaAberta, setNovaAberta] = useState(false)
   /** Os filtros por chip ficam guardados no aparelho, como a aba aberta. */
   const [filtro, setFiltro] = useState<Filtro>(lerFiltro)
   const mudarFiltro = (f: Partial<Filtro>) => {
@@ -129,6 +131,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
     // a categoria fica para a proxima de proposito (costuma ser a mesma para
     // uma leva); a forca e de cada pessoa, e nao pode vazar
     setNovaForca(null)
+    setNovaAberta(false)
     onToast(`${n} entrou no grupo 🎾`)
   }
 
@@ -169,9 +172,12 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
 
   return (
     <>
-      {canEdit && (
+      {canEdit && novaAberta && (
         <div className="card">
-          <div className="section-title">➕ Nova jogadora</div>
+          <div className="row spread">
+            <div className="section-title">➕ Nova atleta</div>
+            <button className="btn ghost sm" onClick={() => setNovaAberta(false)}>Cancelar</button>
+          </div>
           <div className="row">
             <input
               className="input grow"
@@ -249,7 +255,12 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
       )}
 
       <div className="card">
-        <div className="section-title">👯 Jogadoras ({data.players.filter((p) => p.active).length} ativas)</div>
+        <div className="row spread">
+          <div className="section-title">👯 Jogadoras ({data.players.filter((p) => p.active).length} ativas)</div>
+          {canEdit && !novaAberta && (
+            <button className="btn pink sm" style={{ flex: 'none', whiteSpace: 'nowrap' }} onClick={() => setNovaAberta(true)}>➕ Nova atleta</button>
+          )}
+        </div>
         <input
           className="input"
           type="search"
@@ -622,7 +633,7 @@ function EditarPerfil({
     <Modal title={`Perfil de ${jogadora.name}`} onClose={onClose}>
       <label className="field">
         <span>Nome de cadastro</span>
-        <input className="input" value={nome} autoFocus onChange={(e) => setNome(e.target.value)} />
+        <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} />
       </label>
       <p className="tiny muted" style={{ marginTop: 6 }}>
         O nome completo, para conferir a lista sem confundir duas Anas. Só aparece aqui.
