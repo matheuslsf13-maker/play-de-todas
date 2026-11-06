@@ -136,8 +136,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 20;
   margin: 0 -14px 14px;
   /* instalado na tela de inicio o app ocupa a area do relogio/notch:
-     sem esta folga o botao Entrar fica embaixo da barra de status */
+     sem esta folga os botoes do topo ficam embaixo da barra de status */
   padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+  /* altura explicita (linha medida no App) para animar o encolher; sem a
+     medida a conta fica invalida e vale a altura natural */
+  height: var(--topo-alto);
+  overflow: hidden;
+  transition: height .22s ease, margin-bottom .22s ease;
   /* escuro nos DOIS temas (o texto e as pilulas dele sao claros de proposito):
      comecando no fundo-2, no tema claro o lado esquerdo ficava claro e o texto
      pequeno sumia */
@@ -163,6 +168,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+/* topo compacto (rolou a tela): uma linha so, com logo, nome e tema. A altura
+   que ele perde volta como margem, entao o conteudo de baixo fica parado */
+.app { --topo-alto: calc(var(--topo-linha) + 26px + env(safe-area-inset-top)); }
+.app.topo-compacto { --topo-alto: calc(50px + env(safe-area-inset-top)); }
+.topo-compacto .topbar {
+  padding-top: calc(8px + env(safe-area-inset-top));
+  padding-bottom: 8px;
+  margin-bottom: calc(14px + var(--topo-linha) + 26px - 50px);
+}
+/* o tamanho da logo vem inline do componente */
+.topo-compacto .topbar img, .topo-compacto .topbar svg { width: 34px !important; height: 34px !important; }
+.topo-compacto .topbar h1 { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topo-compacto .topbar .sub { display: none; }
+.topo-compacto .bt-tema { width: 32px; height: 32px; font-size: 15px; border-radius: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  .topbar { transition: none; }
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .dot.on { background: var(--teal); }
@@ -509,7 +531,7 @@ hr.sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
 .row.queen .badge.open { background: var(--fundo-2); color: var(--yellow); }
 
 /* ---------- lancamento de placar no celular ---------- */
-.round-nav { padding: 12px; position: sticky; top: calc(74px + env(safe-area-inset-top)); z-index: 15; }
+.round-nav { padding: 12px; position: sticky; top: var(--topo-alto, calc(74px + env(safe-area-inset-top))); z-index: 15; }
 .chips-scroll {
   display: flex;
   gap: 6px;

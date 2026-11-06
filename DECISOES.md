@@ -772,6 +772,21 @@ Detalhes que custaram atenção:
   `maxTouchPoints > 1`;
 - quem não quiser some com o cartão, e a escolha fica guardada no aparelho.
 
+## Topo que encolhe e o Entrar no rodapé (05/11/2026)
+
+O botão rosa **Entrar** do topo atraía as atletas, que achavam que precisavam
+entrar. Saiu do topo: virou o link discreto "🔒 Área da organização" no rodapé,
+ao lado da versão (a janela continua "Entrar como organizadora"). O **Sair** de
+quem está logada continua no topo.
+
+O topo fixo ocupava até ~1/5 da tela (156px a 360px, visitante). Agora, passados
+**80px** de rolagem, ele vira uma linha só (logo, nome, tema) e só volta perto do
+início (**16px**) — a histerese evita piscar no limiar. O detalhe que importa:
+a altura que o topo perde volta como **margem** embaixo dele (`--topo-linha`
+medida no `App.tsx`, `--topo-alto` no CSS). Sem isso o conteúdo pula ~50px e o
+Chrome, com a ancoragem de rolagem, corrige o `scrollY` pelo mesmo tanto — o que
+pode trazer a rolagem de volta para o outro lado do limiar e fazer o topo oscilar.
+
 ## Infra
 
 - **Supabase**: leitura pública (o grupo do WhatsApp só abre o link), escrita só

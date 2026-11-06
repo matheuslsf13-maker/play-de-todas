@@ -80,6 +80,42 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [tab])
   const [login, setLogin] = useState(false)
+
+  // topo que encolhe ao rolar, com histerese: encolhe passados 80px e so volta
+  // perto do inicio (no limiar ele nao fica piscando)
+  const [compacto, setCompacto] = useState(false)
+  useEffect(() => {
+    let quadro = 0
+    const olhar = () => {
+      quadro = 0
+      const y = window.scrollY
+      setCompacto((c) => (c ? y > 16 : y > 80))
+    }
+    const aoRolar = () => {
+      if (!quadro) quadro = requestAnimationFrame(olhar)
+    }
+    window.addEventListener('scroll', aoRolar, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', aoRolar)
+      cancelAnimationFrame(quadro)
+    }
+  }, [])
+  // altura da linha do topo normal, para o CSS animar a altura e devolver em
+  // margem o que o topo perde: o conteudo nao pula (nem a rolagem, que faria o
+  // topo oscilar). Medida so no topo normal; no compacto a linha encolhe.
+  const appRef = useRef<HTMLDivElement>(null)
+  const linhaRef = useRef<HTMLDivElement>(null)
+  const compactoRef = useRef(compacto)
+  compactoRef.current = compacto
+  useEffect(() => {
+    const linha = linhaRef.current
+    if (!linha || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      if (!compactoRef.current) appRef.current?.style.setProperty('--topo-linha', `${linha.offsetHeight}px`)
+    })
+    ro.observe(linha)
+    return () => ro.disconnect()
+  }, [])
   const [tema, setTema] = useState<Tema>(() => temaSalvo())
   const { msg, show } = useToast()
 
@@ -90,9 +126,9 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={compacto ? 'app topo-compacto' : 'app'} ref={appRef}>
       <header className="topbar">
-        <div className="row spread">
+        <div className="row spread" ref={linhaRef}>
           <Logo size={46} />
           <div className="grow">
             <h1>Play <span>de Todas</span></h1>
@@ -121,11 +157,7 @@ export default function App() {
           >
             {tema === 'escuro' ? '☀️' : '🌙'}
           </button>
-          {online && (
-            userEmail
-              ? <button className="btn ghost sm" onClick={() => void signOut()}>Sair</button>
-              : <button className="btn pink sm" onClick={() => setLogin(true)}>Entrar</button>
-          )}
+          {online && userEmail && <button className="btn ghost sm" onClick={() => void signOut()}>Sair</button>}
         </div>
       </header>
 
@@ -184,6 +216,13 @@ export default function App() {
         >
           forçar atualização
         </button>
+        {/* o Entrar saiu do topo: atletas tocavam nele achando que precisavam entrar */}
+        {online && !userEmail && (
+          <>
+            {' · '}
+            <button className="linkish" onClick={() => setLogin(true)}>🔒 Área da organização</button>
+          </>
+        )}
       </p>
 
       <nav className="tabbar">
