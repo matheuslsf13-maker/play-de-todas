@@ -292,8 +292,9 @@ export function novoCodigo(): string {
 function cabecalho(lista: Lista, vagas: string, aberta = true): string {
   return [
     `🎾 *${lista.titulo}* — ${quandoComData(lista.play_em)}`,
-    aberta ? `📋 Lista aberta até ${quandoComData(lista.fecha_em)} · ${vagas}` : `📋 Lista fechada · ${vagas}`,
-    ...(lista.texto?.trim() ? [lista.texto.trim()] : []),
+    aberta ? `📋 Lista aberta até ${quandoComData(lista.fecha_em)}` : '📋 Lista fechada',
+    `👥 ${vagas}`,
+    ...(lista.texto?.trim() ? ['', lista.texto.trim()] : []),
   ].join('\n')
 }
 
@@ -302,10 +303,11 @@ export function mensagemDoLink(lista: Lista, url: string): string {
   return [
     cabecalho(lista, plural(lista.vagas, 'vaga')),
     '',
-    'Coloque seu nome e sobrenome pelo link:',
+    '👉 Coloque seu nome e sobrenome pelo link:',
     url,
     '',
     AVISO_DAS_MENSALISTAS,
+    '',
     AVISO_DE_SAIDA,
   ].join('\n')
 }
@@ -329,10 +331,11 @@ export function mensagemDeAtualizacao(
     ...(titulares.length ? titulares.map(linha) : ['(ninguém ainda)']),
     ...(suplentes.length ? ['', '⏳ *Suplentes*', ...suplentes.map(linha)] : []),
     '',
-    aberta ? 'Coloque seu nome e sobrenome pelo link:' : 'A lista fechou. Para conferir:',
+    aberta ? '👉 Coloque seu nome e sobrenome pelo link:' : 'A lista fechou. Para conferir:',
     url,
     '',
     AVISO_DAS_MENSALISTAS,
+    '',
     AVISO_DE_SAIDA,
   ].join('\n')
 }

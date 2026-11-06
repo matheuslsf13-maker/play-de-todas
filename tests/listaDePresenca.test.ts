@@ -291,7 +291,7 @@ test('mensagem de atualizacao: confirmadas numeradas com 📅, suplentes, o mesm
   // fechada: o cabecalho nao diz mais "aberta"
   const fechada = mensagemDeAtualizacao({ ...LISTA, vagas: 2, fechada: true }, nomes, (id) => id, url, new Date('2026-11-07T12:00:00Z'))
   assert.ok(!fechada.includes('Lista aberta'))
-  assert.match(fechada, /📋 Lista fechada · 2\/2 · 1 suplente/)
+  assert.match(fechada, /📋 Lista fechada\n👥 2\/2 · 1 suplente/)
   assert.match(fechada, /A lista fechou\. Para conferir:/)
 })
 
@@ -403,4 +403,10 @@ test('copia da apagada: trazidos primeiro, mensalistas sem repetir', () => {
     ['Ana Souza', 'Bia Lima', 'Mara Nova', 'Cris', 'Duda', 'Eva'],
     'depois da ultima garantida; quem tinha saido (px) nao volta',
   )
+})
+
+test('mensagem do link: vagas em linha propria e o link sem quebra', () => {
+  const msg = mensagemDoLink(LISTA, 'https://playdetodas.com.br/?lista=abc')
+  assert.match(msg, /às 18h\n👥 16 vagas/)
+  assert.ok(msg.includes('\nhttps://playdetodas.com.br/?lista=abc\n'))
 })

@@ -15,7 +15,8 @@ export function codigoDaUrl(): string | null {
 
 /** A URL do link, a partir de onde o app esta publicado (a raiz no site). */
 export function baseDoApp(): string {
-  return window.location.origin + import.meta.env.BASE_URL
+  // o BASE_URL e './': somado a origem dava 'playdetodas.com.br./' (link quebrado no WhatsApp, 06/11)
+  return new URL(import.meta.env.BASE_URL, window.location.href).href.split(/[?#]/)[0]
 }
 
 /**
