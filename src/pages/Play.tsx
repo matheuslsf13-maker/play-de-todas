@@ -277,16 +277,17 @@ function PlayList({
                     <div className="row" style={{ gap: 8 }}>
                       <strong className="ellipsis">{s.title}</strong>
                       <span className={`badge ${s.status}`}>{s.status === 'open' ? 'em andamento' : 'finalizado'}</span>
-                      {s.ranked === false && <span className="badge avulso">avulso</span>}
-                      {!contaNoStatus(s) && <span className="badge avulso">sem 🔥</span>}
                     </div>
                     <div className="tiny muted">
                       {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {done === ms.length ? ms.length : `${done}/${ms.length}`} partidas
                     </div>
-                    {selo && (
-                      <div className="row" style={{ gap: 8, marginTop: 4 }}>
-                        <span className="tiny nowrap" style={{ fontWeight: 800 }} title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span>
-                        {selo.selo && <span className="selo-do-play" style={{ marginTop: 0 }}>{selo.selo.emoji} {selo.selo.nome}</span>}
+                    {(selo || s.ranked === false || !contaNoStatus(s)) && (
+                      // avulso e sem 🔥 descem para ca: no titulo espremiam o nome do play ate sumir
+                      <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
+                        {selo && <span className="tiny nowrap" style={{ fontWeight: 800 }} title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span>}
+                        {selo?.selo && <span className="selo-do-play" style={{ marginTop: 0 }}>{selo.selo.emoji} {selo.selo.nome}</span>}
+                        {s.ranked === false && <span className="badge avulso">avulso</span>}
+                        {!contaNoStatus(s) && <span className="badge avulso">sem 🔥</span>}
                       </div>
                     )}
                   </div>

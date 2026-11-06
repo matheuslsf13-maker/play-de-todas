@@ -321,6 +321,7 @@ label.field { display: block; }
 
 .badge {
   display: inline-block;
+  white-space: nowrap;
   padding: 3px 9px;
   border-radius: 999px;
   font-size: 11px;
