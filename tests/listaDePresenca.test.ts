@@ -22,6 +22,7 @@ import {
   textoDaPosicao,
   urlDaLista,
   validarNome,
+  validarNomeDaAtleta,
   vinculoAutomatico,
   ehMensalista,
   sugestaoDeVinculo,
@@ -298,4 +299,14 @@ test('sugestao para a organizadora: as duas Bruna aparecem e nenhuma ganha o toq
   // so o primeiro nome igual nao basta para o botao de um toque
   assert.equal(sugestaoSegura('Maria Teste Silva', ps), undefined)
   assert.equal(sugestaoDeVinculo('Maria Teste Silva', ps)[0]?.player.id, 'm', 'mas aparece no menu')
+})
+
+test('validarNomeDaAtleta: exige nome e sobrenome', () => {
+  for (const ok of ['Ana Souza', 'Maria de Souza', "Ana D'Ávila", 'Ana Lúcia', 'Maria-Clara Souza', '  bruna   caiban ']) {
+    assert.ok('nome' in validarNomeDaAtleta(ok), `aceita ${JSON.stringify(ok)}`)
+  }
+  for (const ruim of ['Pamela', 'Tete', 'Ana M.', 'Maria-Clara', 'Ana D', 'ab', '1234']) {
+    assert.ok('erro' in validarNomeDaAtleta(ruim), `recusa ${JSON.stringify(ruim)}`)
+  }
+  assert.deepEqual(validarNome('Tete'), { nome: 'Tete' }, 'a organizadora segue podendo adicionar um nome so')
 })

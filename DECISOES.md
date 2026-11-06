@@ -1144,6 +1144,9 @@ Resumo do que decide o comportamento:
     lista; o Novo Play comum continua com o portão de sempre.
   - **D37** A pergunta "avisou com 24h?" só vale para pré-incluída ou mensalista em dia para o play;
     quem não renovou entrou como avulsa e sai como avulsa.
+  - **D38** (dono, 06/11) No link a atleta escreve **nome e sobrenome** (`validarNomeDaAtleta`: 2+
+    palavras de 2+ letras; "Ana M." e "Maria-Clara" sozinhas não passam). Junto com o D33, o vínculo
+    automático passa a funcionar para quase todas. Só na tela: o banco segue aceitando uma palavra.
   - **Risco conhecido, a decidir pelo dono:** "um nome por celular" não segura quem chama a função
     com códigos inventados (a chave do site é pública). Um atacante enche a lista até o teto
     (vagas × 3) e trava a entrada; a organizadora tira um por um. Opções: limite de colocações por

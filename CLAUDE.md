@@ -113,6 +113,9 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **Celular**: `CHAVE.aparelho` (UUID), `listaNome` (último nome), `listaMeus` (`{lista: nome}`).
   "Tirar meu nome" só aparece no nome colocado por este celular (WhatsApp/Safari com armazenamento
   separado: pede à organização).
+- **A atleta escreve nome e sobrenome** (`validarNomeDaAtleta`: 2+ palavras de 2+ letras; pedido do dono
+  em 06/11). A organizadora ainda adiciona um nome só; o banco aceita uma palavra (burlar a tela só
+  perde o vínculo automático).
 - **Cada nome**: vinculado = foto + 💪 força (em avaliação: `🔍 n/3` para visitante); sem vínculo = só
   o texto. **Vínculo automático** (banco e `vinculoAutomatico`): grafia = nome/apelido/alias de **um**
   cadastro só (as duas "Bruna" não vinculam). Ao vincular, a grafia vai para `players.aliases`.

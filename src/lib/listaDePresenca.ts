@@ -112,6 +112,19 @@ export function validarNome(texto: string): { nome: string } | { erro: string } 
   return { nome }
 }
 
+/**
+ * O formulario da atleta pede nome E sobrenome (2+ palavras de 2+ letras): sem isso o vinculo
+ * automatico nao acontece (D33) e a organizadora teria de vincular a mao. A organizadora segue
+ * podendo adicionar um nome so. O banco aceita uma palavra (quem burla a tela so perde o vinculo).
+ */
+export function validarNomeDaAtleta(texto: string): { nome: string } | { erro: string } {
+  const v = validarNome(texto)
+  if ('erro' in v) return v
+  const palavras = v.nome.split(' ').filter((p) => p.replace(/[.']/g, '').length >= 2)
+  if (palavras.length < 2) return { erro: 'Escreva nome e sobrenome (ex.: Ana Souza).' }
+  return v
+}
+
 // ---------------------------------------------------------------- ordem
 
 export function chaveDeOrdem(n: NomeNaLista): number {
@@ -289,7 +302,7 @@ export function mensagemDoLink(lista: Lista, url: string): string {
   return [
     cabecalho(lista, plural(lista.vagas, 'vaga')),
     '',
-    'Coloque seu nome completo pelo link:',
+    'Coloque seu nome e sobrenome pelo link:',
     url,
     '',
     AVISO_DE_SAIDA,
@@ -316,7 +329,7 @@ export function mensagemDeAtualizacao(
     ...(titulares.length ? titulares.map(linha) : ['(ninguém ainda)']),
     ...(suplentes.length ? ['', '⏳ *Suplentes*', ...suplentes.map(linha)] : []),
     '',
-    aberta ? 'Coloque seu nome completo pelo link:' : 'A lista fechou. Para conferir:',
+    aberta ? 'Coloque seu nome e sobrenome pelo link:' : 'A lista fechou. Para conferir:',
     url,
     '',
     AVISO_DE_SAIDA,

@@ -23,7 +23,7 @@ import {
   sugestaoSegura,
   textoDaPosicao,
   urlDaLista,
-  validarNome,
+  validarNomeDaAtleta,
   type Lista,
   type ListaCompleta,
   type NomeNaLista,
@@ -345,7 +345,7 @@ function ColocarNome({
   const [busy, setBusy] = useState(false)
 
   async function colocar() {
-    const v = validarNome(texto)
+    const v = validarNomeDaAtleta(texto)
     if ('erro' in v) {
       setErro(v.erro)
       return
@@ -374,7 +374,7 @@ function ColocarNome({
       <div className="section-title">✍️ Colocar meu nome</div>
       <div className="stack">
         <label className="field">
-          <span>Seu nome completo</span>
+          <span>Seu nome e sobrenome</span>
           <input
             className="input"
             value={texto}
@@ -386,7 +386,7 @@ function ColocarNome({
             onKeyDown={(e) => e.key === 'Enter' && void colocar()}
           />
         </label>
-        <p className="tiny muted" style={{ margin: '-4px 0 0' }}>Use o nome completo, como a organização conhece você.</p>
+        <p className="tiny muted" style={{ margin: '-4px 0 0' }}>Nome e sobrenome, como a organização conhece você.</p>
         {erro && <div className="banner err" style={{ margin: 0 }}>{erro}</div>}
         <button className="btn pink block" disabled={busy || !texto.trim()} onClick={() => void colocar()}>
           {busy ? 'Colocando…' : 'Colocar meu nome'}
