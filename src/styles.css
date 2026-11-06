@@ -1863,7 +1863,7 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   z-index: -1;
   pointer-events: none;
 }
-.card.momento.m-fechada { --m: var(--purple); --m-suave: var(--purple-suave); }
+.card.momento.m-fechada { --m: var(--danger); --m-suave: var(--danger-suave); } /* fechada em vermelho (dono, 06/11) */
 .card.momento.m-vivo { --m: var(--pink); --m-suave: var(--pink-suave); }
 .card.momento.m-podio { --m: var(--ouro); --m-suave: var(--ouro-suave); }
 .momento-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
@@ -1957,7 +1957,7 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   cursor: pointer;
 }
 .momento-faixa-texto { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.momento-faixa-acao { color: var(--muted); white-space: nowrap; }
+.momento-faixa-acao { color: var(--text); white-space: nowrap; border: 1px solid var(--pink); border-radius: 999px; padding: 6px 12px; }
 .momento-rostos { display: flex; align-items: center; padding-left: 6px; }
 .momento-rostos > .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--card); }
 .momento-mais {
@@ -1971,7 +1971,19 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 }
 .momento-recado { font-size: 14px; font-weight: 800; color: var(--text); }
 .momento-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.momento-acao { font-size: 12px; font-weight: 700; color: var(--muted); }
+/* parece botao (dono, 06/11): pilula na cor do momento, para ninguem achar que o cartao e so aviso */
+.momento-acao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--m);
+  background: var(--m-suave);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
 /* o segundo toque (as partidas) fica por cima do toque do cartao */
 .momento-extra {
   position: relative;
