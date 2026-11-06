@@ -1329,7 +1329,7 @@ preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidad
 - **Selo do ➕**: partidas completas que podem entrar agora, com quatro atletas livres,
   sem quem não chegou, descontando as quadras abertas vazias. Sai da **mesma fila dos cards**
   (`estadoDasQuadras`, `src/lib/quadras.ts`, usando `filaPorGrupo`/`proximasPelaFila`), reservando
-  as sugestões e escolhas manuais sem repetir atletas. 2 → abre uma → 1. Zero não abre e avisa
+  as sugestões e escolhas manuais sem repetir atletas. 2 → abre uma → 1. Zero: o selo some, o ➕ não abre e avisa
   **"Nenhum jogo pronto para outra quadra agora"**. Mata-mata ainda não montado não conta.
 - Categorias: a quadra aberta vai para a categoria do jogo pronto; números fechados saem da
   distribuição e da previsão. Se uma categoria ficou com menos quadras que grupos, os grupos
@@ -1360,7 +1360,7 @@ preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidad
 - **Verificação**: TDD com falha inicial e uma regressão de revezamento reproduzida antes de
   corrigir; 263 testes (16 novos), typecheck e builds feminino/masculino/misto. PGlite: 27
   verificações nos três schemas. Adaptador com banco simulado: 6 cenários de concorrência,
-  reenvio e banco sem o 33. Navegador local: 14 prints de 375px (claro/escuro), incluindo os
+  reenvio e banco sem o 33. Navegador local: 14 prints de 360px (claro/escuro), incluindo os
   avisos, números físicos e mínimo de uma; também duplas fixas, cards concorrentes, alvos de
   toque e movimento reduzido. Relatório e roteiros em `pdt-teste/RELATORIO-QUADRAS.md`.
   Sem push, publicação, login ou SQL real. PostgREST/Realtime reais e celulares físicos não

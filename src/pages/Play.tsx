@@ -3497,9 +3497,11 @@ function PlayDetail({
                     onToast('Para tirar esta quadra, aplique o script 33 no banco')
                     return
                   }
+                  // a mesma escolha de mudarQuadra; outro celular pode mudar o resultado no banco
+                  const q = legadoQuadras ? session.courts : estadoQuadras.livres[estadoQuadras.livres.length - 1]
                   mesclarNoPlay(session.id, { campo: 'tirar_quadra' })
-                  anotarNoPlay(session.id, novoEvento('quadra', 'Pedido para tirar uma quadra sem uso'))
-                  onToast('Retirada de quadra solicitada')
+                  anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${q} tirada`))
+                  onToast(`Quadra ${q} tirada`)
                 }}
               >
                 ➖ quadra
@@ -3513,12 +3515,15 @@ function PlayDetail({
                     onToast('Nenhum jogo pronto para outra quadra agora')
                     return
                   }
+                  let q = 1
+                  if (legadoQuadras) q = session.courts + 1
+                  else while (quadras.includes(q)) q++
                   mesclarNoPlay(session.id, { campo: 'abrir_quadra' })
-                  anotarNoPlay(session.id, novoEvento('quadra', 'Pedido para abrir outra quadra'))
-                  onToast('Abertura de quadra solicitada')
+                  anotarNoPlay(session.id, novoEvento('quadra', `Quadra ${q} aberta`))
+                  onToast(`Quadra ${q} aberta: já sugeri a próxima partida`)
                 }}
               >
-                <span className="selo-quadras" aria-hidden="true">{estadoQuadras.abrir.length}</span>
+                {estadoQuadras.abrir.length > 0 && <span className="selo-quadras" aria-hidden="true">{estadoQuadras.abrir.length}</span>}
                 ➕ quadra
               </button>
               <button className="btn ghost sm" onClick={() => setMarcandoAusentes(true)}>

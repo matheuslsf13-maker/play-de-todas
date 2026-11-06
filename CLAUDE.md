@@ -571,9 +571,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   indisponível) o grupo sem quadra só entrava quando outro não tinha partida e a organizadora
   trocava na mão; medido em `tests/revezar.test.ts`: a maior espera de um grupo caiu de 137
   para 15 min. O campeonato (quadras fixas por categoria) não muda.
-- **Quadra a mais no meio do play** ("➕ quadra" no card das quadras): só muda
-  `sessions.courts`; a quadra nova aparece livre e já puxa a próxima da fila. Tirar
-  só a última, e só vazia — reduzir com jogo em andamento sumiria com ele da tela.
+- **➕/➖ quadra no meio do play** (D44, `src/lib/quadras.ts`, script 33): o ➕ mostra um selo
+  com quantos jogos completos podem entrar agora (some no zero; tocar sem jogo pronto avisa) e
+  abre o menor número fechado. O ➖ tira uma quadra **sem jogo em andamento** (a livre de maior
+  número, fixa de categoria inclusive); todas em jogo ou só 1 quadra: tremidinha e aviso.
+  Mínimo 1. Números físicos em `sessions.quadras_abertas` (`[1, 3, 4]` não renumera); a fila
+  manda "abrir/tirar uma", nunca o total. Sem o 33 só tira a última, livre e não fixa.
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
   quadra parada e a troca de jogadoras. **O placar guarda o `started_at`** (D43; antes
