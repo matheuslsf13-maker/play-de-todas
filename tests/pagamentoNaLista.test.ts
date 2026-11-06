@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { pagoAvulsoDaLista } from '../src/lib/pagamentoNaLista'
+import { consumirAvulsos, situacaoDoAtleta } from '../src/lib/mensalidade'
 import { contaInicial, diaDaLista, diaJaExiste, diaParaLigar, prepararPagamento, retrato, tipoNaLista, valorInicial } from '../src/lib/pagamentoNaLista'
 import { emptyData, type AppData, type CheckinConta, type CheckinDia, type CheckinLocal, type Player } from '../src/lib/types'
 import { saldoDaAtleta } from '../src/lib/checkins'
@@ -23,10 +25,55 @@ function gravar(d: AppData, dia: CheckinDia, pago: number, modo: 'integral' | 'c
   }
 }
 
-test('categoria: so a avulsa e cobrada; mensalista, convidada e isenta ficam de fora; sem cadastro pede vinculo', () => {
-  assert.equal(tipoNaLista(undefined), 'vincular')
-  for (const categoria of ['mensalista', 'convidada', 'isenta', 'avulsa']) assert.equal(tipoNaLista({ ...atleta, categoria }), categoria)
-  assert.equal(tipoNaLista({ ...atleta, categoria: undefined }), 'mensalista') // sem categoria = mensalista (categoriaDe)
+test('categoria: avulsa e cobrada; convidada e isenta nao; sem cadastro pede vinculo', () => {
+  assert.equal(tipoNaLista(undefined, lista), 'vincular')
+  for (const categoria of ['convidada', 'isenta', 'avulsa']) assert.equal(tipoNaLista({ ...atleta, categoria }, lista), categoria)
+})
+
+test('mensalista: em dia nao e cobrada; atrasada depois do dia 5 e cobrada como avulsa', () => {
+  const m = (pago_mes: string | null) => ({ ...atleta, categoria: 'mensalista', pago_mes }) as Player
+  // play 09/11 (depois do dia 5)
+  assert.equal(tipoNaLista(m('2026-11'), lista), 'mensalista')
+  assert.equal(tipoNaLista(m('2026-10'), lista), 'mensalista-atrasada')
+  assert.equal(tipoNaLista(m(null), lista), 'mensalista-atrasada')
+  // play 02/11 (ate o dia 5): com outubro pago ainda esta no prazo
+  const cedo = { ...lista, play_em: '2026-11-02T23:00:00Z' }
+  assert.equal(tipoNaLista(m('2026-10'), cedo), 'mensalista')
+  assert.equal(tipoNaLista(m('2026-09'), cedo), 'mensalista-atrasada')
+  // atrasada paga o play, nao o mes: o 💰 nao mexe no cadastro dela
+  assert.equal(pagoAvulsoDaLista(dados(), lista, m('2026-10'), true), null)
+})
+
+test('pago da avulsa em Meninas: marca ao lancar, desmarca ao desfazer; finalizar gasta o credito', () => {
+  const d = dados()
+  const marcada = pagoAvulsoDaLista(d, lista, atleta, true)!
+  assert.equal(marcada.pago_avulso, true)
+  assert.equal(situacaoDoAtleta(marcada, d).rotulo, 'Avulsa paga (vale 1 play)')
+  assert.equal(pagoAvulsoDaLista(d, lista, marcada, true), null) // ja marcada: nada a gravar
+  assert.equal(pagoAvulsoDaLista(d, lista, marcada, false)?.pago_avulso, false) // desfazer
+  // o play da lista foi finalizado: o credito e gasto como sempre e o 💰 nao devolve nem tira credito depois
+  const play = { id: 's1', status: 'finished', player_ids: [atleta.id] } as AppData['sessions'][number]
+  const depois = { ...d, players: [marcada], sessions: [play] }
+  const gastas = consumirAvulsos([atleta.id], depois)
+  assert.equal(gastas[0].pago_avulso, false)
+  assert.equal(situacaoDoAtleta(gastas[0], depois).rotulo, 'Avulsa a pagar')
+  const ligada = { ...lista, session_id: 's1' }
+  assert.equal(pagoAvulsoDaLista(depois, ligada, gastas[0], true), null)
+  assert.equal(pagoAvulsoDaLista(depois, ligada, marcada, false), null)
+  const reaberto = { ...depois, sessions: [{ ...play, status: 'open', eventos: [{ tipo: 'reabrir' }] } as unknown as AppData['sessions'][number]] }
+  assert.equal(pagoAvulsoDaLista(reaberto, ligada, gastas[0], true), null) // o 2o Finalizar nao gastaria
+})
+
+test('desfazer e pagar de novo: reusa o dia que ficou vazio, sem criar outro', () => {
+  const dia = diaDaLista(dados(), lista)
+  let d = gravar(dados(), dia, 50)
+  d = { ...d, checkins: [], checkinPagamentos: [] } // desfazer: apaga o lancamento, o dia fica
+  assert.equal(d.checkinDias.length, 1)
+  const outra = diaDaLista(d, lista)
+  assert.equal(outra.id, dia.id); assert.equal(diaJaExiste(d, outra), true) // sem aviso de "dia novo"
+  d = gravar(d, outra, 50)
+  assert.equal(d.checkinDias.length, 1); assert.equal(d.checkins.length, 1)
+  assert.equal(saldoDaAtleta(d, atleta.id).saldo, 0)
 })
 
 test('dia: sem dia, cria um novo com os valores do ultimo; reusa o da data; recusa dia ambiguo', () => {

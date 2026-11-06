@@ -1,4 +1,4 @@
-import { categoriaDe } from './mensalidade'
+import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
 import { centavos, checkinDaAtletaNoDia, creditoDisponivel, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
 import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player } from './types'
@@ -14,8 +14,33 @@ export const VALOR_CHEIO_INICIAL = 50
 export const VALOR_COM_CHECKIN_INICIAL = 25
 export type RetratoPagamento = { checkin: Checkin; pagamento: CheckinPagamento | null }
 
-/** Sem cadastro ligado: 'vincular'. Mensalista, convidada e isenta nao sao cobradas pela lista. */
-export const tipoNaLista = (p?: Player) => (p ? categoriaDe(p) : 'vincular')
+/**
+ * Quem a lista cobra. Sem cadastro: 'vincular'. Convidada e isenta nao pagam.
+ * Mensalista em dia no play (mes pago, ou ate o dia 5 com o anterior pago) nao
+ * e cobrada; atrasada e cobrada como avulsa naquele play ('mensalista-atrasada').
+ */
+export function tipoNaLista(p: Player | undefined, lista: Lista) {
+  if (!p) return 'vincular' as const
+  const c = categoriaDe(p)
+  if (c === 'mensalista' && !mensalistaEmDiaNoPlay(p, dataDoPlay(lista))) return 'mensalista-atrasada' as const
+  return c
+}
+
+/**
+ * O "pago" da avulsa na aba Meninas (`pago_avulso`, o mesmo do confirmar
+ * pagamento) acompanha o 💰: marca ao lancar, desmarca ao desfazer. So para a
+ * avulsa (a mensalista atrasada nao ganha mes pago por pagar um play) e so
+ * enquanto o play da lista nao foi finalizado: finalizar gasta o credito
+ * (consumirAvulsos), e mexer depois daria ou tiraria o credito do PROXIMO play.
+ * Nulo = nada a gravar.
+ */
+export function pagoAvulsoDaLista(data: AppData, lista: Lista, p: Player, pago: boolean): Player | null {
+  if (categoriaDe(p) !== 'avulsa' || Boolean(p.pago_avulso) === pago) return null
+  const play = lista.session_id ? data.sessions.find((s) => s.id === lista.session_id) : undefined
+  // reaberto para corrigir: o 2o Finalizar nao gasta de novo, entao tambem nao mexe
+  if (play && (play.status === 'finished' || (play.eventos ?? []).some((e) => e.tipo === 'reabrir'))) return null
+  return { ...p, pago_avulso: pago }
+}
 
 /** Id fixo por atleta e dia: dois toques (ou dois celulares) caem no mesmo lancamento. */
 export const idDoLancamento = (dia: string, atleta: string) => `checkin:${encodeURIComponent(dia)}:${encodeURIComponent(atleta)}`

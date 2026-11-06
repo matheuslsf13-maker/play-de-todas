@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Modal } from './ui'
 import { useStore } from '../lib/store'
 import { LIGA } from '../liga'
-import { contaInicial, devidoNoModo, diaDaLista, diaJaExiste, palpiteDaLista, prepararPagamento, retrato, tipoNaLista, valorInicial, type ContaDoCheckin, type RetratoPagamento } from '../lib/pagamentoNaLista'
+import { contaInicial, devidoNoModo, pagoAvulsoDaLista, diaDaLista, diaJaExiste, palpiteDaLista, prepararPagamento, retrato, tipoNaLista, valorInicial, type ContaDoCheckin, type RetratoPagamento } from '../lib/pagamentoNaLista'
 import { creditoDisponivel, disponibilidade, formatarReais, lerValor, livresNoLocal, nomeDoTitular, rotuloDoTipo, saldoAntesDe } from '../lib/checkins'
 import { monthOf } from '../lib/types'
 import type { Lista, NomeNaLista } from '../lib/listaDePresenca'
@@ -18,11 +18,11 @@ const textoValor = (n: number) => n.toFixed(2).replace('.', ',')
  * Check-ins (fila otimista): dia (se for novo), lançamento e pagamento.
  */
 export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: Lista; nome: NomeNaLista; onVincular: () => void }) {
-  const { data, canEdit, nameOf, saveCheckinDia, saveCheckin, saveCheckinPagamento, deleteCheckin, deleteCheckinPagamento } = useStore()
+  const { data, canEdit, nameOf, savePlayer, saveCheckinDia, saveCheckin, saveCheckinPagamento, deleteCheckin, deleteCheckinPagamento } = useStore()
   const [edicao, setEdicao] = useState<Edicao | null>(null)
   const [erro, setErro] = useState('')
   const [semVinculo, setSemVinculo] = useState(false)
-  const [aviso, setAviso] = useState<{ texto: string; diaId: string; playerId: string; antes: RetratoPagamento | null } | null>(null)
+  const [aviso, setAviso] = useState<{ texto: string; diaId: string; playerId: string; antes: RetratoPagamento | null; marcou: boolean } | null>(null)
   // o desfazer fica uns segundos, como os outros avisos; senão cobriria a janela da próxima atleta
   useEffect(() => {
     if (!aviso) return
@@ -32,7 +32,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
   const chave = `${LIGA.prefixo}:pagamento-lista:${lista.id}`
   if (!canEdit || LIGA.id !== 'feminino') return null
   const player = data.players.find((p) => p.id === nome.player_id)
-  const categoria = tipoNaLista(player)
+  const categoria = tipoNaLista(player, lista)
   // mensalista paga o mês, convidada e isenta não pagam: nada a cobrar aqui
   if (categoria === 'mensalista') return <span className="tiny muted" style={{ whiteSpace: 'nowrap' }}>📅 mensalista</span>
   if (categoria === 'convidada' || categoria === 'isenta') return null
@@ -48,6 +48,13 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
       const modo = retrato(data, dia.id, player.id)?.checkin.modo ?? palpiteDaLista(data, player.id)
       setEdicao({ dia, modo, conta: contaInicial(data, dia, player.id), valor: textoValor(valorInicial(data, dia, player.id, modo)), confirmar: false })
     } catch (e) { setErro(e instanceof Error ? e.message : String(e)) }
+  }
+
+  /** Marca/desmarca o "pago" da avulsa em Meninas; devolve se mudou algo. */
+  function marcarPago(pago: boolean): boolean {
+    const novo = player ? pagoAvulsoDaLista(data, lista, player, pago) : null
+    if (novo) savePlayer(novo)
+    return Boolean(novo)
   }
 
   /** Volta o lançamento ao retrato de antes (nulo = apaga). O dia criado fica, vazio. */
@@ -75,7 +82,8 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
       saveCheckinPagamento(depois.pagamento)
       try { localStorage.setItem(chave, '1') } catch { /* confirma de novo da próxima vez */ }
       setEdicao(null)
-      setAviso({ texto: `💰 ${quem} lançada`, diaId: edicao.dia.id, playerId: player.id, antes })
+      const marcou = marcarPago(true)
+      setAviso({ texto: `💰 ${quem} lançada`, diaId: edicao.dia.id, playerId: player.id, antes, marcou })
     } catch (e) { setErro(e instanceof Error ? e.message : String(e)) }
   }
 
@@ -143,6 +151,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
               {naArena && !naArena.aceita && <span className="hint aviso">O plano desta conta não aceita {naArena.local.nome}. Confira a arena ou a conta.</span>}
             </div>
           </>}
+          {categoria === 'mensalista-atrasada' && <p className="banner warn" style={{ margin: 0 }}>📅 Mensalidade atrasada: neste play ela paga como avulsa.</p>}
           <label className="field"><span>Valor pago (R$)</span><input className="input valor" inputMode="decimal" value={edicao.valor} onChange={(e) => setEdicao({ ...edicao, valor: e.target.value })} /></label>
           <p className="small muted" style={{ margin: 0 }}>
             Dia {diaCurto(edicao.dia.date)} · deve {formatarReais(devido)}
@@ -153,11 +162,11 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
           {diferenca < 0 && <p className="banner saldo-divida" role="status">⚠️ Fica devendo <strong>{formatarReais(-diferenca)}</strong></p>}
           <p className="tiny muted" style={{ margin: 0 }}>✅ Lança já {edicao.modo === 'checkin' ? 'com pagamento e check-in confirmados' : 'com o pagamento confirmado'}.</p>
           <button className="btn pink block" disabled={vPago === null} onClick={lancar}>{existente ? 'Salvar correção' : 'Lançar'}</button>
-          {existente && <button className="btn danger block" onClick={() => { restaurar(player.id, edicao.dia.id, null); setEdicao(null) }}>Desfazer lançamento</button>}
+          {existente && <button className="btn danger block" onClick={() => { restaurar(player.id, edicao.dia.id, null); marcarPago(false); setEdicao(null) }}>Desfazer lançamento</button>}
         </>}
         {erro && <p className="small" role="alert">{erro}</p>}
       </div>
     </Modal>}
-    {aviso && createPortal(<div className="toast" role="status" onClick={(e) => e.stopPropagation()}>{aviso.texto} · <button className="linkish" style={{ minHeight: 44 }} onClick={() => { restaurar(aviso.playerId, aviso.diaId, aviso.antes); setAviso(null) }}>desfazer</button><button className="linkish" style={{ minWidth: 44, minHeight: 44 }} aria-label="Fechar aviso" onClick={() => setAviso(null)}>×</button></div>, document.body)}
+    {aviso && createPortal(<div className="toast" role="status" style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', padding: '0 8px 0 16px' }} onClick={(e) => e.stopPropagation()}>{aviso.texto} <button className="linkish" style={{ minHeight: 44 }} onClick={() => { restaurar(aviso.playerId, aviso.diaId, aviso.antes); if (aviso.marcou) marcarPago(false); setAviso(null) }}>desfazer</button><button className="linkish" style={{ minWidth: 44, minHeight: 44 }} aria-label="Fechar aviso" onClick={() => setAviso(null)}>×</button></div>, document.body)}
   </span>
 }
