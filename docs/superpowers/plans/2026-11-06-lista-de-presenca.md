@@ -55,6 +55,8 @@ real: um hook próprio (`useLista`) carrega a lista e ouve um canal filtrado por
 | D20 | Montar o play **fecha a lista** no toque (antes de abrir o Novo Play) e grava `listas.session_id` quando o play é criado. As confirmadas passam pelo mesmo `aplicarLista` da lista colada (pausa e portão do pagamento). | Ninguém entra enquanto ela monta; `session_id` serve ao financeiro. |
 | D21 | Defaults do formulário: título "Play de Todas", próxima segunda 20:00, fecha no domingo anterior 18:00, 16 vagas, "Já incluir as mensalistas em dia" ligado. | Calendário do Play de Todas (DECISOES.md: segunda 20h). |
 | D22 | Reabrir com o prazo vencido exige escolher um novo prazo. | "Aberta" é `not fechada and now() < fecha_em`; reabrir sem prazo novo não abriria nada. |
+| D23 | Em `lista_colocar`, o vínculo (`ja_na_lista`) é conferido **antes** do nome repetido; o nome chega com `normalize(NFC)` e o apóstrofo do iPhone (`’`) vira `'`; o código da lista é comparado em minúsculas; `unique_violation` (corrida com escrita da organizadora, que não pega a trava) vira `repetido`/`ja_na_lista`. | A mensalista pré-incluída que digita o próprio nome ouve "Você já está na lista" (não "nome repetido"); teclado do iPhone não recusa "D’Ávila". **`validarNome` (A1) faz o mesmo `’`→`'`** para a tela e o banco concordarem. |
+| D24 | `lista_trocar` só troca dois nomes **ativos** da mesma lista; `lista_colocar`/`lista_tirar` releem a lista **depois** da trava; a sequência de `chegada` fica sem grant para anon/logada (identity não precisa). | Sem posição trocada com quem já saiu; fechar a lista no meio de uma rajada vale na hora. |
 
 ---
 
@@ -132,17 +134,17 @@ create index if not exists lista_aparelhos_lista on public.lista_aparelhos (list
   `set search_path = ''`, tudo qualificado com `public.`. Ordem das checagens (cada falha devolve
   `{ok:false, motivo}` em vez de exceção, para a tela dar a frase certa):
   1. `p_aparelho` com 16 a 100 caracteres → senão `aparelho`;
-  2. nome: espaços colapsados e `btrim`; 3–60; regex
+  2. nome: `normalize(NFC)`, `’`→`'`, espaços colapsados e `btrim`; 3–60; regex
      `^[A-Za-zÀ-ÖØ-öø-ÿ]([A-Za-zÀ-ÖØ-öø-ÿ .''-]*[A-Za-zÀ-ÖØ-öø-ÿ.])?$` → senão `nome`;
   3. lista pelo `codigo` → senão `nao_existe`;
   4. **trava** da lista (D4);
   5. `fechada` ou `now() >= fecha_em` → `fechada` (relógio do servidor);
   6. `v_hash := encode(sha256(convert_to(p_aparelho, 'UTF8')), 'hex')` (`sha256` é nativo do PG ≥ 11, sem
      extensão); já existe nome **ativo** desta lista com esse hash → `aparelho_ja_tem_nome`;
-  7. `nome_norm` já ativo na lista → `repetido`;
-  8. vínculo automático (D6): `array_agg(p.id)` dos `players` cujo `lista_normalizar(name)`,
+  7. vínculo automático (D6): `array_agg(p.id)` dos `players` cujo `lista_normalizar(name)`,
      `lista_normalizar(nickname)` ou algum `lista_normalizar(alias)` (`unnest(aliases)`) é igual;
-     exatamente 1 → `v_player`; se ele já está ativo na lista → `ja_na_lista`;
+     exatamente 1 → `v_player`; se ele já está ativo na lista → `ja_na_lista` (D23: antes do repetido);
+  8. `nome_norm` já ativo na lista → `repetido`;
   9. ativos `>= vagas * 3` → `cheia`;
   10. `insert` em `lista_nomes` (`origem='link'`, `player_id = v_player`) `returning id`; `insert` em
       `lista_aparelhos`;
@@ -229,11 +231,20 @@ end $$;
   `supabase_realtime` e `lista_aparelhos` fora; `select public.lista_normalizar('Ána  Lúcia-Prétti')`
   = `ana lucia pretti`.
 
-- [ ] **9. Commit:** `Script 31: lista de presenca por link (tabelas, funcoes, RLS e teste de seguranca)`.
+- [x] **9. Commit:** `Script 31: lista de presenca por link (tabelas, funcoes, RLS e teste de seguranca)`.
 
 ### Tarefa B2: validar o script fora do repo (sem banco real)
 
-- [ ] Em `C:/Users/OFFICE01/Documents/ChatGPT/pdt-teste/lista-sql/`, instalar **lá** o PGlite
+**Feito em 06/11** (pasta `pdt-teste/sql-teste/`): `teste-31.mjs` (PGlite 0.5.15, dono não-superusuário,
+default privileges do Supabase) e `teste-31-concorrencia.mjs` (Postgres 17.9 local via `embedded-postgres`,
+30 conexões ao mesmo tempo, o 31 inteiro numa query só como no SQL Editor). Tudo passou: rodar 2×, as 10
+linhas da conferência "ok", visitante não tira nome de outra, sem escrita/leitura direta, prazo, fechada,
+teto, suplente sobe, vínculo sem duplicar, 5 rajadas de 30 com posições 1..30 sem repetir, mesmo aparelho/
+mesmo nome/teto sob corrida, prova negativa (script quebrado falha e não deixa tabela). Achado: com o
+`begin;` explícito, um erro deixa a sessão do SQL Editor abortada até um `rollback;`. Sem prova local: o
+tempo real do Supabase (publicação só conferida no catálogo) e o PostgREST chamando as funções.
+
+- [x] Em `C:/Users/OFFICE01/Documents/ChatGPT/pdt-teste/lista-sql/`, instalar **lá** o PGlite
   (`npm i @electric-sql/pglite`) e montar um "Supabase de mentira": roles `anon`, `authenticated`
   (`grant anon, authenticated to` o usuário do PGlite), `create publication supabase_realtime`, e as
   tabelas `players` (com `nickname`, `aliases text[] default '{}'`) e `sessions` mínimas. Rodar o
