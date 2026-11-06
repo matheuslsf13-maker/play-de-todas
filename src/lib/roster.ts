@@ -44,9 +44,27 @@ export function parseRoster(texto: string): string[] {
   return nomes
 }
 
+/**
+ * Tira os caracteres invisiveis (\p{Cf}: U+200B a U+200F, U+2060, U+FEFF e afins) que
+ * vem colados do WhatsApp: com eles "Ana Souza" vira outro nome.
+ */
+export function semInvisiveis(s: string): string {
+  return s.replace(/\p{Cf}/gu, '')
+}
+
+/** O cadastro como vai ser gravado: nome, apelido e grafias sem caractere invisivel. */
+export function limparCadastro(p: Player): Player {
+  return {
+    ...p,
+    name: semInvisiveis(p.name).trim(),
+    ...(p.nickname != null ? { nickname: semInvisiveis(p.nickname).trim() || null } : {}),
+    ...(p.aliases ? { aliases: [...new Set(p.aliases.map((a) => semInvisiveis(a).trim()).filter(Boolean))] } : {}),
+  }
+}
+
 /** Minusculas, sem acento e sem pontuacao, para comparar nomes. */
 export function normalizar(s: string): string {
-  return s
+  return semInvisiveis(s)
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()

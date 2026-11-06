@@ -1254,3 +1254,27 @@ momentos. Decidido e feito assim:
   depois da leitura da lista (no Supabase o ranking desce um pouco ao chegar) e a altura muda com
   o momento; o pódio de grupos lista todos os grupos; lista aberta da semana seguinte passa na
   frente da lista fechada do play de hoje (prioridade b antes de c, como pedido).
+- **Ajustes do dono** (mesmo dia, depois dos prints):
+  - **Lista de outro play aberta no dia do play** (a da semana seguinte nasce até 2 dias antes):
+    "tem que prevalecer a lista, para a menina não alegar que não estava aparecendo a lista de
+    espera". O cartão é o da lista aberta e o **play de hoje** vem junto numa faixa pequena embaixo
+    (`Momento.play` em `lista-aberta`: "🏐 Play de hoje · N jogadoras" ou "● Ao vivo · N de M
+    partidas", "ver o play →", alvo de 44 px; tocar abre o play, o resto do cartão abre a lista).
+    Vale também para o **ao vivo**: com lista aberta de outro play, a lista prevalece e o ao vivo
+    fica na faixa. "Outro play" = a lista não está ligada a ele (`session_id`) nem é da data dele
+    (lista aberta do próprio play que já começou: o ao vivo segue no cartão inteiro). Play de hoje =
+    play aberto com a data de hoje; o parado de dias atrás e o pódio não entram na faixa.
+  - **Pódio com muitos grupos**: até 5 linhas (`PODIO_ATE_LINHAS`) e "+N" (`PodioDaNoite.mais`).
+    Vencedora dupla (grupos+duplas, campeonato, duplas fixas) já sai como o nome da dupla, "Ana +
+    Bia". O toque abre o play em todos os formatos ("cada cartão da tela inicial levando para o que
+    ele representa"; conferido em todas, grupos e grupos+duplas).
+  - **"mata-mata"** em letra pequena embaixo do tracinho da barra do ao vivo (centrado nele, preso
+    dentro da barra; a barra ganha 13 px embaixo só quando tem a marca, e a linha de baixo não muda).
+  - O 2º toque da lista fechada virou **"🎾 ver o play"**.
+  - **Caractere invisível colado do WhatsApp** (U+2060, U+200B–U+200F, U+FEFF: `\p{Cf}`) sai **ao
+    salvar**: `validarNome` (lista: atleta e organizadora; o banco recebe limpo) e todo cadastro
+    (`limparCadastro` no `savePlayer` do store: nome, apelido e grafias). Na comparação,
+    `normalizar` tira o invisível antes (no meio da palavra ele virava espaço: "Ana Sou​za" não
+    era "Ana Souza"). Nome já gravado com o caractere continua no banco até alguém salvar o cadastro
+    dela; o `lista_normalizar` do 31 já troca o invisível por espaço (no começo ou entre palavras
+    bate; no meio da palavra, não — sem script novo).
