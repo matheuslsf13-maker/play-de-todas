@@ -1188,3 +1188,93 @@ Resumo do que decide o comportamento:
     "🔒 Fechar a lista agora" e o de reabrir "🔓 Reabrir a lista", cada um na linha inteira (não cabem
     em meia linha a 360px). O "Fechar" das janelas (do app todo) não muda.
 
+## D42 — Cartão do momento na tela inicial (06/11/2026)
+
+Pedido do dono: o "Próximo play" só quando ainda não há lista; criada a lista, ela toma o lugar,
+ao vivo, com barra das vagas; lista fechada mostra a lista e o play num cartão só; com o play
+rolando, o play ao vivo pega o lugar; e o recado "você é a 1ª suplente". Desenho aprovado com 4
+momentos. Decidido e feito assim:
+
+- **Um componente só, `CartaoDoMomento`** (`src/components/CartaoDoMomento.tsx`), no lugar do
+  `CartaoDaLista` e do cartão "Próximo play"/"Play em andamento" (mesma posição, acima do ranking).
+  Um cartão por vez; os dois antigos e o `.card.proximo` saíram.
+- **Prioridade** (`momentoDaInicio` em `src/lib/momentoDaInicio.ts`, pura): a) **ao vivo** = play
+  aberto com partida iniciada ou lançada **e** de hoje (−03:00) ou com atividade (início/fim de
+  partida) há menos de **3 h**; b) **lista aberta** (a de play mais cedo); c) **lista fechada** (na
+  mão ou pelo prazo) até **6 h** depois da hora do play, se o play ligado (`session_id`) não foi
+  finalizado (sem play ligado, se não há play finalizado na data da lista); com ele aberto, o cartão tem o 2º toque "🎾 ver as partidas"; d) **play aberto que não
+  está ao vivo**: o "Próximo play" de sempre, ou, se é de dias atrás, "Play em andamento" com
+  "ainda aberto: falta finalizar" (fica **abaixo** da lista: escolha conservadora, a lista é o que
+  as atletas precisam ver); e) **pódio da noite** = o último play finalizado com partida lançada, no
+  dia dele e no dia seguinte até o **meio-dia** (−03:00); f) nada. No Play de Terça e no Play Mista
+  (`TEM_LISTA = false`) só a, d, e: a lista nem é consultada.
+- **A lista do momento** (`repo.listaDoMomento`, antes `listaAberta`; `escolherListaDoMomento`):
+  a aberta de play mais cedo, senão a fechada de play mais cedo com `play_em` nas últimas 6 h. No
+  Supabase é uma leitura só (`play_em > agora − 6h`, até 20, a escolha é no app); a leitura
+  tolerante (sem tabela, sem lista) segue igual. O cartão ouve o canal da lista (`useLista`), então
+  a barra das vagas anda ao vivo.
+- **Recado pessoal** só com o nome que **este** celular colocou e ainda ativo (`listaMeus`): aberta →
+  `textoDaPosicao` ("Você é a 9ª — confirmada" / "Você é a 1ª suplente"); fechada → "Você está
+  confirmada" ou "Você é a Nª suplente". Nome que saiu: sem recado.
+- **Vagas**: `ocupacao` na aberta ("14/16 · 2 vagas"), "16 confirmadas · 3 suplentes" na fechada;
+  barra = confirmadas / vagas. Rostinhos: até 5 confirmadas na ordem (foto pelo cadastro, senão
+  iniciais) e "+N".
+- **Ao vivo**: "N de M partidas" (M conta o mata-mata ainda não montado: a chave inteira, ou o que
+  falta dela, com o 3º lugar), a fase só no grupos+duplas ("fase de grupos", "mata-mata" ou "grupos e
+  mata-mata" no campeonato com categorias em fases diferentes), marca na barra onde começa o
+  mata-mata, "N quadras jogando" (iniciadas no **banco**, sem placar: o início guardado só no celular
+  de quem tocou não chega a quem olha) e "termina por volta das HHhMM".
+- **A previsão é a mesma da tela do play**: a conta do `restanteDaNoite` saiu do Play.tsx para
+  `src/lib/previsaoDaNoite.ts` (`regrasDoPlay`, `chavesDoPlay`, `quadrasDaCategoriaAgora`,
+  `restanteDaNoite`, `minutosDaPartida`, `formatarMinutos`, `horaLocal`), usada pelos dois.
+  `tests/previsaoDaNoite.test.ts` guarda a conta antiga copiada e compara em noites da semente
+  pela metade (todas, grupos e campeonato com e sem chave; `tests/fixtures/noites.json`, sem nomes:
+  ids p1/s1/m1, gerado por `pdt-teste/gerar-fixture-noites.mjs`, fora do repo).
+- **Pódio**: `podiosDoDia` (empates e desempates em quadra, confronto direto). Um pódio → 2ª-1ª-3ª
+  com foto; grupos → a campeã de cada grupo (empatadas juntas); grupos+duplas → as 3 duplas
+  medalhistas (uma categoria) ou a dupla campeã de cada categoria. Toque abre o play.
+- **Contagem**: "fecha em 1d 4h" / "3h 20min" / "25 min" (para cima, nunca "0 min"); "começa em …"
+  igual ("hora do play" se já passou); "começou 20h05 · há 1h10". Um intervalo de 30 s só enquanto o
+  cartão mostra contagem ou tempo decorrido (lista e ao vivo), limpo ao desmontar.
+- **Visual**: o mesmo quadro nos 4 momentos; a cor do momento (verde-água, roxo, rosa, dourado: as
+  variáveis do tema e de cada liga) só pinta borda, selo, barra, fotos e um degradê fraco
+  (`::before` com 60%); **o texto fica em `--text`/`--muted`**: com o degradê cheio o cinza caía
+  para 4,36:1 no tema claro, agora o pior caso medido é 4,6:1. Selo 📋/🔒/bolinha vermelha em CSS/🏆.
+  Barra com `role="progressbar"` e transição; a bolinha pulsa devagar; com
+  `prefers-reduced-motion` nada se mexe. O título é o botão e o `::after` dele cobre o cartão
+  inteiro (toque em qualquer lugar); o "ver as partidas" fica por cima.
+- Fora: o cartão não tenta adivinhar o play ligado a uma lista fechada sem `session_id` (play
+  criado à mão): ele aparece sem o 2º toque. O pódio some no meio-dia só ao recarregar (fora da
+  lista e do ao vivo não há relógio rodando).
+- **Depois da revisão** (mesmo dia): lista fechada sem play ligado não esconde mais o pódio (play
+  finalizado na data da lista encerra a noite); pódio vazio (grupos+duplas sem mata-mata jogado)
+  não desenha cartão; quem saiu da lista volta a ver "ver a lista e colocar seu nome"; "ver as
+  partidas" com 44 px de alvo; a barra nasce vazia e enche ao abrir; as 6 h da lista viraram uma
+  constante só (`HORAS_DA_LISTA_DEPOIS_DO_PLAY`). Aceitos e registrados: o cartão aparece só
+  depois da leitura da lista (no Supabase o ranking desce um pouco ao chegar) e a altura muda com
+  o momento; o pódio de grupos lista todos os grupos; lista aberta da semana seguinte passa na
+  frente da lista fechada do play de hoje (prioridade b antes de c, como pedido).
+- **Ajustes do dono** (mesmo dia, depois dos prints):
+  - **Lista de outro play aberta no dia do play** (a da semana seguinte nasce até 2 dias antes):
+    "tem que prevalecer a lista, para a menina não alegar que não estava aparecendo a lista de
+    espera". O cartão é o da lista aberta e o **play de hoje** vem junto numa faixa pequena embaixo
+    (`Momento.play` em `lista-aberta`: "🏐 Play de hoje · N jogadoras" ou "● Ao vivo · N de M
+    partidas", "ver o play →", alvo de 44 px; tocar abre o play, o resto do cartão abre a lista).
+    Vale também para o **ao vivo**: com lista aberta de outro play, a lista prevalece e o ao vivo
+    fica na faixa. "Outro play" = a lista não está ligada a ele (`session_id`) nem é da data dele
+    (lista aberta do próprio play que já começou: o ao vivo segue no cartão inteiro). Play de hoje =
+    play aberto com a data de hoje; o parado de dias atrás e o pódio não entram na faixa.
+  - **Pódio com muitos grupos**: até 5 linhas (`PODIO_ATE_LINHAS`) e "+N" (`PodioDaNoite.mais`).
+    Vencedora dupla (grupos+duplas, campeonato, duplas fixas) já sai como o nome da dupla, "Ana +
+    Bia". O toque abre o play em todos os formatos ("cada cartão da tela inicial levando para o que
+    ele representa"; conferido em todas, grupos e grupos+duplas).
+  - **"mata-mata"** em letra pequena embaixo do tracinho da barra do ao vivo (centrado nele, preso
+    dentro da barra; a barra ganha 13 px embaixo só quando tem a marca, e a linha de baixo não muda).
+  - O 2º toque da lista fechada virou **"🎾 ver o play"**.
+  - **Caractere invisível colado do WhatsApp** (U+2060, U+200B–U+200F, U+FEFF: `\p{Cf}`) sai **ao
+    salvar**: `validarNome` (lista: atleta e organizadora; o banco recebe limpo) e todo cadastro
+    (`limparCadastro` no `savePlayer` do store: nome, apelido e grafias). Na comparação,
+    `normalizar` tira o invisível antes (no meio da palavra ele virava espaço: "Ana Sou​za" não
+    era "Ana Souza"). Nome já gravado com o caractere continua no banco até alguém salvar o cadastro
+    dela; o `lista_normalizar` do 31 já troca o invisível por espaço (no começo ou entre palavras
+    bate; no meio da palavra, não — sem script novo).

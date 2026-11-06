@@ -7,6 +7,7 @@ import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import CriarLista, { ListasRecentes, MensagemDoLink } from '../components/CriarLista'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista } from '../lib/listaDePresenca'
+import { diaParaLigar } from '../lib/pagamentoNaLista'
 import { TEM_LISTA } from '../lib/useLista'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
@@ -26,7 +27,6 @@ import {
   aplicarMovidasNoCampeonato,
   categoriaDaJogadora,
   categoriaDaPartida,
-  categoriaTerminou,
   categoriasDoPlay,
   classificacaoDasDuplasFixas,
   nomeDaCategoria,
@@ -35,11 +35,9 @@ import {
   colocacoesDaCategoria,
   duosDaCategoria,
   pontosDeColocacao,
-  quadrasEfetivas,
   dividirEmCategorias,
   esperamOTerceiroLugar,
   estimativaDaNoite,
-  minutosRestantesDaChave,
   montarCategorias,
 } from '../lib/campeonato'
 import ImportarLista from '../components/ImportarLista'
@@ -48,9 +46,7 @@ import NivelDaNovata from '../components/NivelDaNovata'
 import { Avatar, Empty, Modal, StatBox, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
   duplasDaFase2,
-  duplasVivas,
   aplicarAjustesDeGrupo,
-  duplasQueEntraram,
   formarGrupos,
   formarGruposMistos,
   grupoMisto,
@@ -138,6 +134,7 @@ import {
 import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
+import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante } from '../lib/previsaoDaNoite'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { filaPorGrupo, planoDoRefazer, proximasPelaFila } from '../lib/fila'
@@ -208,7 +205,7 @@ export default function Play({
   onMontou?: () => void
   onAbrirLista?: (codigo: string) => void
 }) {
-  const { data, repo, canEdit } = useStore()
+  const { data, repo, canEdit, saveCheckinDia } = useStore()
   const [openId, setOpenId] = useState<string | null>(null)
   /** A lista de onde este Novo Play esta sendo montado. */
   const [daLista, setDaLista] = useState<Montagem | null>(null)
@@ -272,6 +269,9 @@ export default function Play({
           // a lista guarda de qual play ela virou (serve ao financeiro)
           if (daLista) {
             const l = daLista.lista
+            // o dia de check-in criado pelo 💰 da lista antes do play passa a ser deste play
+            const dia = diaParaLigar(data, l, id)
+            if (dia) saveCheckinDia(dia)
             void repo.carregarLista({ id: l.id })
               .then((atual) => repo.salvarLista({ ...(atual?.lista ?? l), fechada: true, session_id: id }))
               .catch(() => onToast('O play foi criado, mas a lista não guardou o vínculo com ele'))
@@ -1672,26 +1672,6 @@ function NewPlay({
 }
 
 /**
- * Quanto dura um GAME, em media, em quadra. E a calibragem: uma partida ate
- * 4 leva uns 15 min, e ela tem em media 5,5 games (os 4 de quem ganha mais
- * uns 1,5 de quem perde) -- 15 / 5,5.
- */
-const MINUTOS_POR_GAME = 15 / 5.5
-
-/**
- * Quanto dura uma partida, em media, contando os games dos DOIS lados: quem
- * perde tambem joga, e um 6x5 e bem mais longo que um 6x0. Quem perde faz,
- * na media, metade do que podia (alvo - 1) / 2. O modo de desempate estica:
- * "so vai a 2" costuma render um game a mais, e o tie vale uns 1,5 (de 7) ou
- * 2 (de 10) games de tempo quando acontece.
- */
-function minutosDaPartida(alvo: number, r: Regra): number {
-  const doDesempate = r.modo === 'alvo' ? 0 : r.modo === 'vantagem' ? 1 : r.tie === 10 ? 2 : 1.5
-  const games = alvo + (alvo - 1) / 2 + doDesempate
-  return games * MINUTOS_POR_GAME
-}
-
-/**
  * "2h15" para a noite: rodadas de quadra cheia, cada uma durando o que uma
  * partida daquelas dura. Mais quadras, menos rodadas; alvo maior ou desempate
  * mais longo, rodada mais longa.
@@ -1714,14 +1694,6 @@ function nomeDoGrupoNoPlay(session: PlaySession, i: number): string {
   if (cats.length <= 1) return `Grupo ${i + 1}`
   const c = cats.find((x) => x.grupos.includes(i))
   return c ? `${c.nome} · grupo ${c.grupos.indexOf(i) + 1}` : `Grupo ${i + 1}`
-}
-
-/** "45 min", "2h", "1h35". */
-function formatarMinutos(total: number): string {
-  const min = Math.round(total)
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return h === 0 ? `${m} min` : m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
 }
 
 /** "2 grupos de 8" quando dao certo, "3 grupos: 7, 7 e 6" quando nao. */
@@ -1762,13 +1734,6 @@ function descreverPodios(tamanhos: number[]): string {
 
 /** Duplas que jogam pela 2ª vez numa partida, e se isso era do plano (grupo que nao fecha) ou veio de troca na mao. */
 type Repeticao = { duplas: string[]; planejada: boolean }
-
-/** "21h23", no fuso do aparelho. */
-function horaLocal(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`
-}
 
 /** Devolve a partida com uma jogadora trocada por outra. */
 function trocarNaPartida(m: Match, sai: string, entra: string): Match {
@@ -1879,30 +1844,10 @@ function PlayDetail({
    * `desempate` unico do play.
    */
   /** O nome da rodada da partida (Final, Semifinal, Quartas de final...). */
-  const rodadaDe = (m: Match): string => {
-    const fase = m.fase ?? 1
-    // a rodada e da chave da categoria da partida: cada uma tem a sua
-    const ci = catDe(m)
-    const daCategoria = matches.filter((x) => catDe(x) === ci)
-    const entraram = duplasQueEntraram(duosDaCategoria(session, ci), daCategoria, fase)
-    if (entraram > 0) return nomeDaRodada(entraram)
-    // sem as duplas gravadas (play antigo) sobra contar os jogos da fase
-    const jogos = daCategoria.filter((x) => (x.fase ?? 1) === fase && !x.disputa_3o).length
-    return jogos === 1 ? 'Final' : jogos === 2 ? 'Semifinal' : nomeDaRodada(jogos * 2)
-  }
-
-  /** Qual dos quatro alvos/desempates vale para a partida: 0 grupos, 1 duplas, 2 semi, 3 final. */
-  const degrauDe = (m: Match): 0 | 1 | 2 | 3 => {
-    if ((m.fase ?? 1) === 1) return 0
-    const nome = rodadaDe(m)
-    return nome === 'Final' ? 3 : nome === 'Semifinal' ? 2 : 1
-  }
-
-  const regraDe = (m: Match): Regra => {
-    const lista = session.desempates
-    if (!lista?.length) return lerRegra(session.desempate)
-    return lerRegra(lista[degrauDe(m)])
-  }
+  // rodada, degrau (0 grupos, 1 duplas, 2 semi, 3 final), regra e alvo de cada partida:
+  // em src/lib/previsaoDaNoite.ts, a mesma conta do cartao da tela inicial
+  const regras = useMemo(() => regrasDoPlay(session, matches), [session, matches])
+  const { rodadaDe, regraDe, alvoDe, minutosMedios } = regras
 
   /**
    * Que rodada do mata-mata e esta partida, para a quadra dizer.
@@ -1964,12 +1909,6 @@ function PlayDetail({
     }
   }
 
-  const alvoDe = (m: Match) => {
-    const alvos = session.alvos
-    if (!alvos?.length) return session.target
-    return alvos[degrauDe(m)] ?? session.target
-  }
-
   /**
    * A CHAVE DE CADA CATEGORIA.
    *
@@ -1980,19 +1919,8 @@ function PlayDetail({
    */
   const porCategoria = useMemo(
     () =>
-      cats.map((cat, ci) => {
-        const daqui = matches.filter((m) => catDe(m) === ci)
-        const daFase1 = daqui.filter((m) => (m.fase ?? 1) === 1)
-        const daFase2 = daqui.filter((m) => (m.fase ?? 1) === 2)
-        /** Todas as partidas do mata-mata (fase 2 em diante), por rodada. */
-        const doMataMata = daqui.filter((m) => (m.fase ?? 1) >= 2)
-        const ultimaFase = doMataMata.reduce((t, m) => Math.max(t, m.fase ?? 1), 1)
-        // a disputa de 3o fica de fora: ela nao gera proxima rodada nem decide
-        // quem segue vivo na chave
-        const daUltimaRodada = doMataMata.filter((m) => (m.fase ?? 1) === ultimaFase && !m.disputa_3o)
-        const duos = duosDaCategoria(session, ci)
-        /** Quem ainda nao perdeu. Uma dupla so = ja tem campea. */
-        const vivas = duos.length ? duplasVivas(duos, doMataMata) : []
+      chavesDoPlay(session, matches, regras).map((base) => {
+        const { ci, daFase1, daFase2, daUltimaRodada, vivas } = base
         /** A fase 1 acabou e a 2 ainda nao nasceu: e a hora de formar as duplas. */
         const podeGerarFase2 =
           soFase2 && daFase2.length === 0 && daFase1.length > 0 && daFase1.every(isPlayed)
@@ -2014,25 +1942,14 @@ function PlayDetail({
           daUltimaRodada.every(isPlayed) &&
           vivas.length > 1
         return {
-          cat,
-          ci,
-          daqui,
-          daFase1,
-          daFase2,
-          doMataMata,
-          ultimaFase,
-          daUltimaRodada,
-          duos,
-          vivas,
+          ...base,
           podeGerarFase2,
           desempates,
           podeGerarRodada,
           rotuloDaProxima: vivas.length > 1 ? nomeDaRodada(vivas.length) : '',
-          terminou: soFase2 && categoriaTerminou(session, ci, matches),
-          porJogar: daqui.filter((m) => !isPlayed(m)).length,
         }
       }),
-    [cats, matches, catDe, session, soFase2, duplasFixas],
+    [matches, session, soFase2, duplasFixas, regras],
   )
   /** Todas as duplas ainda vivas, de todas as categorias. */
   const vivas = useMemo(() => porCategoria.flatMap((c) => c.vivas), [porCategoria])
@@ -2224,11 +2141,6 @@ function PlayDetail({
   }, [soFase2, session, matches])
 
   const doneCount = matches.filter(isPlayed).length
-  /** Quanto dura, em media, uma partida deste conjunto: no grupos+duplas cada fase tem alvo e regra proprios. */
-  const minutosMedios = (ms: Match[]) =>
-    ms.length === 0
-      ? minutosDaPartida(session.target, regraDoPlay)
-      : ms.reduce((t, m) => t + minutosDaPartida(alvoDe(m), regraDe(m)), 0) / ms.length
 
   /** "8 partidas", ou "7 a 9" quando um entra/sai deixou desigual. */
   const jogosPorPessoa = useMemo(() => {
@@ -2532,28 +2444,10 @@ function PlayDetail({
    * CAMPEONATO: as quadras que cada categoria usa agora -- as fixas dela, e as
    * de quem ja terminou tudo (para a categoria escolhida, ou a com mais jogo).
    */
-  const quadrasDaCategoria = useMemo(() => {
-    if (!ehCampeonato) return null
-    const base = quadrasEfetivas(
-      cats,
-      porCategoria.map((c) => c.terminou),
-      porCategoria.map((c) => c.porJogar),
-      session.quadras_cedidas,
-      session.courts,
-    )
-    // quadra com jogo em andamento e de quem esta jogando nela: a conta de
-    // "quem tem mais jogo" muda a cada rodada, e a partida nao pode mudar de
-    // categoria (nem sumir do filtro de quem cuida dela) no meio do jogo
-    for (const [q, m] of emQuadra) {
-      const dona = catDe(m)
-      base.forEach((qs, i) => {
-        const k = qs.indexOf(q)
-        if (k >= 0 && i !== dona) qs.splice(k, 1)
-      })
-      if (base[dona] && !base[dona].includes(q)) base[dona].push(q)
-    }
-    return base.map((qs) => [...qs].sort((a, b) => a - b))
-  }, [ehCampeonato, cats, porCategoria, session.quadras_cedidas, session.courts, emQuadra, catDe])
+  const quadrasDaCategoria = useMemo(
+    () => quadrasDaCategoriaAgora(session, porCategoria, emQuadra, catDe),
+    [session, porCategoria, emQuadra, catDe],
+  )
   /** CAMPEONATO: de qual categoria a quadra e agora (null fora do campeonato). */
   const donaDa = (q: number): number | null => {
     if (!quadrasDaCategoria) return null
@@ -2567,43 +2461,9 @@ function PlayDetail({
    * mesmo tempo, a noite acaba com a mais longa).
    */
   const restanteDaNoite = useMemo(() => {
-    if (finished) return null
-    const falta = matches.filter((m) => !isPlayed(m)).length
-    if (!soFase2) {
-      return {
-        minutos: Math.ceil(falta / Math.max(1, session.courts)) * minutosMedios(matches.filter((m) => !isPlayed(m))),
-        falta,
-        categorias: [] as { nome: string; minutos: number; situacao: string }[],
-      }
-    }
-    const minutos = [0, 1, 2, 3].map((d) =>
-      minutosDaPartida(session.alvos?.[d] ?? session.target, lerRegra(session.desempates?.[d] ?? session.desempate)),
-    )
-    const categorias = porCategoria.map((c) => {
-      const q = Math.max(1, quadrasDaCategoria?.[c.ci]?.length ?? session.courts)
-      let t = Math.ceil(c.daFase1.filter((m) => !isPlayed(m)).length / q) * minutos[0]
-      if (!c.duos.length) {
-        // o mata-mata ainda nao existe: entra a chave inteira
-        t += estimativaDaNoite({
-          grupos: [c.cat.grupos.map((g) => session.groups?.[g]?.length ?? 0)],
-          quadras: [q],
-          duplasMM: session.duplas_mm ?? 8,
-          minutos,
-        }).categorias[0].mataMata
-      } else {
-        t += minutosRestantesDaChave({
-          vivas: c.vivas.length,
-          pendentesNaRodada: c.daUltimaRodada.filter((m) => !isPlayed(m)).length,
-          degrauAtual: c.daUltimaRodada[0] ? degrauDe(c.daUltimaRodada[0]) : 3,
-          teveSemi: c.duos.length >= 4,
-          quadras: q,
-          minutos,
-        })
-      }
-      return { nome: c.cat.nome, minutos: c.terminou ? 0 : t, situacao: situacaoDaCategoria(c) }
-    })
-    return { minutos: Math.max(0, ...categorias.map((c) => c.minutos)), falta, categorias }
-  }, [finished, matches, soFase2, session, porCategoria, quadrasDaCategoria])
+    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria)
+    return r && { ...r, categorias: r.categorias.map((c) => ({ ...c, situacao: situacaoDaCategoria(porCategoria[c.ci]) })) }
+  }, [matches, session, regras, porCategoria, quadrasDaCategoria])
 
   /** Quadra que mudou de dona: de qual categoria era e para qual foi. */
   const cessaoDa = (q: number): { de: number; para: number } | null => {

@@ -63,8 +63,8 @@ export interface Repo {
   /* lista de presenca (so o Play de Todas; script 31). Fora da fila de envio:
      a ordem e decidida no servidor, entao cada escrita espera a resposta. */
   carregarLista(ref: { codigo: string } | { id: string }): Promise<ListaCompleta | null>
-  /** A lista do play mais proximo, aberta ou ja fechada, enquanto o play nao foi montado (cartao da tela inicial). */
-  listaAberta(): Promise<ListaCompleta | null>
+  /** A lista do momento (cartao da tela inicial): a aberta, ou a fechada com o play por vir. */
+  listaDoMomento(): Promise<ListaCompleta | null>
   listasRecentes(limite: number): Promise<Lista[]>
   /** Visitante: coloca o nome (o banco da a posicao). */
   colocarNaLista(codigo: string, nome: string, aparelho: string): Promise<RespostaDaLista>

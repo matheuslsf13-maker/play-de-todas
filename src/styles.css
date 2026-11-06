@@ -496,6 +496,10 @@ label.field { display: block; }
 .banner.warn { background: var(--yellow-suave); color: var(--yellow); }
 .banner.err { background: var(--danger-suave); color: var(--danger); }
 .banner.info { background: var(--purple-suave); color: var(--text); }
+/* sobra/divida do 💰 da lista: grande e colorido, texto em --text para ler nos dois temas */
+.banner.saldo-credito, .banner.saldo-divida { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); border: 2px solid; }
+.banner.saldo-credito { background: var(--teal-suave); border-color: var(--teal); }
+.banner.saldo-divida { background: var(--danger-suave); border-color: var(--danger); }
 
 .toast {
   position: fixed;
@@ -519,6 +523,10 @@ html.janela-aberta { overflow: hidden; }
 .modal-bg {
   position: fixed;
   inset: 0;
+  /* so a parte visivel da tela: com o teclado aberto a janela sobe e encolhe (useTravarFundo) */
+  top: var(--vv-topo, 0px);
+  bottom: auto;
+  height: var(--vv-altura, 100%);
   overscroll-behavior: contain;
   touch-action: none; /* arrastar no escuro em volta nao rola o fundo */
   background: rgba(20, 26, 60, .5);
@@ -536,6 +544,7 @@ html.janela-aberta { overflow: hidden; }
   padding: 16px;
   max-height: 86vh;
   max-height: 86dvh; /* no iPhone o vh ignora a barra do Safari e o fim da janela ficava escondido */
+  max-height: min(86dvh, calc(var(--vv-altura, 100dvh) - 24px)); /* teclado aberto: cabe acima dele */
   overflow: auto;
   overscroll-behavior: contain; /* chegou ao fim da janela: o arraste para aqui */
   -webkit-overflow-scrolling: touch;
@@ -858,17 +867,7 @@ hr.sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
 .import-row.atencao { border-color: var(--orange); background: var(--orange-suave); }
 textarea.input { line-height: 1.45; }
 
-/* cartão do próximo play, na tela inicial */
-.card.proximo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  border: 1.5px solid var(--pink);
-  background: linear-gradient(135deg, var(--card), var(--pink-suave));
-}
+/* o selo, o titulo e a linha do cartao "Primeira vez aqui?" da tela inicial */
 .prox-selo {
   flex: none;
   width: 46px;
@@ -1836,10 +1835,187 @@ p .nome-link { padding-block: 0; margin-block: 0; }
 details[open] > .lista-resumo { margin-bottom: 10px; }
 /* abaixo do cabecalho fixo (que encolhe ao rolar), para o Cancelar nao sumir atras dele */
 .lista-fixa { position: sticky; top: calc(var(--topo-alto, 50px) + 8px); z-index: 5; display: flex; align-items: center; gap: 10px; }
-/* o cartão da tela inicial: verde-água, para não ser confundido com o do play */
-.card.proximo.lista-aberta { border-color: var(--teal); background: linear-gradient(135deg, var(--card), var(--teal-suave)); }
-.card.lista-aberta .prox-titulo { color: var(--teal); }
-.card.lista-aberta .prox-selo { background: var(--teal); }
-.card.proximo.lista-fechada { border-color: var(--danger); background: linear-gradient(135deg, var(--card), color-mix(in srgb, var(--danger) 14%, transparent)); }
-.card.lista-fechada .prox-titulo { color: var(--danger); }
-.card.lista-fechada .prox-selo { background: var(--danger); }
+
+/* ---------- o cartao do momento, na tela inicial (D42) ----------
+   O mesmo quadro nos quatro momentos; a cor do momento (--m) so pinta borda,
+   selo, barra e foto -- o texto fica em --text/--muted, que tem contraste nos
+   dois temas e nas tres ligas. */
+.card.momento {
+  --m: var(--teal);
+  --m-suave: var(--teal-suave);
+  position: relative;
+  border: 1.5px solid var(--m);
+  background: var(--card);
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+/* o degrade da cor do momento fica por baixo e fraco: o cinza do texto segue com 4,5:1 */
+.card.momento::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, transparent 35%, var(--m-suave));
+  opacity: .6;
+  z-index: -1;
+  pointer-events: none;
+}
+.card.momento.m-fechada { --m: var(--purple); --m-suave: var(--purple-suave); }
+.card.momento.m-vivo { --m: var(--pink); --m-suave: var(--pink-suave); }
+.card.momento.m-podio { --m: var(--ouro); --m-suave: var(--ouro-suave); }
+.momento-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.momento-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--m);
+  background: var(--m-suave);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.momento-tempo { font-size: 12px; font-weight: 700; color: var(--muted); }
+/* o botao e o titulo; o ::after estica o toque para o cartao inteiro */
+.momento-alvo {
+  all: unset;
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.momento-alvo::after { content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 1; }
+.card.momento:has(.momento-alvo:focus-visible) { outline: 2px solid var(--m); outline-offset: 2px; }
+.card.momento:active { transform: translateY(1px); }
+.momento-info { font-size: 14px; font-weight: 700; color: var(--text); }
+.momento-linha { font-size: 13px; color: var(--muted); }
+.momento-barra {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: visible;
+}
+.momento-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--m);
+  transition: width .8s ease;
+}
+/* onde comeca o mata-mata */
+.momento-marca {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--text);
+}
+/* "mata-mata" embaixo do tracinho; a barra ganha espaco embaixo para a linha de baixo nao encostar */
+.momento-barra.com-marca { margin-bottom: 13px; }
+.momento-marca-rotulo {
+  position: absolute;
+  top: calc(100% + 4px);
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* o play de hoje, reduzido, embaixo da lista aberta de outro play: toque proprio, por cima do cartao */
+.momento-faixa {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 2px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-top: 1px dashed var(--line);
+  cursor: pointer;
+}
+.momento-faixa-texto { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.momento-faixa-acao { color: var(--muted); white-space: nowrap; }
+.momento-rostos { display: flex; align-items: center; padding-left: 6px; }
+.momento-rostos > .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--card); }
+.momento-mais {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--m-suave);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+.momento-recado { font-size: 14px; font-weight: 800; color: var(--text); }
+.momento-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.momento-acao { font-size: 12px; font-weight: 700; color: var(--muted); }
+/* o segundo toque (as partidas) fica por cima do toque do cartao */
+.momento-extra {
+  position: relative;
+  z-index: 2;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--m);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.bolinha-viva {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 0 var(--danger);
+  animation: bolinha-viva 2s ease-out infinite;
+}
+@keyframes bolinha-viva {
+  0% { box-shadow: 0 0 0 0 var(--danger-suave), 0 0 0 0 var(--danger); }
+  70% { box-shadow: 0 0 0 7px transparent, 0 0 0 0 transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.momento-podio {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  align-items: end;
+  gap: 6px;
+  margin-top: 2px;
+}
+.momento-lugar { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; text-align: center; }
+.momento-lugar > .avatar { box-shadow: 0 0 0 2px var(--m); }
+.momento-lugar.l1 > .avatar { box-shadow: 0 0 0 3px var(--m); }
+.momento-pos { font-size: 13px; font-weight: 900; color: var(--text); }
+.momento-nome { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.2; overflow-wrap: anywhere; }
+.momento-campeas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--text); }
+.momento-rotulo { color: var(--muted); font-weight: 800; }
+@media (prefers-reduced-motion: reduce) {
+  .momento-barra > span { transition: none; }
+  .bolinha-viva { animation: none; }
+  .card.momento:active { transform: none; }
+}

@@ -17,7 +17,7 @@ import {
 } from '../lib/mensalidade'
 import { squareThumb } from '../lib/image'
 import { fecharPausa, mediaDaForca, pausaNaForca, playedMatches, quedaPorFalta, ratings } from '../lib/stats'
-import { normalizar } from '../lib/roster'
+import { normalizar, semInvisiveis } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
 import { plural, todayISO, uid, type Player } from '../lib/types'
@@ -611,9 +611,9 @@ function EditarPerfil({
     return { partidas: jogadas.length, dias }
   }, [data, jogadora.id])
 
-  const limpo = nome.trim()
+  const limpo = semInvisiveis(nome).trim()
   const repetido = data.players.some(
-    (p) => p.id !== jogadora.id && p.name.trim().toLowerCase() === limpo.toLowerCase(),
+    (p) => p.id !== jogadora.id && semInvisiveis(p.name).trim().toLowerCase() === limpo.toLowerCase(),
   )
 
   function salvar() {

@@ -24,8 +24,8 @@ import {
   TETO_POR_VAGA,
   TETO_TOTAL_POR_VAGA,
   ativosEmOrdem,
+  escolherListaDoMomento,
   estaAberta,
-  FECHADA_NA_TELA_MS,
   posicaoDe,
   validarNome,
   vinculoAutomatico,
@@ -33,7 +33,7 @@ import {
   type ListaCompleta,
   type NomeNaLista,
 } from '../lib/listaDePresenca'
-import { normalizar } from '../lib/roster'
+import { normalizar, semInvisiveis } from '../lib/roster'
 import { aplicarMescla } from '../lib/campeonato'
 
 const KEY = CHAVE.dados
@@ -297,12 +297,9 @@ export const localRepo: Repo = {
     const l = lerListas()
     return completa(l, l.listas.find((x) => ('codigo' in ref ? x.codigo === ref.codigo.toLowerCase() : x.id === ref.id)))
   },
-  async listaAberta() {
+  async listaDoMomento() {
     const l = lerListas()
-    const agora = new Date()
-    const desde = new Date(agora.getTime() - FECHADA_NA_TELA_MS).toISOString()
-    const aberta = l.listas.filter((x) => !x.session_id && x.play_em > desde).sort((a, b) => a.play_em.localeCompare(b.play_em))[0]
-    return completa(l, aberta)
+    return completa(l, escolherListaDoMomento(l.listas, new Date()))
   },
   async listasRecentes(limite) {
     return lerListas().listas.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limite)
@@ -357,7 +354,7 @@ export const localRepo: Repo = {
     for (const x of novos) {
       if (conflito(l, x.lista_id, x.nome, x.player_id)) throw new Error('Esse nome (ou essa atleta) já está na lista')
       l.nomes.push({
-        ...x, id: crypto.randomUUID(), chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1,
+        ...x, nome: semInvisiveis(x.nome).trim(), id: crypto.randomUUID(), chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1,
         entrou_em: new Date().toISOString(), saiu_em: null, saiu_por: null, avisou_24h: null,
       })
     }

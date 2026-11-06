@@ -30,8 +30,8 @@ import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
 import { PerfilDaDupla } from './Stats'
-import { CartaoDaLista } from './ListaDePresenca'
-import { dateLabel, monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
+import CartaoDoMomento from '../components/CartaoDoMomento'
+import { monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
 const HISTORICO = 'all'
@@ -43,11 +43,11 @@ export default function Ranking({
   onAbrirLista,
 }: {
   onToast: (m: string) => void
-  onAbrirPlay?: (sessionId: string) => void
+  onAbrirPlay: (sessionId: string) => void
   /** Leva para a aba Stats ja na Força. */
   onVerForca?: () => void
-  /** Abre a lista de presenca (cartao "Lista aberta"). */
-  onAbrirLista?: (codigo: string) => void
+  /** Abre a lista de presenca (cartao do momento). */
+  onAbrirLista: (codigo: string) => void
 }) {
   const { data, nameOf, playerById, canEdit, saveClosure, deleteClosure } = useStore()
 
@@ -77,15 +77,6 @@ export default function Ranking({
   )
   /** Quem esta com status vivo agora. */
   const comStatus = useMemo(() => onFire(streaks), [streaks])
-
-  // play ja montado e ainda nao finalizado: as leitoras podem ver as chaves
-  const emAndamento = useMemo(
-    () =>
-      [...data.sessions]
-        .filter((s) => s.status === 'open')
-        .sort((a, b) => b.date.localeCompare(a.date))[0],
-    [data.sessions],
-  )
 
   const rows = useMemo(() => {
     // no mes entram so os plays do campeonato; no historico entra tudo
@@ -204,23 +195,8 @@ export default function Ranking({
       </a>
       )}
 
-      {onAbrirLista && <CartaoDaLista onAbrir={onAbrirLista} />}
-
-      {emAndamento && (
-        <button className="card proximo" onClick={() => onAbrirPlay?.(emAndamento.id)}>
-          <span className="prox-selo">🏐</span>
-          <span className="grow" style={{ minWidth: 0 }}>
-            <span className="prox-titulo">
-              {emAndamento.date >= todayISO() ? 'Próximo play' : 'Play em andamento'}
-            </span>
-            <span className="prox-info">
-              {dateLabel(emAndamento.date)} · {emAndamento.player_ids.length} jogadoras ·{' '}
-              {emAndamento.courts} quadras · {emAndamento.rounds} partidas
-            </span>
-            <span className="prox-acao">ver a fila de partidas →</span>
-          </span>
-        </button>
-      )}
+      {/* lista aberta -> lista fechada e o proximo play -> ao vivo -> podio da noite (D42) */}
+      <CartaoDoMomento onAbrirPlay={onAbrirPlay} onAbrirLista={onAbrirLista} />
 
       <div className="card">
         <div className="row spread">

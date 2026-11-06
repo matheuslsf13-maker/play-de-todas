@@ -20,23 +20,24 @@ export function baseDoApp(): string {
 }
 
 /**
- * Carrega uma lista (pelo codigo do link) ou "a aberta" (cartao da tela
- * inicial) e ouve o canal PROPRIO dela: uma rajada de nomes vira uma leitura
+ * Carrega uma lista (pelo codigo do link) ou "a do momento" (cartao da tela
+ * inicial: a aberta, ou a fechada com o play por vir) e ouve o canal PROPRIO
+ * dela: uma rajada de nomes vira uma leitura
  * so (300 ms). Nunca chama o `reload()` do app inteiro.
  *
  * `lista`: undefined carregando, null nao existe (ou sem tabela), senao a lista.
  */
-export function useLista(ref: { codigo: string } | 'aberta' | null) {
+export function useLista(ref: { codigo: string } | 'momento' | null) {
   const { repo } = useStore()
   const [lista, setLista] = useState<ListaCompleta | null | undefined>(undefined)
-  const chave = ref === null ? null : ref === 'aberta' ? 'aberta' : ref.codigo
+  const chave = ref === null ? null : ref === 'momento' ? 'momento' : ref.codigo
   const recarregar = useCallback(async () => {
     if (!chave || !TEM_LISTA) {
       setLista(null)
       return
     }
     try {
-      setLista(chave === 'aberta' ? await repo.listaAberta() : await repo.carregarLista({ codigo: chave }))
+      setLista(chave === 'momento' ? await repo.listaDoMomento() : await repo.carregarLista({ codigo: chave }))
     } catch (e) {
       // sem sinal: fica com o que ja tinha
       console.warn('não consegui ler a lista:', e)

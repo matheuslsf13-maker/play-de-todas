@@ -19,9 +19,9 @@ import type {
   StreakChoice,
 } from '../lib/types'
 import type { Repo } from './repo'
-import type { Lista, ListaCompleta, NomeNaLista, RespostaDaLista } from '../lib/listaDePresenca'
-import { FECHADA_NA_TELA_MS } from '../lib/listaDePresenca'
+import { desdeDaListaDoMomento, escolherListaDoMomento, type Lista, type ListaCompleta, type NomeNaLista, type RespostaDaLista } from '../lib/listaDePresenca'
 import { aplicarMescla } from '../lib/campeonato'
+import { semInvisiveis } from '../lib/roster'
 import { calcularElo } from '../lib/stats'
 import { emptyData } from '../lib/types'
 
@@ -507,17 +507,18 @@ export const supabaseRepo: Repo = {
     const r = await ('codigo' in ref ? q.eq('codigo', ref.codigo.trim().toLowerCase()) : q.eq('id', ref.id)).maybeSingle()
     return comNomes(lerDaLista<Lista | null>(r, null))
   },
-  async listaAberta() {
+  async listaDoMomento() {
     if (!TEM_LISTA) return null
+    const agora = new Date()
+    // toda lista aberta tem o play no futuro (fecha antes dele): estas bastam para escolher
     const r = await client()
       .from('listas')
       .select('*')
-      .is('session_id', null)
-      .gt('play_em', new Date(Date.now() - FECHADA_NA_TELA_MS).toISOString())
+      .gt('play_em', desdeDaListaDoMomento(agora))
       .order('play_em')
-      .limit(1)
-      .maybeSingle()
-    return comNomes(lerDaLista<Lista | null>(r, null))
+      .limit(20)
+    const listas = lerDaLista<Lista[] | null>(r, []) ?? []
+    return comNomes(escolherListaDoMomento(listas, agora) ?? null)
   },
   async listasRecentes(limite) {
     if (!TEM_LISTA) return []
@@ -548,7 +549,8 @@ export const supabaseRepo: Repo = {
   },
   async incluirNaLista(nomes) {
     if (nomes.length === 0) return
-    const { error } = await client().from('lista_nomes').insert(nomes)
+    // o nome copiado do cadastro (ou da lista apagada) pode vir com o invisivel colado do WhatsApp
+    const { error } = await client().from('lista_nomes').insert(nomes.map((n) => ({ ...n, nome: semInvisiveis(n.nome).trim() })))
     if (error) throw error
   },
   async mexerNoNome(id, campos) {

@@ -3,7 +3,7 @@ import ForcaInicial from './ForcaInicial'
 import EscolherGenero, { precisaDeGenero, type Genero } from './EscolherGenero'
 import { Modal } from './ui'
 import { CATEGORIAS, type Categoria } from '../lib/mensalidade'
-import { normalizar } from '../lib/roster'
+import { normalizar, semInvisiveis } from '../lib/roster'
 import { mediaDaForca } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { uid, type Player } from '../lib/types'
@@ -40,13 +40,14 @@ export default function NovaAtleta({
     : undefined
 
   async function criar() {
-    const n = nome.trim()
+    // limpo aqui: quem chama (Cadastrar e vincular) grava o mesmo `p` direto no repo
+    const n = semInvisiveis(nome).trim()
     if (!n || (precisaDeGenero && !genero)) return
     const p: Player = {
       id: uid(),
       ...(genero ? { genero } : {}),
       name: n,
-      nickname: apelido.trim() || null,
+      nickname: semInvisiveis(apelido).trim() || null,
       photo_url: null,
       active: true,
       created_at: new Date().toISOString(),

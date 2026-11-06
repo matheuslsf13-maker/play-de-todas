@@ -3,6 +3,7 @@ import { localRepo } from '../data/localRepo'
 import { loadCache, loadQueue, saveCache, saveQueue, type WriteOp } from '../data/queue'
 import type { Repo } from '../data/repo'
 import { aplicarMescla } from './campeonato'
+import { limparCadastro } from './roster'
 import { computeStreaks, jaForamDuquesa } from './streaks'
 import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
@@ -385,7 +386,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       sync,
       pendingCount: queue.length,
       reload,
-      savePlayer: (player) => push({ id: uid(), type: 'savePlayer', player }),
+      // todo cadastro passa por aqui: o caractere invisivel colado do WhatsApp sai ao salvar
+      savePlayer: (player) => push({ id: uid(), type: 'savePlayer', player: limparCadastro(player) }),
       deletePlayer: (playerId) => push({ id: uid(), type: 'deletePlayer', playerId }),
       saveSession: (session) => push({ id: uid(), type: 'saveSession', session }),
       anotarNoPlay: (sessionId, evento) => push({ id: uid(), type: 'anotarNoPlay', sessionId, evento }),

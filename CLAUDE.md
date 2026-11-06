@@ -144,7 +144,7 @@ liga/            textos do masculino: o código fica no feminino e o build
   Quem veio pelo link perde o "Tirar meu nome" (o código do aparelho ficou na apagada).
 - **Rótulos**: "🔒 Fechar a lista agora" / "🔓 Reabrir a lista" (linha inteira); "Fechar" sozinho é
   só o das janelas.
-- **Cartão "Lista aberta"** na tela inicial (`CartaoDaLista`, acima do Próximo play).
+- **Na tela inicial** a lista aparece no **cartão do momento** (D42, abaixo).
 - **Play de Terça / Play Mista**: `TEM_LISTA = false` — nada aparece e nada é consultado. **Não**
   rodar o 27/29 por causa do 31. Sem o 31 no feminino, a leitura tolerante esconde tudo
   (`avisosDoBanco.tabelas.has('listas')`) e o botão de criar avisa qual script rodar.
@@ -595,6 +595,27 @@ liga/            textos do masculino: o código fica no feminino e o build
   reaberto ele não entra. Se o mês já foi fechado, o confirmar avisa que o ranking final
   muda. O 2º Finalizar **não gasta de novo o crédito da avulsa** (já gasto na 1ª vez;
   gastar comeria o que ela pagou para o próximo play).
+
+## 🗓️ Cartão do momento na tela inicial (D42)
+
+- **Um cartão só acima do ranking** (`components/CartaoDoMomento.tsx`); qual momento vale é
+  `momentoDaInicio` (`src/lib/momentoDaInicio.ts`, puro, `tests/momentoDaInicio.test.ts`):
+  **ao vivo** (play aberto com partida iniciada/lançada, de hoje −03:00 ou com atividade < 3 h) →
+  **lista aberta** → **lista fechada** com o play por vir (até 6 h depois e sem play finalizado
+  naquela noite; com play ligado aberto, 2º toque "🎾 ver o play") → **play aberto** sem estar ao vivo ("Próximo play", ou "Play em
+  andamento" parado de dias atrás) → **pódio da noite** (último play finalizado, até o meio-dia
+  seguinte; até 5 grupos e "+N") → nada. Terça e Mista: só ao vivo, play e pódio. **Lista aberta de
+  outro play prevalece** até sobre o ao vivo: o play de hoje (ao vivo ou por começar) vira uma faixa
+  pequena embaixo dela, que abre o play.
+- **Caractere invisível do WhatsApp** (`\p{Cf}`) sai ao salvar (`validarNome`, `limparCadastro` no
+  `savePlayer` do store) e na comparação (`normalizar`).
+- A lista vem de `repo.listaDoMomento` (aberta, senão a fechada de play nas últimas 6 h) e o canal
+  dela move a barra das vagas. Recado só com o nome deste celular (`listaMeus`) ainda ativo.
+- **A previsão do ao vivo é a da tela do play**: `src/lib/previsaoDaNoite.ts` serve os dois
+  (`tests/previsaoDaNoite.test.ts` prova que a tela do play dá os mesmos números de antes).
+- A cor do momento só pinta borda, selo, barra e fotos; texto em `--text`/`--muted` (≥ 4,5:1).
+  Prints e roteiros fora do repo: `pdt-teste/momento-prints.mjs`, `pdt-teste/momento-toque.mjs`,
+  `pdt-teste/momento-ajustes.mjs` e `momento-ajustes-toque.mjs` (prints em `prints/inicio/ajustes/`).
 
 ## A tela é um celular na beira da quadra
 

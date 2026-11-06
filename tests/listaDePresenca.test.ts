@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { limparCadastro, semInvisiveis, parseRoster, normalizar } from '../src/lib/roster'
 import {
   ativosEmOrdem,
   avisosAoApagar,
@@ -31,6 +32,7 @@ import {
   validarNome,
   validarNomeDaAtleta,
   vinculoAutomatico,
+  grafiaNova,
   ehMensalista,
   sugestaoDeVinculo,
   sugestaoSegura,
@@ -135,6 +137,25 @@ test('validarNome: a mesma regra do banco', () => {
   for (const ruim of ['ab', 'a'.repeat(61), '<b>x</b>', '1234', '-Ana', 'Ana 2']) {
     assert.ok('erro' in validarNome(ruim), `recusa ${JSON.stringify(ruim)}`)
   }
+})
+
+test('caractere invisivel colado do WhatsApp sai ao salvar e nao atrapalha a comparacao', () => {
+  // U+2060 (word joiner), U+200B (zero width space), U+FEFF, U+200D, U+200E
+  assert.deepEqual(validarNome('⁠Ana Souza'), { nome: 'Ana Souza' })
+  assert.deepEqual(validarNome('Ana​ Sou‍za﻿'), { nome: 'Ana Souza' })
+  assert.deepEqual(validarNomeDaAtleta('‎Ana ⁠Souza'), { nome: 'Ana Souza' })
+  assert.equal(semInvisiveis('⁠Karla​ Coelho'), 'Karla Coelho')
+  assert.equal(semInvisiveis('Ana Souza'), 'Ana Souza')
+  // o cadastro limpa nome, apelido e grafias ao salvar
+  const p = limparCadastro(jogadora('k', { name: '⁠Karla Coelho', nickname: 'Ka​rla', aliases: ['﻿Karla C', 'Karla C'] }))
+  assert.equal(p.name, 'Karla Coelho')
+  assert.equal(p.nickname, 'Karla')
+  assert.deepEqual(p.aliases, ['Karla C'])
+  // ja gravado com o caractere: o vinculo compara limpo (no meio da palavra nao vira espaco)
+  const ps = [jogadora('k', { name: '⁠Karla Coelho' }), jogadora('a', { name: 'Ana Sou​za' })]
+  assert.equal(vinculoAutomatico('Karla Coelho', ps), 'k')
+  assert.equal(vinculoAutomatico('Ana Souza', ps), 'a')
+  assert.equal(grafiaNova('Ana Souza', ps[1]), false)
 })
 
 test('vinculoAutomatico: nome, apelido ou grafia de UM cadastro so, com 2+ palavras', () => {
@@ -409,4 +430,14 @@ test('mensagem do link: vagas em linha propria e o link sem quebra', () => {
   const msg = mensagemDoLink(LISTA, 'https://playdetodas.com.br/?lista=abc')
   assert.match(msg, /às 18h\n👥 16 vagas/)
   assert.ok(msg.includes('\nhttps://playdetodas.com.br/?lista=abc\n'))
+})
+
+test('WhatsApp: invisiveis no meio da palavra nao separam nem duplicam nomes importados', () => {
+  for (const c of ['\u200B', '\u200C', '\u200D', '\u2060', '\uFEFF']) {
+    const nome = `Ana Sou${c}za`
+    assert.equal(semInvisiveis(nome), 'Ana Souza')
+    assert.equal(normalizar(nome), 'ana souza')
+    assert.deepEqual(parseRoster(`1. ${nome}\n2. Ana Souza`), ['Ana Souza'])
+  }
+  assert.deepEqual(parseRoster('1. 👩‍👧 Ana Souza'), ['Ana Souza'])
 })

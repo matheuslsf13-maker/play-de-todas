@@ -1,3 +1,4 @@
+import PagamentoNaLista from '../components/PagamentoNaLista'
 import { useMemo, useRef, useState } from 'react'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import {
@@ -20,7 +21,6 @@ import {
   paraMontar,
   podeApagar,
   posicaoDe,
-  quando,
   quandoComData,
   sugestaoSegura,
   textoDaPosicao,
@@ -33,7 +33,6 @@ import {
 import { ratings } from '../lib/stats'
 import { useStore } from '../lib/store'
 import {
-  TEM_LISTA,
   baseDoApp,
   codigoDoAparelho,
   guardarNome,
@@ -313,6 +312,7 @@ function LinhaDaLista({
         {detalhe && <span className="lista-forca">{detalhe}</span>}
         {gestao && !player && <span className="tiny muted" style={{ display: 'block' }}>sem cadastro vinculado</span>}
       </span>
+      {gestao && <PagamentoNaLista lista={lc.lista} nome={n} onVincular={onTocar} />}
       {gestao && sugestao && (
         <button
           className="btn teal sm lista-sugestao"
@@ -583,26 +583,5 @@ function Ferramentas({
         </Modal>
       )}
     </div>
-  )
-}
-
-/** O cartao da tela inicial: a lista aberta com o play mais proximo. */
-export function CartaoDaLista({ onAbrir }: { onAbrir: (codigo: string) => void }) {
-  const { lista: lc } = useLista(TEM_LISTA ? 'aberta' : null)
-  if (!lc) return null
-  const { lista } = lc
-  const aberta = estaAberta(lista, new Date())
-  return (
-    <button className={`card proximo lista-aberta${aberta ? '' : ' lista-fechada'}`} onClick={() => onAbrir(lista.codigo)}>
-      <span className="prox-selo">📋</span>
-      <span className="grow" style={{ minWidth: 0 }}>
-        <span className="prox-titulo">{aberta ? 'Lista aberta' : 'Lista fechada'}</span>
-        <span className="prox-info">
-          {quando(lista.play_em)} · {ocupacao(lista, lc.nomes)}
-          {aberta && <> · <span className="nowrap">fecha {quando(lista.fecha_em)}</span></>}
-        </span>
-        <span className="prox-acao">{meuNome(lista.id) || !aberta ? 'ver a lista →' : 'ver a lista e colocar seu nome →'}</span>
-      </span>
-    </button>
   )
 }
