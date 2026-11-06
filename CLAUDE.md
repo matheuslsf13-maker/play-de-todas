@@ -134,11 +134,13 @@ liga/            textos do masculino: o código fica no feminino e o build
   as **mensalistas em dia** (`mensalistaEmDiaNoPlay`: pagou o mês do play, ou play até o dia 5 com o
   mês anterior pago; ativas, sem pausa) entram garantidas, **por força**.
 - **Apagar lista** (D39): só lista sem play (`podeApagar`); a janela mostra os avisos (`avisosAoApagar`)
-  e o banco leva nomes e códigos de aparelho pela cascata do 31 (`repo.apagarLista` confere 1 linha).
+  e o banco leva nomes e códigos de aparelho pela cascata do 31 (`repo.apagarLista` confere 1 linha e
+  `session_id` nulo). `salvarLista` só cria com `nova`; sem ela é update por id (nunca recria apagada).
   Depois: toast "Lista apagada" e a aba Play.
 - **Trazer os nomes da apagada** (D41): a cópia fica **só neste celular** por 30 min
   (`CHAVE.listaApagada`, `copiaDaApagada`/`copiaValida`); o criar mostra a opção **desmarcada**;
-  marcada, entram um por vez na ordem antiga, depois as mensalistas que faltam (`juntarSemRepetir`).
+  marcada, entram um por vez na ordem antiga; as mensalistas que faltam (e não tinham saído) entram
+  depois da última garantida (`juntarSemRepetir`).
   Quem veio pelo link perde o "Tirar meu nome" (o código do aparelho ficou na apagada).
 - **Rótulos**: "🔒 Fechar a lista agora" / "🔓 Reabrir a lista" (linha inteira); "Fechar" sozinho é
   só o das janelas.

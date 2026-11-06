@@ -344,8 +344,9 @@ export const localRepo: Repo = {
     gravarListas(l)
     return { ok: true }
   },
-  async salvarLista(lista) {
+  async salvarLista(lista, nova) {
     const l = lerListas()
+    if (!nova && !l.listas.some((x) => x.id === lista.id)) throw new Error('Esta lista não existe mais.')
     upsertEm(l.listas, lista)
     gravarListas(l)
   },
@@ -383,7 +384,7 @@ export const localRepo: Repo = {
   },
   async apagarLista(id) {
     const l = lerListas()
-    if (!l.listas.some((x) => x.id === id)) throw new Error('Esta lista não existe mais.')
+    if (!l.listas.some((x) => x.id === id && !x.session_id)) throw new Error('A lista não foi apagada')
     for (const n of l.nomes) if (n.lista_id === id) delete l.aparelhos[n.id]
     l.listas = l.listas.filter((x) => x.id !== id)
     l.nomes = l.nomes.filter((n) => n.lista_id !== id)

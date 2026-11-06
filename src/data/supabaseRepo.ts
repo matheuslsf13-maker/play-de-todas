@@ -532,11 +532,18 @@ export const supabaseRepo: Repo = {
     return rpcDaLista('lista_tirar', { p_nome_id: nomeId, p_aparelho: aparelho })
   },
   // as escritas da organizadora esperam o banco (nada de fila): erro vira aviso na tela
-  async salvarLista(lista) {
+  async salvarLista(lista, nova) {
     // created_at fica com o relogio do servidor (o default), nao o do celular
     const { created_at: _, ...semHora } = lista
-    const { error } = await client().from('listas').upsert(semHora)
+    if (nova) {
+      const { error } = await client().from('listas').insert(semHora)
+      if (error) throw error
+      return
+    }
+    // update, nunca upsert: a tela antiga de outro celular recriaria a lista apagada (vazia, link velho valendo)
+    const { error, count } = await client().from('listas').update(semHora, { count: 'exact' }).eq('id', lista.id)
     if (error) throw error
+    if (count !== 1) throw new Error('Esta lista não existe mais.')
   },
   async incluirNaLista(nomes) {
     if (nomes.length === 0) return
@@ -553,7 +560,8 @@ export const supabaseRepo: Repo = {
   },
   async apagarLista(id) {
     // lista_nomes e lista_aparelhos vao junto pela cascata (script 31); 0 linhas = nao apagou
-    const { error, count } = await client().from('listas').delete({ count: 'exact' }).eq('id', id)
+    // so a que nao virou play (D39): a tela de outro celular pode nao saber que o play foi montado
+    const { error, count } = await client().from('listas').delete({ count: 'exact' }).eq('id', id).is('session_id', null)
     if (error) throw error
     if (count !== 1) throw new Error('A lista não foi apagada')
   },

@@ -353,7 +353,7 @@ test('copia da apagada: ativos na ordem da lista, so o que volta', () => {
   const c = copiaDaApagada(LISTA, [
     nome(1),
     nome(2, { ordem: 0.5, origem: 'organizadora', garantida: true }),
-    nome(3, { saiu_em: '2026-11-06T13:00:00.000Z' }),
+    nome(3, { saiu_em: '2026-11-06T13:00:00.000Z', player_id: 'p3' }),
     nome(4, { origem: 'mensalista', player_id: 'p4', garantida: true, ordem: 0.2 }),
   ], agora)
   assert.deepEqual(c, {
@@ -363,6 +363,7 @@ test('copia da apagada: ativos na ordem da lista, so o que volta', () => {
       { nome: 'Atleta 2', player_id: null, origem: 'organizadora', garantida: true },
       { nome: 'Atleta 1', player_id: null, origem: 'link', garantida: false },
     ],
+    sairam: ['p3'],
   })
 })
 
@@ -390,6 +391,14 @@ test('copia da apagada: trazidos primeiro, mensalistas sem repetir', () => {
   const m = (nome: string, player_id: string) => ({ nome, player_id, origem: 'mensalista' as const, garantida: true })
   const trazidos = [t('Ana Souza', 'pa'), t('Bia Lima'), t('Carla Reis')]
   const junta = juntarSemRepetir(trazidos, [m('Ana Souza', 'pa'), m('Bia Lima', 'pb'), m('Dani Prado', 'pd'), m('CARLA  réis', 'pc')])
-  assert.deepEqual(junta.map((x) => x.nome), ['Ana Souza', 'Bia Lima', 'Carla Reis', 'Dani Prado'], 'mesmo cadastro ou mesmo nome nao repete')
+  assert.deepEqual(junta.map((x) => x.nome), ['Dani Prado', 'Ana Souza', 'Bia Lima', 'Carla Reis'], 'mesmo cadastro ou mesmo nome nao repete; sem garantida, na frente')
   assert.deepEqual(juntarSemRepetir(trazidos, []), trazidos)
+  // lista de 4 vagas: a mensalista nova nao pode virar suplente atras de quem veio pelo link
+  const g = (nome: string, player_id: string) => ({ ...m(nome, player_id), origem: 'organizadora' as const })
+  const comGarantidas = [g('Ana Souza', 'pa'), g('Bia Lima', 'pb'), t('Cris'), t('Duda'), t('Eva')]
+  assert.deepEqual(
+    juntarSemRepetir(comGarantidas, [m('Xuxa Mensal', 'px'), m('Mara Nova', 'pm')], ['px']).map((x) => x.nome),
+    ['Ana Souza', 'Bia Lima', 'Mara Nova', 'Cris', 'Duda', 'Eva'],
+    'depois da ultima garantida; quem tinha saido (px) nao volta',
+  )
 })

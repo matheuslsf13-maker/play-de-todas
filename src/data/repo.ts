@@ -70,7 +70,8 @@ export interface Repo {
   colocarNaLista(codigo: string, nome: string, aparelho: string): Promise<RespostaDaLista>
   /** Visitante: tira o nome que ESTE celular colocou. */
   tirarDaLista(nomeId: string, aparelho: string): Promise<RespostaDaLista>
-  salvarLista(l: Lista): Promise<void>
+  /** `nova` cria; sem ela so altera a que existe (erro se ela foi apagada: nunca recria). */
+  salvarLista(l: Lista, nova?: boolean): Promise<void>
   incluirNaLista(nomes: NomeIncluido[]): Promise<void>
   mexerNoNome(id: string, campos: MudancaNoNome): Promise<void>
   trocarNaLista(a: string, b: string): Promise<void>

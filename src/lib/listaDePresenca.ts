@@ -464,7 +464,14 @@ export function avisosAoApagar(nomes: NomeNaLista[]): string[] {
 export type NomeTrazido = Pick<NomeNaLista, 'nome' | 'player_id' | 'origem' | 'garantida'>
 
 /** A copia que fica NESTE celular por 30 minutos depois de apagar (uma so: a ultima). */
-export type CopiaDaApagada = { apagada_em: string; titulo: string; play_em: string; nomes: NomeTrazido[] }
+export type CopiaDaApagada = {
+  apagada_em: string
+  titulo: string
+  play_em: string
+  nomes: NomeTrazido[]
+  /** Cadastros de quem tinha saido: a mensalista que saiu nao volta pelo "Ja incluir as mensalistas". */
+  sairam?: string[]
+}
 
 export const VALIDADE_DA_COPIA_MS = 30 * 60 * 1000
 
@@ -477,6 +484,7 @@ export function copiaDaApagada(lista: Lista, nomes: NomeNaLista[], agora: Date):
     titulo: lista.titulo,
     play_em: lista.play_em,
     nomes: ativos.map(({ nome, player_id, origem, garantida }) => ({ nome, player_id, origem, garantida })),
+    sairam: nomes.flatMap((n) => (n.saiu_em && n.player_id ? [n.player_id] : [])),
   }
 }
 
@@ -493,9 +501,15 @@ export function previaDosNomes(nomes: string[], quantos = 3): string {
   return `${nomes.slice(0, quantos).join(', ')} e mais ${nomes.length - quantos}`
 }
 
-/** Primeiro os trazidos, na ordem; depois as mensalistas que ainda nao estao (mesmo cadastro ou mesmo nome). */
-export function juntarSemRepetir(trazidos: NomeTrazido[], mensalistas: NomeTrazido[]): NomeTrazido[] {
-  const ids = new Set(trazidos.flatMap((n) => (n.player_id ? [n.player_id] : [])))
+/**
+ * Os trazidos na ordem da apagada e as mensalistas que ainda nao estao (mesmo cadastro ou mesmo nome)
+ * nem tinham saido; elas entram logo depois da ultima garantida (sem nenhuma, na frente), como no
+ * garantir a mao: no fim, uma mensalista garantida podia virar suplente.
+ */
+export function juntarSemRepetir(trazidos: NomeTrazido[], mensalistas: NomeTrazido[], sairam: string[] = []): NomeTrazido[] {
+  const ids = new Set([...sairam, ...trazidos.flatMap((n) => (n.player_id ? [n.player_id] : []))])
   const grafias = new Set(trazidos.map((n) => normalizar(n.nome)))
-  return [...trazidos, ...mensalistas.filter((m) => !(m.player_id && ids.has(m.player_id)) && !grafias.has(normalizar(m.nome)))]
+  const novas = mensalistas.filter((m) => !(m.player_id && ids.has(m.player_id)) && !grafias.has(normalizar(m.nome)))
+  const depois = trazidos.map((n) => n.garantida).lastIndexOf(true) + 1
+  return [...trazidos.slice(0, depois), ...novas, ...trazidos.slice(depois)]
 }

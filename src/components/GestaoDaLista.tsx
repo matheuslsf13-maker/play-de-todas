@@ -19,7 +19,7 @@ import {
 } from '../lib/listaDePresenca'
 import { normalizar, semelhanca } from '../lib/roster'
 import { useStore } from '../lib/store'
-import { guardarCopiaDaApagada } from '../lib/useLista'
+import { esquecerCopiaDaApagada, guardarCopiaDaApagada } from '../lib/useLista'
 import { plural, type Player } from '../lib/types'
 
 /*
@@ -457,19 +457,26 @@ export function AdicionarNaLista({
 export function ApagarLista({ lc, onApagou, onClose }: { lc: ListaCompleta; onApagou: () => void; onClose: () => void }) {
   const { repo } = useStore()
   const [busy, setBusy] = useState(false)
-  const [erro, setErro] = useState(false)
+  const [erro, setErro] = useState('')
+  function apagou() {
+    // D41: os nomes ficam neste celular por 30 minutos, para a lista refeita (lista sem nomes: nao sobra a copia de antes)
+    const copia = copiaDaApagada(lc.lista, lc.nomes, new Date())
+    if (copia) guardarCopiaDaApagada(copia)
+    else esquecerCopiaDaApagada()
+    onApagou()
+  }
   async function apagar() {
     setBusy(true)
-    setErro(false)
+    setErro('')
     try {
       await repo.apagarLista(lc.lista.id)
-      // D41: os nomes ficam neste celular por 30 minutos, para a lista refeita
-      const copia = copiaDaApagada(lc.lista, lc.nomes, new Date())
-      if (copia) guardarCopiaDaApagada(copia)
-      onApagou()
+      apagou()
     } catch (e) {
       console.warn('não consegui apagar a lista:', e)
-      setErro(true)
+      // a resposta pode ter se perdido com a lista ja apagada, ou outro celular montou o play
+      const atual = await repo.carregarLista({ id: lc.lista.id }).catch(() => undefined)
+      if (atual === null) return apagou()
+      setErro(atual?.lista.session_id ? 'Esta lista já virou play e não pode ser apagada.' : 'Não consegui apagar agora. Confira a internet e tente de novo.')
       setBusy(false)
     }
   }
@@ -482,7 +489,7 @@ export function ApagarLista({ lc, onApagou, onClose }: { lc: ListaCompleta; onAp
         <ul style={{ margin: 0, paddingLeft: 20 }}>
           {avisosAoApagar(lc.nomes).map((a) => <li key={a}>{a}</li>)}
         </ul>
-        {erro && <div className="banner err" style={{ margin: 0 }}>Não consegui apagar agora. Confira a internet e tente de novo.</div>}
+        {erro && <div className="banner err" style={{ margin: 0 }}>{erro}</div>}
         <button className="btn danger block" disabled={busy} onClick={() => void apagar()}>
           {busy ? 'Apagando…' : '🗑️ Apagar lista'}
         </button>

@@ -94,7 +94,7 @@ export default function CriarLista({
     }
     setBusy(true)
     try {
-      await repo.salvarLista(lista)
+      await repo.salvarLista(lista, !editar)
     } catch (e) {
       onToast(avisosDoBanco.tabelas.has('listas') ? 'Antes, rode o script 31-lista-de-presenca.sql no Supabase' : mensagemDeErro(e))
       setBusy(false)
@@ -102,12 +102,12 @@ export default function CriarLista({
     }
     const daMensalista = (id: string) => ({ nome: playerById(id)?.name ?? id, player_id: id, origem: 'mensalista' as const, garantida: true })
     if (!editar && trazer && copia) {
-      // um por vez, esperando o banco: a ordem de chegada repete a da lista apagada
-      const fila = juntarSemRepetir(copia.nomes, comMensalistas ? mensalistas.map(daMensalista) : [])
+      // um por vez, esperando o banco, com a ordem da apagada (a mensalista nova entra depois da ultima garantida)
+      const fila = juntarSemRepetir(copia.nomes, comMensalistas ? mensalistas.map(daMensalista) : [], copia.sairam)
       let falharam = 0
-      for (const n of fila) {
+      for (const [i, n] of fila.entries()) {
         try {
-          await repo.incluirNaLista([{ ...n, lista_id: lista.id, ordem: null }])
+          await repo.incluirNaLista([{ ...n, lista_id: lista.id, ordem: i + 1 }])
         } catch (e) {
           console.warn('nome não entrou na lista nova:', n.nome, e)
           falharam++

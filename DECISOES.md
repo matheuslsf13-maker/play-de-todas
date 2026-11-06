@@ -1155,7 +1155,12 @@ Resumo do que decide o comportamento:
     para de funcionar; os N nomes somem; quantos entraram pelo link, para avisar no grupo; quem saiu
     e o "avisou com 24h" somem; os nomes ficam 30 minutos neste celular (D41); não dá para desfazer). Espera o banco (`repo.apagarLista`: delete em
     `listas` conferindo 1 linha; nomes e códigos de aparelho vão pela cascata do 31, **sem script
-    novo**); com erro a janela fica aberta com "Não consegui apagar agora…". Depois: toast "Lista
+    novo**; o delete leva `session_id is null`, então tela antiga de outro celular não apaga lista que
+    já virou play); com erro a janela fica aberta com "Não consegui apagar agora…" (ou "Esta lista já
+    virou play…"); se a resposta se perdeu e a lista já não existe, segue como apagada. Editar,
+    fechar, reabrir e o vínculo com o play são **update por id** conferindo 1 linha (`salvarLista`
+    sem `nova`), nunca upsert: a tela antiga de outro celular recriava a lista apagada, vazia e com o
+    link velho valendo (revisão de 06/11). Depois: toast "Lista
     apagada" e a aba Play (sem `?lista=`). Atleta com a página aberta não recebe aviso ao vivo (o tempo
     real filtrado não manda DELETE); a próxima ação dela diz "Esta lista não existe mais." (colocar e
     recarregar pelo banco; tirar o próprio nome confere se a lista ainda existe).
@@ -1170,10 +1175,12 @@ Resumo do que decide o comportamento:
     lida). No "📋 Lista de presença por link" aparece no topo "📋 Trazer os N nomes da lista apagada às
     HH:MM", com a prévia (`previaDosNomes`), **desmarcado**: se a lista foi apagada por nomes falsos
     ou link vazado, trazer de volta seria ruim. Marcado, os nomes entram depois de criar a lista, **um
-    por vez esperando o banco** (`ordem` nula: a chegada repete a ordem da apagada), com vínculo,
-    origem e garantida; com "Já incluir as mensalistas em dia" ligado, as mensalistas que ainda não
-    estão (mesmo cadastro ou mesmo nome normalizado, `juntarSemRepetir`) entram **depois** dos
-    trazidos. Falhou algum: a lista fica e um aviso diz quantos não entraram (a cópia fica); tudo
+    por vez esperando o banco**, na ordem da apagada (`ordem` 1, 2, 3…), com vínculo, origem e
+    garantida; com "Já incluir as mensalistas em dia" ligado, as mensalistas que ainda não estão
+    (mesmo cadastro ou mesmo nome normalizado, `juntarSemRepetir`) e **não tinham saído** da apagada
+    (`sairam` na cópia) entram **logo depois da última garantida** trazida (sem nenhuma, na frente),
+    como no ⭐ garantir: no fim da lista, a mensalista garantida virava suplente (revisão de 06/11;
+    o pedido dizia "depois dos trazidos" — a confirmar com o dono). Falhou algum: a lista fica e um aviso diz quantos não entraram (a cópia fica); tudo
     certo, a cópia é apagada. **Aceito:** quem tinha colocado o nome pelo link **não consegue mais
     "Tirar meu nome"** na lista nova (o código do aparelho foi junto com a apagada e ninguém consegue
     lê-lo para copiar): pede à organização. E a cópia **só existe no celular que apagou**.
