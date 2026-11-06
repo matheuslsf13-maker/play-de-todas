@@ -510,7 +510,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
         />
-        <div className="chips-scroll" style={{ marginTop: 10 }}>
+        <div className="chips-scroll" style={{ marginTop: 5 }}>
           {([['jogos', 'Mais jogos'], ['aproveitamento', 'Melhor %'], ['pontos', 'Mais pontos'], ['forca', '💪 Mais fortes']] as [Ordem, string][]).map(
             ([id, txt]) => (
               <button

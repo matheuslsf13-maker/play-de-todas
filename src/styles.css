@@ -1453,7 +1453,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 
 /* filtros da aba Meninas: linhas de chips que rolam de lado */
 .filtros-meninas { display: grid; gap: 6px; margin-bottom: 10px; }
-.filtros-meninas .chips-scroll { margin: 0; }
+.filtros-meninas .chips-scroll { margin: -5px 0; }
 .filtros-meninas .filtro-n { opacity: 0.7; font-variant-numeric: tabular-nums; margin-left: 2px; }
 .filtros-rodape { align-items: center; flex-wrap: wrap; gap: 6px; }
 .filtros-rodape .chip { padding: 4px 10px; font-size: 12px; }
@@ -1711,11 +1711,24 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   height: max(100%, 44px);
   transform: translate(-50%, -50%);
 }
-.chips-scroll { padding: 7px 2px; margin-block: -5px; }
+.chips-scroll { padding: 7px 2px; margin-block: -5px; overflow-y: hidden; }
+/* links em cima e botoes embaixo da atleta (Meninas): a area cresce so para
+   baixo, senao a de baixo pega o toque do texto de cima (e Inativar nao pede
+   confirmacao) */
+.acoes-atleta .linkish::after, .atleta-acoes .btn.sm::after { top: 0; transform: translateX(-50%); }
+.atleta-linha:has(.atleta-acoes) .acoes-atleta .linkish::after { height: calc(100% + 8px); }
 /* nome-botao: o pseudo seria cortado pelo ellipsis, entao a folga e padding
    com margem negativa (o layout nao muda). 14px < menor vao entre nomes (15px):
-   a area de um nome nunca alcanca o texto do vizinho. */
-.nome-link { padding-block: 14px; margin-block: -14px; }
+   a area de um nome nunca alcanca o texto do vizinho. Por cima do texto
+   vizinho (linha "tiny" de baixo), que senao cobre a folga. */
+.nome-link { padding-block: 14px; margin-block: -14px; position: relative; z-index: 1; }
+/* em texto corrido as linhas ficam a ~18px: a folga pegava o nome da linha vizinha */
+p .nome-link { padding-block: 0; margin-block: 0; }
+/* o pai que corta o nome comprido cortava tambem a folga de cima e de baixo:
+   corta so de lado (o desenho fica igual; sem suporte, continua como era) */
+@supports (overflow-x: clip) {
+  .ellipsis:has(> .nome-link) { overflow: visible; overflow-x: clip; }
+}
 
 /* ha mais fichas escondidas a direita: esmaece a borda (some ao chegar no fim) */
 .chips-scroll.mais-dir {

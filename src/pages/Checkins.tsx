@@ -389,7 +389,7 @@ function SecaoAtletas({
                         </button>
                       )}
                     </div>
-                    <div className="chips-scroll" style={{ marginTop: 6, padding: 0 }}>
+                    <div className="chips-scroll" style={{ marginTop: 1, paddingInline: 0 }}>
                       {arenas.length === 0 ? (
                         <span className="tiny muted">sem check-in disponível em {nomeDoMes(mes)}</span>
                       ) : (
@@ -664,7 +664,7 @@ function SecaoArenas({ mes, onToast }: { mes: string; onToast: (m: string) => vo
           </label>
         </div>
       )}
-      <div className="chips-scroll" style={{ marginBottom: 12 }}>
+      <div className="chips-scroll" style={{ marginBottom: 7 }}>
         <button className={`chip ${locais === null ? 'on' : ''}`} onClick={() => setLocais(null)}>Todas</button>
         {ativos.map((l) => (
           <button key={l.id} className={`chip ${locais?.includes(l.id) ? 'on' : ''}`} onClick={() => alternar(l.id)}>

@@ -176,7 +176,16 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
         <div className="card">
           <div className="row spread">
             <div className="section-title">➕ Nova atleta</div>
-            <button className="btn ghost sm" onClick={() => setNovaAberta(false)}>Cancelar</button>
+            <button
+              className="btn ghost sm"
+              onClick={() => {
+                setName('')
+                setNovaForca(null)
+                setNovaAberta(false)
+              }}
+            >
+              Cancelar
+            </button>
           </div>
           <div className="row">
             <input
@@ -191,7 +200,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
           <div style={{ marginTop: 8 }}>
             <EscolherGenero valor={generoDaNova} onChange={setGeneroDaNova} />
           </div>
-          <div className="chips-scroll" style={{ marginTop: 8 }}>
+          <div className="chips-scroll" style={{ marginTop: 3 }}>
             {CATEGORIAS.map((c) => (
               <button
                 key={c.valor}

@@ -3986,7 +3986,7 @@ function PlayDetail({
           )}
           {/* o seletor de categoria manda na fase de grupos e no ranking abaixo */}
           {ehCampeonato && (
-            <div className="chips-scroll" style={{ marginBottom: 8 }}>
+            <div className="chips-scroll" style={{ marginBottom: 3 }}>
               <button className={`chip ${catArte === null ? 'on' : 'off'}`} style={{ flex: 'none' }} onClick={() => setCatArte(null)}>
                 🏆 Todas
               </button>
@@ -4036,7 +4036,7 @@ function PlayDetail({
                   {/* O seletor manda em tudo: a tabela abaixo, o texto e a imagem.
                       Geral primeiro, depois cada grupo. Chips e nao `segmented`:
                       com 4 ou 5 grupos os botoes fixos nao cabem no celular. */}
-                  <div className="chips-scroll" style={{ marginBottom: 8 }}>
+                  <div className="chips-scroll" style={{ marginBottom: 3 }}>
                     <button
                       className={`chip ${grupoArte === null ? 'on' : 'off'}`}
                       style={{ flex: 'none' }}
@@ -4643,7 +4643,7 @@ function ListaDePartidas({
       {filtravel && partidas.length > 0 && (
         <div style={{ marginTop: 10 }}>
           {totalGrupos > 1 && (
-            <div className="chips-scroll" style={{ marginBottom: 8 }}>
+            <div className="chips-scroll" style={{ marginBottom: 3 }}>
               <button
                 className={`chip ${grupoFiltro === null ? 'on' : 'off'}`}
                 style={{ flex: 'none' }}
