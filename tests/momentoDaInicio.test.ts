@@ -86,6 +86,19 @@ test('lista fechada cujo play ja foi finalizado nao volta', () => {
   assert.equal(tipo(momentoDaInicio({ sessions: [s], matches: ms, lista: l, agora: em('2026-11-10T01:30:00Z') })), 'podio')
 })
 
+test('lista fechada sem play ligado: play finalizado na data da lista encerra a noite (podio)', () => {
+  // play montado a mao (ou o ligado apagado: o banco zera o session_id)
+  const s = play('s1', '2026-11-09', { status: 'finished' })
+  const l = lc({ fechada: true, session_id: null })
+  const ms = [partida('s1', { score_a: 4, score_b: 1, ended_at: '2026-11-10T00:00:00Z' })]
+  for (const t of ['2026-11-10T02:30:00Z', '2026-11-10T04:59:00Z'])
+    assert.equal(tipo(momentoDaInicio({ sessions: [s], matches: ms, lista: l, agora: em(t) })), 'podio')
+  // play finalizado de outra data nao conta: a lista de hoje segue
+  const velho = play('s0', '2026-11-02', { status: 'finished' })
+  const ms0 = [partida('s0', { score_a: 4, score_b: 1 })]
+  assert.equal(tipo(momentoDaInicio({ sessions: [velho], matches: ms0, lista: l, agora: em('2026-11-09T21:00:00Z') })), 'lista-fechada')
+})
+
 test('ao vivo de verdade: data de hoje, ou atividade nas ultimas 3 horas', () => {
   const ms = [partida('s1', { started_at: '2026-11-09T23:05:00Z', score_a: 4, score_b: 2, ended_at: '2026-11-09T23:20:00Z' })]
   const s = play('s1', '2026-11-09')

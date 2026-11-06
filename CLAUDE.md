@@ -601,8 +601,8 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **Um cartão só acima do ranking** (`components/CartaoDoMomento.tsx`); qual momento vale é
   `momentoDaInicio` (`src/lib/momentoDaInicio.ts`, puro, `tests/momentoDaInicio.test.ts`):
   **ao vivo** (play aberto com partida iniciada/lançada, de hoje −03:00 ou com atividade < 3 h) →
-  **lista aberta** → **lista fechada** com o play por vir (até 6 h depois; com play ligado aberto,
-  2º toque "ver as partidas") → **play aberto** sem estar ao vivo ("Próximo play", ou "Play em
+  **lista aberta** → **lista fechada** com o play por vir (até 6 h depois e sem play finalizado
+  naquela noite; com play ligado aberto, 2º toque "ver as partidas") → **play aberto** sem estar ao vivo ("Próximo play", ou "Play em
   andamento" parado de dias atrás) → **pódio da noite** (último play finalizado, até o meio-dia
   seguinte) → nada. Terça e Mista: só ao vivo, play e pódio.
 - A lista vem de `repo.listaDoMomento` (aberta, senão a fechada de play nas últimas 6 h) e o canal

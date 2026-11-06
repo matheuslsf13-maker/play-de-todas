@@ -1202,7 +1202,7 @@ momentos. Decidido e feito assim:
   aberto com partida iniciada ou lançada **e** de hoje (−03:00) ou com atividade (início/fim de
   partida) há menos de **3 h**; b) **lista aberta** (a de play mais cedo); c) **lista fechada** (na
   mão ou pelo prazo) até **6 h** depois da hora do play, se o play ligado (`session_id`) não foi
-  finalizado; com ele aberto, o cartão tem o 2º toque "🎾 ver as partidas"; d) **play aberto que não
+  finalizado (sem play ligado, se não há play finalizado na data da lista); com ele aberto, o cartão tem o 2º toque "🎾 ver as partidas"; d) **play aberto que não
   está ao vivo**: o "Próximo play" de sempre, ou, se é de dias atrás, "Play em andamento" com
   "ainda aberto: falta finalizar" (fica **abaixo** da lista: escolha conservadora, a lista é o que
   as atletas precisam ver); e) **pódio da noite** = o último play finalizado com partida lançada, no
@@ -1246,3 +1246,11 @@ momentos. Decidido e feito assim:
 - Fora: o cartão não tenta adivinhar o play ligado a uma lista fechada sem `session_id` (play
   criado à mão): ele aparece sem o 2º toque. O pódio some no meio-dia só ao recarregar (fora da
   lista e do ao vivo não há relógio rodando).
+- **Depois da revisão** (mesmo dia): lista fechada sem play ligado não esconde mais o pódio (play
+  finalizado na data da lista encerra a noite); pódio vazio (grupos+duplas sem mata-mata jogado)
+  não desenha cartão; quem saiu da lista volta a ver "ver a lista e colocar seu nome"; "ver as
+  partidas" com 44 px de alvo; a barra nasce vazia e enche ao abrir; as 6 h da lista viraram uma
+  constante só (`HORAS_DA_LISTA_DEPOIS_DO_PLAY`). Aceitos e registrados: o cartão aparece só
+  depois da leitura da lista (no Supabase o ranking desce um pouco ao chegar) e a altura muda com
+  o momento; o pódio de grupos lista todos os grupos; lista aberta da semana seguinte passa na
+  frente da lista fechada do play de hoje (prioridade b antes de c, como pedido).

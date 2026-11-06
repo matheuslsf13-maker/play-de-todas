@@ -16,7 +16,7 @@
  */
 import { categoriasDoPlay, duosDaCategoria, partidasDaCategoria } from './campeonato'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from './desempateDoDia'
-import { dataEmSaoPaulo, estaAberta, type ListaCompleta } from './listaDePresenca'
+import { HORAS_DA_LISTA_DEPOIS_DO_PLAY, dataEmSaoPaulo, estaAberta, type ListaCompleta } from './listaDePresenca'
 import { isPlayed } from './scoring'
 import { computeStats, rankDuplasDoDia, rankPlayers } from './stats'
 import { podiosDoDia } from './streaks'
@@ -25,8 +25,6 @@ import type { Match, PlaySession } from './types'
 const HORA = 3600 * 1000
 /** Play aberto sem nada acontecendo ha mais que isto (e de outro dia) nao e ao vivo. */
 export const HORAS_AO_VIVO = 3
-/** Lista fechada vale ate esse tempo depois da hora marcada (o play pode atrasar). */
-export const HORAS_DEPOIS_DO_PLAY = 6
 /** O podio da noite fica ate o meio-dia do dia seguinte. */
 export const PODIO_ATE_A_HORA = 12
 
@@ -79,8 +77,12 @@ export function momentoDaInicio(opts: {
   if (lc) {
     if (estaAberta(lc.lista, agora)) return { tipo: 'lista-aberta', lista: lc }
     const ligada = lc.lista.session_id ? (sessions.find((s) => s.id === lc.lista.session_id) ?? null) : null
-    const porVir = agora.getTime() < Date.parse(lc.lista.play_em) + HORAS_DEPOIS_DO_PLAY * HORA
-    if (porVir && ligada?.status !== 'finished') return { tipo: 'lista-fechada', lista: lc, session: ligada }
+    const porVir = agora.getTime() < Date.parse(lc.lista.play_em) + HORAS_DA_LISTA_DEPOIS_DO_PLAY * HORA
+    // sem play ligado (montado a mao, ou o ligado apagado): play finalizado na data da lista encerra a noite
+    const jaFoi = ligada
+      ? ligada.status === 'finished'
+      : sessions.some((s) => s.status === 'finished' && s.date === dataEmSaoPaulo(lc.lista.play_em))
+    if (porVir && !jaFoi) return { tipo: 'lista-fechada', lista: lc, session: ligada }
   }
 
   // d) play aberto que nao esta ao vivo (o cartao de sempre)

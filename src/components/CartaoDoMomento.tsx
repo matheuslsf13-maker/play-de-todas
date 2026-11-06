@@ -10,7 +10,7 @@ import {
   textoDaPosicao,
   type ListaCompleta,
 } from '../lib/listaDePresenca'
-import { contagem, decorrido, momentoDaInicio, podioDaNoite, type Momento } from '../lib/momentoDaInicio'
+import { contagem, decorrido, momentoDaInicio, podioDaNoite, type Momento, type PodioDaNoite as PodioDaNoiteT } from '../lib/momentoDaInicio'
 import { horaLocal, resumoAoVivo } from '../lib/previsaoDaNoite'
 import { isPlayed } from '../lib/scoring'
 import { useStore } from '../lib/store'
@@ -67,7 +67,7 @@ function Cartao({
       const { titulares, suplentes } = dividir(lista, nomes)
       const session = momento.tipo === 'lista-fechada' ? momento.session : null
       const falta = Date.parse(aberta ? lista.fecha_em : lista.play_em) - agora.getTime()
-      const meu = meuNome(lista.id)
+      const meu = meuAtivo(momento.lista)
       return (
         <Quadro
           cor={aberta ? 'lista' : 'fechada'}
@@ -125,6 +125,9 @@ function Cartao({
     }
     case 'podio': {
       const s = momento.session
+      // grupos+duplas sem mata-mata jogado nao tem podio: sem cartao vazio
+      const podio = podioDaNoite(s, data.matches, nameOf)
+      if (!podio) return null
       const jogadas = data.matches.filter((m) => m.session_id === s.id && isPlayed(m)).length
       const dia = quandoComData(inicioEmSaoPaulo(s.date, '12:00')).split(' às ')[0]
       return (
@@ -136,7 +139,7 @@ function Cartao({
           acao="ver o ranking do dia"
           onAbrir={() => onAbrirPlay(s.id)}
         >
-          <PodioDaNoite session={s} nameOf={nameOf} />
+          <PodioDaNoite podio={podio} session={s} nameOf={nameOf} />
         </Quadro>
       )
     }
@@ -159,6 +162,12 @@ function Quadro(p: {
 }) {
   const { barra } = p
   const pct = barra && barra.max > 0 ? Math.min(100, (100 * barra.valor) / barra.max) : 0
+  // a barra nasce vazia e enche ao abrir a tela (com movimento reduzido, a transicao e 0s)
+  const [montou, setMontou] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setMontou(true), 50)
+    return () => window.clearTimeout(t)
+  }, [])
   return (
     <div className={`card momento m-${p.cor}`}>
       <div className="momento-topo">
@@ -179,7 +188,7 @@ function Quadro(p: {
           aria-valuemax={barra.max}
           aria-valuenow={Math.min(barra.valor, barra.max)}
         >
-          <span style={{ width: `${pct}%` }} />
+          <span style={{ width: `${montou ? pct : 0}%` }} />
           {barra.marca != null && barra.marca > 0 && barra.marca < 1 && (
             <i className="momento-marca" style={{ left: `${barra.marca * 100}%` }} title="começa o mata-mata" />
           )}
@@ -222,10 +231,15 @@ function Rostinhos({ lc }: { lc: ListaCompleta }) {
   )
 }
 
-/** O recado pessoal: so com o nome que ESTE celular colocou, ainda ativo na lista. */
-function Recado({ lc, aberta }: { lc: ListaCompleta; aberta: boolean }) {
+/** O nome que ESTE celular colocou, ainda ativo na lista (quem saiu nao conta). */
+function meuAtivo(lc: ListaCompleta) {
   const id = meuNome(lc.lista.id)
-  const meu = id ? lc.nomes.find((n) => n.id === id && !n.saiu_em) : undefined
+  return id ? lc.nomes.find((n) => n.id === id && !n.saiu_em) : undefined
+}
+
+/** O recado pessoal: so com o nome deste celular ainda ativo na lista. */
+function Recado({ lc, aberta }: { lc: ListaCompleta; aberta: boolean }) {
+  const meu = meuAtivo(lc)
   if (!meu) return null
   const pos = posicaoDe(lc.nomes, meu.id)
   const confirmada = pos <= lc.lista.vagas
@@ -233,10 +247,8 @@ function Recado({ lc, aberta }: { lc: ListaCompleta; aberta: boolean }) {
   return <div className="momento-recado">{confirmada ? '✅' : '⏳'} {texto}</div>
 }
 
-function PodioDaNoite({ session, nameOf }: { session: PlaySession; nameOf: (id: string) => string }) {
-  const { data, playerById } = useStore()
-  const podio = podioDaNoite(session, data.matches, nameOf)
-  if (!podio) return null
+function PodioDaNoite({ podio, session, nameOf }: { podio: PodioDaNoiteT; session: PlaySession; nameOf: (id: string) => string }) {
+  const { playerById } = useStore()
   if (podio.tipo === 'um') {
     // 2a, 1a, 3a na tela
     const ordem = [1, 0, 2].map((i) => podio.lugares[i]).filter(Boolean)
