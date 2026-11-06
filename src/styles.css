@@ -1914,6 +1914,41 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   border-radius: 2px;
   background: var(--text);
 }
+/* "mata-mata" embaixo do tracinho; a barra ganha espaco embaixo para a linha de baixo nao encostar */
+.momento-barra:has(.momento-marca) { margin-bottom: 13px; }
+.momento-marca-rotulo {
+  position: absolute;
+  top: calc(100% + 4px);
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* o play de hoje, reduzido, embaixo da lista aberta de outro play: toque proprio, por cima do cartao */
+.momento-faixa {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 2px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-top: 1px dashed var(--line);
+  cursor: pointer;
+}
+.momento-faixa-texto { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.momento-faixa-acao { color: var(--muted); white-space: nowrap; }
 .momento-rostos { display: flex; align-items: center; padding-left: 6px; }
 .momento-rostos > .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--card); }
 .momento-mais {

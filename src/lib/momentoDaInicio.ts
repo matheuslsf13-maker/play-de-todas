@@ -4,8 +4,9 @@
  * (tests/momentoDaInicio.test.ts); a tela so desenha.
  *
  *   a) AO VIVO          play aberto com partida iniciada/lancada, de hoje ou com
- *                       atividade nas ultimas 3 horas
- *   b) LISTA ABERTA     a de play mais cedo
+ *                       atividade nas ultimas 3 horas -- salvo lista aberta de OUTRO
+ *                       play: ai a lista prevalece e o ao vivo vem junto, reduzido
+ *   b) LISTA ABERTA     a de play mais cedo (com o play de hoje junto, reduzido)
  *   c) LISTA FECHADA    com o play por vir (ate 6h depois da hora do play)
  *   d) PLAY             play aberto que nao esta ao vivo: o "Proximo play" de
  *                       sempre, ou o "Play em andamento" parado de dias atras
@@ -30,7 +31,8 @@ export const PODIO_ATE_A_HORA = 12
 
 export type Momento =
   | { tipo: 'ao-vivo'; session: PlaySession }
-  | { tipo: 'lista-aberta'; lista: ListaCompleta }
+  /** `play`: o play de hoje (ao vivo ou por comecar), mostrado reduzido embaixo da lista. */
+  | { tipo: 'lista-aberta'; lista: ListaCompleta; play: { session: PlaySession; aoVivo: boolean } | null }
   | { tipo: 'lista-fechada'; lista: ListaCompleta; session: PlaySession | null }
   | { tipo: 'play'; session: PlaySession; parado: boolean }
   | { tipo: 'podio'; session: PlaySession }
@@ -68,14 +70,23 @@ export function momentoDaInicio(opts: {
     [...xs].sort((a, b) => b.date.localeCompare(a.date) || (b.created_at ?? '').localeCompare(a.created_at ?? ''))
   const abertos = recentes(sessions.filter((s) => s.status === 'open'))
 
-  // a) ao vivo
+  const lc = opts.lista
+  const aberta = lc && estaAberta(lc.lista, agora) ? lc : null
+  // a lista aberta e de outro play: nem ligada a ele, nem da data dele
+  const deOutroPlay = (s: PlaySession) =>
+    !!aberta && aberta.lista.session_id !== s.id && dataEmSaoPaulo(aberta.lista.play_em) !== s.date
+
+  // a) ao vivo (com lista aberta de outro play, a lista prevalece: dono, 06/11)
   const vivo = abertos.find((s) => estaAoVivo(s, matches, agora))
+  if (vivo && aberta && deOutroPlay(vivo)) return { tipo: 'lista-aberta', lista: aberta, play: { session: vivo, aoVivo: true } }
   if (vivo) return { tipo: 'ao-vivo', session: vivo }
 
-  // b) lista aberta / c) lista fechada com o play por vir
-  const lc = opts.lista
+  // b) lista aberta, com o play de hoje junto / c) lista fechada com o play por vir
+  if (aberta) {
+    const deHoje = abertos.find((s) => s.date === hoje && deOutroPlay(s))
+    return { tipo: 'lista-aberta', lista: aberta, play: deHoje ? { session: deHoje, aoVivo: false } : null }
+  }
   if (lc) {
-    if (estaAberta(lc.lista, agora)) return { tipo: 'lista-aberta', lista: lc }
     const ligada = lc.lista.session_id ? (sessions.find((s) => s.id === lc.lista.session_id) ?? null) : null
     const porVir = agora.getTime() < Date.parse(lc.lista.play_em) + HORAS_DA_LISTA_DEPOIS_DO_PLAY * HORA
     // sem play ligado (montado a mao, ou o ligado apagado): play finalizado na data da lista encerra a noite
@@ -122,8 +133,13 @@ export function decorrido(ms: number): string {
 export type PodioDaNoite =
   /** Um podio so: as tres primeiras (empatadas dividem a posicao). */
   | { tipo: 'um'; lugares: { id: string; posicao: number }[] }
-  /** Grupos, categorias ou duplas: uma linha por grupo/categoria (ou por medalha). */
-  | { tipo: 'varios'; linhas: { rotulo: string; ids: string[] }[] }
+  /** Grupos, categorias ou duplas: uma linha por grupo/categoria (ou por medalha), ate 5; `mais` = as que nao couberam. */
+  | { tipo: 'varios'; linhas: { rotulo: string; ids: string[] }[]; mais: number }
+
+/** O podio de varios grupos mostra ate tantas linhas; o resto vira "+N". */
+export const PODIO_ATE_LINHAS = 5
+const varios = (linhas: { rotulo: string; ids: string[] }[]): PodioDaNoite | null =>
+  linhas.length ? { tipo: 'varios', linhas: linhas.slice(0, PODIO_ATE_LINHAS), mais: Math.max(0, linhas.length - PODIO_ATE_LINHAS) } : null
 
 /**
  * O podio de um play finalizado, pelas mesmas regras do 🔥 (`podiosDoDia`, com
@@ -149,7 +165,7 @@ export function podioDaNoite(s: PlaySession, todas: Match[], nameOf: (id: string
             const ouro = ds.find((d) => d.medalha === 3)
             return ouro ? [{ rotulo: `🏆 Categoria ${cats[ci].nome}`, ids: [ouro.a, ouro.b] }] : []
           })
-    return linhas.length ? { tipo: 'varios', linhas } : null
+    return varios(linhas)
   }
   if (doPlay.length === 0) return null
   const criterio = s.criterio_dia ?? 'pontos'
@@ -166,5 +182,5 @@ export function podioDaNoite(s: PlaySession, todas: Match[], nameOf: (id: string
     const campeas = lista.filter((x) => posicao.get(x.player_id) === 1).map((x) => x.player_id)
     return campeas.length ? [{ rotulo: `🏆 Grupo ${p.grupo}`, ids: campeas }] : []
   })
-  return linhas.length ? { tipo: 'varios', linhas } : null
+  return varios(linhas)
 }

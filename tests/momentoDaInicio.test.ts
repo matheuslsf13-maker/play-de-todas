@@ -46,7 +46,7 @@ test('sem nada: nenhum cartao', () => {
   assert.equal(momentoDaInicio({ sessions: [], matches: [], lista: null, agora: em('2026-11-06T15:00:00Z') }), null)
 })
 
-test('prioridade: ao vivo passa na frente da lista aberta, que passa na frente do play que nao comecou', () => {
+test('prioridade: lista aberta passa na frente do play que nao comecou e, se e de outro play, do ao vivo', () => {
   const agora = em('2026-11-09T23:30:00Z') // seg 20h30
   const aberto = play('s1', '2026-11-09')
   const listaAberta = lc({ fecha_em: '2026-11-10T21:00:00Z', play_em: '2026-11-16T23:00:00Z' })
@@ -55,9 +55,40 @@ test('prioridade: ao vivo passa na frente da lista aberta, que passa na frente d
   // sem lista: o cartao de sempre, "Proximo play"
   const semLista = momentoDaInicio({ sessions: [aberto], matches: [partida('s1')], lista: null, agora })
   assert.deepEqual(semLista, { tipo: 'play', session: aberto, parado: false })
-  // uma partida iniciada: ao vivo, mesmo com a lista aberta
+  // uma partida iniciada: ao vivo -- mas a lista aberta de OUTRO play prevalece (dono, 06/11), com o ao vivo reduzido
   const ms = [partida('s1', { started_at: '2026-11-09T23:10:00Z' })]
-  assert.equal(tipo(momentoDaInicio({ sessions: [aberto], matches: ms, lista: listaAberta, agora })), 'ao-vivo')
+  assert.deepEqual(momentoDaInicio({ sessions: [aberto], matches: ms, lista: listaAberta, agora }), {
+    tipo: 'lista-aberta', lista: listaAberta, play: { session: aberto, aoVivo: true },
+  })
+  assert.equal(tipo(momentoDaInicio({ sessions: [aberto], matches: ms, lista: null, agora })), 'ao-vivo')
+})
+
+test('lista da semana seguinte aberta no dia do play: a lista prevalece e o play de hoje vem junto, reduzido', () => {
+  const agora = em('2026-11-09T21:00:00Z') // seg 18h
+  const hoje = play('s1', '2026-11-09')
+  const proxima = lc({ id: 'L2', fecha_em: '2026-11-15T21:00:00Z', play_em: '2026-11-16T23:00:00Z' })
+  // play de hoje ainda por comecar
+  assert.deepEqual(momentoDaInicio({ sessions: [hoje], matches: [partida('s1')], lista: proxima, agora }), {
+    tipo: 'lista-aberta', lista: proxima, play: { session: hoje, aoVivo: false },
+  })
+  // sem play hoje (o aberto e de dias atras, ou de outro dia): a lista sozinha
+  for (const outro of [play('s0', '2026-11-02'), play('s2', '2026-11-10')]) {
+    const m = momentoDaInicio({ sessions: [outro], matches: [partida(outro.id)], lista: proxima, agora })
+    assert.deepEqual(m, { tipo: 'lista-aberta', lista: proxima, play: null })
+  }
+  // play finalizado nao entra (o podio fica de fora quando a lista prevalece)
+  const fim = play('s1', '2026-11-09', { status: 'finished' })
+  const mf = momentoDaInicio({ sessions: [fim], matches: [partida('s1', { score_a: 4, score_b: 1 })], lista: proxima, agora })
+  assert.deepEqual(mf, { tipo: 'lista-aberta', lista: proxima, play: null })
+})
+
+test('lista aberta do MESMO play que esta ao vivo: o ao vivo segue no cartao inteiro', () => {
+  const agora = em('2026-11-09T23:30:00Z')
+  const s = play('s1', '2026-11-09')
+  const ms = [partida('s1', { started_at: '2026-11-09T23:10:00Z' })]
+  // ligada pelo session_id, ou da mesma data (play montado a mao)
+  for (const l of [lc({ session_id: 's1', fecha_em: '2026-11-10T01:00:00Z' }), lc({ fecha_em: '2026-11-10T01:00:00Z' })])
+    assert.equal(tipo(momentoDaInicio({ sessions: [s], matches: ms, lista: l, agora })), 'ao-vivo')
 })
 
 test('lista fechada com o play por vir: na mao ou pelo prazo, e leva o play ligado', () => {
@@ -229,4 +260,20 @@ test('podio de um play todas: as tres primeiras; de grupos: a campea de cada gru
     assert.deepEqual(g.linhas[0].ids, ['a'])
     assert.deepEqual(g.linhas[1].ids, ['e', 'f']) // empate exato: as duas sobem juntas
   }
+})
+
+test('podio com muitos grupos: ate 5 linhas e o resto em "+N"', () => {
+  const ids = 'abcdefghijklmnopqrstuvwxyzABCDEFGH'.split('')
+  const groups = Array.from({ length: 7 }, (_, g) => ids.slice(g * 4, g * 4 + 4))
+  const s = play('s1', '2026-11-09', { status: 'finished', format: 'grupos', groups, criterio_dia: 'vitorias', player_ids: groups.flat() })
+  const ms = groups.map(([a, b, c, d]) => partida('s1', { team_a: [a, b], team_b: [c, d], score_a: 4, score_b: 1 }))
+  const p = podioDaNoite(s, ms, (id) => id)
+  assert.equal(p?.tipo, 'varios')
+  if (p?.tipo === 'varios') {
+    assert.deepEqual(p.linhas.map((l) => l.rotulo), ['🏆 Grupo 1', '🏆 Grupo 2', '🏆 Grupo 3', '🏆 Grupo 4', '🏆 Grupo 5'])
+    assert.equal(p.mais, 2)
+  }
+  // ate 5: nada escondido
+  const p5 = podioDaNoite({ ...s, groups: groups.slice(0, 5) }, ms.slice(0, 5), (id) => id)
+  assert.equal(p5?.tipo === 'varios' && p5.mais, 0)
 })

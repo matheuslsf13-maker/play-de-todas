@@ -82,7 +82,8 @@ function Cartao({
           barra={{ valor: titulares.length, max: lista.vagas, rotulo: 'Vagas preenchidas' }}
           acao={aberta && !meu ? 'ver a lista e colocar seu nome' : 'ver a lista'}
           onAbrir={() => onAbrirLista(lista.codigo)}
-          extra={session && session.status === 'open' ? { texto: '🎾 ver as partidas', onClick: () => onAbrirPlay(session.id) } : undefined}
+          extra={session && session.status === 'open' ? { texto: '🎾 ver o play', onClick: () => onAbrirPlay(session.id) } : undefined}
+          faixa={momento.tipo === 'lista-aberta' && momento.play ? <PlayDeHoje {...momento.play} onAbrir={onAbrirPlay} /> : undefined}
         >
           <Rostinhos lc={momento.lista} />
           <Recado lc={momento.lista} aberta={aberta} />
@@ -158,6 +159,8 @@ function Quadro(p: {
   acao: string
   onAbrir: () => void
   extra?: { texto: string; onClick: () => void }
+  /** O play de hoje, reduzido, quando a lista de outro play prevalece (botao proprio). */
+  faixa?: ReactNode
   children?: ReactNode
 }) {
   const { barra } = p
@@ -190,7 +193,13 @@ function Quadro(p: {
         >
           <span style={{ width: `${montou ? pct : 0}%` }} />
           {barra.marca != null && barra.marca > 0 && barra.marca < 1 && (
-            <i className="momento-marca" style={{ left: `${barra.marca * 100}%` }} title="começa o mata-mata" />
+            <>
+              <i className="momento-marca" style={{ left: `${barra.marca * 100}%` }} title="começa o mata-mata" />
+              {/* o rotulo fica centrado no tracinho, sem passar da borda da barra; small, nao span: o `.momento-barra > span` e o preenchimento da barra */}
+              <small className="momento-marca-rotulo" aria-hidden="true" style={{ left: `clamp(28px, ${barra.marca * 100}%, calc(100% - 28px))` }}>
+                mata-mata
+              </small>
+            </>
           )}
         </div>
       )}
@@ -204,6 +213,7 @@ function Quadro(p: {
           </button>
         )}
       </div>
+      {p.faixa}
     </div>
   )
 }
@@ -277,6 +287,31 @@ function PodioDaNoite({ podio, session, nameOf }: { podio: PodioDaNoiteT; sessio
           ))}
         </li>
       ))}
+      {podio.mais > 0 && (
+        <li>
+          <span className="momento-mais" title={`mais ${podio.mais}`}>+{podio.mais}</span>
+        </li>
+      )}
     </ul>
+  )
+}
+
+/** O play de hoje numa faixa pequena embaixo da lista aberta de outro play; tocar abre o play. */
+function PlayDeHoje({ session, aoVivo, onAbrir }: { session: PlaySession; aoVivo: boolean; onAbrir: (id: string) => void }) {
+  const { data } = useStore()
+  const r = aoVivo ? resumoAoVivo(session, data.matches) : null
+  return (
+    <button className="momento-faixa" onClick={() => onAbrir(session.id)}>
+      <span className="momento-faixa-texto">
+        {r ? (
+          <>
+            <span className="bolinha-viva" aria-hidden="true" /> Ao vivo · {r.jogadas} de {plural(r.total, 'partida')}
+          </>
+        ) : (
+          `🏐 Play de hoje · ${plural(session.player_ids.length, 'jogadora')}`
+        )}
+      </span>
+      <span className="momento-faixa-acao">ver o play →</span>
+    </button>
   )
 }
