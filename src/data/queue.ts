@@ -1,3 +1,5 @@
+import { semFinanceiro } from '../lib/pagamentoNaLista'
+import type { AppData } from '../lib/types'
 import { CHAVE } from '../lib/chaves'
 import type {
   Acerto,
@@ -91,9 +93,9 @@ export function loadCache<T>(): T | null {
   }
 }
 
-export function saveCache(data: unknown) {
+export function saveCache(data: AppData) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+    localStorage.setItem(CACHE_KEY, JSON.stringify(semFinanceiro(data)))
   } catch {
     /* sem espaco: segue sem cache offline */
   }

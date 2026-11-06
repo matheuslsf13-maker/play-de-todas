@@ -1,3 +1,4 @@
+import { aplicarPagamento, diaDaLista } from '../lib/pagamentoNaLista'
 import type {
   Acerto,
   Plano,
@@ -198,6 +199,17 @@ export const localRepo: Repo = {
     write(d)
   },
   // ---- check-ins: espelha as cascatas e os "set null" que o banco faz sozinho
+  async gravarPagamento(pedido) {
+    const d = read()
+    if (pedido.listaId) {
+      const l = lerListas().listas.find((l) => l.id === pedido.listaId)
+      const n = lerListas().nomes.find((n) => n.id === pedido.nomeId && n.lista_id === l?.id && !n.saiu_em)
+      const c = pedido.depois?.checkin ?? pedido.antes?.checkin
+      if (!l || !n || n.player_id !== c?.player_id) throw new Error('O nome ou a lista mudou. Abra novamente.')
+      if (diaDaLista(d, l).id !== pedido.dia.id) throw new Error('O dia mudou. Abra novamente.')
+    }
+    write(aplicarPagamento(d, pedido.dia, pedido.antes, pedido.depois))
+  },
   async saveCheckinLocal(local: CheckinLocal) {
     const d = read()
     upsertEm(d.checkinLocais, local)
@@ -346,6 +358,14 @@ export const localRepo: Repo = {
   async salvarLista(lista, nova) {
     const l = lerListas()
     if (!nova && !l.listas.some((x) => x.id === lista.id)) throw new Error('Esta lista não existe mais.')
+    if (lista.session_id && l.listas.find((x) => x.id === lista.id)?.session_id !== lista.session_id) {
+      const d = read()
+      const dias = d.checkinDias.filter((x) => x.date === lista.play_em.slice(0, 10) && !x.session_id)
+      if (dias.length === 1 && !d.checkinDias.some((x) => x.session_id === lista.session_id)) {
+        dias[0].session_id = lista.session_id
+        write(d)
+      }
+    }
     upsertEm(l.listas, lista)
     gravarListas(l)
   },

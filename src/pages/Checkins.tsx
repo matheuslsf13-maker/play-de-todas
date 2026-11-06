@@ -1,3 +1,4 @@
+import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '../lib/pagamentoNaLista'
 import { useEffect, useMemo, useState } from 'react'
 import { LIGA } from '../liga'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
@@ -101,8 +102,6 @@ function secaoSalva(): Secao {
   return 'atletas'
 }
 
-const VALOR_CHEIO_INICIAL = 50
-const VALOR_COM_CHECKIN_INICIAL = 25
 
 /** "25" ou "25,50": o texto que vai para o campo de valor. */
 function textoDoValor(n: number): string {
@@ -1820,7 +1819,7 @@ function EditarDiaModal({
   function salvar() {
     if (!date || vCheio === null || vCom === null) return
     saveCheckinDia({
-      id: dia?.id ?? uid(),
+      id: dia?.id ?? (jaExiste ? uid() : `dia:${date}`),
       date,
       session_id: sessionId || null,
       titulo: titulo.trim() || null,
@@ -2023,7 +2022,7 @@ function LancarModal({
 
   function salvar() {
     if (!playerId || !dia || vPago === null || (precoDiferente.trim() && vPreco === null)) return
-    const id = existente?.id ?? uid()
+    const id = existente?.id ?? idDoLancamento(dia.id, playerId)
     saveCheckin({
       id,
       dia_id: dia.id,

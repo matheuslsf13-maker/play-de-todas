@@ -1,3 +1,4 @@
+import PagamentoNaLista from '../components/PagamentoNaLista'
 import { useMemo, useRef, useState } from 'react'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import {
@@ -311,6 +312,7 @@ function LinhaDaLista({
         {detalhe && <span className="lista-forca">{detalhe}</span>}
         {gestao && !player && <span className="tiny muted" style={{ display: 'block' }}>sem cadastro vinculado</span>}
       </span>
+      {gestao && <PagamentoNaLista lista={lc.lista} nome={n} onVincular={onTocar} />}
       {gestao && sugestao && (
         <button
           className="btn teal sm lista-sugestao"

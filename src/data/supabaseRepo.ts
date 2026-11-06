@@ -246,7 +246,8 @@ export const supabaseRepo: Repo = {
   async load(): Promise<AppData> {
     const sb = client()
     // o misto nao tem check-ins (o dinheiro e de cada campeonato): nem pergunta
-    const semCheckins = EH_MISTO ? Promise.resolve({ data: [], error: null }) : null
+    const logada = !!(await sb.auth.getSession()).data.session
+    const semCheckins = EH_MISTO || !logada ? Promise.resolve({ data: [], error: null }) : null
     const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos] =
       await Promise.all([
         EH_MISTO
@@ -437,6 +438,13 @@ export const supabaseRepo: Repo = {
     if (error) throw error
   },
   // ---- check-ins (as cascatas e os "set null" sao do banco; ver 15-checkins.sql)
+  async gravarPagamento(pedido) {
+    const { error } = await client().rpc('gravar_pagamento_lista', { pedido })
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883') throw new Error('Para lançar pela lista, instale o script 34. A aba Check-ins continua disponível.')
+      throw error
+    }
+  },
   async saveCheckinLocal(local: CheckinLocal) {
     await upsertTolerante('checkin_locais', local)
   },

@@ -1,3 +1,4 @@
+import type { PedidoPagamento } from '../lib/pagamentoNaLista'
 import type {
   Acerto,
   Plano,
@@ -41,6 +42,7 @@ export interface Repo {
   saveClosure(closure: MonthClosure): Promise<void>
   deleteClosure(month: string): Promise<void>
   /* check-ins: locais, contas, dias, lancamentos, pagamentos e caixa */
+  gravarPagamento(pedido: PedidoPagamento): Promise<void>
   saveCheckinLocal(local: CheckinLocal): Promise<void>
   deleteCheckinLocal(id: string): Promise<void>
   saveCheckinConta(conta: CheckinConta): Promise<void>
