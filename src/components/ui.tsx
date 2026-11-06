@@ -168,10 +168,36 @@ let janelasAbertas = 0
 function useTravarFundo() {
   React.useEffect(() => {
     janelasAbertas++
-    document.documentElement.classList.add('janela-aberta')
+    const html = document.documentElement
+    html.classList.add('janela-aberta')
+    // teclado do celular: a janela cabe na parte VISIVEL da tela (visualViewport),
+    // senao o teclado cobria o campo do fim (o "valor pago", 07/11/2026)
+    const vv = window.visualViewport
+    const ajustar = () => {
+      if (!vv) return
+      html.style.setProperty('--vv-altura', `${vv.height}px`)
+      html.style.setProperty('--vv-topo', `${vv.offsetTop}px`)
+    }
+    // o campo tocado sobe para dentro da janela depois que o teclado termina de abrir
+    const focou = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null
+      if (!el?.closest?.('.modal') || !el.matches('input, textarea, select')) return
+      window.setTimeout(() => el.scrollIntoView({ block: 'nearest' }), 300)
+    }
+    ajustar()
+    vv?.addEventListener('resize', ajustar)
+    vv?.addEventListener('scroll', ajustar)
+    document.addEventListener('focusin', focou)
     return () => {
+      vv?.removeEventListener('resize', ajustar)
+      vv?.removeEventListener('scroll', ajustar)
+      document.removeEventListener('focusin', focou)
       janelasAbertas--
-      if (janelasAbertas === 0) document.documentElement.classList.remove('janela-aberta')
+      if (janelasAbertas === 0) {
+        html.classList.remove('janela-aberta')
+        html.style.removeProperty('--vv-altura')
+        html.style.removeProperty('--vv-topo')
+      }
     }
   }, [])
 }

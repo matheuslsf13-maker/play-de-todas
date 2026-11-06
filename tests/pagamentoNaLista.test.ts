@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { diaDaLista, diaJaExiste, diaParaLigar, prepararPagamento, retrato, tipoNaLista, valorInicial } from '../src/lib/pagamentoNaLista'
-import { emptyData, type AppData, type CheckinDia, type Player } from '../src/lib/types'
+import { contaInicial, diaDaLista, diaJaExiste, diaParaLigar, prepararPagamento, retrato, tipoNaLista, valorInicial } from '../src/lib/pagamentoNaLista'
+import { emptyData, type AppData, type CheckinConta, type CheckinDia, type CheckinLocal, type Player } from '../src/lib/types'
 import { saldoDaAtleta } from '../src/lib/checkins'
 import type { Lista } from '../src/lib/listaDePresenca'
 
@@ -88,4 +88,39 @@ test('preco combinado e arena do lancamento existente sao mantidos; valor invali
   assert.equal(d.checkinPagamentos[0].observacao, 'combinado')
   assert.equal(saldoDaAtleta(d, atleta.id).saldo, 0)
   for (const valor of [-1, NaN, Infinity, 100000]) assert.throws(() => prepararPagamento(d, dia, atleta.id, 'integral', valor), /valor/)
+})
+
+/* a conta do check-in: a mesma escolha (e o mesmo palpite) do Lancar da aba Check-ins */
+const arena = (id: string, ordem: number) => ({ id, nome: id.toUpperCase(), ativo: true, ordem, afiliacao: null }) as CheckinLocal
+const conta = (id: string, extra: Partial<CheckinConta> = {}): CheckinConta => ({ id, player_id: atleta.id, nome: id, principal: false, tipo: 'wellhub',
+  aulas_semana: null, plano_id: null, aulas: [], local_padrao_id: null, ativo: true, created_at: '', ...extra })
+const comContas = (): AppData => ({ ...dados(), checkinLocais: [arena('v3', 1), arena('gw', 2)] })
+
+test('conta: sem contas gravadas, palpite = principal (conta nula) na 1a arena', () => {
+  const d = comContas(); const dia = diaDaLista(d, lista)
+  assert.deepEqual(contaInicial(d, dia, atleta.id), { contaId: null, localId: 'v3' })
+  const r = prepararPagamento(d, dia, atleta.id, 'checkin', 25)
+  assert.equal(r.checkin.conta_id, null); assert.equal(r.checkin.local_id, 'v3'); assert.equal(r.checkin.checkin_confirmado, true)
+})
+
+test('conta: arena padrao entra no palpite; a escolhida (conta do marido) e gravada; integral nao tem arena', () => {
+  const d = comContas()
+  d.checkinContas.push(conta('principal:a', { principal: true, nome: '', local_padrao_id: 'gw' }), conta('marido', { nome: 'Joao' }))
+  const dia = diaDaLista(d, lista)
+  assert.deepEqual(contaInicial(d, dia, atleta.id), { contaId: null, localId: 'gw' })
+  const r = prepararPagamento(d, dia, atleta.id, 'checkin', 25, { contaId: 'marido', localId: 'v3' })
+  assert.equal(r.checkin.conta_id, 'marido'); assert.equal(r.checkin.local_id, 'v3')
+  const salvo = gravar(d, dia, 25, 'checkin')
+  const editado = { ...salvo, checkins: salvo.checkins.map((c) => ({ ...c, conta_id: 'marido', local_id: 'v3' })) }
+  assert.deepEqual(contaInicial(editado, dia, atleta.id), { contaId: 'marido', localId: 'v3' }) // reabrir mostra a gravada
+  const integral = prepararPagamento(d, dia, atleta.id, 'integral', 50, { contaId: 'marido', localId: 'v3' })
+  assert.equal(integral.checkin.local_id, null); assert.equal(integral.checkin.checkin_confirmado, false)
+})
+
+test('conta: check-in de credito mantem a conta e a arena do credito', () => {
+  const d = comContas(); const dia = diaDaLista(d, lista)
+  const s = gravar(d, dia, 25, 'checkin')
+  s.checkins[0] = { ...s.checkins[0], credito_de: 'outro', conta_id: 'marido', local_id: 'gw' }
+  const r = prepararPagamento(s, dia, atleta.id, 'checkin', 25, { contaId: null, localId: 'v3' })
+  assert.equal(r.checkin.conta_id, 'marido'); assert.equal(r.checkin.local_id, 'gw')
 })

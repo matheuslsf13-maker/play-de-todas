@@ -496,6 +496,10 @@ label.field { display: block; }
 .banner.warn { background: var(--yellow-suave); color: var(--yellow); }
 .banner.err { background: var(--danger-suave); color: var(--danger); }
 .banner.info { background: var(--purple-suave); color: var(--text); }
+/* sobra/divida do 💰 da lista: grande e colorido, texto em --text para ler nos dois temas */
+.banner.saldo-credito, .banner.saldo-divida { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); border: 2px solid; }
+.banner.saldo-credito { background: var(--teal-suave); border-color: var(--teal); }
+.banner.saldo-divida { background: var(--danger-suave); border-color: var(--danger); }
 
 .toast {
   position: fixed;
@@ -519,6 +523,10 @@ html.janela-aberta { overflow: hidden; }
 .modal-bg {
   position: fixed;
   inset: 0;
+  /* so a parte visivel da tela: com o teclado aberto a janela sobe e encolhe (useTravarFundo) */
+  top: var(--vv-topo, 0px);
+  bottom: auto;
+  height: var(--vv-altura, 100%);
   overscroll-behavior: contain;
   touch-action: none; /* arrastar no escuro em volta nao rola o fundo */
   background: rgba(20, 26, 60, .5);
@@ -536,6 +544,7 @@ html.janela-aberta { overflow: hidden; }
   padding: 16px;
   max-height: 86vh;
   max-height: 86dvh; /* no iPhone o vh ignora a barra do Safari e o fim da janela ficava escondido */
+  max-height: min(86dvh, calc(var(--vv-altura, 100dvh) - 24px)); /* teclado aberto: cabe acima dele */
   overflow: auto;
   overscroll-behavior: contain; /* chegou ao fim da janela: o arraste para aqui */
   -webkit-overflow-scrolling: touch;

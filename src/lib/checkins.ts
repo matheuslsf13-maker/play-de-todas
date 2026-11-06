@@ -612,6 +612,38 @@ export function livresNoLocal(uso: UsoDaConta, localId: string | null): UsoNoLoc
   return localId ? uso.locais.find((u) => u.local.id === localId) : undefined
 }
 
+/**
+ * O palpite da conta e da arena de um check-in novo (o Lancar da aba Check-ins
+ * e o 💰 da lista): a primeira conta com check-in livre em alguma arena, de
+ * preferencia na arena padrao dela; senao a arena mais usada no dia. `livre`
+ * falso = nenhuma conta tem check-in livre (o Lancar sugere integral).
+ * `contaId` nulo = a principal.
+ */
+export function palpiteDaConta(data: AppData, playerId: string, dia: CheckinDia): { contaId: string | null; localId: string | null; livre: boolean } {
+  const disp = disponibilidade(data, playerId, monthOf(dia.date))
+  const locais = data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)
+  const cont = new Map<string, number>()
+  for (const c of checkinsDoDia(data, dia.id)) if (c.local_id) cont.set(c.local_id, (cont.get(c.local_id) ?? 0) + 1)
+  const maisUsada = [...cont.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  const livreEm = (u: UsoDaConta, id: string | null | undefined) => (id ? (livresNoLocal(u, id)?.disponiveis ?? 0) > 0 : false)
+  const escolha = disp.contas
+    .map((u) => ({
+      u,
+      arena: livreEm(u, u.conta.local_padrao_id)
+        ? u.conta.local_padrao_id
+        : livreEm(u, maisUsada)
+          ? maisUsada
+          : (u.locais.find((x) => x.aceita && x.disponiveis > 0)?.local.id ?? null),
+    }))
+    .find((e) => e.arena !== null)
+  const u = escolha?.u ?? disp.contas[0]
+  return {
+    contaId: u.conta.principal ? null : u.conta.id,
+    localId: escolha?.arena ?? u.conta.local_padrao_id ?? maisUsada ?? locais[0]?.id ?? null,
+    livre: Boolean(escolha),
+  }
+}
+
 /* -------------------------------------------------------------- relatorios */
 
 export type FiltroDoRelatorio = {

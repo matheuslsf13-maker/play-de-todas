@@ -10,6 +10,7 @@ import {
   appDaConta,
   arenasAfiliadas,
   aulasDaConta,
+  palpiteDaConta,
   consumoDasAulas,
   cotaDoPlano,
   destinoDoExcedente,
@@ -1952,28 +1953,10 @@ function LancarModal({
   // que a cota permite. So no lancamento novo, e so uma vez por atleta/dia.
   useEffect(() => {
     if (prefeito || !playerId || !dia || !disp) return
-    // a conta e a arena vao juntas: a primeira conta com check-in livre em alguma
-    // arena, de preferencia na arena padrao dela; senao a arena mais usada no dia
-    const maisUsada = (() => {
-      const cont = new Map<string, number>()
-      for (const c of checkinsDoDia(data, dia.id)) if (c.local_id) cont.set(c.local_id, (cont.get(c.local_id) ?? 0) + 1)
-      return [...cont.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
-    })()
-    const livreEm = (u: UsoDaConta, id: string | null | undefined) => (id ? (livresNoLocal(u, id)?.disponiveis ?? 0) > 0 : false)
-    const escolha = disp.contas
-      .map((u) => {
-        const arena = livreEm(u, u.conta.local_padrao_id)
-          ? u.conta.local_padrao_id
-          : livreEm(u, maisUsada)
-            ? maisUsada
-            : (u.locais.find((x) => x.aceita && x.disponiveis > 0)?.local.id ?? null)
-        return { u, arena }
-      })
-      .find((e) => e.arena !== null)
-    const u = escolha?.u ?? disp.contas[0]
-    setContaId(u.conta.principal ? null : u.conta.id)
-    setLocalId(escolha?.arena ?? u.conta.local_padrao_id ?? maisUsada ?? locais[0]?.id ?? null)
-    setModo(escolha ? 'checkin' : 'integral')
+    const p = palpiteDaConta(data, playerId, dia)
+    setContaId(p.contaId)
+    setLocalId(p.localId)
+    setModo(p.livre ? 'checkin' : 'integral')
     setPrefeito(true)
   }, [prefeito, playerId, dia, disp, data, locais])
 

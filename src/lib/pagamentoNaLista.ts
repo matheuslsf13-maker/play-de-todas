@@ -1,5 +1,5 @@
 import { categoriaDe } from './mensalidade'
-import { centavos, checkinDaAtletaNoDia, contasDaAtleta, creditoDisponivel, pagamentoDoCheckin, valorDevido } from './checkins'
+import { centavos, checkinDaAtletaNoDia, creditoDisponivel, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
 import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player } from './types'
 
@@ -62,26 +62,40 @@ export function palpiteDaLista(data: AppData, playerId: string): CheckinModo {
   return data.checkinContas.some((c) => c.player_id === playerId && c.ativo) ? 'checkin' : 'integral'
 }
 
+export type ContaDoCheckin = { contaId: string | null; localId: string | null }
+
+/**
+ * A conta e a arena que a janela mostra marcadas: as do lancamento que ja
+ * existe; senao o mesmo palpite do Lancar da aba Check-ins.
+ */
+export function contaInicial(data: AppData, dia: CheckinDia, playerId: string): ContaDoCheckin {
+  const c = retrato(data, dia.id, playerId)?.checkin
+  if (c?.modo === 'checkin' && c.local_id) return { contaId: c.conta_id, localId: c.local_id }
+  const p = palpiteDaConta(data, playerId, dia)
+  return { contaId: p.contaId, localId: p.localId }
+}
+
 /**
  * O lancamento confirmado do play: compareceu, pagamento confirmado e, no
- * modo check-in, check-in confirmado. Corrigir mantem o id e o resto do
- * lancamento (arena, conta, preco combinado, observacao).
+ * modo check-in, check-in confirmado na conta e arena escolhidas (conta nula
+ * = a principal). Corrigir mantem o id e o resto (preco combinado, observacao).
  */
-export function prepararPagamento(data: AppData, dia: CheckinDia, playerId: string, modo: CheckinModo, pago: number): RetratoPagamento & { pagamento: CheckinPagamento } {
+export function prepararPagamento(
+  data: AppData, dia: CheckinDia, playerId: string, modo: CheckinModo, pago: number,
+  conta: ContaDoCheckin = contaInicial(data, dia, playerId),
+): RetratoPagamento & { pagamento: CheckinPagamento } {
   if (!Number.isFinite(pago) || pago < 0 || pago >= 100000) throw new Error('Confira o valor pago.')
   const antes = retrato(data, dia.id, playerId)
-  const conta = contasDaAtleta(data, playerId).find((c) => c.local_padrao_id) ?? contasDaAtleta(data, playerId)[0]
-  const arena = conta.local_padrao_id ?? data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)[0]?.id ?? null
   const checkin: Checkin = {
     id: idDoLancamento(dia.id, playerId), dia_id: dia.id, player_id: playerId,
-    conta_id: conta.principal ? null : conta.id, local_id: null,
-    credito_checkin: false, credito_de: null, compareceu: true, created_at: new Date().toISOString(),
+    conta_id: null, local_id: null, credito_checkin: false, credito_de: null, compareceu: true, created_at: new Date().toISOString(),
     ...antes?.checkin,
     modo, checkin_confirmado: modo === 'checkin',
   }
   // integral nao tem arena nem check-in de credito (igual ao Lancar da aba Check-ins)
   if (modo === 'integral') Object.assign(checkin, { local_id: null, credito_de: null, credito_checkin: false })
-  else if (!checkin.local_id) checkin.local_id = arena
+  // check-in de credito leva a conta e a arena do credito; senao vale a escolhida
+  else if (!checkin.credito_de) Object.assign(checkin, { conta_id: conta.contaId, local_id: conta.localId })
   return {
     checkin,
     pagamento: { checkin_id: checkin.id, valor_devido: null, observacao: null, ...antes?.pagamento, valor_pago: centavos(pago), pagamento_confirmado: true },
