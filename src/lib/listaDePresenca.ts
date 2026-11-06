@@ -153,6 +153,25 @@ export function estaAberta(lista: Lista, agora: Date): boolean {
   return !lista.fechada && agora.getTime() < Date.parse(lista.fecha_em)
 }
 
+/** Ate quanto depois da hora do play a lista fechada ainda e "a do momento" (o play pode atrasar). */
+export const HORAS_DA_LISTA_DEPOIS_DO_PLAY = 6
+
+/** Desde quando procurar a lista do momento (play_em maior que isto). */
+export function desdeDaListaDoMomento(agora: Date): string {
+  return new Date(agora.getTime() - HORAS_DA_LISTA_DEPOIS_DO_PLAY * 3600 * 1000).toISOString()
+}
+
+/**
+ * A lista que importa agora, para o cartao da tela inicial (D42): a aberta de
+ * play mais cedo; sem nenhuma aberta, a fechada (na mao ou pelo prazo) de play
+ * mais cedo que ainda nao passou de ~6h.
+ */
+export function escolherListaDoMomento<T extends Lista>(listas: T[], agora: Date): T | undefined {
+  const desde = Date.parse(desdeDaListaDoMomento(agora))
+  const porVir = listas.filter((l) => Date.parse(l.play_em) > desde).sort((a, b) => a.play_em.localeCompare(b.play_em))
+  return porVir.find((l) => estaAberta(l, agora)) ?? porVir[0]
+}
+
 /**
  * Onde entra um nome adicionado a mao quando a organizadora garante a vaga:
  * logo depois da ultima garantida (sem nenhuma, na frente de todas).

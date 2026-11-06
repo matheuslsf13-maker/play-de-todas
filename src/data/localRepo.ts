@@ -24,6 +24,7 @@ import {
   TETO_POR_VAGA,
   TETO_TOTAL_POR_VAGA,
   ativosEmOrdem,
+  escolherListaDoMomento,
   estaAberta,
   posicaoDe,
   validarNome,
@@ -296,11 +297,9 @@ export const localRepo: Repo = {
     const l = lerListas()
     return completa(l, l.listas.find((x) => ('codigo' in ref ? x.codigo === ref.codigo.toLowerCase() : x.id === ref.id)))
   },
-  async listaAberta() {
+  async listaDoMomento() {
     const l = lerListas()
-    const agora = new Date()
-    const aberta = l.listas.filter((x) => estaAberta(x, agora)).sort((a, b) => a.play_em.localeCompare(b.play_em))[0]
-    return completa(l, aberta)
+    return completa(l, escolherListaDoMomento(l.listas, new Date()))
   },
   async listasRecentes(limite) {
     return lerListas().listas.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limite)

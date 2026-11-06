@@ -20,7 +20,6 @@ import {
   paraMontar,
   podeApagar,
   posicaoDe,
-  quando,
   quandoComData,
   sugestaoSegura,
   textoDaPosicao,
@@ -33,7 +32,6 @@ import {
 import { ratings } from '../lib/stats'
 import { useStore } from '../lib/store'
 import {
-  TEM_LISTA,
   baseDoApp,
   codigoDoAparelho,
   guardarNome,
@@ -583,24 +581,5 @@ function Ferramentas({
         </Modal>
       )}
     </div>
-  )
-}
-
-/** O cartao da tela inicial: a lista aberta com o play mais proximo. */
-export function CartaoDaLista({ onAbrir }: { onAbrir: (codigo: string) => void }) {
-  const { lista: lc } = useLista(TEM_LISTA ? 'aberta' : null)
-  if (!lc) return null
-  const { lista } = lc
-  return (
-    <button className="card proximo lista-aberta" onClick={() => onAbrir(lista.codigo)}>
-      <span className="prox-selo">📋</span>
-      <span className="grow" style={{ minWidth: 0 }}>
-        <span className="prox-titulo">Lista aberta</span>
-        <span className="prox-info">
-          {quando(lista.play_em)} · {ocupacao(lista, lc.nomes)} · <span className="nowrap">fecha {quando(lista.fecha_em)}</span>
-        </span>
-        <span className="prox-acao">{meuNome(lista.id) ? 'ver a lista →' : 'ver a lista e colocar seu nome →'}</span>
-      </span>
-    </button>
   )
 }
