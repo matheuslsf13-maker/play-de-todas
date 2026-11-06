@@ -443,12 +443,12 @@ function PainelJogadora({
 
 /* ---------------------------------------------------------- por dupla */
 
-type Ordem = 'jogos' | 'aproveitamento' | 'pontos' | 'forca'
+type Ordem = 'jogos' | 'aproveitamento' | 'pontos' | 'forca' | 'entrosamento'
 
 function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }) {
   const { nameOf, playerById } = useStore()
   const [busca, setBusca] = useState('')
-  const [ordem, setOrdem] = useState<Ordem>('jogos')
+  const [ordem, setOrdem] = useState<Ordem>('forca')
   const [aberta, setAberta] = useState<DuoStat | null>(null)
 
   // o mesmo bye conta aqui: a dupla que passou direto tambem nao pode
@@ -477,6 +477,11 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
   const duplaOculta = (d: { a: string; b: string }) => !canEdit && (avaliacao.has(d.a) || avaliacao.has(d.b))
   // a oculta vai para o fim no "mais fortes" (a posicao tambem diria a forca)
   const forcaDe = (d: DuoStat) => (duplaOculta(d) ? 0 : forcas.get(d.key)?.nota ?? 1500)
+  // idem no entrosamento: a oculta e a que ainda nao tem forca vao para o fim
+  const entrosamentoDe = (d: DuoStat) => {
+    const f = forcas.get(d.key)
+    return duplaOculta(d) || !f ? -Infinity : f.entrosamento
+  }
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -486,6 +491,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
     const aprov = (d: DuoStat) => (d.matches === 0 ? 0 : d.wins / d.matches)
     return [...filtradas].sort((a, b) => {
       if (ordem === 'forca') return forcaDe(b) - forcaDe(a) || b.matches - a.matches
+      if (ordem === 'entrosamento') return entrosamentoDe(b) - entrosamentoDe(a) || b.matches - a.matches
       if (ordem === 'pontos') return b.points - a.points || b.matches - a.matches
       if (ordem === 'aproveitamento') return aprov(b) - aprov(a) || b.matches - a.matches
       return b.matches - a.matches || b.wins - a.wins
@@ -511,7 +517,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
           onChange={(e) => setBusca(e.target.value)}
         />
         <div className="chips-scroll" style={{ marginTop: 5 }}>
-          {([['jogos', 'Mais jogos'], ['aproveitamento', 'Melhor %'], ['pontos', 'Mais pontos'], ['forca', '💪 Mais fortes']] as [Ordem, string][]).map(
+          {([['forca', '💪 Mais fortes'], ['entrosamento', '🤝 Mais entrosadas'], ['pontos', 'Mais pontos'], ['aproveitamento', 'Melhor %'], ['jogos', 'Mais jogos']] as [Ordem, string][]).map(
             ([id, txt]) => (
               <button
                 key={id}
