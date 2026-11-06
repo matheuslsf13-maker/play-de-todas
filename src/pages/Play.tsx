@@ -281,10 +281,14 @@ function PlayList({
                       {!contaNoStatus(s) && <span className="badge avulso">sem 🔥</span>}
                     </div>
                     <div className="tiny muted">
-                      {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {done}/{ms.length} partidas
-                      {selo && <> · <span className="nowrap" title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span></>}
+                      {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {done === ms.length ? ms.length : `${done}/${ms.length}`} partidas
                     </div>
-                    {selo?.selo && <span className="selo-do-play">{selo.selo.emoji} {selo.selo.nome}</span>}
+                    {selo && (
+                      <div className="row" style={{ gap: 8, marginTop: 4 }}>
+                        <span className="tiny nowrap" style={{ fontWeight: 800 }} title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span>
+                        {selo.selo && <span className="selo-do-play" style={{ marginTop: 0 }}>{selo.selo.emoji} {selo.selo.nome}</span>}
+                      </div>
+                    )}
                   </div>
                   <button className="btn ghost sm" onClick={() => onOpen(s.id)}>Abrir</button>
                   {canEdit && (
