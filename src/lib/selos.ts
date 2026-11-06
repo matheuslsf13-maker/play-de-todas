@@ -8,8 +8,7 @@ import type { AppData, Match } from './types'
  * Cada play finalizado mostra a FORCA DO PLAY: a media da forca de quem jogou
  * (pelo menos uma partida com placar), com a forca que cada uma tinha NAQUELE
  * DIA, antes do play -- entao o numero de um play nunca muda depois. Atleta em
- * avaliacao entra na media, mas quem nao e admin nao ve o numero enquanto ela
- * estiver em avaliacao: com o grafico das outras, a media daria a nota dela.
+ * avaliacao entra na media (a media nao revela ninguem).
  *
  * E no maximo UM selo, o mais raro que ele detem AGORA (a ordem de `SELOS`).
  * Quem detem e o lider da metrica (na historia ou no mes da data do play); no

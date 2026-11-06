@@ -423,8 +423,8 @@ liga/            textos do masculino: o código fica no feminino e o build
   disputado, ties, casa cheia, estreias, maratona do mês). Empate: fica o mais antigo. O
   líder que já mostra selo mais raro não passa o menor para o 2º. Avulso mostra a força,
   mas não concorre (como no ranking do mês). Uma passada de `calcularElo` (`aoMudar`), por `data`.
-  Quem não é admin não vê o 💪 de play com alguém 🔍 em avaliação (com o gráfico das outras,
-  a média daria a nota dela), nem a 🔍 na média/total do cartão de grupos.
+  O 💪 e o total do cartão de grupos aparecem para todos, mesmo com alguém 🔍 em avaliação: dá para
+  deduzir a nota dela fazendo contas, e o dono decidiu (06/11/2026) que isso não importa.
 - **✅ Check-ins** (`src/lib/checkins.ts`, scripts 15 a 19): a planilha da
   organizadora. **A cota é por arena e vem do plano** (`checkin_planos`, script 18):
   Wellhub Gold dá 12 na V3 e 12 na GW (não aceita Itaparica); Gold+ e TotalPass dão
