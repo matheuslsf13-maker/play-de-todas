@@ -19,7 +19,9 @@ PWA (manifest + service worker). Português do Brasil em toda a interface.
 ```bash
 npm run dev      # servidor local em http://localhost:5173
 npm run build    # tsc -b + vite build (use antes de commitar)
-npx tsc --noEmit # só a checagem de tipos
+npx tsc --noEmit # só a checagem de tipos (= npm run typecheck)
+VITE_SUPABASE_URL=local VITE_SUPABASE_ANON_KEY=local npm run dev  # modo local: sem
+                 # essas variáveis o app usa o Supabase REAL de src/config.ts
 npm test         # testes das regras puras (tests/*.test.ts, node:test via esbuild)
 ```
 
@@ -612,11 +614,14 @@ liga/            textos do masculino: o código fica no feminino e o build
   dela move a barra das vagas. Recado só com o nome deste celular (`listaMeus`) ainda ativo.
 - **A previsão do ao vivo é a da tela do play**: `src/lib/previsaoDaNoite.ts` serve os dois
   (`tests/previsaoDaNoite.test.ts` prova que a tela do play dá os mesmos números de antes).
-  **Divide pelas quadras em uso de verdade** (D43, `quadrasEmUso`): as quadras diferentes com
-  partida na janela recente (`max(30, 2 partidas)` min, pelo `started_at`/`ended_at`), limitadas
-  pelo configurado (e por `quadrasSimultaneas` fora do campeonato). Sem dados (sem `agora`, começo
-  da noite, partidas sem início, pausa) a conta é a de antes. ➕ quadra conta quando a 1ª partida
-  começa nela; tirar quadra vale na hora. Em 02/11 (5 no app, 4 de verdade): 75 → 90 min (real 103).
+  **Divide pelas quadras em uso de verdade** (D43, `quadrasEmUso`): o **pico** da noite, o máximo
+  de quadras diferentes com partida numa mesma janela de `max(30, 2 partidas)` min (pelo
+  `started_at`/`ended_at`), limitado pelo configurado (e por `quadrasSimultaneas` fora do
+  grupos+duplas). Pico, não a janela de agora: pausa e volta escalonada não fazem a previsão
+  disparar. Sem dados (sem `agora`, ou as jogadas com início ainda não cobrem uma janela: começo da
+  noite, partidas antigas) a conta é a de antes. Não depende da hora de quem olha (Play e cartão
+  dão os mesmos minutos). ➕ quadra conta quando a 1ª partida começa nela; tirar quadra vale na
+  hora. Em 02/11 (5 no app, 4 de verdade): 75 → 90 min (real 103).
 - A cor do momento só pinta borda, selo, barra e fotos; texto em `--text`/`--muted` (≥ 4,5:1).
   Prints e roteiros fora do repo: `pdt-teste/momento-prints.mjs`, `pdt-teste/momento-toque.mjs`.
 

@@ -185,27 +185,39 @@ export function quadrasDaCategoriaAgora(
 
 /**
  * QUANTAS QUADRAS ESTAO DE FATO EM USO (D43). Em 02/11 o app tinha 5 quadras
- * e so 4 existiam: a previsao dividia por 5 e errava. Conta as quadras
- * DIFERENTES de `quadras` que tiveram partida tocando os ultimos `janelaMin`
- * minutos (inicio ou fim, e a rolando vai ate agora). Contar quadras, e nao
- * partidas sobrepostas, absorve o intervalo entre partidas e relogios de
- * celulares diferentes. Null = sem dados para confiar (sem `agora`, ninguem
- * comecou antes da janela -- comeco da noite ou partidas antigas sem inicio --
- * ou nada tocou a janela): ai a conta segue a de antes.
+ * e so 4 existiam: a previsao dividia por 5 e errava. E o PICO da noite: o
+ * maximo de quadras DIFERENTES de `quadras` com partida tocando uma mesma
+ * janela de `janelaMin` minutos (do inicio, ou do fim se nao tem inicio, ate o
+ * fim; a rolando vai ate `agora`, a jogada sem fim e so um ponto). Pico, e nao
+ * a janela de agora: pausa, cauda da fase de grupos e volta escalonada sao
+ * falta de partida, nao de quadra. Contar quadras, e nao partidas
+ * sobrepostas, absorve o intervalo entre partidas e relogios diferentes.
+ * Null = sem dados para confiar: sem `agora`, ou as partidas JOGADAS com
+ * inicio ainda nao cobrem uma janela inteira (comeco da noite, noites antigas
+ * sem inicio). Ai a conta segue a de antes. Nao depende da hora de quem olha.
  */
 export function quadrasEmUso(matches: Match[], quadras: number[], agora: number | undefined, janelaMin: number): number | null {
   if (agora === undefined) return null
-  const desde = agora - janelaMin * 60000
-  if (!matches.some((m) => Date.parse(m.started_at ?? '') <= desde)) return null
-  const usadas = new Set<number>()
-  for (const m of matches) {
-    const a = Date.parse(m.started_at ?? m.ended_at ?? '')
-    const b = m.ended_at ? Date.parse(m.ended_at) : agora
-    // horas trocadas ou "no futuro" (relogio adiantado) ainda sao recentes
-    if (Math.max(a, b) >= desde) usadas.add(m.court)
+  const janela = janelaMin * 60000
+  const hora = (x: string | null | undefined) => Date.parse(x ?? '')
+  const comecos = matches.filter(isPlayed).map((m) => hora(m.started_at)).filter(Number.isFinite)
+  const marcas = matches.flatMap((m) => [hora(m.started_at), hora(m.ended_at)]).filter(Number.isFinite)
+  if (!comecos.length || Math.max(...marcas) - Math.min(...comecos) < janela) return null
+  const nossas = new Set(quadras)
+  const faixas = matches.flatMap((m) => {
+    const a = hora(m.started_at ?? m.ended_at)
+    const b = m.ended_at ? hora(m.ended_at) : isPlayed(m) ? a : agora
+    // horas trocadas (celulares com relogios diferentes) viram a faixa certa
+    return nossas.has(m.court) && Number.isFinite(a) && Number.isFinite(b)
+      ? [{ q: m.court, de: Math.min(a, b), ate: Math.max(a, b) }]
+      : []
+  })
+  // o pico acontece numa janela que termina no comeco de alguma partida
+  let pico = 0
+  for (const f of faixas) {
+    pico = Math.max(pico, new Set(faixas.filter((g) => g.de <= f.de && g.ate >= f.de - janela).map((g) => g.q)).size)
   }
-  const n = quadras.filter((q) => usadas.has(q)).length
-  return n > 0 ? n : null
+  return pico > 0 ? pico : null
 }
 
 /** A janela das quadras em uso: duas partidas (a que roda e o intervalo ate a proxima), no minimo 30 min. */

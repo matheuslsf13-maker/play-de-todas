@@ -1277,21 +1277,41 @@ preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidad
 - **A previsão usa as quadras em uso de verdade** (`quadrasEmUso` em `previsaoDaNoite.ts`). Em
   02/11 havia 5 quadras no app e só 4 existiam: na metade da noite previu 75 min e faltavam 103.
   Conta as quadras **diferentes** (dentro das do play, ou das da categoria no campeonato) com
-  partida tocando a janela dos últimos `max(30, 2 × minutosDaPartida(alvo, regra do play))` min;
-  a partida vai do início (ou do fim, se não tem início) até o fim (ou agora, se rolando).
+  partida tocando uma mesma janela de `max(30, 2 × minutosDaPartida(alvo, regra do play))` min, e
+  fica com o **pico da noite** (o maior número de qualquer janela); a partida vai do início (ou do
+  fim, se não tem início) até o fim, a rolando até agora e a jogada sem fim é só um ponto (o banco
+  sem o script 05 não guarda `ended_at`: senão ela ficaria "rolando" para sempre).
   - Quadras, e não partidas sobrepostas: o intervalo entre partidas some sozinho (numa janela de
-    duas partidas cabe uma) e relógios diferentes não somam quadra a mais. Horas trocadas ou "no
-    futuro" (celular adiantado) contam como recentes.
-  - **Sem dados a conta é idêntica à de antes**: sem `agora`, sem nenhuma partida que começou antes
-    da janela (começo da noite, noites antigas sem início) ou nada na janela (pausa). Provado nas
-    noites da semente pela metade (`tests/previsaoDaNoite.test.ts`).
-  - Fora do campeonato: `min(em uso, quadrasSimultaneas(grupos))` — o limite dos grupos só entra
+    duas partidas cabe uma) e relógios diferentes não somam quadra a mais. Horas trocadas viram a
+    faixa certa.
+  - **Pico, e não a janela de agora** (revisão do mesmo dia): a janela recente media a demanda, não
+    as quadras. Depois de 45 min de pausa a 1ª partida que voltava dava 1 quadra e a previsão ia de
+    1h30 para 6h ("termina por volta das 03h02"); o mesmo na cauda da fase de grupos, em começo
+    escalonado e com relógio de celular atrasado. O pico só sobe com dado de verdade e não depende
+    da hora de quem olha, então o Play (que recalcula ao tocar) e o cartão (relógio de 30 s) dão os
+    mesmos minutos. O que se perde: quadra que quebra no meio da noite sem ninguém tocar em ➖
+    quadra continua contando (o ➖ vale na hora).
+  - **Sem dados a conta é idêntica à de antes**: sem `agora`, ou as partidas **jogadas** com início
+    ainda não cobrem uma janela inteira (do 1º início de jogada à hora mais recente gravada):
+    começo da noite, noites antigas sem início, e também a noite de transição em que só as rolando
+    têm início (app antigo em outro celular). Provado nas noites da semente pela metade
+    (`tests/previsaoDaNoite.test.ts`).
+  - Fora do grupos+duplas: `min(em uso, quadrasSimultaneas(grupos))` — o limite dos grupos só entra
     quando há dados (antes a conta ao vivo nunca o usava, e mudaria o caso sem dados). No
     grupos+duplas, por categoria, o mesmo número vale para a fase de grupos e para o mata-mata.
   - **➕ quadra** entra na conta quando a 1ª partida começa nela; **tirar quadra** vale na hora
     (as acima do total saem).
   - Quem passa a hora: a tela do play (`Date.now()` ao recalcular, isto é, a cada partida
-    iniciada/lançada) e o cartão ao vivo (relógio de 30 s).
+    iniciada/lançada) e o cartão ao vivo (relógio de 30 s). A hora só serve de "fim" da rolando;
+    o pico não muda com ela.
+  - **Aceitos e registrados** (revisão): quadra tirada e reposta (mesmo número) volta a contar na
+    hora, sem esperar partida nela, porque já estava no pico (raro; no máximo o configurado). Quadra
+    **cedida** no campeonato só conta para a categoria que a recebeu depois que uma partida dela
+    começa lá (a mesma regra do ➕ quadra); partida da categoria jogada numa quadra fora da lista
+    dela fica fora da conta. Celular com o app antigo em cache grava `started_at: null` ao lançar
+    ou corrigir: essas partidas ficam sem início e **não servem para calibrar** a duração (não são
+    partidas curtas). Pendência fora da D43: os registros locais `inicios`/`fins` (emQuadra.ts)
+    nunca apagam entradas de partidas apagadas nem as de `fins`; limpar as de mais de 1 dia.
 - **Medido** na noite de 02/11 com inícios sintéticos (fim anterior da quadra + 2 min): com 15, 22 e
   30 jogadas a previsão era 90/75/45 min, passa a 120/90/60, e o real foi 131/103/69. A diferença
   que sobra é a duração por partida (`MINUTOS_POR_GAME`), a calibragem que vem com as horas reais.

@@ -373,8 +373,38 @@ test('D43: sem dados suficientes a previsao e IDENTICA a de hoje', () => {
   // sem `agora`
   const k22 = aoVivo(DE_S2, 22)
   assert.equal(quadrasEmUso(k22.matches, QUADRAS(5), undefined, 30), null)
-  // pausa: nada tocou a janela
-  assert.equal(quadrasEmUso(k22.matches.filter(isPlayed), QUADRAS(5), k22.agora + 3 * 60 * MIN, 30), null)
+  // noite de transicao: jogadas sem inicio (app antigo) e 2 rolando ha 40 min -- a trava pede JOGADA com inicio
+  const antigas = cenarios().find((c) => c.session.id === 's2' && c.nome.endsWith('q=2') && c.matches.filter(isPlayed).length >= 15)!.matches.map((m) =>
+    !isPlayed(m) && m.started_at ? { ...m, started_at: new Date(agora - 40 * MIN).toISOString() } : m,
+  )
+  assert.equal(quadrasEmUso(antigas, QUADRAS(5), agora, 30), null)
+})
+
+test('D43: pausa e volta escalonada nao derrubam as quadras (o pico da noite)', () => {
+  // 22 jogadas, nada rolando, 50 min de pausa e so a quadra 1 volta
+  const { matches, agora } = aoVivo(DE_S2, 22)
+  const parado = matches.map((m) => (isPlayed(m) ? m : { ...m, started_at: null, court: 0 }))
+  const volta = agora + 50 * MIN
+  const i = parado.findIndex((m) => !isPlayed(m))
+  const umaVolta = parado.map((m, k) => (k === i ? { ...m, court: 1, started_at: new Date(volta - MIN).toISOString() } : m))
+  assert.equal(quadrasEmUso(parado, QUADRAS(5), volta, 30), 4)
+  assert.equal(quadrasEmUso(umaVolta, QUADRAS(5), volta, 30), 4)
+  assert.equal(Math.round(resumoAoVivo(S2, umaVolta, volta).minutos), 90)
+  // a hora de quem olha nao muda a conta (o Play recalcula so ao tocar, o cartao a cada 30 s)
+  assert.equal(resumoAoVivo(S2, umaVolta, volta + 25 * MIN).minutos, resumoAoVivo(S2, umaVolta, volta).minutos)
+})
+
+test('D43: jogada sem fim (o banco nao guarda o ended_at) e um ponto, nao vai ate agora', () => {
+  const t0 = Date.parse('2026-11-02T22:00:00.000Z')
+  const iso = (min: number) => new Date(t0 + min * MIN).toISOString()
+  const base = { session_id: 'x', round: 1, team_a: [], team_b: [], score_a: 6, score_b: 3, tie: null } as unknown as Match
+  // quadras 1 a 3 a noite toda; a 4 so no comeco e a 5 so no meio, as duas sem ended_at
+  const ms: Match[] = [
+    ...[1, 2, 3].flatMap((q) => [0, 15, 30, 45, 60, 75].map((t) => ({ ...base, id: `${q}-${t}`, court: q, started_at: iso(t), ended_at: iso(t + 14) }))),
+    { ...base, id: 'q4', court: 4, started_at: iso(0), ended_at: null },
+    { ...base, id: 'q5', court: 5, started_at: iso(60), ended_at: null },
+  ]
+  assert.equal(quadrasEmUso(ms, QUADRAS(5), t0 + 95 * MIN, 30), 4)
 })
 
 test('D43: quadra a mais conta quando a 1a partida comeca nela; quadra tirada sai na hora', () => {
