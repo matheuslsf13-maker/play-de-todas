@@ -125,18 +125,21 @@ begin
     return jsonb_build_object('ok', false, 'motivo', 'aparelho_ja_tem_nome');
   end if;
 
-  -- vinculo automatico: a grafia e o nome, apelido ou alias de UM cadastro so
-  select array_agg(p.id) into v_achou
-    from public.players p
-   where public.lista_normalizar(p.name) = public.lista_normalizar(v_nome)
-      or public.lista_normalizar(p.nickname) = public.lista_normalizar(v_nome)
-      or exists (select 1 from unnest(p.aliases) a
-                  where public.lista_normalizar(a) = public.lista_normalizar(v_nome));
-  if cardinality(v_achou) = 1 then
-    v_player := v_achou[1];
-    if exists (select 1 from public.lista_nomes
-                where lista_id = v_lista.id and player_id = v_player and saiu_em is null) then
-      return jsonb_build_object('ok', false, 'motivo', 'ja_na_lista');
+  -- vinculo automatico: a grafia e o nome, apelido ou alias de UM cadastro so,
+  -- e tem 2+ palavras (um primeiro nome so, como "Pamela", e de muita gente)
+  if position(' ' in public.lista_normalizar(v_nome)) > 0 then
+    select array_agg(p.id) into v_achou
+      from public.players p
+     where public.lista_normalizar(p.name) = public.lista_normalizar(v_nome)
+        or public.lista_normalizar(p.nickname) = public.lista_normalizar(v_nome)
+        or exists (select 1 from unnest(p.aliases) a
+                    where public.lista_normalizar(a) = public.lista_normalizar(v_nome));
+    if cardinality(v_achou) = 1 then
+      v_player := v_achou[1];
+      if exists (select 1 from public.lista_nomes
+                  where lista_id = v_lista.id and player_id = v_player and saiu_em is null) then
+        return jsonb_build_object('ok', false, 'motivo', 'ja_na_lista');
+      end if;
     end if;
   end if;
 
@@ -146,9 +149,11 @@ begin
     return jsonb_build_object('ok', false, 'motivo', 'repetido');
   end if;
 
-  -- teto contra spam
+  -- teto contra spam: vagas x 3 ativos, e vagas x 10 linhas no total (colocar e
+  -- tirar sem fim deixaria linhas sem limite; a leitura do app corta em 1000)
   if (select count(*) from public.lista_nomes where lista_id = v_lista.id and saiu_em is null)
-     >= v_lista.vagas * 3 then
+     >= v_lista.vagas * 3
+     or (select count(*) from public.lista_nomes where lista_id = v_lista.id) >= v_lista.vagas * 10 then
     return jsonb_build_object('ok', false, 'motivo', 'cheia');
   end if;
 
@@ -235,6 +240,19 @@ begin
   update public.lista_nomes set ordem = case id when p_a then kb else ka end
    where id in (p_a, p_b);
 end $$;
+
+-- ---- 5b. a hora da saida e do relogio do SERVIDOR (prova das 24h), nunca do celular
+create or replace function public.lista_saida_no_servidor() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.saiu_em is not null then
+    new.saiu_em := coalesce(old.saiu_em, now());
+  end if;
+  return new;
+end $$;
+drop trigger if exists lista_saida_no_servidor on public.lista_nomes;
+create trigger lista_saida_no_servidor before update of saiu_em on public.lista_nomes
+  for each row execute function public.lista_saida_no_servidor();
 
 -- ---- 6. permissoes (RLS + grants) e tempo real
 alter table public.listas          enable row level security;

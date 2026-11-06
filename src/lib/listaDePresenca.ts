@@ -1,4 +1,4 @@
-import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
+import { mensalistaEmDiaNoPlay } from './mensalidade'
 import { normalizar, semelhanca, type Sugestao } from './roster'
 import { notaDeForca } from './forca'
 import { pausaAberta, ratings } from './stats'
@@ -70,6 +70,8 @@ export type RespostaDaLista =
 
 /** Teto contra spam: nomes ativos por lista = vagas x 3 (o banco confere o mesmo). */
 export const TETO_POR_VAGA = 3
+/** E linhas no total, contando quem saiu (colocar e tirar sem fim): vagas x 10. */
+export const TETO_TOTAL_POR_VAGA = 10
 
 export const MENSAGEM_DO_MOTIVO: Record<MotivoDaLista, string> = {
   aparelho: 'Não consegui identificar este celular. Recarregue a página e tente de novo.',
@@ -274,10 +276,10 @@ export function novoCodigo(): string {
   return out
 }
 
-function cabecalho(lista: Lista, vagas: string): string {
+function cabecalho(lista: Lista, vagas: string, aberta = true): string {
   return [
     `🎾 *${lista.titulo}* — ${quandoComData(lista.play_em)}`,
-    `📋 Lista aberta até ${quandoComData(lista.fecha_em)} · ${vagas}`,
+    aberta ? `📋 Lista aberta até ${quandoComData(lista.fecha_em)} · ${vagas}` : `📋 Lista fechada · ${vagas}`,
     ...(lista.texto?.trim() ? [lista.texto.trim()] : []),
   ].join('\n')
 }
@@ -308,7 +310,7 @@ export function mensagemDeAtualizacao(
     `${i + 1}. ${n.player_id ? nomeDe(n.player_id) : n.nome}${n.origem === 'mensalista' ? ' 📅' : ''}`
   const aberta = estaAberta(lista, agora)
   return [
-    cabecalho(lista, ocupacao(lista, nomes)),
+    cabecalho(lista, ocupacao(lista, nomes), aberta),
     '',
     '✅ *Confirmadas*',
     ...(titulares.length ? titulares.map(linha) : ['(ninguém ainda)']),
@@ -331,7 +333,8 @@ export function mensagemDeAtualizacao(
  */
 export function vinculoAutomatico(texto: string, players: Player[]): string | null {
   const alvo = normalizar(texto)
-  if (!alvo) return null
+  // so com 2+ palavras: um primeiro nome so ("Pamela") e de muita gente
+  if (!alvo.includes(' ')) return null
   const achou = players.filter(
     (p) =>
       normalizar(p.name) === alvo ||
@@ -394,11 +397,14 @@ export function preIncluidas(data: AppData, dataDoPlay: string): string[] {
     .map((x) => x.p.id)
 }
 
-/** Ao tirar este nome a organizadora responde "avisou com 24h?" (pre-incluida ou cadastro mensalista). */
-export function ehMensalista(n: NomeNaLista, players: Player[]): boolean {
+/**
+ * Ao tirar este nome a organizadora responde "avisou com 24h?": pre-incluida,
+ * ou mensalista em dia para este play. A que nao renovou entrou como avulsa.
+ */
+export function ehMensalista(n: NomeNaLista, players: Player[], dataDoPlay: string): boolean {
   if (n.origem === 'mensalista') return true
   const p = n.player_id ? players.find((x) => x.id === n.player_id) : undefined
-  return !!p && categoriaDe(p) === 'mensalista'
+  return !!p && mensalistaEmDiaNoPlay(p, dataDoPlay)
 }
 
 /** Para montar o play: os cadastros das confirmadas e as confirmadas ainda sem cadastro. */

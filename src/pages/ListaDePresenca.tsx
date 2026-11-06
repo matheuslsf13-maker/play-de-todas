@@ -230,7 +230,7 @@ function Pagina({
       {tirando && (
         <TirarMeuNome
           n={tirando}
-          suplente={suplentes.includes(tirando)}
+          suplente={suplentes.some((x) => x.id === tirando.id)}
           onClose={() => setTirando(null)}
           onTirou={() => {
             onToast('Seu nome saiu da lista')
@@ -382,7 +382,7 @@ function ColocarNome({
             autoComplete="name"
             autoCapitalize="words"
             enterKeyHint="send"
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => { setTexto(e.target.value); setErro(null) }}
             onKeyDown={(e) => e.key === 'Enter' && void colocar()}
           />
         </label>
@@ -580,7 +580,7 @@ export function CartaoDaLista({ onAbrir }: { onAbrir: (codigo: string) => void }
       <span className="grow" style={{ minWidth: 0 }}>
         <span className="prox-titulo">Lista aberta</span>
         <span className="prox-info">
-          {quando(lista.play_em)} · {ocupacao(lista, lc.nomes)} · fecha {quando(lista.fecha_em)}
+          {quando(lista.play_em)} · {ocupacao(lista, lc.nomes)} · <span className="nowrap">fecha {quando(lista.fecha_em)}</span>
         </span>
         <span className="prox-acao">{meuNome(lista.id) ? 'ver a lista →' : 'ver a lista e colocar seu nome →'}</span>
       </span>

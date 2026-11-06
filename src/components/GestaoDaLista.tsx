@@ -10,6 +10,7 @@ import {
   sugestaoDeVinculo,
   validarNome,
   ativosEmOrdem,
+  dataDoPlay,
   ordemParaGarantir,
   type ListaCompleta,
   type NomeNaLista,
@@ -124,7 +125,7 @@ export function EscolherAtleta({
             return (
               <button key={p.id} className="lista-escolha" disabled={ja} onClick={() => onEscolher(p)}>
                 <Avatar player={p} size={32} />
-                <span className="grow ellipsis">
+                <span className="grow">
                   {nameOf(p.id)}
                   {p.nickname?.trim() && <span className="tiny muted"> · {p.name}</span>}
                 </span>
@@ -141,7 +142,7 @@ export function EscolherAtleta({
 
 /** Vincula o nome digitado a um cadastro e guarda a grafia para a proxima vez. */
 export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, onToast: (m: string) => void) {
-  const { repo, savePlayer, nameOf } = useStore()
+  const { repo, savePlayer, playerById } = useStore()
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
   /** A atleta ja esta ativa noutra linha: a organizadora decide tirar a duplicada. */
   const [duplicada, setDuplicada] = useState<{ n: NomeNaLista; outra: NomeNaLista } | null>(null)
@@ -162,7 +163,8 @@ export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, 
     <Modal title="Ela já está na lista" onClose={() => setDuplicada(null)}>
       <div className="stack lista-pagina">
         <p style={{ margin: 0 }}>
-          <strong>{duplicada.outra.player_id ? nameOf(duplicada.outra.player_id) : duplicada.outra.nome}</strong> já está na
+          {/* o nome do cadastro: as duas Bruna tem o mesmo apelido */}
+          <strong>{(duplicada.outra.player_id && playerById(duplicada.outra.player_id)?.name) || duplicada.outra.nome}</strong> já está na
           lista (posição {posicaoDe(lc.nomes, duplicada.outra.id)}). Se “{duplicada.n.nome}” é ela, tire esta duplicada.
         </p>
         <button
@@ -212,7 +214,7 @@ export function OpcoesDoNome({
   const sugestoes = n.player_id ? [] : sugestaoDeVinculo(n.nome, ativas).slice(0, 3)
   const ocupadas = new Set(lc.nomes.filter((x) => !x.saiu_em && x.player_id).map((x) => x.player_id as string))
   const posicao = posicaoDe(lc.nomes, n.id)
-  const mensalista = ehMensalista(n, data.players)
+  const mensalista = ehMensalista(n, data.players, dataDoPlay(lc.lista))
 
   async function vincularEFechar(p: Player) {
     if (await vincular(n, p)) onClose()
@@ -304,7 +306,7 @@ export function OpcoesDoNome({
             {sugestoes.map((s) => (
               <button key={s.player.id} className="lista-escolha" disabled={ocupada} onClick={() => void vincularEFechar(s.player)}>
                 <Avatar player={s.player} size={32} />
-                <span className="grow ellipsis">
+                <span className="grow">
                   É a <strong>{nameOf(s.player.id)}</strong>
                   {s.player.nickname?.trim() && <span className="tiny muted"> · {s.player.name}</span>}
                 </span>

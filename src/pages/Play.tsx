@@ -131,6 +131,7 @@ import {
   categoriaDe,
   confirmarPagamento,
   consumirAvulsos,
+  mensalistaEmDiaNoPlay,
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
@@ -832,6 +833,10 @@ function NewPlay({
     setDespausadas((cur) => (cur.includes(id) ? cur : [...cur, id]))
   }
 
+  /** Mensalista da lista de presenca no prazo ate o dia 5: entra garantida, sem pagar ainda (dono, 06/11). */
+  const garantidaPelaLista = (p: Player) => !!daLista?.includes(p.id) && mensalistaEmDiaNoPlay(p, date)
+  const liberada = (p: Player) => situacaoDoAtleta(p, data).liberado || garantidaPelaLista(p)
+
   function aplicarLista(idsDaLista: string[]): number {
     // quem esta pausada na lista colada: pergunta uma vez por todas
     const pausadas = idsDaLista.filter(estaPausada)
@@ -849,7 +854,7 @@ function NewPlay({
     const devendo: string[] = []
     for (const id of ids) {
       const p = data.players.find((x) => x.id === id)
-      if (p && !situacaoDoAtleta(p, data).liberado) devendo.push(id)
+      if (p && !liberada(p)) devendo.push(id)
       else liberadas.push(id)
     }
     setSelected(liberadas)
@@ -886,7 +891,7 @@ function NewPlay({
       if (!confirm(`${nameOf(id)} está pausada. Despausar e colocar no play?`)) return
       despausar(id)
     }
-    if (!jaEscolhida && jogadora && !situacaoDoAtleta(jogadora, data).liberado) {
+    if (!jaEscolhida && jogadora && !liberada(jogadora)) {
       setPendente(jogadora)
       return
     }

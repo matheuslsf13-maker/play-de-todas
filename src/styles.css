@@ -510,6 +510,8 @@ label.field { display: block; }
   font-weight: 600;
   z-index: 60;
   box-shadow: var(--shadow);
+  /* o toque passa para o botao embaixo (os modais sobem do rodape) */
+  pointer-events: none;
 }
 
 .modal-bg {
@@ -1767,7 +1769,7 @@ p .nome-link { padding-block: 0; margin-block: 0; }
 /* ---------- lista de presença por link (só o Play de Todas) ---------- */
 /* alvos de toque de 44px: a atleta abre o link no celular, muitas vezes de pé */
 .lista-pagina .btn { min-height: 44px; }
-.lista-pagina .btn.sm { min-height: 40px; }
+.lista-pagina .btn.sm { min-height: 44px; }
 .lista-topo .lista-titulo { font-size: 20px; font-weight: 800; margin: 6px 0 2px; overflow-wrap: anywhere; }
 .lista-ocupacao { margin-top: 8px; font-weight: 800; font-size: 15px; color: var(--pink); }
 .lista-linha {
@@ -1821,10 +1823,12 @@ p .nome-link { padding-block: 0; margin-block: 0; }
   border-radius: 12px;
   cursor: pointer;
 }
+.lista-escolha > .grow { min-width: 0; overflow-wrap: anywhere; }
 .lista-escolha:disabled { opacity: .55; cursor: default; }
 .lista-resumo { cursor: pointer; min-height: 44px; margin: 0; }
 details[open] > .lista-resumo { margin-bottom: 10px; }
-.lista-fixa { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 10px; }
+/* abaixo do cabecalho fixo (que encolhe ao rolar), para o Cancelar nao sumir atras dele */
+.lista-fixa { position: sticky; top: calc(var(--topo-alto, 50px) + 8px); z-index: 5; display: flex; align-items: center; gap: 10px; }
 /* o cartão da tela inicial: verde-água, para não ser confundido com o do play */
 .card.proximo.lista-aberta { border-color: var(--teal); background: linear-gradient(135deg, var(--card), var(--teal-suave)); }
 .card.lista-aberta .prox-titulo { color: var(--teal); }

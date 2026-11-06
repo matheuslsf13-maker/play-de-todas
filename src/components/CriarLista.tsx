@@ -130,7 +130,7 @@ export default function CriarLista({
         </p>
       )}
       {reabrir && (
-        <div className="banner warn" style={{ margin: '0 0 12px' }}>O prazo já passou: escolha até quando a lista fica aberta.</div>
+        <div className="banner warn" style={{ margin: '10px 0 12px' }}>O prazo já passou: escolha até quando a lista fica aberta.</div>
       )}
       <div className="stack">
         <label className="field">
@@ -241,7 +241,7 @@ export function ListasRecentes({ onAbrir }: { onAbrir: (codigo: string) => void 
         {listas.map((l) => (
           <button key={l.id} className="lista-escolha" onClick={() => onAbrir(l.codigo)}>
             <span className="grow" style={{ minWidth: 0 }}>
-              <strong className="ellipsis" style={{ display: 'block' }}>{l.titulo} · {quandoComData(l.play_em)}</strong>
+              <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{l.titulo} · {quandoComData(l.play_em)}</strong>
               <span className="tiny muted">
                 {l.session_id ? 'play montado' : estaAberta(l, agora) ? `aberta até ${quandoComData(l.fecha_em)}` : 'fechada'} · {l.vagas} vagas
               </span>

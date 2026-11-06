@@ -225,7 +225,7 @@ function lerNome(n: NomeNaLista): NomeNaLista {
 
 async function comNomes(lista: Lista | null): Promise<ListaCompleta | null> {
   if (!lista) return null
-  const r = await client().from('lista_nomes').select('*').eq('lista_id', lista.id)
+  const r = await client().from('lista_nomes').select('*').eq('lista_id', lista.id).order('chegada')
   const nomes = lerDaLista<NomeNaLista[] | null>(r, null)
   if (!nomes) return null
   return { lista: { ...lista, vagas: numero(lista.vagas) }, nomes: nomes.map(lerNome) }
@@ -533,7 +533,9 @@ export const supabaseRepo: Repo = {
   },
   // as escritas da organizadora esperam o banco (nada de fila): erro vira aviso na tela
   async salvarLista(lista) {
-    const { error } = await client().from('listas').upsert(lista)
+    // created_at fica com o relogio do servidor (o default), nao o do celular
+    const { created_at: _, ...semHora } = lista
+    const { error } = await client().from('listas').upsert(semHora)
     if (error) throw error
   },
   async incluirNaLista(nomes) {

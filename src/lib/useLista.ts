@@ -88,17 +88,22 @@ export function useLista(ref: { codigo: string } | 'aberta' | null) {
 
 let aparelhoEmMemoria: string | null = null
 
+/** 32 letras hex; getRandomValues e nao randomUUID, que falta no iPhone antes do iOS 15.4. */
+function novoCodigoDeAparelho(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 /** O codigo deste celular, criado na 1a vez que ele coloca um nome. */
 export function codigoDoAparelho(): string {
   try {
     const salvo = localStorage.getItem(CHAVE.aparelho)
     if (salvo) return salvo
-    const novo = crypto.randomUUID()
+    const novo = novoCodigoDeAparelho()
     localStorage.setItem(CHAVE.aparelho, novo)
     return novo
   } catch {
     // sem armazenamento: vale enquanto a pagina esta aberta
-    aparelhoEmMemoria ??= crypto.randomUUID()
+    aparelhoEmMemoria ??= novoCodigoDeAparelho()
     return aparelhoEmMemoria
   }
 }

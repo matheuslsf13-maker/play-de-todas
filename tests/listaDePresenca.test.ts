@@ -23,6 +23,7 @@ import {
   urlDaLista,
   validarNome,
   vinculoAutomatico,
+  ehMensalista,
   sugestaoDeVinculo,
   sugestaoSegura,
   AVISO_DE_SAIDA,
@@ -128,18 +129,34 @@ test('validarNome: a mesma regra do banco', () => {
   }
 })
 
-test('vinculoAutomatico: nome, apelido ou grafia de UM cadastro so', () => {
+test('vinculoAutomatico: nome, apelido ou grafia de UM cadastro so, com 2+ palavras', () => {
   const ps = [
     jogadora('a', { name: 'Ana Lúcia Pretti', nickname: 'Aninha', aliases: ['Ana Pretti'] }),
     jogadora('b1', { name: 'Bruna Souza', nickname: 'Bruna' }),
     jogadora('b2', { name: 'Bruna Lima', aliases: ['Bruna'] }),
   ]
   assert.equal(vinculoAutomatico('ana lucia  PRETTI', ps), 'a')
-  assert.equal(vinculoAutomatico('Aninha', ps), 'a')
+  assert.equal(vinculoAutomatico('Aninha', ps), null, 'uma palavra so nao vincula (outra Aninha seria barrada)')
   assert.equal(vinculoAutomatico('Ána Prétti', ps), 'a')
   assert.equal(vinculoAutomatico('Bruna', ps), null, 'as duas Bruna nao vinculam sozinhas')
   assert.equal(vinculoAutomatico('Bruna Souza', ps), 'b1')
   assert.equal(vinculoAutomatico('Ana', ps), null, 'parcial nao vincula')
+  // a outra Pamela nao cai no cadastro da Pamella (alias "Pamela") e nem e recusada
+  const pam = [jogadora('pa', { name: 'Pamela Alves' }), jogadora('pc', { name: 'Pamella Capelanes', aliases: ['Pamela'] })]
+  assert.equal(vinculoAutomatico('Pamela', pam), null)
+  assert.equal(vinculoAutomatico('Pamela Alves', pam), 'pa')
+})
+
+test('ehMensalista: pre-incluida ou em dia para o play; quem nao renovou entrou como avulsa', () => {
+  const ps = [
+    jogadora('emdia', { categoria: 'mensalista', pago_mes: '2026-11' }),
+    jogadora('atrasada', { categoria: 'mensalista', pago_mes: '2026-10' }),
+  ]
+  assert.equal(ehMensalista(nome(1, { player_id: 'emdia' }), ps, '2026-11-09'), true)
+  assert.equal(ehMensalista(nome(2, { player_id: 'atrasada' }), ps, '2026-11-09'), false, 'pagou so ate outubro: avulsa')
+  assert.equal(ehMensalista(nome(3, { player_id: 'atrasada' }), ps, '2026-12-01'), false)
+  assert.equal(ehMensalista(nome(4, { origem: 'mensalista' }), ps, '2026-11-09'), true)
+  assert.equal(ehMensalista(nome(5), ps, '2026-11-09'), false, 'sem cadastro')
 })
 
 test('mensalistaEmDiaNoPlay: pago no mes, ou ate o dia 5 com o mes anterior pago', () => {
@@ -260,6 +277,12 @@ test('mensagem de atualizacao: confirmadas numeradas com 📅, suplentes, o mesm
   assert.ok(msg.includes(url))
   assert.ok(msg.includes(AVISO_DE_SAIDA))
   assert.ok(msg.includes(AVISO_DAS_MENSALISTAS))
+  assert.match(msg, /Lista aberta até dom 08\/11 às 18h/)
+  // fechada: o cabecalho nao diz mais "aberta"
+  const fechada = mensagemDeAtualizacao({ ...LISTA, vagas: 2, fechada: true }, nomes, (id) => id, url, new Date('2026-11-07T12:00:00Z'))
+  assert.ok(!fechada.includes('Lista aberta'))
+  assert.match(fechada, /📋 Lista fechada · 2\/2 · 1 suplente/)
+  assert.match(fechada, /A lista fechou\. Para conferir:/)
 })
 
 test('sugestao para a organizadora: as duas Bruna aparecem e nenhuma ganha o toque unico', () => {

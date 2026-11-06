@@ -22,6 +22,7 @@ import { CHAVE } from '../lib/chaves'
 import type { Repo } from './repo'
 import {
   TETO_POR_VAGA,
+  TETO_TOTAL_POR_VAGA,
   ativosEmOrdem,
   estaAberta,
   posicaoDe,
@@ -317,7 +318,10 @@ export const localRepo: Repo = {
     const player = vinculoAutomatico(v.nome, read().players)
     if (player && ativos.some((n) => n.player_id === player)) return { ok: false, motivo: 'ja_na_lista' }
     if (ativos.some((n) => normalizar(n.nome) === normalizar(v.nome))) return { ok: false, motivo: 'repetido' }
-    if (ativos.length >= lista.vagas * TETO_POR_VAGA) return { ok: false, motivo: 'cheia' }
+    if (ativos.length >= lista.vagas * TETO_POR_VAGA ||
+        l.nomes.filter((n) => n.lista_id === lista.id).length >= lista.vagas * TETO_TOTAL_POR_VAGA) {
+      return { ok: false, motivo: 'cheia' }
+    }
     const novo: NomeNaLista = {
       id: crypto.randomUUID(), lista_id: lista.id, nome: v.nome, player_id: player,
       chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1, ordem: null, origem: 'link', garantida: false,
