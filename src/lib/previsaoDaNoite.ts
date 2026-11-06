@@ -14,7 +14,7 @@ import {
   quadrasEfetivas,
 } from './campeonato'
 import { lerRegra, type Regra } from './desempate'
-import { duplasQueEntraram, duplasVivas, nomeDaRodada } from './pairing'
+import { duplasQueEntraram, duplasVivas, nomeDaRodada, quadrasSimultaneas } from './pairing'
 import { isPlayed } from './scoring'
 import type { Categoria, Match, PlaySession } from './types'
 
@@ -183,6 +183,36 @@ export function quadrasDaCategoriaAgora(
   return base.map((qs) => [...qs].sort((a, b) => a - b))
 }
 
+/**
+ * QUANTAS QUADRAS ESTAO DE FATO EM USO (D43). Em 02/11 o app tinha 5 quadras
+ * e so 4 existiam: a previsao dividia por 5 e errava. Conta as quadras
+ * DIFERENTES de `quadras` que tiveram partida tocando os ultimos `janelaMin`
+ * minutos (inicio ou fim, e a rolando vai ate agora). Contar quadras, e nao
+ * partidas sobrepostas, absorve o intervalo entre partidas e relogios de
+ * celulares diferentes. Null = sem dados para confiar (sem `agora`, ninguem
+ * comecou antes da janela -- comeco da noite ou partidas antigas sem inicio --
+ * ou nada tocou a janela): ai a conta segue a de antes.
+ */
+export function quadrasEmUso(matches: Match[], quadras: number[], agora: number | undefined, janelaMin: number): number | null {
+  if (agora === undefined) return null
+  const desde = agora - janelaMin * 60000
+  if (!matches.some((m) => Date.parse(m.started_at ?? '') <= desde)) return null
+  const usadas = new Set<number>()
+  for (const m of matches) {
+    const a = Date.parse(m.started_at ?? m.ended_at ?? '')
+    const b = m.ended_at ? Date.parse(m.ended_at) : agora
+    // horas trocadas ou "no futuro" (relogio adiantado) ainda sao recentes
+    if (Math.max(a, b) >= desde) usadas.add(m.court)
+  }
+  const n = quadras.filter((q) => usadas.has(q)).length
+  return n > 0 ? n : null
+}
+
+/** A janela das quadras em uso: duas partidas (a que roda e o intervalo ate a proxima), no minimo 30 min. */
+function janelaDoPlay(session: PlaySession): number {
+  return Math.max(30, 2 * minutosDaPartida(session.target, lerRegra(session.desempate)))
+}
+
 export type RestanteDaNoite = {
   minutos: number
   falta: number
@@ -201,12 +231,21 @@ export function restanteDaNoite(
   regras: ReturnType<typeof regrasDoPlay>,
   chaves: ChaveDaCategoria[],
   quadrasDaCategoria: number[][] | null,
+  /** Hora de agora (ms): com ela a conta usa as quadras em uso de verdade (D43). */
+  agora?: number,
 ): RestanteDaNoite | null {
   if (session.status === 'finished') return null
   const falta = matches.filter((m) => !isPlayed(m)).length
+  const janela = janelaDoPlay(session)
+  const todasAsQuadras = Array.from({ length: session.courts }, (_, i) => i + 1)
   if (session.format !== 'grupos-duplas') {
+    const emUso = quadrasEmUso(matches, todasAsQuadras, agora, janela)
+    const q =
+      emUso === null
+        ? Math.max(1, session.courts)
+        : Math.min(emUso, quadrasSimultaneas(session.groups?.map((g) => g.length) ?? [session.player_ids.length]))
     return {
-      minutos: Math.ceil(falta / Math.max(1, session.courts)) * regras.minutosMedios(matches.filter((m) => !isPlayed(m))),
+      minutos: Math.ceil(falta / q) * regras.minutosMedios(matches.filter((m) => !isPlayed(m))),
       falta,
       categorias: [],
     }
@@ -215,7 +254,9 @@ export function restanteDaNoite(
     minutosDaPartida(session.alvos?.[d] ?? session.target, lerRegra(session.desempates?.[d] ?? session.desempate)),
   )
   const categorias = chaves.map((c) => {
-    const q = Math.max(1, quadrasDaCategoria?.[c.ci]?.length ?? session.courts)
+    const q =
+      quadrasEmUso(c.daqui, quadrasDaCategoria?.[c.ci] ?? todasAsQuadras, agora, janela) ??
+      Math.max(1, quadrasDaCategoria?.[c.ci]?.length ?? session.courts)
     let t = Math.ceil(c.daFase1.filter((m) => !isPlayed(m)).length / q) * minutos[0]
     if (!c.duos.length) {
       // o mata-mata ainda nao existe: entra a chave inteira
@@ -278,7 +319,7 @@ export type ResumoAoVivo = {
  * Aqui o "em quadra" e o do banco (`started_at`): o inicio guardado so no
  * celular de quem tocou nao chega a quem so olha.
  */
-export function resumoAoVivo(session: PlaySession, todas: Match[]): ResumoAoVivo {
+export function resumoAoVivo(session: PlaySession, todas: Match[], agora?: number): ResumoAoVivo {
   const matches = todas
     .filter((m) => m.session_id === session.id)
     .sort((a, b) => a.round - b.round || a.court - b.court)
@@ -288,7 +329,7 @@ export function resumoAoVivo(session: PlaySession, todas: Match[]): ResumoAoVivo
   const emQuadra = new Map<number, Match>()
   for (const m of emJogo) if (!emQuadra.has(m.court)) emQuadra.set(m.court, m)
   const quadras = quadrasDaCategoriaAgora(session, chaves, emQuadra, regras.catDe)
-  const r = restanteDaNoite(session, matches, regras, chaves, quadras)
+  const r = restanteDaNoite(session, matches, regras, chaves, quadras, agora)
   const comFases = session.format === 'grupos-duplas'
   const total = matches.length + (comFases ? chaves.reduce((t, c) => t + partidasPorMontar(session, c), 0) : 0)
   const noMataMata = chaves.filter((c) => c.doMataMata.length > 0).length

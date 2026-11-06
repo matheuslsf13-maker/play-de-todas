@@ -286,7 +286,11 @@ export type Match = {
    * saber qual rodada e (1 jogo = final, 2 = semifinal).
    */
   disputa_3o?: boolean | null
-  /** Quando a partida entrou em quadra. Null = ainda nao comecou. */
+  /**
+   * Quando a partida entrou em quadra. Null = ainda nao comecou (ou foi
+   * jogada antes da D43, quando o placar apagava o inicio). Fica guardado
+   * depois do placar: "em quadra" e comecou E ainda nao tem placar.
+   */
   started_at?: string | null
   /** Quando o placar foi lancado. Alimenta o "quem esta fora ha mais tempo". */
   ended_at?: string | null

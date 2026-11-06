@@ -574,7 +574,10 @@ liga/            textos do masculino: o código fica no feminino e o build
   só a última, e só vazia — reduzir com jogo em andamento sumiria com ele da tela.
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
-  quadra parada e a troca de jogadoras.
+  quadra parada e a troca de jogadoras. **O placar guarda o `started_at`** (D43; antes
+  gravava null): "em quadra" é **começou E ainda não tem placar** (`!isPlayed(m) &&
+  started_at`) — nunca testar só o `started_at`. Voltar para a fila limpa o início;
+  partidas antigas têm início nulo.
 - A lista "Próximas na fila" é a fila de cada grupo (`filaPorGrupo`), intercalada
   pela posição — não a ordem gravada, que colocava na frente quem tinha acabado de sair.
 - **"Como terminou?"** (`ComoTerminou` em Play.tsx): depois de tocar em quem venceu, os
@@ -609,6 +612,11 @@ liga/            textos do masculino: o código fica no feminino e o build
   dela move a barra das vagas. Recado só com o nome deste celular (`listaMeus`) ainda ativo.
 - **A previsão do ao vivo é a da tela do play**: `src/lib/previsaoDaNoite.ts` serve os dois
   (`tests/previsaoDaNoite.test.ts` prova que a tela do play dá os mesmos números de antes).
+  **Divide pelas quadras em uso de verdade** (D43, `quadrasEmUso`): as quadras diferentes com
+  partida na janela recente (`max(30, 2 partidas)` min, pelo `started_at`/`ended_at`), limitadas
+  pelo configurado (e por `quadrasSimultaneas` fora do campeonato). Sem dados (sem `agora`, começo
+  da noite, partidas sem início, pausa) a conta é a de antes. ➕ quadra conta quando a 1ª partida
+  começa nela; tirar quadra vale na hora. Em 02/11 (5 no app, 4 de verdade): 75 → 90 min (real 103).
 - A cor do momento só pinta borda, selo, barra e fotos; texto em `--text`/`--muted` (≥ 4,5:1).
   Prints e roteiros fora do repo: `pdt-teste/momento-prints.mjs`, `pdt-teste/momento-toque.mjs`.
 

@@ -2456,7 +2456,7 @@ function PlayDetail({
    * mesmo tempo, a noite acaba com a mais longa).
    */
   const restanteDaNoite = useMemo(() => {
-    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria)
+    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria, Date.now())
     return r && { ...r, categorias: r.categorias.map((c) => ({ ...c, situacao: situacaoDaCategoria(porCategoria[c.ci]) })) }
   }, [matches, session, regras, porCategoria, quadrasDaCategoria])
 
@@ -2477,7 +2477,8 @@ function PlayDetail({
   const matchesDaTela = useMemo(
     () =>
       matches.map((m) => {
-        const inicio = inicioDe(m)
+        // jogada: o inicio guardado no banco (D43); rolando: o do banco ou o deste celular
+        const inicio = isPlayed(m) ? m.started_at ?? null : inicioDe(m)
         const fim = m.ended_at ?? fins[m.id] ?? null
         return inicio !== m.started_at || fim !== m.ended_at ? { ...m, started_at: inicio, ended_at: fim } : m
       }),
@@ -2624,11 +2625,14 @@ function PlayDetail({
     // corrigir um placar antigo nao muda a hora em que a partida terminou:
     // senao aquelas quatro voltariam para o fim da fila de espera
     const fim = encerrando ? m.ended_at ?? fins[m.id] ?? new Date().toISOString() : null
+    // a hora de inicio fica guardada (D43): da a duracao real da partida e as
+    // quadras em uso da previsao. O "em quadra" e "comecou E nao tem placar".
+    const inicio = encerrando ? m.started_at ?? inicios[m.id] ?? null : null
     marcarInicio(m.id, null)
     marcarFim(m.id, fim)
     // `tie` vem so quando a partida foi decidida no tie; apagar o placar limpa
     saveMatches([
-      { ...m, score_a: a, score_b: b, tie: encerrando ? tie ?? null : null, started_at: null, ended_at: fim },
+      { ...m, score_a: a, score_b: b, tie: encerrando ? tie ?? null : null, started_at: inicio, ended_at: fim },
     ])
   }
 

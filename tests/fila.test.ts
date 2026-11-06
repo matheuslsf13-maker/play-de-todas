@@ -74,7 +74,7 @@ function noite(tamanhos: number[], quadras: number, politica: Politica, semente:
     naQuadra.delete(q)
     const perdeu = Math.floor(r() * 4)
     matches = matches.map((x) =>
-      x.id === id ? { ...x, score_a: 4, score_b: perdeu, started_at: null, ended_at: new Date(agora * 60000).toISOString() } : x,
+      x.id === id ? { ...x, score_a: 4, score_b: perdeu, ended_at: new Date(agora * 60000).toISOString() } : x,
     )
   }
   // pior encadeamento por grupo, na ordem em que as partidas terminaram
@@ -211,4 +211,18 @@ test('quem saiu e ja jogou: a partida jogada fica', () => {
   const r = planoDoRefazer({ grupos: [ficam], jogadoras: ficam, matches: jogadas, fixa: () => false })
   assert.ok(r.preservadas.some((m) => m.id === plano[i].id))
   assert.ok(r.orfas.every((m) => m.score_a == null))
+})
+
+import { estadoDaNoite } from '../src/lib/fila'
+
+test('D43: partida jogada com a hora de inicio guardada nao conta como em quadra', () => {
+  const ids = ['a', 'b', 'c', 'd', 'e', 'f']
+  const [m1, m2, ...resto] = planToMatches('s', gerarFila({ playerIds: ids, ratings: new Map() }))
+  const jogada = { ...m1, court: 1, score_a: 4, score_b: 2, started_at: '2026-11-06T22:00:00Z', ended_at: '2026-11-06T22:15:00Z' }
+  const rolando = { ...m2, court: 1, started_at: '2026-11-06T22:17:00Z' }
+  const e = estadoDaNoite({ jogadoras: ids, grupos: null, matches: [jogada, rolando, ...resto] })
+  assert.deepEqual(e.emJogo.map((m) => m.id), [rolando.id])
+  assert.deepEqual(e.jogadas.map((m) => m.id), [jogada.id])
+  assert.ok(!e.pendentes.some((m) => m.id === jogada.id))
+  assert.deepEqual([...e.ocupadas].sort(), jogadorasDaPartida(rolando).sort())
 })

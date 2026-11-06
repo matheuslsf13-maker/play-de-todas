@@ -637,6 +637,9 @@ encerra. Quem organiza é quem sabe. O início fica gravado no banco
 (`src/lib/emQuadra.ts`) — sem a cópia local o tempo real devolvia a partida sem
 o início e o botão "voltava" sozinho.
 
+Desde a **D43** o placar não apaga mais o início: "em quadra" é **começou E ainda não
+tem placar** (todos os lugares já testavam `!isPlayed(m) && started_at`).
+
 Em cima disso funcionam o aviso **"⏳ fulana ainda está jogando em outra quadra"**
 com o botão **"🔄 Chamar quem está livre"** (`liberarPartida`, mesmos critérios
 do sorteio) e o "livre / em quadra" na troca de jogadoras.
@@ -1254,3 +1257,41 @@ momentos. Decidido e feito assim:
   depois da leitura da lista (no Supabase o ranking desce um pouco ao chegar) e a altura muda com
   o momento; o pódio de grupos lista todos os grupos; lista aberta da semana seguinte passa na
   frente da lista fechada do play de hoje (prioridade b antes de c, como pedido).
+
+## D43 — Guardar a hora de início e prever com as quadras em uso (06/11/2026)
+
+Aprovado pelo dono em 06/11: "pode sim guardar a hora para o tempo estimado ser cada vez mais
+preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidades das quadras".
+
+- **A hora de início fica na partida depois do placar** (`setScore` em Play.tsx grava
+  `started_at: m.started_at ?? inicios[m.id]`; antes gravava `null`). Apagar o placar ainda limpa.
+  O início local deste celular é usado sem o limite de 3 min, porque é o toque daqui. Todo "está em
+  quadra agora" do app já era `!isPlayed(m) && started_at` (fila, quadra parada, quem não chegou,
+  trocar, entra/sai, arrumar grupos, refazer, tirar quadra, cartão ao vivo), então nada mais mudou;
+  só a lista da tela (`matchesDaTela`) deixou de apagar o início das jogadas. Voltar para a fila
+  (`cancelarInicio`, só com a partida rolando) continua limpando. Partidas antigas (início nulo)
+  seguem iguais. Sem SQL: a coluna é a do script 04; onde ela não existe, a gravação tolerante a
+  tira e a previsão fica a de antes.
+- **Na tela**: o "começou HHhMM · há X" do cartão ao vivo passa a ser o início real da 1ª
+  partida (antes, o 1º placar: uns 15 min depois).
+- **A previsão usa as quadras em uso de verdade** (`quadrasEmUso` em `previsaoDaNoite.ts`). Em
+  02/11 havia 5 quadras no app e só 4 existiam: na metade da noite previu 75 min e faltavam 103.
+  Conta as quadras **diferentes** (dentro das do play, ou das da categoria no campeonato) com
+  partida tocando a janela dos últimos `max(30, 2 × minutosDaPartida(alvo, regra do play))` min;
+  a partida vai do início (ou do fim, se não tem início) até o fim (ou agora, se rolando).
+  - Quadras, e não partidas sobrepostas: o intervalo entre partidas some sozinho (numa janela de
+    duas partidas cabe uma) e relógios diferentes não somam quadra a mais. Horas trocadas ou "no
+    futuro" (celular adiantado) contam como recentes.
+  - **Sem dados a conta é idêntica à de antes**: sem `agora`, sem nenhuma partida que começou antes
+    da janela (começo da noite, noites antigas sem início) ou nada na janela (pausa). Provado nas
+    noites da semente pela metade (`tests/previsaoDaNoite.test.ts`).
+  - Fora do campeonato: `min(em uso, quadrasSimultaneas(grupos))` — o limite dos grupos só entra
+    quando há dados (antes a conta ao vivo nunca o usava, e mudaria o caso sem dados). No
+    grupos+duplas, por categoria, o mesmo número vale para a fase de grupos e para o mata-mata.
+  - **➕ quadra** entra na conta quando a 1ª partida começa nela; **tirar quadra** vale na hora
+    (as acima do total saem).
+  - Quem passa a hora: a tela do play (`Date.now()` ao recalcular, isto é, a cada partida
+    iniciada/lançada) e o cartão ao vivo (relógio de 30 s).
+- **Medido** na noite de 02/11 com inícios sintéticos (fim anterior da quadra + 2 min): com 15, 22 e
+  30 jogadas a previsão era 90/75/45 min, passa a 120/90/60, e o real foi 131/103/69. A diferença
+  que sobra é a duração por partida (`MINUTOS_POR_GAME`), a calibragem que vem com as horas reais.
