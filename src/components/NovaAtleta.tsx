@@ -53,7 +53,7 @@ export default function NovaAtleta({ onClose, onCriada }: { onClose: () => void;
       <div className="stack">
         <label className="field">
           <span>Nome</span>
-          <input className="input" value={nome} autoFocus onChange={(e) => setNome(e.target.value)} />
+          <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} />
         </label>
         {parecida && (
           <div className="banner warn" style={{ margin: 0 }}>
