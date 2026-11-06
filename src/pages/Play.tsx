@@ -475,6 +475,17 @@ function NewPlay({
   const available = [...data.players]
     .filter((p) => p.active || selected.includes(p.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+  // a busca so filtra o que aparece na grade: quem ja foi tocada continua no play
+  const [buscaQuem, setBuscaQuem] = useState('')
+  const termoQuem = normalizar(buscaQuem.trim())
+  const visiveis = termoQuem
+    ? available.filter(
+        (p) =>
+          normalizar(p.name).includes(termoQuem) ||
+          normalizar(p.nickname ?? '').includes(termoQuem) ||
+          (p.aliases ?? []).some((a) => normalizar(a).includes(termoQuem)),
+      )
+    : available
 
   const forca = useMemo(() => ratings(data, date), [data, date])
 
@@ -973,8 +984,19 @@ function NewPlay({
             Cadastre as jogadoras na aba <strong>Meninas</strong> — ou cole a lista do grupo no botão acima.
           </Empty>
         ) : (
+          <>
+          <input
+            className="input"
+            type="search"
+            placeholder="Buscar pelo nome ou apelido"
+            value={buscaQuem}
+            onChange={(e) => setBuscaQuem(e.target.value)}
+            style={{ marginTop: 10 }}
+            aria-label="Buscar atleta"
+          />
+          {visiveis.length === 0 && <p className="tiny muted" style={{ margin: '8px 0 0' }}>Ninguém com esse nome.</p>}
           <div className="grade-atletas">
-            {available.map((p) => {
+            {visiveis.map((p) => {
               const on = selected.includes(p.id)
               const sit = situacaoDoAtleta(p, data)
               return (
@@ -995,6 +1017,7 @@ function NewPlay({
               )
             })}
           </div>
+          </>
         )}
 
       </div>
