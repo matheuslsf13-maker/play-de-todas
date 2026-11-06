@@ -12,6 +12,8 @@ import Players from './pages/Players'
 import Ranking from './pages/Ranking'
 import Stats from './pages/Stats'
 import { ProvedorDePerfil } from './components/NomeClicavel'
+import ListaDePresenca, { type Montagem } from './pages/ListaDePresenca'
+import { codigoDaUrl } from './lib/useLista'
 
 type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
@@ -70,6 +72,21 @@ export default function App() {
     setTab('stats')
   }, [])
   const [abrirPlay, setAbrirPlay] = useState<string | null>(null)
+  /** A lista de presenca aberta (pelo link ?lista= ou por um cartao): aparece no lugar da aba. */
+  const [lista, setLista] = useState<string | null>(codigoDaUrl)
+  /** A organizadora pediu para montar o play com a lista: o Novo Play abre com as confirmadas. */
+  const [montar, setMontar] = useState<Montagem | null>(null)
+  /** Sai da lista para uma aba (por padrao a tela inicial) e tira o ?lista= do endereco. */
+  const irParaAba = useCallback((t: Tab) => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname)
+    setLista(null)
+    setTab(t)
+    window.scrollTo(0, 0)
+  }, [])
+  const abrirLista = useCallback((codigo: string) => {
+    setLista(codigo)
+    window.scrollTo(0, 0)
+  }, [])
   const primeiraRenderizacao = useRef(true)
 
   // trocar de aba comeca a leitura do topo; sem isso a pagina "pula" quando a
@@ -181,21 +198,37 @@ export default function App() {
         <div className="card"><div className="empty">Carregando…</div></div>
       ) : (
         <main>
-          {abaVisivel === 'ranking' && (
+          {lista && (
+            <ListaDePresenca
+              codigo={lista}
+              onSair={() => irParaAba('ranking')}
+              onMontarPlay={(m) => { setMontar(m); irParaAba('play') }}
+              onToast={show}
+            />
+          )}
+          {!lista && abaVisivel === 'ranking' && (
             <ProvedorDePerfil value={abrirPerfil}>
               <Ranking
                 onToast={show}
                 onAbrirPlay={(id) => { setAbrirPlay(id); setTab('play') }}
                 onVerForca={() => { setAbrirStats('forca'); setTab('stats') }}
+                onAbrirLista={abrirLista}
               />
             </ProvedorDePerfil>
           )}
-          {abaVisivel === 'play' && (
-            <Play onToast={show} abrir={abrirPlay} onAbriu={() => setAbrirPlay(null)} />
+          {!lista && abaVisivel === 'play' && (
+            <Play
+              onToast={show}
+              abrir={abrirPlay}
+              onAbriu={() => setAbrirPlay(null)}
+              montar={montar}
+              onMontou={() => setMontar(null)}
+              onAbrirLista={abrirLista}
+            />
           )}
-          {abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
-          {abaVisivel === 'players' && <Players onToast={show} />}
-          {abaVisivel === 'checkins' && <Checkins onToast={show} />}
+          {!lista && abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
+          {!lista && abaVisivel === 'players' && <Players onToast={show} />}
+          {!lista && abaVisivel === 'checkins' && <Checkins onToast={show} />}
         </main>
       )}
 
@@ -229,7 +262,7 @@ export default function App() {
 
       <nav className="tabbar">
         {abas.map((t) => (
-          <button key={t.id} className={abaVisivel === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+          <button key={t.id} className={!lista && abaVisivel === t.id ? 'active' : ''} onClick={() => irParaAba(t.id)}>
             <span className="ic">{t.icon}</span>
             {t.label}
           </button>

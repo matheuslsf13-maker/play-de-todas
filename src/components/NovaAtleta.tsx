@@ -13,9 +13,21 @@ import { uid, type Player } from '../lib/types'
  * Nome, quem paga e o nivel em tres toques -- e ela ja entra no play. Antes era
  * sair da tela, cadastrar em Meninas e voltar, perdendo a lista montada.
  */
-export default function NovaAtleta({ onClose, onCriada }: { onClose: () => void; onCriada: (p: Player) => void }) {
+export default function NovaAtleta({
+  onClose,
+  onCriada,
+  nomeInicial = '',
+  acao = 'Cadastrar e colocar no play',
+}: {
+  onClose: () => void
+  onCriada: (p: Player) => void
+  /** O nome que ela digitou na lista de presenca. */
+  nomeInicial?: string
+  /** O texto do botao (na lista de presenca ela e vinculada, nao vai para um play). */
+  acao?: string
+}) {
   const { data, savePlayer } = useStore()
-  const [nome, setNome] = useState('')
+  const [nome, setNome] = useState(nomeInicial)
   const [apelido, setApelido] = useState('')
   const [categoria, setCategoria] = useState<Categoria>('isenta')
   const [genero, setGenero] = useState<Genero | null>(null)
@@ -83,7 +95,7 @@ export default function NovaAtleta({ onClose, onCriada }: { onClose: () => void;
         </div>
         <ForcaInicial valor={forca} onChange={setForca} media={media} />
         <button className="btn pink block" disabled={!nome.trim() || (precisaDeGenero && !genero)} onClick={() => void criar()}>
-          Cadastrar e colocar no play
+          {acao}
         </button>
       </div>
     </Modal>

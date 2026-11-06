@@ -30,6 +30,7 @@ import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
 import { PerfilDaDupla } from './Stats'
+import { CartaoDaLista } from './ListaDePresenca'
 import { dateLabel, monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
@@ -39,11 +40,14 @@ export default function Ranking({
   onToast,
   onAbrirPlay,
   onVerForca,
+  onAbrirLista,
 }: {
   onToast: (m: string) => void
   onAbrirPlay?: (sessionId: string) => void
   /** Leva para a aba Stats ja na Força. */
   onVerForca?: () => void
+  /** Abre a lista de presenca (cartao "Lista aberta"). */
+  onAbrirLista?: (codigo: string) => void
 }) {
   const { data, nameOf, playerById, canEdit, saveClosure, deleteClosure } = useStore()
 
@@ -199,6 +203,8 @@ export default function Ranking({
         <span className="prox-abrir">Abrir ↗</span>
       </a>
       )}
+
+      {onAbrirLista && <CartaoDaLista onAbrir={onAbrirLista} />}
 
       {emAndamento && (
         <button className="card proximo" onClick={() => onAbrirPlay?.(emAndamento.id)}>

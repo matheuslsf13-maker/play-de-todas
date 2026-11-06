@@ -1,9 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 
 /** O app do Play Mista (homens e mulheres dos dois campeonatos). */
 const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import CriarLista, { ListasRecentes, MensagemDoLink } from '../components/CriarLista'
+import type { Montagem } from './ListaDePresenca'
+import { dataDoPlay, type Lista } from '../lib/listaDePresenca'
+import { TEM_LISTA } from '../lib/useLista'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
   dividirDuplasEmCategorias,
@@ -191,13 +195,34 @@ export default function Play({
   onToast,
   abrir,
   onAbriu,
+  montar,
+  onMontou,
+  onAbrirLista,
 }: {
   onToast: (m: string) => void
   abrir?: string | null
   onAbriu?: () => void
+  /** Montar o play a partir da lista de presenca (as confirmadas ja marcadas). */
+  montar?: Montagem | null
+  onMontou?: () => void
+  onAbrirLista?: (codigo: string) => void
 }) {
-  const { data } = useStore()
+  const { data, repo, canEdit } = useStore()
   const [openId, setOpenId] = useState<string | null>(null)
+  /** A lista de onde este Novo Play esta sendo montado. */
+  const [daLista, setDaLista] = useState<Montagem | null>(null)
+  const [criandoLista, setCriandoLista] = useState(false)
+  /** Lista recem-criada: mostra o link e a mensagem do WhatsApp. */
+  const [criada, setCriada] = useState<Lista | null>(null)
+
+  useEffect(() => {
+    if (!montar) return
+    setDaLista(montar)
+    setOpenId(null)
+    setCriandoLista(false)
+    setCreating({ title: montar.lista.titulo, date: dataDoPlay(montar.lista) })
+    onMontou?.()
+  }, [montar, onMontou])
 
   // veio da tela inicial pedindo para abrir um play especifico
   useEffect(() => {
@@ -215,12 +240,45 @@ export default function Play({
 
   const open = sessions.find((s) => s.id === openId) ?? null
 
+  if (criandoLista) {
+    return (
+      <CriarLista
+        onCancel={() => setCriandoLista(false)}
+        onPronta={(l) => { setCriandoLista(false); setCreating(null); setCriada(l) }}
+        onToast={onToast}
+      />
+    )
+  }
+
+  const mensagemDaCriada = criada && (
+    <MensagemDoLink
+      lista={criada}
+      titulo="✅ Lista criada"
+      onClose={() => setCriada(null)}
+      onAbrir={onAbrirLista ? () => { setCriada(null); onAbrirLista(criada.codigo) } : undefined}
+      onToast={onToast}
+    />
+  )
+
   if (creating) {
     return (
       <NewPlay
         preset={creating}
-        onCancel={() => setCreating(null)}
-        onCreated={(id) => { setCreating(null); setOpenId(id) }}
+        daLista={daLista?.ids}
+        onCriarLista={TEM_LISTA && canEdit && !daLista ? () => setCriandoLista(true) : undefined}
+        onCancel={() => { setCreating(null); setDaLista(null) }}
+        onCreated={(id) => {
+          // a lista guarda de qual play ela virou (serve ao financeiro)
+          if (daLista) {
+            const l = daLista.lista
+            void repo.carregarLista({ id: l.id })
+              .then((atual) => repo.salvarLista({ ...(atual?.lista ?? l), fechada: true, session_id: id }))
+              .catch(() => onToast('O play foi criado, mas a lista não guardou o vínculo com ele'))
+          }
+          setDaLista(null)
+          setCreating(null)
+          setOpenId(id)
+        }}
         onToast={onToast}
       />
     )
@@ -237,7 +295,13 @@ export default function Play({
     )
   }
 
-  return <PlayList sessions={sessions} onOpen={setOpenId} onNew={() => setCreating({})} />
+  return (
+    <>
+      <PlayList sessions={sessions} onOpen={setOpenId} onNew={() => setCreating({})} />
+      {onAbrirLista && <ListasRecentes onAbrir={onAbrirLista} />}
+      {mensagemDaCriada}
+    </>
+  )
 }
 
 /* ------------------------------------------------------------------ lista */
@@ -435,11 +499,17 @@ function ConfirmarExclusao({ session, onClose }: { session: PlaySession; onClose
 
 function NewPlay({
   preset,
+  daLista,
+  onCriarLista,
   onCancel,
   onCreated,
   onToast,
 }: {
   preset: Partial<PlaySession>
+  /** As confirmadas da lista de presenca: entram marcadas, pelo mesmo portao da lista colada. */
+  daLista?: string[]
+  /** So o Play de Todas, logada: criar a lista de presenca por link em vez do play. */
+  onCriarLista?: () => void
   onCancel: () => void
   onCreated: (id: string) => void
   onToast: (m: string) => void
@@ -793,6 +863,15 @@ function NewPlay({
     setSelected((cur) => (cur.includes(p.id) ? cur : [...cur, p.id]))
   }
 
+  // as confirmadas da lista de presenca entram UMA vez, pelo portao da lista
+  // colada (pausa e pagamento); o ref segura o efeito duplo do StrictMode
+  const listaAplicada = useRef(false)
+  useEffect(() => {
+    if (!daLista || listaAplicada.current) return
+    listaAplicada.current = true
+    aplicarLista(daLista)
+  }, [daLista])
+
   /** "Todas" tambem respeita o cadastro: entra quem esta liberada. */
   function selecionarTodas() {
     // pausada (vai ficar um tempo fora) nao entra no "Todas": tocar nela pergunta
@@ -933,6 +1012,24 @@ function NewPlay({
           <div className="section-title" style={{ margin: 0 }}>🎾 Novo Play</div>
           <button className="btn ghost sm" onClick={onCancel}>Cancelar</button>
         </div>
+        {onCriarLista && (
+          <button
+            className="btn ghost block"
+            style={{ margin: '10px 0 4px', minHeight: 44 }}
+            disabled={avisosDoBanco.tabelas.has('listas')}
+            onClick={onCriarLista}
+          >
+            📋 Criar lista de presença por link
+          </button>
+        )}
+        {onCriarLista && avisosDoBanco.tabelas.has('listas') && (
+          <p className="tiny muted" style={{ margin: '0 0 6px' }}>Para usar a lista, rode o supabase/31-lista-de-presenca.sql.</p>
+        )}
+        {daLista && (
+          <div className="banner info" style={{ margin: '10px 0 4px' }}>
+            📋 Montando com a lista de presença: as confirmadas já estão marcadas. Você ainda pode tirar e colocar à mão.
+          </div>
+        )}
         <div className="row spread">
           <div className="section-title nowrap" style={{ margin: 0 }}>
             👯 Quem joga ({selected.length})
@@ -2503,7 +2600,6 @@ function PlayDetail({
       return { nome: c.cat.nome, minutos: c.terminou ? 0 : t, situacao: situacaoDaCategoria(c) }
     })
     return { minutos: Math.max(0, ...categorias.map((c) => c.minutos)), falta, categorias }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, matches, soFase2, session, porCategoria, quadrasDaCategoria])
 
   /** Quadra que mudou de dona: de qual categoria era e para qual foi. */
@@ -2527,7 +2623,6 @@ function PlayDetail({
         const fim = m.ended_at ?? fins[m.id] ?? null
         return inicio !== m.started_at || fim !== m.ended_at ? { ...m, started_at: inicio, ended_at: fim } : m
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [matches, inicios, fins],
   )
 

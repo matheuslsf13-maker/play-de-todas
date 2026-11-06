@@ -5,6 +5,7 @@ import { EscolhaDeEntrada, guardarEscolha, playEscolhido, raizDoSite } from './c
 import { LIGA } from './liga'
 import { StoreProvider } from './lib/store'
 import { aplicarTemaSalvo } from './lib/tema'
+import { codigoDaUrl } from './lib/useLista'
 import './styles.css'
 
 // antes de montar a tela, para nao piscar claro e depois escurecer
@@ -29,13 +30,17 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
  * escolha -- senao a raiz puxaria a pessoa de volta para um play antigo.
  */
 const escolhido = playEscolhido()
-const redirecionar = LIGA.id === 'feminino' && escolhido !== null && escolhido.id !== LIGA.id
+// O LINK DA LISTA DE PRESENCA (?lista=) sempre abre o Play de Todas: passa por
+// cima da escolha guardada, sem apagar a de quem ja usa outro play; quem ainda
+// nao tinha escolhido fica com o Play de Todas (dono, 06/11)
+const temLista = codigoDaUrl() !== null
+const redirecionar = LIGA.id === 'feminino' && !temLista && escolhido !== null && escolhido.id !== LIGA.id
 if (redirecionar) window.location.replace(raizDoSite() + escolhido.pasta)
-else if (LIGA.id !== 'feminino') guardarEscolha(LIGA)
+else if (LIGA.id !== 'feminino' || (temLista && escolhido === null)) guardarEscolha(LIGA)
 
 /** Na primeira visita a raiz, a escolha vem antes do app. */
 function Entrada() {
-  const [escolheu, setEscolheu] = useState(LIGA.id !== 'feminino' || escolhido !== null)
+  const [escolheu, setEscolheu] = useState(LIGA.id !== 'feminino' || temLista || escolhido !== null)
   if (!escolheu) return <EscolhaDeEntrada onFicar={() => setEscolheu(true)} />
   return (
     <StoreProvider>

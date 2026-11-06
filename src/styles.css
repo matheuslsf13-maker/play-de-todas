@@ -1763,3 +1763,69 @@ p .nome-link { padding-block: 0; margin-block: 0; }
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
+
+/* ---------- lista de presença por link (só o Play de Todas) ---------- */
+/* alvos de toque de 44px: a atleta abre o link no celular, muitas vezes de pé */
+.lista-pagina .btn { min-height: 44px; }
+.lista-pagina .btn.sm { min-height: 40px; }
+.lista-topo .lista-titulo { font-size: 20px; font-weight: 800; margin: 6px 0 2px; overflow-wrap: anywhere; }
+.lista-ocupacao { margin-top: 8px; font-weight: 800; font-size: 15px; color: var(--pink); }
+.lista-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 4px;
+  border-bottom: 1px dashed var(--line);
+}
+.lista-linha:last-child { border-bottom: 0; }
+.lista-linha.tocavel { cursor: pointer; }
+.lista-linha.tocavel:active { background: var(--card-2); }
+.lista-linha.eu { background: var(--pink-suave); border-radius: 12px; border-bottom-color: transparent; }
+.lista-linha.marcada { outline: 2px solid var(--purple); border-radius: 12px; }
+.lista-pos { flex: none; width: 24px; text-align: right; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lista-sem-foto { flex: none; width: 34px; height: 34px; }
+.lista-nome { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.lista-forca { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
+.lista-sugestao { flex: none; max-width: 46%; white-space: normal; text-align: center; line-height: 1.2; }
+.lista-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lista-acoes .btn { padding: 10px 8px; }
+.lista-dica { grid-column: 1 / -1; }
+.lista-dupla { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.lista-dupla .input { min-width: 0; }
+.lista-msg {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.45;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.lista-resposta { margin: 0; font-size: 20px; font-weight: 800; text-align: center; }
+.lista-escolha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.lista-escolha:disabled { opacity: .55; cursor: default; }
+.lista-resumo { cursor: pointer; min-height: 44px; margin: 0; }
+details[open] > .lista-resumo { margin-bottom: 10px; }
+.lista-fixa { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 10px; }
+/* o cartão da tela inicial: verde-água, para não ser confundido com o do play */
+.card.proximo.lista-aberta { border-color: var(--teal); background: linear-gradient(135deg, var(--card), var(--teal-suave)); }
+.card.lista-aberta .prox-titulo { color: var(--teal); }
+.card.lista-aberta .prox-selo { background: var(--teal); }
