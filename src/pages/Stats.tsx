@@ -44,7 +44,7 @@ import {
 } from '../lib/forca'
 import { applyBonuses, computeStreaks, STREAK_LADDER, streakLevel } from '../lib/streaks'
 import { useStore } from '../lib/store'
-import { dateLabel, monthLabel, monthOf, plural } from '../lib/types'
+import { dateLabel, monthLabel, monthOf, plural, type AppData } from '../lib/types'
 
 type Modo = 'jogadora' | 'duplas' | 'forca'
 
@@ -441,6 +441,31 @@ function PainelJogadora({
   )
 }
 
+/**
+ * As duplas do recorte com os pontos certos: o bye conta (a dupla que passou
+ * direto nao pode aparecer com menos pontos) e no campeonato vale a colocacao.
+ */
+function duplasDoRecorte(sessions: AppData['sessions'], matches: ReturnType<typeof playedMatches>): DuoStat[] {
+  return [
+    ...aplicarByeNasDuplas(
+      aplicarByeNasDuplas(duoStatsComPontos(sessions, matches), pontosDeBye(sessions, matches).porDupla),
+      colocacaoPorDupla(sessions, matches),
+    ).values(),
+  ]
+}
+
+/** O perfil da dupla pelo historico inteiro, para abrir de fora do Stats (a forca da tela inicial). */
+export function PerfilDaDupla({ a, b, onClose }: { a: string; b: string; onClose: () => void }) {
+  const { data } = useStore()
+  const matches = useMemo(() => playedMatches(data, {}), [data])
+  const duo = useMemo(
+    () => duplasDoRecorte(data.sessions, matches).find((d) => (d.a === a && d.b === b) || (d.a === b && d.b === a)),
+    [data.sessions, matches, a, b],
+  )
+  if (!duo) return null
+  return <DetalheDupla duo={duo} matches={matches} onClose={onClose} />
+}
+
 /* ---------------------------------------------------------- por dupla */
 
 type Ordem = 'jogos' | 'aproveitamento' | 'pontos' | 'forca' | 'entrosamento'
@@ -454,19 +479,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
   // o mesmo bye conta aqui: a dupla que passou direto tambem nao pode
   // aparecer com menos pontos por causa da partida que nao teve
   const { data: dadosDoBye } = useStore()
-  const duplas = useMemo(
-    () => [
-      ...aplicarByeNasDuplas(
-        aplicarByeNasDuplas(
-          duoStatsComPontos(dadosDoBye.sessions, matches),
-          pontosDeBye(dadosDoBye.sessions, matches).porDupla,
-        ),
-        // no campeonato a dupla pontua pela colocacao, nao pelas partidas
-        colocacaoPorDupla(dadosDoBye.sessions, matches),
-      ).values(),
-    ],
-    [matches, dadosDoBye.sessions],
-  )
+  const duplas = useMemo(() => duplasDoRecorte(dadosDoBye.sessions, matches), [matches, dadosDoBye.sessions])
 
   // a forca sai do historico INTEIRO da dupla, e nao do periodo filtrado:
   // e o que as duas renderam juntas desde sempre

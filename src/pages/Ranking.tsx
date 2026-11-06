@@ -29,7 +29,7 @@ import { emAvaliacao, forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
-import { NomesDaDupla } from '../components/NomeClicavel'
+import { PerfilDaDupla } from './Stats'
 import { dateLabel, monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
@@ -613,6 +613,7 @@ export function RankTable({
 function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
   const { data, nameOf, playerById, canEdit } = useStore()
   const [modo, setModo] = useState<'individual' | 'duplas'>('individual')
+  const [duplaAberta, setDuplaAberta] = useState<{ a: string; b: string } | null>(null)
 
   // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca; quem
   // esta em avaliacao so aparece para a admin (marcada 🔍), e a dupla dela tambem
@@ -680,31 +681,42 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                 </div>
               ))
             : duplas.slice(0, 5).map((d, i) => (
-                <div key={d.key} className="row" style={{ gap: 8 }}>
+                // a linha toda abre o perfil DA DUPLA (e nao o de cada uma)
+                <button
+                  key={d.key}
+                  type="button"
+                  className="row linha-dupla-forca"
+                  style={{ gap: 8 }}
+                  onClick={() => setDuplaAberta({ a: d.a, b: d.b })}
+                  aria-label={`Ver o perfil da dupla ${nameOf(d.a)} e ${nameOf(d.b)}`}
+                >
                   <span className={`rank-pos top${i + 1}`} style={{ fontWeight: 800, minWidth: 22 }}>
                     {i + 1}
                   </span>
                   <Avatar player={playerById(d.a)} size={24} />
                   <Avatar player={playerById(d.b)} size={24} />
                   <span className="grow" style={{ minWidth: 0 }}>
-                    <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
-                  </span>
-                  {(
-                    <span className="tiny muted" style={{ maxWidth: 100, textAlign: 'right' }} title="Ajuste da força da dupla em relação à média individual; não soma pontos ao ranking.">
+                    <span className="ellipsis" style={{ display: 'block', fontWeight: 700 }}>
+                      {nameOf(d.a)} <span className="muted">+</span> {nameOf(d.b)}
+                    </span>
+                    <span className="tiny muted" style={{ display: 'block' }} title="Ajuste da força da dupla em relação à média individual; não soma pontos ao ranking.">
                       Entrosamento {d.entrosamento > 0 ? '+' : ''}
                       {d.entrosamento}
                     </span>
-                  )}
+                  </span>
                   <span
                     className="nowrap"
                     style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}
                   >
                     {d.nota}
                   </span>
-                </div>
+                  <span className="muted" aria-hidden="true">›</span>
+                </button>
               ))}
         </div>
       )}
+
+      {duplaAberta && <PerfilDaDupla a={duplaAberta.a} b={duplaAberta.b} onClose={() => setDuplaAberta(null)} />}
 
       {total > 5 && onVerTudo && (
         <button className="btn ghost block sm" style={{ marginTop: 10 }} onClick={onVerTudo}>
