@@ -2125,13 +2125,14 @@ function LancarModal({
               <>
                 <div className="field">
                   <span>Conta usada</span>
-                  <div className="chips-scroll">
+                  {/* quebra em vez de rolar: a faixa sem barra escondia a 2a/3a conta e no PC nao rolava (dono, 06/11) */}
+                  <div className="row wrap" style={{ gap: 6 }}>
                     {contas.map((c) => {
                       const u = disp?.contas.find((x) => x.conta.id === c.id)
                       const aqui = u ? livresNoLocal(u, localId) : undefined
                       const on = contaEscolhida?.id === c.id
                       return (
-                        <button key={c.id} className={`chip ${on ? 'on' : ''} ${aqui && !aqui.aceita ? 'off' : ''}`} onClick={() => escolherConta(c)}>
+                        <button key={c.id} className={`chip ${on ? 'on' : ''} ${aqui && !aqui.aceita ? 'off' : ''}`} style={{ textAlign: 'left', borderRadius: 14 }} onClick={() => escolherConta(c)}>
                           {nomeDoTitular(c, nameOf(playerId))} · {u?.plano.nome ?? rotuloDoTipo(c.tipo)}
                           {aqui && (
                             <span className="tiny" style={{ opacity: 0.8 }}>

@@ -27,17 +27,22 @@ export function baseDoApp(): string {
  *
  * `lista`: undefined carregando, null nao existe (ou sem tabela), senao a lista.
  */
+// a ultima leitura de cada lista: ao trocar de aba o cartao volta na hora (sem ~1 s vazio) e o banco atualiza por tras
+const ultimaLida = new Map<string, ListaCompleta | null>()
+
 export function useLista(ref: { codigo: string } | 'momento' | null) {
   const { repo } = useStore()
-  const [lista, setLista] = useState<ListaCompleta | null | undefined>(undefined)
   const chave = ref === null ? null : ref === 'momento' ? 'momento' : ref.codigo
+  const [lista, setLista] = useState<ListaCompleta | null | undefined>(() => (chave ? ultimaLida.get(chave) : undefined))
   const recarregar = useCallback(async () => {
     if (!chave || !TEM_LISTA) {
       setLista(null)
       return
     }
     try {
-      setLista(chave === 'momento' ? await repo.listaDoMomento() : await repo.carregarLista({ codigo: chave }))
+      const l = chave === 'momento' ? await repo.listaDoMomento() : await repo.carregarLista({ codigo: chave })
+      ultimaLida.set(chave, l)
+      setLista(l)
     } catch (e) {
       // sem sinal: fica com o que ja tinha
       console.warn('não consegui ler a lista:', e)

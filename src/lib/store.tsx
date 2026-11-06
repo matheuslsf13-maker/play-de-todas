@@ -356,12 +356,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabase) return
     void supabase.auth.getSession().then(({ data: s }) => setUserEmail(s.session?.user.email ?? null))
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
       setUserEmail(s?.user.email ?? null)
       void drain()
+      // o token mudou: o que veio sem ele (check-ins e caixa vazios pela RLS) precisa ser relido.
+      // Sem isso a aba Check-ins ficava vazia ate sair e voltar (dono, 06/11). INITIAL_SESSION fica de fora: e a carga inicial.
+      if (e === 'SIGNED_IN' || e === 'TOKEN_REFRESHED' || e === 'SIGNED_OUT') {
+        if (reloadTimer.current) window.clearTimeout(reloadTimer.current)
+        reloadTimer.current = window.setTimeout(() => {
+          if (queueRef.current.length === 0) void reload()
+        }, 300)
+      }
     })
     return () => sub.subscription.unsubscribe()
-  }, [drain])
+  }, [drain, reload])
 
   // mudancas feitas por outra pessoa; nunca sobrescreve escrita pendente
   useEffect(() => {

@@ -3484,7 +3484,7 @@ function PlayDetail({
         <div className="row spread" style={{ alignItems: 'baseline' }}>
           <div className="section-title">🏐 Quadras agora</div>
           {editable && !finished && (
-            <div className="row" style={{ gap: 6 }}>
+            <div className="row wrap" style={{ gap: 6, justifyContent: 'flex-end' }}>
               <button
                 onAnimationEnd={() => setNegandoQuadra(0)}
                 className={`btn ghost sm controle-quadra${negandoQuadra ? ' quadra-negada' : ''}`}
