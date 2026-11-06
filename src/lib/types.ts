@@ -122,12 +122,12 @@ export type MesclaDoPlay =
   | { campo: 'courts'; valor: number }
   /**
    * ABRE UMA QUADRA (D44), aplicada sobre o banco: dois celulares abrindo ao
-   * mesmo tempo abrem duas. `quadra` e a preferida (se ja abriu, vai a menor
-   * livre); `para` manda a quadra aberta para uma categoria (campeonato).
+   * mesmo tempo abrem duas, se houver jogos prontos. Usa o menor numero livre
+   * e manda a quadra para a categoria com jogo pronto (campeonato).
    */
-  | { campo: 'abrir_quadra'; quadra?: number; para?: number }
-  /** TIRA A QUADRA `quadra` (D44); ja tirada, ou a unica, nao faz nada */
-  | { campo: 'tirar_quadra'; quadra: number }
+  | { campo: 'abrir_quadra' }
+  /** TIRA UMA QUADRA LIVRE (D44); reavalia no banco e mantem pelo menos uma. */
+  | { campo: 'tirar_quadra' }
   /** se o play soma no ranking do mes / se mexe no status 🔥 */
   | { campo: 'ranked'; valor: boolean }
   | { campo: 'conta_status'; valor: boolean }
@@ -155,6 +155,8 @@ export type PlaySession = {
    * com `courts` elementos; leia por `quadrasAbertas` (src/lib/quadras.ts).
    */
   quadras_abertas?: number[] | null
+  /** IDs ja aplicados: reenvio offline nao repete um toque (script 33). */
+  quadras_operacoes?: string[] | null
   /**
    * Quantas partidas o play tem no total.
    * A coluna do banco se chama `rounds` de quando o play era organizado em

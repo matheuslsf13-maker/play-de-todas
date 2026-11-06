@@ -1315,3 +1315,53 @@ preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidad
 - **Medido** na noite de 02/11 com inícios sintéticos (fim anterior da quadra + 2 min): com 15, 22 e
   30 jogadas a previsão era 90/75/45 min, passa a 120/90/60, e o real foi 131/103/69. A diferença
   que sobra é a duração por partida (`MINUTOS_POR_GAME`), a calibragem que vem com as horas reais.
+
+## D44 — Quadras agora: números físicos, jogos prontos e dois celulares (06/11/2026)
+
+- A escolha na criação continua igual. Durante o play, ➖ tira a **quadra livre de maior
+  número**, inclusive uma fixa de categoria no Campeonato e nas Duplas fixas. Uma sugestão
+  ainda não iniciada é uma quadra livre. Não renumera as restantes: `[1, 3, 4]` tem 3 quadras,
+  mas a partida na 4 continua na 4. ➕ usa o **menor número fechado**.
+- **Pelo menos 1 quadra**, confirmado pelo dono nesta conversa. Com uma só, ➖ dá a mesma
+  tremidinha e avisa **"O play precisa de pelo menos 1 quadra"**. Com várias, todas ocupadas:
+  **"Todas as quadras estão em jogo"**. O botão continua tocável (44px); movimento reduzido
+  desliga a animação, sem desligar o aviso. Cabeçalho: "1 quadra".
+- **Selo do ➕**: partidas completas que podem entrar agora, com quatro atletas livres,
+  sem quem não chegou, descontando as quadras abertas vazias. Sai da **mesma fila dos cards**
+  (`estadoDasQuadras`, `src/lib/quadras.ts`, usando `filaPorGrupo`/`proximasPelaFila`), reservando
+  as sugestões e escolhas manuais sem repetir atletas. 2 → abre uma → 1. Zero não abre e avisa
+  **"Nenhum jogo pronto para outra quadra agora"**. Mata-mata ainda não montado não conta.
+- Categorias: a quadra aberta vai para a categoria do jogo pronto; números fechados saem da
+  distribuição e da previsão. Se uma categoria ficou com menos quadras que grupos, os grupos
+  **revezam por espera**, em vez de a antiga "quadra da casa" monopolizar o jogo. Se perdeu
+  todas as suas quadras e existe uma vazia de outra categoria **sem jogo pronto**, usa essa
+  quadra; sem isso, uma única quadra vazia impediria jogar, abrir (+ zero) e retirar (mínimo 1).
+  Uma partida iniciada mantém a quadra e a categoria até terminar.
+- **Persistência**: `sessions.quadras_abertas integer[]` guarda os números; `courts` segue como
+  quantidade. Nulo significa `1..courts`. `quadras_operacoes text[]` guarda os IDs dos toques
+  já processados, inclusive os que não puderam mudar nada, para reenvio offline não repetir.
+  A fila manda **abrir/tirar uma**, não o total calculado no celular. O driver relê sessão e
+  partidas, calcula a operação pura e só atualiza se as colunas ainda são as lidas; se outro
+  celular ganhou, relê e tenta novamente (8 tentativas; depois, a fila tenta de novo). Edição
+  de título/grupos/finalização não regrava o retrato antigo das quadras. Após enviar o toque,
+  recarrega o resultado do banco, mesmo se o evento de tempo real chegou durante a fila.
+- **Script `33-quadras-abertas.sql`**, idempotente nos schemas existentes `public`, `masculino`
+  e `misto`: duas colunas opcionais e dois gatilhos, sem apagar dados ou alterar permissões.
+  Retirar une as quadras solicitadas às ocupadas; iniciar atualiza a mesma linha da sessão e
+  reabre a quadra se a retirada chegou primeiro. Os dois caminhos se serializam pela linha da
+  sessão. Funções `security invoker`: continuam valendo as permissões e RLS existentes.
+  O modo local espelha a restauração. A tela sempre inclui as quadras com jogos iniciados,
+  mesmo com sessão atrasada; se dois registros iniciados caíram na mesma quadra, mostra ambos.
+- **Antes do 33**: mantém a representação antiga, só remove a última se estiver livre e não
+  for fixa de categoria. A abertura/retirada compara o total antes de gravar, evitando perda
+  de toques concorrentes. Sem as colunas/gatilhos ainda não há retirada do meio, deduplicação
+  de resposta perdida nem restauração persistente no servidor; os cards ativos são preservados
+  na tela nova. Não é necessário recriar plays depois de aplicar o 33; basta recarregar.
+- **Verificação**: TDD com falha inicial e uma regressão de revezamento reproduzida antes de
+  corrigir; 263 testes (16 novos), typecheck e builds feminino/masculino/misto. PGlite: 27
+  verificações nos três schemas. Adaptador com banco simulado: 6 cenários de concorrência,
+  reenvio e banco sem o 33. Navegador local: 14 prints de 375px (claro/escuro), incluindo os
+  avisos, números físicos e mínimo de uma; também duplas fixas, cards concorrentes, alvos de
+  toque e movimento reduzido. Relatório e roteiros em `pdt-teste/RELATORIO-QUADRAS.md`.
+  Sem push, publicação, login ou SQL real. PostgREST/Realtime reais e celulares físicos não
+  foram usados; aparelhos com PWA antigo precisam carregar a versão nova para os novos cards.

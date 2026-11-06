@@ -14,7 +14,8 @@ import {
   quadrasEfetivas,
 } from './campeonato'
 import { lerRegra, type Regra } from './desempate'
-import { duplasQueEntraram, duplasVivas, nomeDaRodada, quadrasSimultaneas } from './pairing'
+import { duplasQueEntraram, duplasVivas, jogadorasDaPartida, nomeDaRodada, quadrasSimultaneas } from './pairing'
+import { quadrasAbertas } from './quadras'
 import { isPlayed } from './scoring'
 import type { Categoria, Match, PlaySession } from './types'
 
@@ -167,7 +168,7 @@ export function quadrasDaCategoriaAgora(
     chaves.map((c) => c.terminou),
     chaves.map((c) => c.porJogar),
     session.quadras_cedidas,
-    session.courts,
+    quadrasAbertas(session, [...emQuadra.values()]),
   )
   // quadra com jogo em andamento e de quem esta jogando nela: a conta de
   // "quem tem mais jogo" muda a cada rodada, e a partida nao pode mudar de
@@ -180,6 +181,18 @@ export function quadrasDaCategoriaAgora(
     })
     if (base[dona] && !base[dona].includes(q)) base[dona].push(q)
   }
+  // Se a ultima quadra de uma categoria saiu, ela pode usar uma vazia de
+  // outra SEM jogo pronto; senao uma unica quadra vazia bloquearia ate o +.
+  const ocupadas = new Set([...emQuadra.values()].flatMap(jogadorasDaPartida).concat(session.ausentes ?? []))
+  const pronta = chaves.map((c) => c.daqui.some((m) => !isPlayed(m) && !m.started_at && jogadorasDaPartida(m).every((id) => !ocupadas.has(id))))
+  base.forEach((qs, ci) => {
+    if (qs.length || !pronta[ci]) return
+    const de = base.findIndex((outras, i) => !pronta[i] && outras.some((q) => !emQuadra.has(q)))
+    if (de < 0) return
+    const q = base[de].find((q) => !emQuadra.has(q))!
+    base[de] = base[de].filter((n) => n !== q)
+    qs.push(q)
+  })
   return base.map((qs) => [...qs].sort((a, b) => a - b))
 }
 
@@ -249,12 +262,12 @@ export function restanteDaNoite(
   if (session.status === 'finished') return null
   const falta = matches.filter((m) => !isPlayed(m)).length
   const janela = janelaDoPlay(session)
-  const todasAsQuadras = Array.from({ length: session.courts }, (_, i) => i + 1)
+  const todasAsQuadras = quadrasAbertas(session, matches)
   if (session.format !== 'grupos-duplas') {
     const emUso = quadrasEmUso(matches, todasAsQuadras, agora, janela)
     const q =
       emUso === null
-        ? Math.max(1, session.courts)
+        ? Math.max(1, todasAsQuadras.length)
         : Math.min(emUso, quadrasSimultaneas(session.groups?.map((g) => g.length) ?? [session.player_ids.length]))
     return {
       minutos: Math.ceil(falta / q) * regras.minutosMedios(matches.filter((m) => !isPlayed(m))),

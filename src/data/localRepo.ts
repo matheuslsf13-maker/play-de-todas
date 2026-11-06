@@ -17,6 +17,7 @@ import type {
   StreakChoice,
 } from '../lib/types'
 import { emptyData } from '../lib/types'
+import { garantirQuadrasEmJogo, mudarQuadra, preservarQuadras } from '../lib/quadras'
 import { LOCAIS_INICIAIS, PLANOS_INICIAIS } from '../lib/checkins'
 import { CHAVE } from '../lib/chaves'
 import type { Repo } from './repo'
@@ -147,13 +148,16 @@ export const localRepo: Repo = {
   async saveSession(s: PlaySession) {
     const d = read()
     const i = d.sessions.findIndex((x) => x.id === s.id)
-    if (i >= 0) d.sessions[i] = s
+    if (i >= 0) d.sessions[i] = preservarQuadras(s, d.sessions[i])
     else d.sessions.push(s)
     write(d)
   },
-  async mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay) {
+  async mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay, operacao = crypto.randomUUID()) {
     const d = read()
-    d.sessions = d.sessions.map((s) => (s.id === sessionId ? aplicarMescla(s, mescla) : s))
+    d.sessions = d.sessions.map((s) => s.id !== sessionId ? s :
+      mescla.campo === 'abrir_quadra' || mescla.campo === 'tirar_quadra'
+        ? mudarQuadra(s, d.matches.filter((m) => m.session_id === s.id), mescla.campo, operacao)
+        : aplicarMescla(s, mescla))
     write(d)
   },
   async anotarNoPlay(sessionId: string, evento: EventoDoPlay) {
@@ -176,6 +180,7 @@ export const localRepo: Repo = {
       if (i >= 0) d.matches[i] = m
       else d.matches.push(m)
     }
+    d.sessions = d.sessions.map((s) => garantirQuadrasEmJogo(s, ms))
     write(d)
   },
   async saveChoice(choice: StreakChoice) {

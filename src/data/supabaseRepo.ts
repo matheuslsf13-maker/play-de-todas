@@ -21,6 +21,7 @@ import type {
 import type { Repo } from './repo'
 import { desdeDaListaDoMomento, escolherListaDoMomento, type Lista, type ListaCompleta, type NomeNaLista, type RespostaDaLista } from '../lib/listaDePresenca'
 import { aplicarMescla } from '../lib/campeonato'
+import { mudarQuadra } from '../lib/quadras'
 import { calcularElo } from '../lib/stats'
 import { emptyData } from '../lib/types'
 
@@ -354,13 +355,46 @@ export const supabaseRepo: Repo = {
     if (error) throw error
   },
   async saveSession(s: PlaySession) {
-    await upsertTolerante('sessions', s)
+    const atual = await client().from('sessions').select('id').eq('id', s.id).maybeSingle()
+    if (atual.error) throw atual.error
+    // Edicoes do play nao regravam o retrato antigo das quadras de outro celular.
+    const { courts, quadras_abertas: _abertas, quadras_operacoes: _ops, ...resto } = s
+    await upsertTolerante('sessions', atual.data ? resto : { ...resto, courts })
   },
-  async mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay) {
+  async mesclarNoPlay(sessionId: string, mescla: MesclaDoPlay, operacao = crypto.randomUUID()) {
     // le a sessao como esta no banco AGORA e grava so a coluna mexida: um
     // celular atrasado nao apaga o que outro fez (duplas de outra categoria,
     // desempates, quadras cedidas)
     const sb = client()
+    if (mescla.campo === 'abrir_quadra' || mescla.campo === 'tirar_quadra') {
+      for (let tentativa = 0; tentativa < 8; tentativa++) {
+        const atual = await sb.from('sessions').select('*').eq('id', sessionId).maybeSingle()
+        if (atual.error) throw atual.error
+        if (!atual.data) return
+        const s = atual.data as PlaySession
+        if (s.quadras_operacoes?.includes(operacao)) return
+        const partidas = await sb.from('matches').select('*').eq('session_id', sessionId)
+        if (partidas.error) throw partidas.error
+        const legado = !('quadras_abertas' in s)
+        if (legado) avisosDoBanco.colunas.add('sessions.quadras_abertas')
+        const nova = mudarQuadra(s, partidas.data as Match[], mescla.campo, operacao, legado)
+        const colunas: (keyof PlaySession)[] = legado ? ['courts'] : ['courts', 'quadras_abertas', 'quadras_operacoes']
+        for (const c of ['quadras_cedidas', 'escolhas'] as const) {
+          if (JSON.stringify(nova[c]) !== JSON.stringify(s[c])) colunas.push(c)
+        }
+        let escrita = sb.from('sessions').update(Object.fromEntries(colunas.map((c) => [c, nova[c]]))).eq('id', sessionId)
+        for (const c of colunas) {
+          const valor = s[c]
+          escrita = valor == null ? escrita.is(c, null) : escrita.eq(c,
+            Array.isArray(valor) ? `{${valor.join(',')}}` : typeof valor === 'object' ? JSON.stringify(valor) : valor)
+        }
+        const r = await escrita.select('id').maybeSingle()
+        if (r.error) throw r.error
+        if (r.data) return
+        // Outro celular ganhou: rele a sessao e reaplica o toque, nunca o total antigo.
+      }
+      throw new Error('As quadras mudaram em outro celular. Vou tentar novamente.')
+    }
     const atual = await sb.from('sessions').select('*').eq('id', sessionId).maybeSingle()
     if (atual.error) throw atual.error
     if (!atual.data) return

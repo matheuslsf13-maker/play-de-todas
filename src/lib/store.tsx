@@ -3,6 +3,7 @@ import { localRepo } from '../data/localRepo'
 import { loadCache, loadQueue, saveCache, saveQueue, type WriteOp } from '../data/queue'
 import type { Repo } from '../data/repo'
 import { aplicarMescla } from './campeonato'
+import { garantirQuadrasEmJogo, mudarQuadra, preservarQuadras } from './quadras'
 import { computeStreaks, jaForamDuquesa } from './streaks'
 import { supabaseRepo } from '../data/supabaseRepo'
 import { hasSupabase, supabase } from './supabase'
@@ -93,9 +94,12 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
         checkinContas: d.checkinContas.filter((c) => c.player_id !== op.playerId),
       }
     case 'saveSession':
-      return { ...d, sessions: upsert(d.sessions, op.session) }
+      return { ...d, sessions: upsert(d.sessions, preservarQuadras(op.session, d.sessions.find((s) => s.id === op.session.id))) }
     case 'mesclarNoPlay':
-      return { ...d, sessions: d.sessions.map((s) => (s.id === op.sessionId ? aplicarMescla(s, op.mescla) : s)) }
+      return { ...d, sessions: d.sessions.map((s) => s.id !== op.sessionId ? s :
+        op.mescla.campo === 'abrir_quadra' || op.mescla.campo === 'tirar_quadra'
+          ? mudarQuadra(s, d.matches.filter((m) => m.session_id === s.id), op.mescla.campo, op.id, hasSupabase && !('quadras_abertas' in s))
+          : aplicarMescla(s, op.mescla)) }
     case 'anotarNoPlay':
       return {
         ...d,
@@ -112,7 +116,7 @@ function applyLocally(d: AppData, op: WriteOp): AppData {
     case 'saveMatches': {
       let matches = d.matches
       for (const m of op.matches) matches = upsert(matches, m)
-      return { ...d, matches }
+      return { ...d, matches, sessions: d.sessions.map((s) => hasSupabase && !('quadras_abertas' in s) ? s : garantirQuadrasEmJogo(s, op.matches)) }
     }
     case 'replaceSessionMatches':
       return {
@@ -288,12 +292,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         queueRef.current = queueRef.current.filter((x) => x.id !== op.id)
         setQueue(queueRef.current)
         setError(null)
+        // A decisao pode ter mudado no banco enquanto este celular estava offline.
+        if (op.type === 'mesclarNoPlay' && (op.mescla.campo === 'abrir_quadra' || op.mescla.campo === 'tirar_quadra')) await reload()
       }
     } finally {
       draining.current = false
       setSyncing(false)
     }
-  }, [repo])
+  }, [repo, reload])
 
   const push = useCallback(
     (op: WriteOp) => {
@@ -472,7 +478,7 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
     case 'anotarNoPlay':
       return repo.anotarNoPlay(op.sessionId, op.evento)
     case 'mesclarNoPlay':
-      return repo.mesclarNoPlay(op.sessionId, op.mescla)
+      return repo.mesclarNoPlay(op.sessionId, op.mescla, op.id)
     case 'deleteSession':
       return repo.deleteSession(op.sessionId)
     case 'saveMatches':
