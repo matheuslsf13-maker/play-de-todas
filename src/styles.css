@@ -1131,6 +1131,15 @@ textarea.input { line-height: 1.45; }
   flex: 1;
   text-align: left;
 }
+/* uma dupla por linha, sem quebrar: atleta 1 | atleta 2 | forca da dupla a direita */
+.linha-dupla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+.linha-dupla .chip { min-width: 0; padding: 7px 9px; gap: 5px; }
+.linha-dupla .total-dupla { white-space: nowrap; text-align: right; }
 
 /* ---------- escolha em lista (formato do play) ----------
    Nomes longos lado a lado num `segmented` de celular quebram no meio das
