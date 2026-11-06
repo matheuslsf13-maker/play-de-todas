@@ -290,7 +290,6 @@ export default function Play({
       <PlayDetail
         session={open}
         onBack={() => setOpenId(null)}
-        onNext={(preset) => { setOpenId(null); setCreating(preset) }}
         onToast={onToast}
       />
     )
@@ -1785,12 +1784,10 @@ function trocarNaPartida(m: Match, sai: string, entra: string): Match {
 function PlayDetail({
   session,
   onBack,
-  onNext,
   onToast,
 }: {
   session: PlaySession
   onBack: () => void
-  onNext: (preset: Partial<PlaySession>) => void
   onToast: (m: string) => void
 }) {
   const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, mesclarNoPlay, replaceSessionMatches } =
@@ -4006,25 +4003,6 @@ function PlayDetail({
       {finished && canEdit && (
         <button className="btn ghost block" onClick={() => void reabrir()}>
           🔓 Reabrir o play para corrigir placar
-        </button>
-      )}
-
-      {finished && canEdit && (
-        <button
-          className="btn purple block"
-          onClick={() =>
-            onNext({
-              title: session.title,
-              courts: session.courts,
-              target: session.target,
-              player_ids: session.player_ids,
-              format: session.format,
-              ranked: session.ranked,
-              conta_status: session.conta_status,
-            })
-          }
-        >
-          ➡️ Gerar as duplas do próximo play
         </button>
       )}
 
