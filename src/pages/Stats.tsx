@@ -35,6 +35,7 @@ import {
   forcaDeDuplas,
   nivelDeForca,
   emAvaliacao,
+  avaliacaoCurta,
   PLAYS_EM_AVALIACAO,
   rankingDeForca,
   textoDaAvaliacao,
@@ -488,6 +489,9 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
   // a forca da dupla parte da media das duas: com uma em avaliacao, entregaria a dela
   const avaliacao = useMemo(() => emAvaliacao(data), [data])
   const duplaOculta = (d: { a: string; b: string }) => !canEdit && (avaliacao.has(d.a) || avaliacao.has(d.b))
+  // quem da dupla ainda esta em avaliacao, com quantos plays ja jogou: "Bia 1/3"
+  const quemAvalia = (d: { a: string; b: string }) =>
+    [d.a, d.b].filter((id) => avaliacao.has(id)).map((id) => `${nameOf(id)} ${avaliacao.get(id)}/${PLAYS_EM_AVALIACAO}`).join(', ')
   // a oculta vai para o fim no "mais fortes" (a posicao tambem diria a forca)
   const forcaDe = (d: DuoStat) => (duplaOculta(d) ? 0 : forcas.get(d.key)?.nota ?? 1500)
   // idem no entrosamento: a oculta e a que ainda nao tem forca vao para o fim
@@ -565,7 +569,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
                     <span className="mini-barra"><i style={{ width: `${Math.round(pct * 100)}%` }} /></span>
                     <span className="tiny muted">{plural(d.matches, 'jogo')} · {d.wins}V {d.losses}D · {d.points} pts</span>
                     {duplaOculta(d) ? (
-                      <span className="tiny muted" style={{ display: 'block', marginTop: 2 }}>🔍 força em avaliação</span>
+                      <span className="tiny muted" style={{ display: 'block', marginTop: 2 }}>🔍 força em avaliação · {quemAvalia(d)}</span>
                     ) : (
                       <ForcaDaDupla f={forcas.get(d.key)} />
                     )}
@@ -629,7 +633,8 @@ function DetalheDupla({
         </span>
         {forca && oculta && (
           <div className="grow tiny muted" style={{ minWidth: 0 }}>
-            🔍 Força da dupla em avaliação: uma das duas ainda não completou {PLAYS_EM_AVALIACAO} plays.
+            🔍 Força da dupla em avaliação:{' '}
+            {[duo.a, duo.b].filter((id) => avaliacao.has(id)).map((id) => `${nameOf(id)} jogou ${avaliacao.get(id)} de ${PLAYS_EM_AVALIACAO} plays`).join(', ')}.
           </div>
         )}
         {forca && !oculta && (
@@ -916,7 +921,6 @@ function LinhaDaForca({
         <Avatar player={foto} size={28} />
         <NomeClicavel id={linha.player_id} className="grow ellipsis">
           {nome}
-          {linha.emAvaliacao !== undefined && ' 🔍'}
         </NomeClicavel>
         <span className="nowrap tiny" style={{ color: linha.nivel.cor, fontWeight: 800 }}>
           {linha.nivel.emoji} {linha.nivel.titulo}
@@ -937,6 +941,8 @@ function LinhaDaForca({
         />
       </div>
       <div className="tiny muted">
+        {/* na linha de baixo: na de cima o "n/3" tiraria espaco do nome */}
+        {linha.emAvaliacao !== undefined && `${avaliacaoCurta(linha.emAvaliacao)} · `}
         {linha.jogosDeCasa === undefined
           ? `${linha.jogos} ${linha.jogos === 1 ? 'partida' : 'partidas'}`
           : `${linha.jogos} no misto · ${linha.jogosDeCasa} no campeonato`}

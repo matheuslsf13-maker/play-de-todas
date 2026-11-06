@@ -120,7 +120,7 @@ import {
   type Regra,
   type Tie,
 } from '../lib/desempate'
-import { ajusteDeEntrosamento, emAvaliacao, nivelDeForca, notaDeForca } from '../lib/forca'
+import { ajusteDeEntrosamento, avaliacaoCurta, emAvaliacao, nivelDeForca, notaDeForca } from '../lib/forca'
 import { OPCOES_DE_FASE, resumoDaFase } from '../lib/desempate'
 import {
   CATEGORIAS,
@@ -3531,7 +3531,11 @@ function PlayDetail({
                     {g
                       .map((id, k) =>
                         `${nameOf(id)}${novatasDoPlay.has(id) ? ' 🆕' : ''} ${
-                          avaliacaoNoPlay.has(id) ? (canEdit ? `${notas[k]} 🔍` : '🔍') : notas[k]
+                          avaliacaoNoPlay.has(id)
+                            ? canEdit
+                              ? `${notas[k]} ${avaliacaoCurta(avaliacaoNoPlay.get(id) ?? 0)}`
+                              : avaliacaoCurta(avaliacaoNoPlay.get(id) ?? 0)
+                            : notas[k]
                         }`,
                       )
                       .join(' · ')}

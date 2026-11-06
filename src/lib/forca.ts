@@ -94,6 +94,11 @@ export function emAvaliacao(data: AppData): Map<string, number> {
   return out
 }
 
+/** A forma curta, para listas apertadas: "🔍 1/3" (plays ja jogados de 3). */
+export function avaliacaoCurta(plays: number): string {
+  return `🔍 ${plays}/${PLAYS_EM_AVALIACAO}`
+}
+
 /** "🔍 em avaliação · play 2 de 3" (o play que ela vai jogar agora conta como o proximo). */
 export function textoDaAvaliacao(plays: number): string {
   return `🔍 em avaliação · ${plays} de ${PLAYS_EM_AVALIACAO} plays`

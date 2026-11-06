@@ -25,7 +25,7 @@ import {
   STREAK_LADDER,
   streakLevel,
 } from '../lib/streaks'
-import { emAvaliacao, forcaDeDuplas, rankingDeForca } from '../lib/forca'
+import { avaliacaoCurta, emAvaliacao, forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { NomeClicavel } from '../components/NomeClicavel'
@@ -660,11 +660,11 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                     {i + 1}
                   </span>
                   <Avatar player={playerById(l.player_id)} size={28} />
-                  <span className="grow" style={{ minWidth: 0 }}>
+                  <span className="grow row" style={{ minWidth: 0, gap: 4 }}>
                     <NomeClicavel id={l.player_id} className="ellipsis">
                       {nameOf(l.player_id)}
-                      {l.emAvaliacao !== undefined && ' 🔍'}
                     </NomeClicavel>
+                    {l.emAvaliacao !== undefined && <span className="nowrap tiny muted">{avaliacaoCurta(l.emAvaliacao)}</span>}
                   </span>
                   {LIGA.id === 'misto' && (
                     <span className="nowrap tiny muted">{playerById(l.player_id)?.genero === 'F' ? '♀' : '♂'}</span>
