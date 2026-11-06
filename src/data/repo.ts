@@ -16,6 +16,12 @@ import type {
   Player,
   StreakChoice,
 } from '../lib/types'
+import type { Lista, ListaCompleta, NomeNaLista, RespostaDaLista } from '../lib/listaDePresenca'
+
+/** O que a organizadora inclui direto na lista (a chegada e o id vem do banco). */
+export type NomeIncluido = Pick<NomeNaLista, 'lista_id' | 'nome' | 'player_id' | 'origem' | 'garantida' | 'ordem'>
+/** O que a organizadora mexe num nome ja na lista. */
+export type MudancaNoNome = Partial<Pick<NomeNaLista, 'player_id' | 'ordem' | 'garantida' | 'saiu_em' | 'saiu_por' | 'avisou_24h'>>
 
 export interface Repo {
   readonly kind: 'local' | 'supabase'
@@ -54,6 +60,22 @@ export interface Repo {
   uploadPhoto(playerId: string, file: File): Promise<string>
   /** Apaga o arquivo da foto. Silencioso se a url nao for do nosso storage. */
   deletePhoto(url: string): Promise<void>
+  /* lista de presenca (so o Play de Todas; script 31). Fora da fila de envio:
+     a ordem e decidida no servidor, entao cada escrita espera a resposta. */
+  carregarLista(ref: { codigo: string } | { id: string }): Promise<ListaCompleta | null>
+  /** A lista aberta com o play mais proximo (cartao da tela inicial). */
+  listaAberta(): Promise<ListaCompleta | null>
+  listasRecentes(limite: number): Promise<Lista[]>
+  /** Visitante: coloca o nome (o banco da a posicao). */
+  colocarNaLista(codigo: string, nome: string, aparelho: string): Promise<RespostaDaLista>
+  /** Visitante: tira o nome que ESTE celular colocou. */
+  tirarDaLista(nomeId: string, aparelho: string): Promise<RespostaDaLista>
+  salvarLista(l: Lista): Promise<void>
+  incluirNaLista(nomes: NomeIncluido[]): Promise<void>
+  mexerNoNome(id: string, campos: MudancaNoNome): Promise<void>
+  trocarNaLista(a: string, b: string): Promise<void>
+  /** Canal proprio da lista (o geral nao ouve estas tabelas). */
+  ouvirLista(listaId: string, cb: () => void): () => void
   /** Notifica mudancas feitas por outras pessoas (so no modo online). */
   subscribe?(cb: () => void): () => void
 }

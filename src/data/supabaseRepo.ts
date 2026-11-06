@@ -19,6 +19,7 @@ import type {
   StreakChoice,
 } from '../lib/types'
 import type { Repo } from './repo'
+import type { Lista, ListaCompleta, NomeNaLista, RespostaDaLista } from '../lib/listaDePresenca'
 import { aplicarMescla } from '../lib/campeonato'
 import { calcularElo } from '../lib/stats'
 import { emptyData } from '../lib/types'
@@ -189,6 +190,54 @@ async function upsertTolerante<T extends object>(
     if (/^(categoria|pago_mes|pago_avulso)$/.test(coluna)) avisosDoBanco.pagamento = true
   }
   throw new Error(`Nao consegui gravar em ${tabela} depois de varias tentativas`)
+}
+
+/*
+ * LISTA DE PRESENCA (script 31): so o Play de Todas tem as tabelas. No Play de
+ * Terca e no Play Mista nada e consultado e o recurso some. No feminino, sem o
+ * script rodado, a leitura tolerante tambem esconde tudo (`avisosDoBanco`).
+ */
+const TEM_LISTA = LIGA.id === 'feminino'
+
+type ErroDoBanco = { code?: string; message?: string }
+
+/** A tabela (ou a funcao) ainda nao existe: o script 31 nao rodou. */
+function faltaOScript(e: ErroDoBanco): boolean {
+  return ['PGRST205', 'PGRST202', '42P01', '42883'].includes(e.code ?? '') ||
+    /Could not find the (table|function)|does not exist/.test(e.message ?? '')
+}
+
+/** Leitura tolerante: sem tabela, marca o aviso e devolve `vazio`. */
+function lerDaLista<T>(r: { data: unknown; error: ErroDoBanco | null }, vazio: T): T {
+  if (r.error) {
+    if (!faltaOScript(r.error)) throw r.error
+    avisosDoBanco.tabelas.add('listas')
+    return vazio
+  }
+  avisosDoBanco.tabelas.delete('listas')
+  return r.data as T
+}
+
+/** As colunas numericas podem vir como texto (bigint e float pelo PostgREST). */
+function lerNome(n: NomeNaLista): NomeNaLista {
+  return { ...n, chegada: numero(n.chegada), ordem: n.ordem === null ? null : numero(n.ordem) }
+}
+
+async function comNomes(lista: Lista | null): Promise<ListaCompleta | null> {
+  if (!lista) return null
+  const r = await client().from('lista_nomes').select('*').eq('lista_id', lista.id)
+  const nomes = lerDaLista<NomeNaLista[] | null>(r, null)
+  if (!nomes) return null
+  return { lista: { ...lista, vagas: numero(lista.vagas) }, nomes: nomes.map(lerNome) }
+}
+
+async function rpcDaLista(funcao: string, args: Record<string, string>): Promise<RespostaDaLista> {
+  const { data, error } = await client().rpc(funcao, args)
+  if (error) {
+    if (faltaOScript(error)) return { ok: false, motivo: 'sem_tabela' }
+    throw error
+  }
+  return data as RespostaDaLista
 }
 
 export const supabaseRepo: Repo = {
@@ -450,6 +499,69 @@ export const supabaseRepo: Repo = {
     const path = decodeURIComponent(url.slice(i + marca.length).split('?')[0])
     const { error } = await client().storage.from('photos').remove([path])
     if (error) console.warn('não consegui apagar a foto antiga:', error.message)
+  },
+  async carregarLista(ref) {
+    if (!TEM_LISTA) return null
+    const q = client().from('listas').select('*')
+    const r = await ('codigo' in ref ? q.eq('codigo', ref.codigo.trim().toLowerCase()) : q.eq('id', ref.id)).maybeSingle()
+    return comNomes(lerDaLista<Lista | null>(r, null))
+  },
+  async listaAberta() {
+    if (!TEM_LISTA) return null
+    const r = await client()
+      .from('listas')
+      .select('*')
+      .eq('fechada', false)
+      .gt('fecha_em', new Date().toISOString())
+      .order('play_em')
+      .limit(1)
+      .maybeSingle()
+    return comNomes(lerDaLista<Lista | null>(r, null))
+  },
+  async listasRecentes(limite) {
+    if (!TEM_LISTA) return []
+    const r = await client().from('listas').select('*').order('created_at', { ascending: false }).limit(limite)
+    return lerDaLista<Lista[] | null>(r, []) ?? []
+  },
+  async colocarNaLista(codigo, nome, aparelho) {
+    if (!TEM_LISTA) return { ok: false, motivo: 'sem_tabela' }
+    return rpcDaLista('lista_colocar', { p_codigo: codigo, p_nome: nome, p_aparelho: aparelho })
+  },
+  async tirarDaLista(nomeId, aparelho) {
+    if (!TEM_LISTA) return { ok: false, motivo: 'sem_tabela' }
+    return rpcDaLista('lista_tirar', { p_nome_id: nomeId, p_aparelho: aparelho })
+  },
+  // as escritas da organizadora esperam o banco (nada de fila): erro vira aviso na tela
+  async salvarLista(lista) {
+    const { error } = await client().from('listas').upsert(lista)
+    if (error) throw error
+  },
+  async incluirNaLista(nomes) {
+    if (nomes.length === 0) return
+    const { error } = await client().from('lista_nomes').insert(nomes)
+    if (error) throw error
+  },
+  async mexerNoNome(id, campos) {
+    const { error } = await client().from('lista_nomes').update(campos).eq('id', id)
+    if (error) throw error
+  },
+  async trocarNaLista(a, b) {
+    const { error } = await client().rpc('lista_trocar', { p_a: a, p_b: b })
+    if (error) throw error
+  },
+  ouvirLista(listaId, cb) {
+    if (!TEM_LISTA) return () => {}
+    const sb = client()
+    // canal so desta lista: o geral (`subscribe`) nao ouve estas tabelas, e o
+    // app da organizadora nao recarrega inteiro a cada nome que chega
+    const ch = sb
+      .channel(`lista-${listaId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lista_nomes', filter: `lista_id=eq.${listaId}` }, cb)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'listas', filter: `id=eq.${listaId}` }, cb)
+      .subscribe()
+    return () => {
+      void sb.removeChannel(ch)
+    }
   },
   subscribe(cb: () => void) {
     const sb = client()

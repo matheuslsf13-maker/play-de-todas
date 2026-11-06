@@ -32,6 +32,14 @@ export const CHAVE = {
   ausentes: `${P}:ausentes`,
   /** Modo diurno ou noturno escolhido por quem usa. */
   tema: `${P}:tema`,
+  /** Lista de presenca: o codigo deste celular (so ele tira o nome que colocou). */
+  aparelho: `${P}:aparelho`,
+  /** Lista de presenca: o ultimo nome digitado, para vir preenchido. */
+  listaNome: `${P}:lista-nome`,
+  /** Lista de presenca: { lista_id: nome_id } do que este celular colocou. */
+  listaMeus: `${P}:lista-meus`,
+  /** Lista de presenca no modo local (sem Supabase). */
+  listas: `${P}:listas`,
 } as const
 
 const RENOMEADAS: [antiga: string, nova: string][] = [

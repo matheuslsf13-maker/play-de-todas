@@ -20,6 +20,18 @@ import { emptyData } from '../lib/types'
 import { LOCAIS_INICIAIS, PLANOS_INICIAIS } from '../lib/checkins'
 import { CHAVE } from '../lib/chaves'
 import type { Repo } from './repo'
+import {
+  TETO_POR_VAGA,
+  ativosEmOrdem,
+  estaAberta,
+  posicaoDe,
+  validarNome,
+  vinculoAutomatico,
+  type Lista,
+  type ListaCompleta,
+  type NomeNaLista,
+} from '../lib/listaDePresenca'
+import { normalizar } from '../lib/roster'
 import { aplicarMescla } from '../lib/campeonato'
 
 const KEY = CHAVE.dados
@@ -68,6 +80,47 @@ function write(d: AppData) {
   } catch (e) {
     console.error('nao foi possivel salvar localmente', e)
   }
+}
+
+/*
+ * LISTA DE PRESENCA no modo local: repete as checagens de `lista_colocar` e
+ * `lista_tirar` (supabase/31) com as regras puras, para testar e para o robo
+ * de prints. O codigo do aparelho fica em claro: e tudo do mesmo navegador.
+ */
+type ListasLocais = { listas: Lista[]; nomes: NomeNaLista[]; aparelhos: Record<string, string> }
+
+function lerListas(): ListasLocais {
+  try {
+    const raw = localStorage.getItem(CHAVE.listas)
+    if (raw) return JSON.parse(raw) as ListasLocais
+  } catch {
+    /* sem localStorage: comeca vazio */
+  }
+  return { listas: [], nomes: [], aparelhos: {} }
+}
+
+const mudouALista = new EventTarget()
+
+function gravarListas(l: ListasLocais) {
+  try {
+    localStorage.setItem(CHAVE.listas, JSON.stringify(l))
+  } catch (e) {
+    console.error('nao foi possivel salvar a lista localmente', e)
+  }
+  mudouALista.dispatchEvent(new Event('mudou'))
+}
+
+function completa(l: ListasLocais, lista: Lista | undefined): ListaCompleta | null {
+  return lista ? { lista, nomes: l.nomes.filter((n) => n.lista_id === lista.id) } : null
+}
+
+/** Os indices unicos do banco: o mesmo nome, ou a mesma atleta, ativos duas vezes. */
+function conflito(l: ListasLocais, listaId: string, nome: string, playerId: string | null, exceto?: string): boolean {
+  return l.nomes.some(
+    (n) =>
+      n.lista_id === listaId && !n.saiu_em && n.id !== exceto &&
+      (normalizar(n.nome) === normalizar(nome) || (!!playerId && n.player_id === playerId)),
+  )
 }
 
 export const localRepo: Repo = {
@@ -237,6 +290,105 @@ export const localRepo: Repo = {
     const d = read()
     d.matches = d.matches.filter((m) => m.session_id !== sessionId)
     write(d)
+  },
+  async carregarLista(ref) {
+    const l = lerListas()
+    return completa(l, l.listas.find((x) => ('codigo' in ref ? x.codigo === ref.codigo.toLowerCase() : x.id === ref.id)))
+  },
+  async listaAberta() {
+    const l = lerListas()
+    const agora = new Date()
+    const aberta = l.listas.filter((x) => estaAberta(x, agora)).sort((a, b) => a.play_em.localeCompare(b.play_em))[0]
+    return completa(l, aberta)
+  },
+  async listasRecentes(limite) {
+    return lerListas().listas.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limite)
+  },
+  async colocarNaLista(codigo, texto, aparelho) {
+    if (aparelho.length < 16 || aparelho.length > 100) return { ok: false, motivo: 'aparelho' }
+    const v = validarNome(texto)
+    if ('erro' in v) return { ok: false, motivo: 'nome' }
+    const l = lerListas()
+    const lista = l.listas.find((x) => x.codigo === codigo.trim().toLowerCase())
+    if (!lista) return { ok: false, motivo: 'nao_existe' }
+    if (!estaAberta(lista, new Date())) return { ok: false, motivo: 'fechada' }
+    const ativos = ativosEmOrdem(l.nomes.filter((n) => n.lista_id === lista.id))
+    if (ativos.some((n) => l.aparelhos[n.id] === aparelho)) return { ok: false, motivo: 'aparelho_ja_tem_nome' }
+    const player = vinculoAutomatico(v.nome, read().players)
+    if (player && ativos.some((n) => n.player_id === player)) return { ok: false, motivo: 'ja_na_lista' }
+    if (ativos.some((n) => normalizar(n.nome) === normalizar(v.nome))) return { ok: false, motivo: 'repetido' }
+    if (ativos.length >= lista.vagas * TETO_POR_VAGA) return { ok: false, motivo: 'cheia' }
+    const novo: NomeNaLista = {
+      id: crypto.randomUUID(), lista_id: lista.id, nome: v.nome, player_id: player,
+      chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1, ordem: null, origem: 'link', garantida: false,
+      entrou_em: new Date().toISOString(), saiu_em: null, saiu_por: null, avisou_24h: null,
+    }
+    l.nomes.push(novo)
+    l.aparelhos[novo.id] = aparelho
+    gravarListas(l)
+    return { ok: true, id: novo.id, posicao: posicaoDe(l.nomes.filter((n) => n.lista_id === lista.id), novo.id), vagas: lista.vagas }
+  },
+  async tirarDaLista(nomeId, aparelho) {
+    const l = lerListas()
+    const n = l.nomes.find((x) => x.id === nomeId && !x.saiu_em)
+    const lista = n && l.listas.find((x) => x.id === n.lista_id)
+    if (!n || !lista) return { ok: false, motivo: 'nao_esta' }
+    if (!estaAberta(lista, new Date())) return { ok: false, motivo: 'fechada' }
+    if (l.aparelhos[nomeId] !== aparelho) return { ok: false, motivo: 'nao_e_seu' }
+    n.saiu_em = new Date().toISOString()
+    n.saiu_por = 'atleta'
+    gravarListas(l)
+    return { ok: true }
+  },
+  async salvarLista(lista) {
+    const l = lerListas()
+    upsertEm(l.listas, lista)
+    gravarListas(l)
+  },
+  async incluirNaLista(novos) {
+    const l = lerListas()
+    for (const x of novos) {
+      if (conflito(l, x.lista_id, x.nome, x.player_id)) throw new Error('Esse nome (ou essa atleta) já está na lista')
+      l.nomes.push({
+        ...x, id: crypto.randomUUID(), chegada: Math.max(0, ...l.nomes.map((n) => n.chegada)) + 1,
+        entrou_em: new Date().toISOString(), saiu_em: null, saiu_por: null, avisou_24h: null,
+      })
+    }
+    gravarListas(l)
+  },
+  async mexerNoNome(id, campos) {
+    const l = lerListas()
+    const n = l.nomes.find((x) => x.id === id)
+    if (!n) return
+    const novo = { ...n, ...campos }
+    if (!novo.saiu_em && conflito(l, n.lista_id, novo.nome, novo.player_id, id)) {
+      throw new Error('Essa atleta já está na lista')
+    }
+    Object.assign(n, campos)
+    gravarListas(l)
+  },
+  async trocarNaLista(a, b) {
+    const l = lerListas()
+    const na = l.nomes.find((x) => x.id === a && !x.saiu_em)
+    const nb = l.nomes.find((x) => x.id === b && !x.saiu_em)
+    if (!na || !nb || na.lista_id !== nb.lista_id) throw new Error('Os dois nomes têm de estar ativos na mesma lista')
+    const ka = na.ordem ?? na.chegada
+    na.ordem = nb.ordem ?? nb.chegada
+    nb.ordem = ka
+    gravarListas(l)
+  },
+  ouvirLista(_listaId, cb) {
+    // a mesma aba (o evento do modulo) e outra aba (o evento storage)
+    const naAba = () => cb()
+    const outraAba = (e: StorageEvent) => {
+      if (e.key === CHAVE.listas) cb()
+    }
+    mudouALista.addEventListener('mudou', naAba)
+    window.addEventListener('storage', outraAba)
+    return () => {
+      mudouALista.removeEventListener('mudou', naAba)
+      window.removeEventListener('storage', outraAba)
+    }
   },
   async deletePhoto(_url: string) {
     // no modo local a foto vive dentro do proprio registro da jogadora
