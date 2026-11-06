@@ -1104,7 +1104,7 @@ Resumo do que decide o comportamento:
 - **A segurança mora no banco** (script 31): visitante só chama `lista_colocar`/`lista_tirar`; tirar
   confere o hash do código do celular; o hash fica numa tabela que ninguém lê (D2). O script tem um
   teste de segurança que, se falhar, desfaz tudo. Provado fora do repo (PGlite e Postgres 17 com 30
-  conexões): posições sem repetir, um nome por celular, teto vagas × 3, não tira o nome de outra.
+  conexões): posições sem repetir, um nome por celular, teto vagas × 3 (e vagas × 10 linhas no total, D34), não tira o nome de outra.
   **Sem prova local:** o tempo real do Supabase e a chamada pelo PostgREST (`sb.rpc`).
 - **Ordem = `coalesce(ordem, chegada)`** (D3); saída suave (D5); vínculo automático no banco só com
   um cadastro (D6/D23); escritas da organizadora fora da fila offline (D9).
@@ -1130,4 +1130,22 @@ Resumo do que decide o comportamento:
     iguais no texto (o mesmo que o resto do app faz).
   - **D32** O cartão da tela inicial ouve o canal da lista aberta (um canal a mais no mesmo socket
     do tempo real que o app já abre).
+- Depois da revisão de segurança, tela e promessa (06/11, dono dormindo):
+  - **D33** Vínculo automático (banco e modo local) só com **2+ palavras**: um primeiro nome só
+    ("Pamela", "Isa") era alias de outra atleta e a recusava com "Você já está na lista". Com uma
+    palavra ela entra sem vínculo e a organizadora resolve (o mesmo caminho da grafia nova).
+  - **D34** Teto também no **total de linhas** da lista (vagas × 10, contando quem saiu): colocar e
+    tirar sem fim criava linhas sem limite e a leitura do app (corte de 1000 do Supabase) escondia
+    quem entrasse depois. A leitura agora vem em ordem de chegada.
+  - **D35** `saiu_em` é a hora do **servidor** (gatilho no 31; a hora da 1ª saída não muda depois) e o
+    `created_at` da lista fica com o default do banco: o relógio do celular não prova as 24h.
+  - **D36** Ao montar o play pela lista, a mensalista **em dia para o play** (inclusive no prazo até
+    o dia 5) entra marcada, sem passar pelo portão de pagamento do mês corrente. Só na montagem pela
+    lista; o Novo Play comum continua com o portão de sempre.
+  - **D37** A pergunta "avisou com 24h?" só vale para pré-incluída ou mensalista em dia para o play;
+    quem não renovou entrou como avulsa e sai como avulsa.
+  - **Risco conhecido, a decidir pelo dono:** "um nome por celular" não segura quem chama a função
+    com códigos inventados (a chave do site é pública). Um atacante enche a lista até o teto
+    (vagas × 3) e trava a entrada; a organizadora tira um por um. Opções: limite de colocações por
+    minuto por lista, ou um botão "limpar os nomes pelo link". Nada mudado por enquanto.
 
