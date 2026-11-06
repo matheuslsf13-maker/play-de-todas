@@ -343,6 +343,8 @@ label.field { display: block; }
   background: var(--ouro-suave);
   color: var(--ouro);
 }
+/* no claro o amarelo sobre amarelo claro nao se le (1,8:1): texto escuro */
+:root:not([data-tema="escuro"]) .selo-do-play { color: var(--text); }
 
 /* ---------- avatar ---------- */
 .avatar {

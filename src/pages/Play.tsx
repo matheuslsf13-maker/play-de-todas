@@ -273,6 +273,8 @@ function PlayList({
               const grupos = s.groups?.length ?? 0
               const categorias = s.categorias?.length ?? 0
               const selo = selosDosPlays(data).get(s.id)
+              // com alguem em avaliacao no play, o 💪 e o grafico das outras dariam a nota dela
+              const mostraForca = canEdit || !ms.some((m) => isPlayed(m) && [...m.team_a, ...m.team_b].some((id) => emAvaliacao(data).has(id)))
               return (
                 <div key={s.id} className="row" style={{ borderBottom: '1px dashed var(--line)', paddingBottom: 10 }}>
                   <div className="grow" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer', minWidth: 0 }}>
@@ -285,7 +287,7 @@ function PlayList({
                     <div className="tiny muted">
                       {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {s.courts} quadras
                       {categorias > 1 ? ` · ${categorias} categorias` : grupos > 1 ? ` · ${grupos} grupos` : ''} · {done}/{ms.length} partidas
-                      {selo && <> · <span className="nowrap" title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span></>}
+                      {selo && mostraForca && <> · <span className="nowrap" title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span></>}
                     </div>
                     {selo?.selo && <span className="selo-do-play">{selo.selo.emoji} {selo.selo.nome}</span>}
                   </div>
@@ -3518,19 +3520,24 @@ function PlayDetail({
           <div className="stack">
             {grupos.map((g, i) => {
               const notas = g.map((id) => notaDeForca(forcaDoDia.get(id) ?? 2))
-              const total = notas.reduce((t, x) => t + x, 0)
-              const media = Math.round(total / Math.max(1, g.length))
+              // quem nao e admin: sem as 🔍 na conta (o total menos as outras daria a nota dela)
+              const visiveis = canEdit ? notas : notas.filter((_, k) => !avaliacaoNoPlay.has(g[k]))
+              const total = visiveis.reduce((t, x) => t + x, 0)
+              const media = Math.round(total / Math.max(1, visiveis.length))
               return (
                 // no campeonato a cor e a da CATEGORIA, a mesma das quadras dela
                 <div key={i} className={`grupo-box ${classeDoGrupo(ehCampeonato ? Math.max(0, cats.findIndex((c) => c.grupos.includes(i))) + 1 : i + 1)}`}>
                   <div className="grupo-nome">{nomeDoGrupo(i)} · {g.length} meninas</div>
-                  <div className="tiny muted" style={{ marginBottom: 4 }}>
-                    💪 força média <strong>{media}</strong>
-                    {' · '}
-                    {nivelDeForca(media, mediaDaForca(data)).emoji} {nivelDeForca(media, mediaDaForca(data)).titulo}
-                    {' · '}
-                    total <strong>{total}</strong>
-                  </div>
+                  {visiveis.length > 0 && (
+                    <div className="tiny muted" style={{ marginBottom: 4 }}>
+                      💪 força média <strong>{media}</strong>
+                      {' · '}
+                      {nivelDeForca(media, mediaDaForca(data)).emoji} {nivelDeForca(media, mediaDaForca(data)).titulo}
+                      {' · '}
+                      total <strong>{total}</strong>
+                      {visiveis.length < notas.length && ' (sem as 🔍)'}
+                    </div>
+                  )}
                   <div className="tiny">
                     {g
                       .map((id, k) =>
