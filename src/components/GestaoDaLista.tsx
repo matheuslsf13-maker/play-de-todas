@@ -141,7 +141,7 @@ export function EscolherAtleta({
 
 /** Vincula o nome digitado a um cadastro e guarda a grafia para a proxima vez. */
 export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, onToast: (m: string) => void) {
-  const { repo, savePlayer } = useStore()
+  const { repo, savePlayer, nameOf } = useStore()
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
   /** A atleta ja esta ativa noutra linha: a organizadora decide tirar a duplicada. */
   const [duplicada, setDuplicada] = useState<{ n: NomeNaLista; outra: NomeNaLista } | null>(null)
@@ -162,7 +162,8 @@ export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, 
     <Modal title="Ela já está na lista" onClose={() => setDuplicada(null)}>
       <div className="stack lista-pagina">
         <p style={{ margin: 0 }}>
-          “{duplicada.n.nome}” é a mesma atleta da posição {posicaoDe(lc.nomes, duplicada.outra.id)}. Tirar esta duplicada?
+          <strong>{duplicada.outra.player_id ? nameOf(duplicada.outra.player_id) : duplicada.outra.nome}</strong> já está na
+          lista (posição {posicaoDe(lc.nomes, duplicada.outra.id)}). Se “{duplicada.n.nome}” é ela, tire esta duplicada.
         </p>
         <button
           className="btn danger block"
@@ -307,7 +308,11 @@ export function OpcoesDoNome({
                   É a <strong>{nameOf(s.player.id)}</strong>
                   {s.player.nickname?.trim() && <span className="tiny muted"> · {s.player.name}</span>}
                 </span>
-                <span className="nowrap">✓</span>
+                {ocupadas.has(s.player.id) ? (
+                  <span className="tiny muted nowrap">já na lista</span>
+                ) : (
+                  <span className="nowrap">✓</span>
+                )}
               </button>
             ))}
             <div className="lista-acoes">
