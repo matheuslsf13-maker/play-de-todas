@@ -38,6 +38,8 @@ export const CHAVE = {
   listaNome: `${P}:lista-nome`,
   /** Lista de presenca: { lista_id: nome_id } do que este celular colocou. */
   listaMeus: `${P}:lista-meus`,
+  /** Lista de presenca: os nomes da ultima lista apagada neste celular, por 30 minutos (D41). */
+  listaApagada: `${P}:lista-apagada`,
   /** Lista de presenca no modo local (sem Supabase). */
   listas: `${P}:listas`,
 } as const

@@ -74,6 +74,8 @@ export interface Repo {
   incluirNaLista(nomes: NomeIncluido[]): Promise<void>
   mexerNoNome(id: string, campos: MudancaNoNome): Promise<void>
   trocarNaLista(a: string, b: string): Promise<void>
+  /** Apaga a lista; nomes e codigos de aparelho vao junto (cascata no banco). Erro se nao apagou. */
+  apagarLista(id: string): Promise<void>
   /** Canal proprio da lista (o geral nao ouve estas tabelas). */
   ouvirLista(listaId: string, cb: () => void): () => void
   /** Notifica mudancas feitas por outras pessoas (so no modo online). */

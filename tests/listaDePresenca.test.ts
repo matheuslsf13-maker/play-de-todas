@@ -2,6 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ativosEmOrdem,
+  avisosAoApagar,
+  podeApagar,
+  copiaDaApagada,
+  copiaValida,
+  previaDosNomes,
+  juntarSemRepetir,
+  VALIDADE_DA_COPIA_MS,
   dividir,
   estaAberta,
   horasAntesDoPlay,
@@ -309,4 +316,80 @@ test('validarNomeDaAtleta: exige nome e sobrenome', () => {
     assert.ok('erro' in validarNomeDaAtleta(ruim), `recusa ${JSON.stringify(ruim)}`)
   }
   assert.deepEqual(validarNome('Tete'), { nome: 'Tete' }, 'a organizadora segue podendo adicionar um nome so')
+})
+
+test('apagar: so lista que nao virou play', () => {
+  assert.equal(podeApagar(LISTA), true)
+  assert.equal(podeApagar({ ...LISTA, session_id: 'S1' }), false)
+})
+
+test('apagar: avisos conforme os nomes', () => {
+  const LINK = 'O link para de funcionar: quem abrir vai ver “Esta lista não existe mais”.'
+  const FIM = 'Não dá para desfazer.'
+  assert.deepEqual(avisosAoApagar([]), [LINK, FIM])
+  const TRINTA = 'Os nomes ficam guardados neste celular por 30 minutos: se você criar outra lista nesse tempo, dá para trazê-los de volta.'
+  assert.deepEqual(avisosAoApagar([nome(1, { origem: 'mensalista' })]), [LINK, 'O nome da lista some junto.', TRINTA, FIM])
+  const nomes = [
+    nome(1, { origem: 'mensalista' }),
+    nome(2),
+    nome(3),
+    nome(4, { saiu_em: '2026-11-07T12:00:00.000Z', saiu_por: 'atleta' }), // saiu pelo link: nao conta
+    nome(5, { origem: 'mensalista', saiu_em: '2026-11-07T12:00:00.000Z', saiu_por: 'organizadora', avisou_24h: false }),
+  ]
+  assert.deepEqual(avisosAoApagar(nomes), [
+    LINK,
+    'Os 3 nomes da lista somem junto.',
+    '2 colocaram o nome pelo link: avise no grupo que a lista vai ser refeita, com o link novo.',
+    TRINTA,
+    'Quem saiu e o “avisou com 24h” também somem.',
+    FIM,
+  ])
+  assert.equal(avisosAoApagar([nome(1), nome(2, { origem: 'organizadora' })])[2], '1 colocou o nome pelo link: avise no grupo que a lista vai ser refeita, com o link novo.')
+})
+
+test('copia da apagada: ativos na ordem da lista, so o que volta', () => {
+  const agora = new Date('2026-11-06T22:00:00.000Z')
+  assert.equal(copiaDaApagada(LISTA, [nome(1, { saiu_em: '2026-11-06T13:00:00.000Z' })], agora), null, 'sem ativos nao guarda')
+  const c = copiaDaApagada(LISTA, [
+    nome(1),
+    nome(2, { ordem: 0.5, origem: 'organizadora', garantida: true }),
+    nome(3, { saiu_em: '2026-11-06T13:00:00.000Z' }),
+    nome(4, { origem: 'mensalista', player_id: 'p4', garantida: true, ordem: 0.2 }),
+  ], agora)
+  assert.deepEqual(c, {
+    apagada_em: '2026-11-06T22:00:00.000Z', titulo: 'Play de Todas', play_em: LISTA.play_em,
+    nomes: [
+      { nome: 'Atleta 4', player_id: 'p4', origem: 'mensalista', garantida: true },
+      { nome: 'Atleta 2', player_id: null, origem: 'organizadora', garantida: true },
+      { nome: 'Atleta 1', player_id: null, origem: 'link', garantida: false },
+    ],
+  })
+})
+
+test('copia da apagada: vale por 30 minutos', () => {
+  const c = copiaDaApagada(LISTA, [nome(1)], new Date('2026-11-06T22:00:00.000Z'))!
+  const depois = (ms: number) => new Date(Date.parse(c.apagada_em) + ms)
+  assert.equal(copiaValida(c, depois(0)), true)
+  assert.equal(copiaValida(c, depois(VALIDADE_DA_COPIA_MS - 1)), true)
+  assert.equal(copiaValida(c, depois(VALIDADE_DA_COPIA_MS)), false, '30 minutos em ponto: vencida')
+  assert.equal(copiaValida(c, depois(-60000)), false, 'relogio voltou: nao confia')
+  assert.equal(copiaValida(null, depois(0)), false)
+  assert.equal(copiaValida({ ...c, nomes: [] }, depois(0)), false)
+})
+
+test('copia da apagada: previa dos nomes', () => {
+  assert.equal(previaDosNomes([]), '')
+  assert.equal(previaDosNomes(['Ana']), 'Ana')
+  assert.equal(previaDosNomes(['Ana', 'Bruna']), 'Ana e Bruna')
+  assert.equal(previaDosNomes(['Ana', 'Bruna', 'Carla']), 'Ana, Bruna e Carla')
+  assert.equal(previaDosNomes(['Ana', 'Bruna', 'Carla', ...Array(9).fill('X')]), 'Ana, Bruna, Carla e mais 9')
+})
+
+test('copia da apagada: trazidos primeiro, mensalistas sem repetir', () => {
+  const t = (nome: string, player_id: string | null = null) => ({ nome, player_id, origem: 'link' as const, garantida: false })
+  const m = (nome: string, player_id: string) => ({ nome, player_id, origem: 'mensalista' as const, garantida: true })
+  const trazidos = [t('Ana Souza', 'pa'), t('Bia Lima'), t('Carla Reis')]
+  const junta = juntarSemRepetir(trazidos, [m('Ana Souza', 'pa'), m('Bia Lima', 'pb'), m('Dani Prado', 'pd'), m('CARLA  réis', 'pc')])
+  assert.deepEqual(junta.map((x) => x.nome), ['Ana Souza', 'Bia Lima', 'Carla Reis', 'Dani Prado'], 'mesmo cadastro ou mesmo nome nao repete')
+  assert.deepEqual(juntarSemRepetir(trazidos, []), trazidos)
 })

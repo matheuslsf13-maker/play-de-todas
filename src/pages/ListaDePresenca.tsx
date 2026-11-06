@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import {
   AdicionarNaLista,
+  ApagarLista,
   ConfirmarTroca,
   OpcoesDoNome,
   Sairam,
@@ -17,6 +18,7 @@ import {
   mensagemDeAtualizacao,
   ocupacao,
   paraMontar,
+  podeApagar,
   posicaoDe,
   quando,
   quandoComData,
@@ -54,11 +56,14 @@ export default function ListaDePresenca({
   codigo,
   onSair,
   onMontarPlay,
+  onApagou,
   onToast,
 }: {
   codigo: string
   onSair: () => void
   onMontarPlay: (m: Montagem) => void
+  /** A organizadora apagou a lista (D39): sai da pagina. */
+  onApagou: () => void
   onToast: (m: string) => void
 }) {
   const { lista: lc, recarregar } = useLista({ codigo })
@@ -74,7 +79,7 @@ export default function ListaDePresenca({
       </div>
     )
   }
-  return <Pagina lc={lc} recarregar={recarregar} onSair={onSair} onMontarPlay={onMontarPlay} onToast={onToast} />
+  return <Pagina lc={lc} recarregar={recarregar} onSair={onSair} onMontarPlay={onMontarPlay} onApagou={onApagou} onToast={onToast} />
 }
 
 function Pagina({
@@ -82,12 +87,14 @@ function Pagina({
   recarregar,
   onSair,
   onMontarPlay,
+  onApagou,
   onToast,
 }: {
   lc: ListaCompleta
   recarregar: () => Promise<void>
   onSair: () => void
   onMontarPlay: (m: Montagem) => void
+  onApagou: () => void
   onToast: (m: string) => void
 }) {
   const { canEdit } = useStore()
@@ -164,7 +171,7 @@ function Pagina({
       </div>
 
       {canEdit && (
-        <Ferramentas lc={lc} recarregar={recarregar} onToast={onToast} onMontarPlay={onMontarPlay} />
+        <Ferramentas lc={lc} recarregar={recarregar} onToast={onToast} onMontarPlay={onMontarPlay} onApagou={onApagou} />
       )}
 
       {trocando && (
@@ -232,8 +239,8 @@ function Pagina({
           n={tirando}
           suplente={suplentes.some((x) => x.id === tirando.id)}
           onClose={() => setTirando(null)}
-          onTirou={() => {
-            onToast('Seu nome saiu da lista')
+          onTirou={(msg) => {
+            onToast(msg)
             onSair()
           }}
         />
@@ -407,7 +414,7 @@ function TirarMeuNome({
   n: NomeNaLista
   suplente: boolean
   onClose: () => void
-  onTirou: () => void
+  onTirou: (mensagem: string) => void
 }) {
   const { repo } = useStore()
   const [busy, setBusy] = useState(false)
@@ -418,7 +425,9 @@ function TirarMeuNome({
       const r = await repo.tirarDaLista(n.id, codigoDoAparelho())
       if (r.ok || r.motivo === 'nao_esta') {
         marcarMeu(n.lista_id, null)
-        onTirou()
+        // nao_esta tambem vem da lista apagada pela organizadora (D39)
+        const sumiu = !r.ok && !(await repo.carregarLista({ id: n.lista_id }).catch(() => true))
+        onTirou(sumiu ? MENSAGEM_DO_MOTIVO.nao_existe : 'Seu nome saiu da lista')
       } else {
         setErro(MENSAGEM_DO_MOTIVO[r.motivo])
       }
@@ -452,16 +461,18 @@ function Ferramentas({
   recarregar,
   onToast,
   onMontarPlay,
+  onApagou,
 }: {
   lc: ListaCompleta
   recarregar: () => Promise<void>
   onToast: (m: string) => void
   onMontarPlay: (m: Montagem) => void
+  onApagou: () => void
 }) {
   const { repo, nameOf } = useStore()
   const { lista } = lc
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
-  const [modal, setModal] = useState<null | 'link' | 'adicionar' | 'editar' | 'reabrir' | 'montar' | 'vincular-antes'>(null)
+  const [modal, setModal] = useState<null | 'link' | 'adicionar' | 'editar' | 'reabrir' | 'montar' | 'vincular-antes' | 'apagar'>(null)
   const aberta = estaAberta(lista, new Date())
   const { ids, semVinculo } = paraMontar(lista, lc.nomes)
 
@@ -508,15 +519,15 @@ function Ferramentas({
         <button className="btn ghost" onClick={() => setModal('editar')}>✏️ Editar</button>
         {aberta ? (
           <button
-            className="btn ghost"
+            className="btn ghost lista-larga"
             disabled={ocupada}
             onClick={() => void escrever(() => repo.salvarLista({ ...lista, fechada: true }), 'Lista fechada 🔒')}
           >
-            🔒 Fechar
+            🔒 Fechar a lista agora
           </button>
         ) : (
           <button
-            className="btn ghost"
+            className="btn ghost lista-larga"
             disabled={ocupada}
             onClick={() =>
               Date.parse(lista.fecha_em) > Date.now()
@@ -524,7 +535,12 @@ function Ferramentas({
                 : setModal('reabrir')
             }
           >
-            🔓 Reabrir
+            🔓 Reabrir a lista
+          </button>
+        )}
+        {podeApagar(lista) && (
+          <button className="btn danger lista-larga" style={{ minHeight: 44 }} disabled={ocupada} onClick={() => setModal('apagar')}>
+            🗑️ Apagar lista
           </button>
         )}
         <span className="tiny muted lista-dica">Toque num nome para vincular, trocar de lugar ou tirar.</span>
@@ -535,6 +551,7 @@ function Ferramentas({
       {lista.session_id && <p className="tiny muted" style={{ margin: '6px 0 0' }}>O play desta lista já foi montado.</p>}
 
       {modal === 'link' && <MensagemDoLink lista={lista} onClose={() => setModal(null)} onToast={onToast} />}
+      {modal === 'apagar' && <ApagarLista lc={lc} onApagou={onApagou} onClose={() => setModal(null)} />}
       {modal === 'adicionar' && <AdicionarNaLista lc={lc} recarregar={recarregar} onToast={onToast} onClose={() => setModal(null)} />}
       {modal === 'vincular-antes' && (
         <Modal title="Antes de montar" onClose={() => setModal(null)}>

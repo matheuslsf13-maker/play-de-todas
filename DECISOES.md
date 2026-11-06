@@ -1147,8 +1147,37 @@ Resumo do que decide o comportamento:
   - **D38** (dono, 06/11) No link a atleta escreve **nome e sobrenome** (`validarNomeDaAtleta`: 2+
     palavras de 2+ letras; "Ana M." e "Maria-Clara" sozinhas não passam). Junto com o D33, o vínculo
     automático passa a funcionar para quase todas. Só na tela: o banco segue aceitando uma palavra.
-  - **Risco conhecido, a decidir pelo dono:** "um nome por celular" não segura quem chama a função
-    com códigos inventados (a chave do site é pública). Um atacante enche a lista até o teto
-    (vagas × 3) e trava a entrada; a organizadora tira um por um. Opções: limite de colocações por
-    minuto por lista, ou um botão "limpar os nomes pelo link". Nada mudado por enquanto.
+  - **D39** (dono, 06/11) **"🗑️ Apagar lista"** no cartão ⚙️ Organização, logo abaixo do "🔒 Fechar a lista
+    agora", em vermelho discreto (`btn danger`, 44px). Só aparece em lista que **ainda não virou play**
+    (`podeApagar`: `session_id` nulo): a que virou guarda quem jogou e o "avisou com 24h" (crédito da
+    mensalista); se o play for apagado, o banco zera o `session_id` e o botão volta. Um passo só, sem
+    digitar: a janela "Apagar esta lista?" mostra qual lista e os avisos de `avisosAoApagar` (o link
+    para de funcionar; os N nomes somem; quantos entraram pelo link, para avisar no grupo; quem saiu
+    e o "avisou com 24h" somem; os nomes ficam 30 minutos neste celular (D41); não dá para desfazer). Espera o banco (`repo.apagarLista`: delete em
+    `listas` conferindo 1 linha; nomes e códigos de aparelho vão pela cascata do 31, **sem script
+    novo**); com erro a janela fica aberta com "Não consegui apagar agora…". Depois: toast "Lista
+    apagada" e a aba Play (sem `?lista=`). Atleta com a página aberta não recebe aviso ao vivo (o tempo
+    real filtrado não manda DELETE); a próxima ação dela diz "Esta lista não existe mais." (colocar e
+    recarregar pelo banco; tirar o próprio nome confere se a lista ainda existe).
+  - **D40** O risco dos códigos de aparelho inventados ("um nome por celular" não segura quem chama a
+    função com códigos inventados; a chave do site é pública): **Risco aceito pelo dono em 06/11/2026:
+    o link vai só no grupo das atletas; se vazar ou for tomado, a organizadora apaga a lista e cria
+    outra (link novo).**
+  - **D41** (dono, 06/11) **Trazer os nomes da lista apagada.** Ao apagar uma lista com nomes ativos, o
+    app guarda **neste celular** (`CHAVE.listaApagada`, uma cópia só: a última apagada substitui a
+    anterior) quando apagou, título e dia do play e os nomes ativos na ordem da lista (nome,
+    `player_id`, origem, garantida), por **30 minutos** (`copiaValida`; a vencida é descartada ao ser
+    lida). No "📋 Lista de presença por link" aparece no topo "📋 Trazer os N nomes da lista apagada às
+    HH:MM", com a prévia (`previaDosNomes`), **desmarcado**: se a lista foi apagada por nomes falsos
+    ou link vazado, trazer de volta seria ruim. Marcado, os nomes entram depois de criar a lista, **um
+    por vez esperando o banco** (`ordem` nula: a chegada repete a ordem da apagada), com vínculo,
+    origem e garantida; com "Já incluir as mensalistas em dia" ligado, as mensalistas que ainda não
+    estão (mesmo cadastro ou mesmo nome normalizado, `juntarSemRepetir`) entram **depois** dos
+    trazidos. Falhou algum: a lista fica e um aviso diz quantos não entraram (a cópia fica); tudo
+    certo, a cópia é apagada. **Aceito:** quem tinha colocado o nome pelo link **não consegue mais
+    "Tirar meu nome"** na lista nova (o código do aparelho foi junto com a apagada e ninguém consegue
+    lê-lo para copiar): pede à organização. E a cópia **só existe no celular que apagou**.
+  - **Fechar a lista mais claro** (dono, 06/11: "não deixe somente como fechar"): o botão da gestão é
+    "🔒 Fechar a lista agora" e o de reabrir "🔓 Reabrir a lista", cada um na linha inteira (não cabem
+    em meia linha a 360px). O "Fechar" das janelas (do app todo) não muda.
 

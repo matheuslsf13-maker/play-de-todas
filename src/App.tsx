@@ -203,6 +203,7 @@ export default function App() {
               codigo={lista}
               onSair={() => irParaAba('ranking')}
               onMontarPlay={(m) => { setMontar(m); irParaAba('play') }}
+              onApagou={() => { show('Lista apagada'); irParaAba('play') }}
               onToast={show}
             />
           )}

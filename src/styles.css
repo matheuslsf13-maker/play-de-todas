@@ -1799,7 +1799,7 @@ p .nome-link { padding-block: 0; margin-block: 0; }
 .lista-sugestao { flex: none; max-width: 46%; white-space: normal; text-align: center; line-height: 1.2; }
 .lista-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lista-acoes .btn { padding: 10px 8px; }
-.lista-dica { grid-column: 1 / -1; }
+.lista-dica, .lista-acoes .lista-larga { grid-column: 1 / -1; }
 .lista-dupla { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
 .lista-dupla .input { min-width: 0; }
 .lista-msg {

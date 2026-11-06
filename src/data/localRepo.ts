@@ -381,6 +381,14 @@ export const localRepo: Repo = {
     nb.ordem = ka
     gravarListas(l)
   },
+  async apagarLista(id) {
+    const l = lerListas()
+    if (!l.listas.some((x) => x.id === id)) throw new Error('Esta lista não existe mais.')
+    for (const n of l.nomes) if (n.lista_id === id) delete l.aparelhos[n.id]
+    l.listas = l.listas.filter((x) => x.id !== id)
+    l.nomes = l.nomes.filter((n) => n.lista_id !== id)
+    gravarListas(l)
+  },
   ouvirLista(_listaId, cb) {
     // a mesma aba (o evento do modulo) e outra aba (o evento storage)
     const naAba = () => cb()

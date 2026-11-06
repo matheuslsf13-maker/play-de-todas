@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LIGA } from '../liga'
 import { CHAVE } from './chaves'
-import type { ListaCompleta } from './listaDePresenca'
+import { copiaValida, type CopiaDaApagada, type ListaCompleta } from './listaDePresenca'
 import { useStore } from './store'
 
 /** A lista de presenca e so do Play de Todas: no Play de Terca e no Play Mista o recurso some. */
@@ -145,5 +145,37 @@ export function marcarMeu(listaId: string, nomeId: string | null) {
     localStorage.setItem(CHAVE.listaMeus, JSON.stringify(meus))
   } catch {
     /* sem armazenamento: ela nao vera o "Tirar meu nome" depois */
+  }
+}
+
+/* ---- a copia da lista apagada (D41): so neste celular, 30 minutos */
+
+export function guardarCopiaDaApagada(c: CopiaDaApagada) {
+  try {
+    localStorage.setItem(CHAVE.listaApagada, JSON.stringify(c))
+  } catch {
+    /* sem armazenamento: nao da para trazer os nomes depois */
+  }
+}
+
+/** A copia, se ainda vale; a vencida (ou estragada) e descartada aqui. */
+export function lerCopiaDaApagada(): CopiaDaApagada | null {
+  try {
+    const bruto = localStorage.getItem(CHAVE.listaApagada)
+    if (!bruto) return null
+    const c = JSON.parse(bruto) as CopiaDaApagada
+    if (copiaValida(c, new Date())) return c
+    localStorage.removeItem(CHAVE.listaApagada)
+  } catch {
+    /* estragada ou sem armazenamento */
+  }
+  return null
+}
+
+export function esquecerCopiaDaApagada() {
+  try {
+    localStorage.removeItem(CHAVE.listaApagada)
+  } catch {
+    /* paciencia */
   }
 }

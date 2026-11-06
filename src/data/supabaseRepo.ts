@@ -551,6 +551,12 @@ export const supabaseRepo: Repo = {
     const { error } = await client().rpc('lista_trocar', { p_a: a, p_b: b })
     if (error) throw error
   },
+  async apagarLista(id) {
+    // lista_nomes e lista_aparelhos vao junto pela cascata (script 31); 0 linhas = nao apagou
+    const { error, count } = await client().from('listas').delete({ count: 'exact' }).eq('id', id)
+    if (error) throw error
+    if (count !== 1) throw new Error('A lista não foi apagada')
+  },
   ouvirLista(listaId, cb) {
     if (!TEM_LISTA) return () => {}
     const sb = client()

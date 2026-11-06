@@ -428,3 +428,74 @@ export function paraMontar(lista: Lista, nomes: NomeNaLista[]): { ids: string[];
     semVinculo: titulares.filter((n) => !n.player_id),
   }
 }
+
+// ---------------------------------------------------------------- apagar (D39)
+
+/**
+ * So lista que ainda nao virou play: a que virou guarda quem jogou e o "avisou com 24h"
+ * (base do credito da mensalista). Se o play for apagado, o banco zera o session_id e ela volta a poder.
+ */
+export function podeApagar(lista: Lista): boolean {
+  return !lista.session_id
+}
+
+/** Os avisos da janela "Apagar esta lista?", na ordem em que aparecem. */
+export function avisosAoApagar(nomes: NomeNaLista[]): string[] {
+  const ativos = ativosEmOrdem(nomes)
+  const peloLink = ativos.filter((n) => n.origem === 'link').length
+  return [
+    'O link para de funcionar: quem abrir vai ver “Esta lista não existe mais”.',
+    ...(ativos.length === 1 ? ['O nome da lista some junto.'] : []),
+    ...(ativos.length > 1 ? [`Os ${plural(ativos.length, 'nome')} da lista somem junto.`] : []),
+    ...(peloLink > 0
+      ? [`${peloLink === 1 ? '1 colocou' : `${peloLink} colocaram`} o nome pelo link: avise no grupo que a lista vai ser refeita, com o link novo.`]
+      : []),
+    ...(ativos.length > 0
+      ? ['Os nomes ficam guardados neste celular por 30 minutos: se você criar outra lista nesse tempo, dá para trazê-los de volta.']
+      : []),
+    ...(nomes.some((n) => n.saiu_em && n.avisou_24h !== null) ? ['Quem saiu e o “avisou com 24h” também somem.'] : []),
+    'Não dá para desfazer.',
+  ]
+}
+
+// ---------------------------------------------------------------- trazer da apagada (D41)
+
+/** Um nome guardado da lista apagada, como volta para a lista nova. */
+export type NomeTrazido = Pick<NomeNaLista, 'nome' | 'player_id' | 'origem' | 'garantida'>
+
+/** A copia que fica NESTE celular por 30 minutos depois de apagar (uma so: a ultima). */
+export type CopiaDaApagada = { apagada_em: string; titulo: string; play_em: string; nomes: NomeTrazido[] }
+
+export const VALIDADE_DA_COPIA_MS = 30 * 60 * 1000
+
+/** Os nomes ativos na ordem da lista; null sem nenhum (nao ha o que guardar). */
+export function copiaDaApagada(lista: Lista, nomes: NomeNaLista[], agora: Date): CopiaDaApagada | null {
+  const ativos = ativosEmOrdem(nomes)
+  if (ativos.length === 0) return null
+  return {
+    apagada_em: agora.toISOString(),
+    titulo: lista.titulo,
+    play_em: lista.play_em,
+    nomes: ativos.map(({ nome, player_id, origem, garantida }) => ({ nome, player_id, origem, garantida })),
+  }
+}
+
+/** A copia ainda serve? (menos de 30 minutos e com nomes) */
+export function copiaValida(c: CopiaDaApagada | null | undefined, agora: Date): c is CopiaDaApagada {
+  if (!c || !Array.isArray(c.nomes) || c.nomes.length === 0) return false
+  const idade = agora.getTime() - Date.parse(c.apagada_em)
+  return idade >= 0 && idade < VALIDADE_DA_COPIA_MS
+}
+
+/** "Ana, Bruna, Carla e mais 9" / "Ana e Bruna". */
+export function previaDosNomes(nomes: string[], quantos = 3): string {
+  if (nomes.length <= quantos) return nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : (nomes[0] ?? '')
+  return `${nomes.slice(0, quantos).join(', ')} e mais ${nomes.length - quantos}`
+}
+
+/** Primeiro os trazidos, na ordem; depois as mensalistas que ainda nao estao (mesmo cadastro ou mesmo nome). */
+export function juntarSemRepetir(trazidos: NomeTrazido[], mensalistas: NomeTrazido[]): NomeTrazido[] {
+  const ids = new Set(trazidos.flatMap((n) => (n.player_id ? [n.player_id] : [])))
+  const grafias = new Set(trazidos.map((n) => normalizar(n.nome)))
+  return [...trazidos, ...mensalistas.filter((m) => !(m.player_id && ids.has(m.player_id)) && !grafias.has(normalizar(m.nome)))]
+}

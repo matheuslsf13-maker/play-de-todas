@@ -6,19 +6,21 @@ import {
   estaAberta,
   horaDoPlay,
   inicioEmSaoPaulo,
+  juntarSemRepetir,
   mensagemDoLink,
   novoCodigo,
   padraoDaLista,
   preIncluidas,
+  previaDosNomes,
   problemaDaLista,
   quandoComData,
   urlDaLista,
   type Lista,
 } from '../lib/listaDePresenca'
 import { avisosDoBanco } from '../data/supabaseRepo'
-import { baseDoApp, TEM_LISTA } from '../lib/useLista'
+import { baseDoApp, esquecerCopiaDaApagada, lerCopiaDaApagada, TEM_LISTA } from '../lib/useLista'
 import { useStore } from '../lib/store'
-import { todayISO, uid } from '../lib/types'
+import { plural, todayISO, uid } from '../lib/types'
 
 /**
  * CRIAR (OU EDITAR) A LISTA DE PRESENCA POR LINK. O play em si (quem joga,
@@ -52,6 +54,9 @@ export default function CriarLista({
   const [vagas, setVagas] = useState(editar?.vagas ?? padrao.vagas)
   const [texto, setTexto] = useState(editar?.texto ?? '')
   const [comMensalistas, setComMensalistas] = useState(true)
+  // D41: os nomes da lista apagada ha menos de 30 min, neste celular; desmarcado (pode ter sido apagada por nomes falsos)
+  const [copia] = useState(() => (editar ? null : lerCopiaDaApagada()))
+  const [trazer, setTrazer] = useState(false)
   const [busy, setBusy] = useState(false)
   const mensalistas = useMemo(() => (editar ? [] : preIncluidas(data, dia)), [data, dia, editar])
 
@@ -95,17 +100,25 @@ export default function CriarLista({
       setBusy(false)
       return
     }
-    if (!editar && comMensalistas && mensalistas.length > 0) {
+    const daMensalista = (id: string) => ({ nome: playerById(id)?.name ?? id, player_id: id, origem: 'mensalista' as const, garantida: true })
+    if (!editar && trazer && copia) {
+      // um por vez, esperando o banco: a ordem de chegada repete a da lista apagada
+      const fila = juntarSemRepetir(copia.nomes, comMensalistas ? mensalistas.map(daMensalista) : [])
+      let falharam = 0
+      for (const n of fila) {
+        try {
+          await repo.incluirNaLista([{ ...n, lista_id: lista.id, ordem: null }])
+        } catch (e) {
+          console.warn('nome não entrou na lista nova:', n.nome, e)
+          falharam++
+        }
+      }
+      if (falharam === 0) esquecerCopiaDaApagada()
+      else onToast(`A lista foi criada, mas ${plural(falharam, 'nome')} não ${falharam === 1 ? 'entrou' : 'entraram'}. Adicione à mão.`)
+    } else if (!editar && comMensalistas && mensalistas.length > 0) {
       try {
         await repo.incluirNaLista(
-          mensalistas.map((id, i) => ({
-            lista_id: lista.id,
-            nome: playerById(id)?.name ?? id,
-            player_id: id,
-            origem: 'mensalista' as const,
-            garantida: true,
-            ordem: i + 1,
-          })),
+          mensalistas.map((id, i) => ({ ...daMensalista(id), lista_id: lista.id, ordem: i + 1 })),
         )
       } catch (e) {
         // a lista existe: a organizadora adiciona a mao
@@ -133,6 +146,18 @@ export default function CriarLista({
         <div className="banner warn" style={{ margin: '10px 0 12px' }}>O prazo já passou: escolha até quando a lista fica aberta.</div>
       )}
       <div className="stack">
+        {copia && (
+          <label className="toggle-card row" style={{ gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={trazer} onChange={(e) => setTrazer(e.target.checked)} />
+            <span className="grow" style={{ minWidth: 0 }}>
+              <strong>📋 Trazer {copia.nomes.length === 1 ? 'o nome' : `os ${copia.nomes.length} nomes`} da lista apagada às {horaDoPlay(copia.apagada_em)}</strong>
+              <span className="small" style={{ display: 'block', overflowWrap: 'anywhere' }}>{previaDosNomes(copia.nomes.map((n) => n.nome))}</span>
+              <span className="tiny muted" style={{ display: 'block' }}>
+                Quem tinha colocado o nome pelo link volta, mas para sair vai precisar pedir à organização.
+              </span>
+            </span>
+          </label>
+        )}
         <label className="field">
           <span>Nome do play</span>
           <input className="input" value={titulo} maxLength={60} onChange={(e) => setTitulo(e.target.value)} />

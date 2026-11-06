@@ -10,6 +10,8 @@ import {
   sugestaoDeVinculo,
   validarNome,
   ativosEmOrdem,
+  avisosAoApagar,
+  copiaDaApagada,
   dataDoPlay,
   ordemParaGarantir,
   type ListaCompleta,
@@ -17,6 +19,7 @@ import {
 } from '../lib/listaDePresenca'
 import { normalizar, semelhanca } from '../lib/roster'
 import { useStore } from '../lib/store'
+import { guardarCopiaDaApagada } from '../lib/useLista'
 import { plural, type Player } from '../lib/types'
 
 /*
@@ -447,5 +450,44 @@ export function AdicionarNaLista({
       onEscolher={(p) => void incluir(p.name, p.id)}
       onClose={onClose}
     />
+  )
+}
+
+/** "Apagar esta lista?" (D39): os avisos, um so passo, sem digitar. Espera o banco; erro deixa a janela aberta. */
+export function ApagarLista({ lc, onApagou, onClose }: { lc: ListaCompleta; onApagou: () => void; onClose: () => void }) {
+  const { repo } = useStore()
+  const [busy, setBusy] = useState(false)
+  const [erro, setErro] = useState(false)
+  async function apagar() {
+    setBusy(true)
+    setErro(false)
+    try {
+      await repo.apagarLista(lc.lista.id)
+      // D41: os nomes ficam neste celular por 30 minutos, para a lista refeita
+      const copia = copiaDaApagada(lc.lista, lc.nomes, new Date())
+      if (copia) guardarCopiaDaApagada(copia)
+      onApagou()
+    } catch (e) {
+      console.warn('não consegui apagar a lista:', e)
+      setErro(true)
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal title="Apagar esta lista?" onClose={onClose}>
+      <div className="stack lista-pagina">
+        <p className="small muted" style={{ margin: '-6px 0 0', overflowWrap: 'anywhere' }}>
+          {lc.lista.titulo} · {quandoComData(lc.lista.play_em)}
+        </p>
+        <ul style={{ margin: 0, paddingLeft: 20 }}>
+          {avisosAoApagar(lc.nomes).map((a) => <li key={a}>{a}</li>)}
+        </ul>
+        {erro && <div className="banner err" style={{ margin: 0 }}>Não consegui apagar agora. Confira a internet e tente de novo.</div>}
+        <button className="btn danger block" disabled={busy} onClick={() => void apagar()}>
+          {busy ? 'Apagando…' : '🗑️ Apagar lista'}
+        </button>
+        <button className="btn ghost block" disabled={busy} onClick={onClose}>Cancelar</button>
+      </div>
+    </Modal>
   )
 }
