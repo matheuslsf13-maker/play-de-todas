@@ -87,11 +87,11 @@ export const MENSAGEM_DO_MOTIVO: Record<MotivoDaLista, string> = {
   sem_tabela: 'A lista de presença ainda não está ligada. Fale com a organização.',
 }
 
-/** Os dois avisos das mensagens do WhatsApp (texto do dono, 06/11). */
+/** Os dois avisos das mensagens do WhatsApp (texto do dono, 06/11); *assim* e negrito no WhatsApp. */
 export const AVISO_DE_SAIDA =
-  'Não mensalistas: para sair, abra o mesmo link e toque em Tirar meu nome. Mensalistas: avisem a organização.'
+  '*Não mensalistas: para sair da lista*, abra o mesmo link e toque em Tirar meu nome. Mensalistas: avisem a organização.'
 export const AVISO_DAS_MENSALISTAS =
-  'Mensalistas não precisam colocar o nome: já estão na lista. Abram o link só para conferir; se o seu nome não estiver, fale com a organização.'
+  '*Mensalistas não precisam colocar o nome na lista, só abram o link para conferir.* Se o seu nome não estiver, fale com a organização.'
 
 // ---------------------------------------------------------------- nome
 
@@ -325,8 +325,8 @@ export function mensagemDoLink(lista: Lista, url: string): string {
     'Coloque seu nome e sobrenome pelo link:',
     url,
     '',
-    AVISO_DE_SAIDA,
     AVISO_DAS_MENSALISTAS,
+    AVISO_DE_SAIDA,
   ].join('\n')
 }
 
@@ -352,8 +352,8 @@ export function mensagemDeAtualizacao(
     aberta ? 'Coloque seu nome e sobrenome pelo link:' : 'A lista fechou. Para conferir:',
     url,
     '',
-    AVISO_DE_SAIDA,
     AVISO_DAS_MENSALISTAS,
+    AVISO_DE_SAIDA,
   ].join('\n')
 }
 

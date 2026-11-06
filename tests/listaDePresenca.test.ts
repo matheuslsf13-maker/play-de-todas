@@ -288,8 +288,10 @@ test('mensagem do link: data, prazo, vagas, texto, link e os dois avisos exatos'
   assert.ok(msg.includes(url))
   assert.ok(msg.includes(AVISO_DE_SAIDA))
   assert.ok(msg.includes(AVISO_DAS_MENSALISTAS))
-  assert.equal(AVISO_DE_SAIDA, 'Não mensalistas: para sair, abra o mesmo link e toque em Tirar meu nome. Mensalistas: avisem a organização.')
-  assert.equal(AVISO_DAS_MENSALISTAS, 'Mensalistas não precisam colocar o nome: já estão na lista. Abram o link só para conferir; se o seu nome não estiver, fale com a organização.')
+  assert.equal(AVISO_DE_SAIDA, '*Não mensalistas: para sair da lista*, abra o mesmo link e toque em Tirar meu nome. Mensalistas: avisem a organização.')
+  assert.equal(AVISO_DAS_MENSALISTAS, '*Mensalistas não precisam colocar o nome na lista, só abram o link para conferir.* Se o seu nome não estiver, fale com a organização.')
+  // as mensalistas primeiro, e logo depois o aviso de saida
+  assert.ok(msg.indexOf(AVISO_DAS_MENSALISTAS) < msg.indexOf(AVISO_DE_SAIDA))
 })
 
 test('mensagem de atualizacao: confirmadas numeradas com 📅, suplentes, o mesmo link e os avisos', () => {
