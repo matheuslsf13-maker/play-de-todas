@@ -95,6 +95,43 @@ liga/            textos do masculino: o código fica no feminino e o build
 - Textos: `liga/masculino.json` (plural neutro) + `liga/misto.json` por cima. Logo:
   `node scripts/liga/gerar-logo.mjs misto` (de `liga/misto/logo.svg` para `public-misto/`).
 
+## 📋 Lista de presença por link (só o Play de Todas, script 31)
+
+- **A atleta, sem login, coloca o nome pelo link `?lista=<código>`** e o **banco** dá a posição
+  (ordem de chegada no servidor, trava por lista). Confirmada × suplente é **calculado**
+  (`dividir` em `src/lib/listaDePresenca.ts`: as `vagas` primeiras ativas), nunca gravado.
+- **Tabelas** (`public` só): `listas`, `lista_nomes` (saída suave: `saiu_em`/`saiu_por`, nunca
+  delete; `ordem` da organizadora por cima da `chegada`) e `lista_aparelhos` (hash do código do
+  celular; **ninguém lê**, só as funções). **Visitante só escreve por `lista_colocar` e
+  `lista_tirar`** (`security definer`); a logada escreve direto e troca por `lista_trocar`.
+- **Fora do `AppData` e do canal geral**: `useLista` (`src/lib/useLista.ts`) carrega a lista e ouve
+  um canal **próprio** filtrado por ela (`repo.ouvirLista`, rajada = 1 leitura em 300 ms). Escritas
+  da organizadora **esperam o banco** (sem fila offline): a ordem é do servidor.
+- **O link passa por cima da escolha de play** (`main.tsx`: não redireciona; grava "Play de Todas"
+  só se o aparelho não tinha escolha) e a página aparece **no lugar da aba** (`App.tsx`); tocar numa
+  aba, "Agora não", colocar ou tirar o nome volta à tela inicial e limpa o `?lista=`.
+- **Celular**: `CHAVE.aparelho` (UUID), `listaNome` (último nome), `listaMeus` (`{lista: nome}`).
+  "Tirar meu nome" só aparece no nome colocado por este celular (WhatsApp/Safari com armazenamento
+  separado: pede à organização).
+- **Cada nome**: vinculado = foto + 💪 força (em avaliação: `🔍 n/3` para visitante); sem vínculo = só
+  o texto. **Vínculo automático** (banco e `vinculoAutomatico`): grafia = nome/apelido/alias de **um**
+  cadastro só (as duas "Bruna" não vinculam). Ao vincular, a grafia vai para `players.aliases`.
+  Botão de um toque na linha só com `sugestaoSegura` (≥ 0,93, sem empate, nome de 2+ palavras); o
+  menu do nome mostra até 4 palpites.
+- **Organizadora** (mesma página, `canEdit`): copiar atualização, mensagem do link, adicionar à mão,
+  ⭐ garantir vaga (só nome adicionado à mão), ⇅ trocar de lugar, tirar (mensalista: "avisou com
+  24h?" → `avisou_24h`), editar, fechar/reabrir (prazo vencido pede prazo novo), **montar play**
+  (fecha a lista; confirmadas sem vínculo travam; o Novo Play abre com elas pelo portão da lista
+  colada e grava `listas.session_id`). Criar: "📋 Criar lista de presença por link" no Novo Play;
+  as **mensalistas em dia** (`mensalistaEmDiaNoPlay`: pagou o mês do play, ou play até o dia 5 com o
+  mês anterior pago; ativas, sem pausa) entram garantidas, **por força**.
+- **Cartão "Lista aberta"** na tela inicial (`CartaoDaLista`, acima do Próximo play).
+- **Play de Terça / Play Mista**: `TEM_LISTA = false` — nada aparece e nada é consultado. **Não**
+  rodar o 27/29 por causa do 31. Sem o 31 no feminino, a leitura tolerante esconde tudo
+  (`avisosDoBanco.tabelas.has('listas')`) e o botão de criar avisa qual script rodar.
+- Horas no fuso fixo −03:00 (`quando`, `quandoComData`, `inicioEmSaoPaulo`). Testes:
+  `tests/listaDePresenca.test.ts`. Prova do SQL: fora do repo (`pdt-teste/sql-teste/`).
+
 ## Regras do campeonato (não invente, elas são específicas)
 
 - Partida até 4 pontos, sem empate. Pontos = games do vencedor − do perdedor

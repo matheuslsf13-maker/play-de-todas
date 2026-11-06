@@ -57,6 +57,7 @@ real: um hook próprio (`useLista`) carrega a lista e ouve um canal filtrado por
 | D22 | Reabrir com o prazo vencido exige escolher um novo prazo. | "Aberta" é `not fechada and now() < fecha_em`; reabrir sem prazo novo não abriria nada. |
 | D23 | Em `lista_colocar`, o vínculo (`ja_na_lista`) é conferido **antes** do nome repetido; o nome chega com `normalize(NFC)` e o apóstrofo do iPhone (`’`) vira `'`; o código da lista é comparado em minúsculas; `unique_violation` (corrida com escrita da organizadora, que não pega a trava) vira `repetido`/`ja_na_lista`. | A mensalista pré-incluída que digita o próprio nome ouve "Você já está na lista" (não "nome repetido"); teclado do iPhone não recusa "D’Ávila". **`validarNome` (A1) faz o mesmo `’`→`'`** para a tela e o banco concordarem. |
 | D24 | `lista_trocar` só troca dois nomes **ativos** da mesma lista; `lista_colocar`/`lista_tirar` releem a lista **depois** da trava; a sequência de `chegada` fica sem grant para anon/logada (identity não precisa). | Sem posição trocada com quem já saiu; fechar a lista no meio de uma rajada vale na hora. |
+| D25–D32 | Decisões do app: ver `DECISOES.md` (seção "Lista de presença por link"). | Registradas onde o próximo leitor procura. |
 
 ---
 
@@ -265,7 +266,7 @@ tempo real do Supabase (publicação só conferida no catálogo) e o PostgREST c
 **Arquivos:** criar `src/lib/listaDePresenca.ts`, `tests/listaDePresenca.test.ts`; modificar
 `src/lib/mensalidade.ts`.
 
-- [ ] Tipos (em `listaDePresenca.ts`, não em `types.ts` — não fazem parte do `AppData`):
+- [x] Tipos (em `listaDePresenca.ts`, não em `types.ts` — não fazem parte do `AppData`):
 
 ```ts
 export type Lista = {
@@ -287,7 +288,7 @@ export type MotivoDaLista = 'aparelho' | 'nome' | 'nao_existe' | 'fechada' | 'ap
 export type RespostaDaLista = { ok: true; id?: string; posicao?: number; vagas?: number } | { ok: false; motivo: MotivoDaLista }
 ```
 
-- [ ] Funções (todas puras; `agora` sempre por parâmetro):
+- [x] Funções (todas puras; `agora` sempre por parâmetro):
   - `TETO_POR_VAGA = 3`; `validarNome(texto): { nome: string } | { erro: string }` — mesma regra do SQL (D17).
   - `chaveDeOrdem(n) = n.ordem ?? n.chegada`; `ativosEmOrdem(nomes)` (sem `saiu_em`, por chave e chegada).
   - `dividir(lista, nomes): { titulares; suplentes }` — os `vagas` primeiros ativos são titulares.
@@ -312,9 +313,9 @@ export type RespostaDaLista = { ok: true; id?: string; posicao?: number; vagas?:
   - `horasAntesDoPlay(saiu_em, play_em): number` (arredonda para baixo).
   - `urlDaLista(base, codigo)` → `${base}?lista=${codigo}`; `novoCodigo()` (D10).
   - `mensagemDoLink(lista, url)` e `mensagemDeAtualizacao(lista, nomes, nomeDe, url)` — textos abaixo.
-- [ ] Em `mensalidade.ts`: `mensalistaEmDiaNoPlay(p: Player, dataDoPlay: string): boolean` (D12),
+- [x] Em `mensalidade.ts`: `mensalistaEmDiaNoPlay(p: Player, dataDoPlay: string): boolean` (D12),
   ao lado de `situacaoDoAtleta` (que não muda).
-- [ ] Textos do WhatsApp (decididos aqui, dentro do que o dono pediu):
+- [x] Textos do WhatsApp (decididos aqui, dentro do que o dono pediu):
 
 ```
 🎾 *Play de Todas* — seg 10/11 às 20h
@@ -332,7 +333,7 @@ Mensalistas não precisam colocar o nome: já estão na lista. Abram o link só 
   `✅ Confirmadas` numeradas (mensalista pré-incluída com ` 📅`), `⏳ Suplentes` numeradas (se houver),
   o **mesmo link** e os mesmos dois avisos. Nome vinculado sai pelo `nameOf` (apelido); sem vínculo, o
   texto digitado.
-- [ ] Testes em `tests/listaDePresenca.test.ts` (escrever antes, ver falhar, implementar):
+- [x] Testes em `tests/listaDePresenca.test.ts` (escrever antes, ver falhar, implementar):
   dividir com 18 ativos/16 vagas e com saída de titular (a 1ª suplente sobe); ordem com `ordem` trocada;
   resumo nos três formatos e singulares; posição titular/suplente; `validarNome` (aceita "Ana Lúcia D'Ávila",
   "Maria-Clara", colapsa espaços; recusa "ab", 61 letras, "<b>x</b>", "1234"); `vinculoAutomatico` (nome,
@@ -341,17 +342,17 @@ Mensalistas não precisam colocar o nome: já estão na lista. Abram o link só 
   avulsa → não; pago adiantado → sim); `preIncluidas` (inativa e pausada fora, ordem por força);
   `ordemParaGarantir`; `estaAberta`; `inicioEmSaoPaulo`; as duas mensagens contêm data/hora, prazo, vagas,
   texto, link e os dois avisos exatos.
-- [ ] `npm test`, `npm run build`. Commit: `Lista de presenca: regra pura e testes`.
+- [x] `npm test`, `npm run build`. Commit: `Lista de presenca: regra pura e testes`.
 
 ### Tarefa A2: chaves, repositório local e Supabase
 
 **Arquivos:** modificar `src/lib/chaves.ts`, `src/data/repo.ts`, `src/data/localRepo.ts`,
 `src/data/supabaseRepo.ts`.
 
-- [ ] `chaves.ts`: `aparelho` (`${P}:aparelho`, `crypto.randomUUID()` gerado na 1ª confirmação),
+- [x] `chaves.ts`: `aparelho` (`${P}:aparelho`, `crypto.randomUUID()` gerado na 1ª confirmação),
   `listaNome` (último nome digitado), `listaMeus` (`{ [lista_id]: nome_id }` do que este aparelho colocou),
   `listas` (dados do modo local). Todo acesso em `try/catch` (aba anônima).
-- [ ] `repo.ts` — métodos novos no `Repo` (os dois drivers implementam):
+- [x] `repo.ts` — métodos novos no `Repo` (os dois drivers implementam):
 
 ```ts
 carregarLista(ref: { codigo: string } | { id: string }): Promise<ListaCompleta | null>
@@ -366,7 +367,7 @@ trocarNaLista(a: string, b: string): Promise<void>
 ouvirLista(listaId: string, cb: () => void): () => void
 ```
 
-- [ ] `supabaseRepo.ts`:
+- [x] `supabaseRepo.ts`:
   - `const TEM_LISTA = LIGA.id === 'feminino'`: fora dele os métodos devolvem `null`/`[]`/`{ok:false, motivo:'sem_tabela'}`
     **sem consultar** e `ouvirLista` devolve `() => {}`.
   - Leitura tolerante: erro de tabela ausente (`PGRST205`, `42P01`, ou "Could not find the table") →
@@ -377,30 +378,30 @@ ouvirLista(listaId: string, cb: () => void): () => void
   - `ouvirLista`: `sb.channel('lista-' + id)` com `postgres_changes` em `lista_nomes` (`filter: lista_id=eq.<id>`)
     e em `listas` (`filter: id=eq.<id>`). **Não** mexer em `subscribe()` (o canal geral continua sem
     essas tabelas).
-- [ ] `localRepo.ts`: guarda `{ listas, nomes, aparelhos: {nome_id: aparelho} }` em `CHAVE.listas` e
+- [x] `localRepo.ts`: guarda `{ listas, nomes, aparelhos: {nome_id: aparelho} }` em `CHAVE.listas` e
   **repete as checagens** com as funções puras (`validarNome`, `estaAberta`, aparelho, repetido por
   `normalizar`, `vinculoAutomatico` com os players do `read()`, `ja_na_lista`, teto) — `chegada` =
   maior + 1. `ouvirLista`: avisa por um `EventTarget` do módulo (mesma aba) e pelo evento `storage`
   (outra aba). Aqui o aparelho fica em claro: é só o navegador local.
-- [ ] `npm test`, `npm run build`. Commit: `Lista de presenca: repositorio local e Supabase`.
+- [x] `npm test`, `npm run build`. Commit: `Lista de presenca: repositorio local e Supabase`.
 
 ### Tarefa A3: hook com canal próprio + entrada pelo link + página da visitante
 
 **Arquivos:** criar `src/lib/useLista.ts`, `src/pages/ListaDePresenca.tsx`; modificar `src/main.tsx`,
 `src/App.tsx`, `src/styles.css`.
 
-- [ ] `useLista(ref | null)`: `undefined` carregando, `null` não existe/sem tabela, senão `ListaCompleta`.
+- [x] `useLista(ref | null)`: `undefined` carregando, `null` não existe/sem tabela, senão `ListaCompleta`.
   Carrega por `useStore().repo`, assina `repo.ouvirLista(id)` com **debounce de 300 ms** (rajada de nomes
   = uma leitura), recarrega ao voltar para a tela (`visibilitychange`) e expõe `recarregar()`. Agenda um
   re-render em `fecha_em` (a tela fecha sozinha na hora). **Nada** de `reload()` do store.
-- [ ] `main.tsx` (D18): `const temLista = LIGA.id === 'feminino' && new URLSearchParams(location.search).has('lista')`;
+- [x] `main.tsx` (D18): `const temLista = LIGA.id === 'feminino' && new URLSearchParams(location.search).has('lista')`;
   `redirecionar` só sem `temLista`; com `temLista` e sem escolha guardada → `guardarEscolha(LIGA)`;
   `Entrada` começa com `escolheu = true` quando `temLista`.
-- [ ] `App.tsx` (D19): `const [lista, setLista] = useState<string | null>(codigo da URL)` (só feminino);
+- [x] `App.tsx` (D19): `const [lista, setLista] = useState<string | null>(codigo da URL)` (só feminino);
   com `lista`, o `<main>` mostra `<ListaDePresenca codigo={lista} onSair={sair} onMontarPlay={…} />`;
   `sair()` = `history.replaceState(null, '', location.pathname)`, `setLista(null)`, `setTab('ranking')`;
   tocar numa aba também sai. `abrirLista(codigo)` desce para Ranking (cartão) e Play (listas/criar).
-- [ ] Página (visitante): cabeçalho (título, `quandoComData(play_em)`, "fecha `quandoComData(fecha_em)`",
+- [x] Página (visitante): cabeçalho (título, `quandoComData(play_em)`, "fecha `quandoComData(fecha_em)`",
   "14/16 · 2 vagas", texto curto); lista numerada: titulares, divisória "Suplentes", suplentes. Cada nome:
   vinculado → `Avatar` + `nameOf` + força (`notaDeForca(ratings(data).get(id))`) ou, se
   `emAvaliacao(data).has(id) && !canEdit`, `avaliacaoCurta(n)` sem número; sem vínculo → só o texto.
@@ -408,10 +409,10 @@ ouvirLista(listaId: string, cb: () => void): () => void
   cadastro**, botão "Colocar meu nome" (≥ 44 px) e "Agora não". Resposta: `ok` → grava aparelho/nome/
   `listaMeus`, modal com `textoDaPosicao` e "Ir para o app" → `onSair`; erro → `MENSAGEM_DO_MOTIVO`.
   Fechada: "A lista fechou em …" e só a lista.
-- [ ] "Tirar meu nome" só na linha cujo id está em `listaMeus[lista.id]` (e ativa); confirmação com o texto
+- [x] "Tirar meu nome" só na linha cujo id está em `listaMeus[lista.id]` (e ativa); confirmação com o texto
   exato do desenho (titular × suplente); `ok` → limpa `listaMeus[lista.id]` e `onSair`.
-- [ ] `null` (link velho ou masculino) → "Esta lista não existe mais." + botão para o app.
-- [ ] Prints com o robô (ver A8) do visitante: aberta, com vagas, cheia com suplentes, depois de colocar,
+- [x] `null` (link velho ou masculino) → "Esta lista não existe mais." + botão para o app.
+- [x] Prints com o robô (ver A8) do visitante: aberta, com vagas, cheia com suplentes, depois de colocar,
   tirar, fechada — 375 px, claro e escuro. Commit: `Lista de presenca: link e pagina da atleta`.
 
 ### Tarefa A4: gestão da organizadora (mesma página, `canEdit`)
@@ -419,73 +420,75 @@ ouvirLista(listaId: string, cb: () => void): () => void
 **Arquivos:** modificar `src/pages/ListaDePresenca.tsx` (se passar de ~500 linhas, separar
 `src/components/GestaoDaLista.tsx`).
 
-- [ ] Linha sem vínculo: sugestão de `sugestaoDeVinculo` ("É a Fulana? ✓"), "Outra…" (modal com busca nos
+- [x] Linha sem vínculo: sugestão de `sugestaoDeVinculo` ("É a Fulana? ✓"), "Outra…" (modal com busca nos
   players ativos), "➕ Nova" (reusa `NovaAtleta` com o nome digitado). Vincular = `mexerNoNome(id, {player_id})`
   + `savePlayer({...p, aliases: [...aliases, texto]})` quando a grafia é nova (mesma condição do
   `ImportarLista.tsx:69`). Se a atleta já está ativa noutra linha: "Ela já está na lista (posição N).
   Tirar esta duplicada?" → `mexerNoNome(id, {saiu_em, saiu_por:'organizadora'})`.
-- [ ] Tirar qualquer nome: confirmação; mensalista (D16) → "Ela avisou com 24h de antecedência?" Sim/Não,
+- [x] Tirar qualquer nome: confirmação; mensalista (D16) → "Ela avisou com 24h de antecedência?" Sim/Não,
   mostrando "saiu N h antes do play"; grava `saiu_em`, `saiu_por='organizadora'`, `avisou_24h`.
-- [ ] ➕ Adicionar à mão: escolher cadastro (ou nome livre) → `incluirNaLista([{origem:'organizadora', …}])`
+- [x] ➕ Adicionar à mão: escolher cadastro (ou nome livre) → `incluirNaLista([{origem:'organizadora', …}])`
   (entra no fim). "⭐ Garantir vaga" nos `origem='organizadora'` ainda não garantidos →
   `mexerNoNome(id, {garantida:true, ordem: ordemParaGarantir(nomes)})`.
-- [ ] ⇅ Trocar: tocar em "Trocar" num nome e depois noutro → confirmação "A decisão é sua: X vai para a
+- [x] ⇅ Trocar: tocar em "Trocar" num nome e depois noutro → confirmação "A decisão é sua: X vai para a
   posição N e Y para a M." → `trocarNaLista(a, b)`.
-- [ ] ✏️ Editar (título, data/hora, prazo, vagas, texto) com o mesmo formulário de A5; 🔒 Fechar /
+- [x] ✏️ Editar (título, data/hora, prazo, vagas, texto) com o mesmo formulário de A5; 🔒 Fechar /
   🔓 Reabrir (D22); 📤 Copiar atualização (`shareOrCopy(mensagemDeAtualizacao(…))`); 🔗 Mensagem do link.
-- [ ] Seção recolhida "Saíram (n)": nome, hora de saída, quem tirou, horas antes do play, avisou 24h.
-- [ ] Toda escrita: `await`, botão ocupado, erro → toast; o tempo real atualiza a lista (D9).
-- [ ] Commit: `Lista de presenca: gestao da organizadora`.
+- [x] Seção recolhida "Saíram (n)": nome, hora de saída, quem tirou, horas antes do play, avisou 24h.
+- [x] Toda escrita: `await`, botão ocupado, erro → toast; o tempo real atualiza a lista (D9).
+- [x] Commit: `Lista de presenca: gestao da organizadora`.
 
 ### Tarefa A5: criar a lista no Novo Play + listas na aba Play
 
 **Arquivos:** criar `src/components/CriarLista.tsx`; modificar `src/pages/Play.tsx`.
 
-- [ ] `NewPlay`: no topo do card "🎾 Novo Play", só feminino + `canEdit`, botão
+- [x] `NewPlay`: no topo do card "🎾 Novo Play", só feminino + `canEdit`, botão
   "📋 Criar lista de presença por link" → `Play` troca para `<CriarLista>` (estado `criandoLista`). Com
   `avisosDoBanco.tabelas.has('listas')` o botão fica desabilitado com "rode o supabase/31-lista-de-presenca.sql".
-- [ ] `CriarLista`: campos de D21 (título, data, hora, fecha em data+hora, vagas com `Stepper`, texto curto,
+- [x] `CriarLista`: campos de D21 (título, data, hora, fecha em data+hora, vagas com `Stepper`, texto curto,
   "Já incluir as mensalistas em dia (N)" com a contagem de `preIncluidas`). Validação: prazo antes do play e no
   futuro, vagas ≥ 1. Criar = `salvarLista` → `incluirNaLista(preIncluidas…)` com `ordem` 1..n. Se a 2ª
   escrita falhar: toast e a lista abre mesmo assim (a organizadora adiciona à mão).
-- [ ] Depois de criar: modal com o link, a `mensagemDoLink` e botões "Compartilhar/copiar" e "Abrir a lista".
-- [ ] `PlayList`: card "📋 Listas de presença" (feminino + `canEdit`) com `listasRecentes(5)`: título,
+- [x] Depois de criar: modal com o link, a `mensagemDoLink` e botões "Compartilhar/copiar" e "Abrir a lista".
+- [x] `PlayList`: card "📋 Listas de presença" (feminino + `canEdit`) com `listasRecentes(5)`: título,
   `resumoDoCartao` ou "fechada", toque abre a lista.
-- [ ] Commit: `Lista de presenca: criar a lista pelo Novo Play`.
+- [x] Commit: `Lista de presenca: criar a lista pelo Novo Play`.
 
 ### Tarefa A6: montar o play com a lista
 
 **Arquivos:** modificar `src/pages/ListaDePresenca.tsx`, `src/App.tsx`, `src/pages/Play.tsx`.
 
-- [ ] Botão "🎾 Montar play com a lista": titular sem vínculo → bloqueia com a lista dos nomes a vincular.
+- [x] Botão "🎾 Montar play com a lista": titular sem vínculo → bloqueia com a lista dos nomes a vincular.
   Antes do prazo → confirmação "Montar o play agora fecha a lista. Quem ainda não colocou o nome vai
   precisar falar com você." → `salvarLista({...lista, fechada:true})` (D20).
-- [ ] `onMontarPlay({ listaId, titulo, data: dataDoPlay(lista), ids })` → `App` guarda em estado, vai para a
+- [x] `onMontarPlay({ listaId, titulo, data: dataDoPlay(lista), ids })` → `App` guarda em estado, vai para a
   aba Play; `Play` recebe `montar` e abre `NewPlay` com `preset {title, date}` e prop nova `daLista: string[]`;
   `NewPlay` aplica uma vez com `aplicarLista(daLista)` (pausa + portão, como a lista colada).
-- [ ] `onCreated(id)` com `montar` → `salvarLista({...lista, session_id: id})`.
-- [ ] Commit: `Lista de presenca: montar o play a partir da lista`.
+- [x] `onCreated(id)` com `montar` → `salvarLista({...lista, session_id: id})`.
+- [x] Commit: `Lista de presenca: montar o play a partir da lista`.
 
 ### Tarefa A7: cartão na tela inicial
 
 **Arquivos:** modificar `src/pages/Ranking.tsx`.
 
-- [ ] Só feminino: `useLista` sobre `repo.listaAberta()` (variante do hook por "a aberta"); com lista aberta,
+- [x] Só feminino: `useLista` sobre `repo.listaAberta()` (variante do hook por "a aberta"); com lista aberta,
   um `button.card.proximo` logo **acima** do "Próximo play", selo 📋, título "Lista aberta",
   `resumoDoCartao` sem o prefixo, ação "ver a lista →"; toque → `abrirLista(codigo)`. Sem tabela/sem lista:
   nada.
-- [ ] Commit: `Lista de presenca: cartao na tela inicial`.
+- [x] Commit: `Lista de presenca: cartao na tela inicial`.
 
 ### Tarefa A8: prints, conferência final e documentação
 
-- [ ] Vite local em segundo plano (`$env:VITE_SUPABASE_URL='local'; npx vite --port <PORTA> --strictPort --host 127.0.0.1`),
+- [x] Vite local em segundo plano (`$env:VITE_SUPABASE_URL='local'; npx vite --port <PORTA> --strictPort --host 127.0.0.1`),
   scripts em `pdt-teste/` usando `abrir(porta, {largura, altura, tema})`: organizadora cria lista, abre
   `?lista=`, coloca nomes (vários aparelhos = `CHAVE.aparelho` limpo entre eles), vincula, garante, troca,
   tira mensalista (pergunta 24h), copia atualização, monta o play, cartão na tela inicial. Visitante com o
   truque temporário de `canEdit` — **desfazer antes do commit** (`git diff src/lib/store.tsx` vazio).
   375 px e 320 px, claro e escuro, sem rolagem horizontal; parar o vite.
-- [ ] `$env:VITE_LIGA='masculino'; npm run build` e `'misto'`: compila e o recurso não aparece.
-- [ ] `CLAUDE.md`: bloco "📋 Lista de presença por link" (tabelas, funções, quem escreve o quê, canal
+  **Feito em 06/11:** 375 e 360 px, escuro (o pedido desta rodada), sem rolagem horizontal; prints em
+  `pdt-teste/prints/lista/`, robô `pdt-teste/lista-prints.mjs` e `lista-fechada.mjs`.
+- [x] `$env:VITE_LIGA='masculino'; npm run build` e `'misto'`: compila e o recurso não aparece.
+- [x] `CLAUDE.md`: bloco "📋 Lista de presença por link" (tabelas, funções, quem escreve o quê, canal
   próprio, `?lista=`, só feminino, script 31). `DECISOES.md`: as decisões D1–D22 em resumo + o que o teste
   B2 provou/não provou. Commit: `Lista de presenca: documentacao`.
 

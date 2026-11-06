@@ -1092,3 +1092,42 @@ enfrentado uma à outra com as mesmas parceiras — no rodízio isso quase nunca
 caía sempre na quadra. Agora é o simples: quem venceu mais vezes a outra **naquele play** (nunca o
 histórico); 1x1 ou nunca se enfrentaram → quadra. Vale em todos os formatos. Num grupo de 4 dá o
 mesmo resultado de antes.
+
+---
+
+## Lista de presença por link (06/11/2026, dono dormindo — decisões conservadoras, a confirmar)
+
+Desenho: `docs/superpowers/specs/2026-11-05-lista-de-presenca-design.md` (vale a seção "Decisões do
+dono depois da revisão"). Plano com D1–D24: `docs/superpowers/plans/2026-11-06-lista-de-presenca.md`.
+Resumo do que decide o comportamento:
+
+- **A segurança mora no banco** (script 31): visitante só chama `lista_colocar`/`lista_tirar`; tirar
+  confere o hash do código do celular; o hash fica numa tabela que ninguém lê (D2). O script tem um
+  teste de segurança que, se falhar, desfaz tudo. Provado fora do repo (PGlite e Postgres 17 com 30
+  conexões): posições sem repetir, um nome por celular, teto vagas × 3, não tira o nome de outra.
+  **Sem prova local:** o tempo real do Supabase e a chamada pelo PostgREST (`sb.rpc`).
+- **Ordem = `coalesce(ordem, chegada)`** (D3); saída suave (D5); vínculo automático no banco só com
+  um cadastro (D6/D23); escritas da organizadora fora da fila offline (D9).
+- **Mensalista em dia** = pagou o mês do play, ou play até o dia 5 com o mês anterior pago (D12,
+  leitura do "prazo até o dia 5"); ativas e sem pausa; entram por força (D13).
+- **Link sempre abre o Play de Todas** sem apagar a escolha de quem usa outro play (D18); a página
+  fica dentro do app, no lugar da aba (D19).
+- Decisões do app (06/11):
+  - **D25** Sugestão de vínculo própria (`sugestaoDeVinculo`), sem parar no primeiro idêntico: o
+    `conciliar` do "Colar lista" devolvia só uma das duas "Bruna". O botão de um toque na linha só
+    aparece com palpite ≥ 0,93, sem empate e por grafia de 2+ palavras (o alias "maria" da Maria Paula
+    oferecia ela para toda Maria). O menu do nome mostra até 4 e marca quem já está na lista.
+  - **D26** Depois de colocar o nome: aviso com a posição do banco e "Ir para o app" (fechar o aviso
+    também vai), como o desenho pede ("depois vai para a tela inicial").
+  - **D27** Na tela da organizadora não aparece "você"/"Tirar meu nome" (ela tira pelo menu, com a
+    pergunta das 24h quando é mensalista).
+  - **D28** Um botão "✍️ Colocar meu nome" no topo rola até o formulário (a lista fica em cima, como
+    pede o desenho); nenhum campo recebe foco sozinho.
+  - **D29** Reabrir com o prazo vencido abre o formulário com o prazo sugerido = hora do play.
+  - **D30** Atleta nova cadastrada pela lista é gravada direto (`repo.savePlayer`, além da fila) antes
+    do vínculo: o `player_id` tem chave estrangeira e a fila podia chegar depois.
+  - **D31** "Copiar atualização" usa o apelido (`nameOf`); duas atletas com o mesmo apelido saem
+    iguais no texto (o mesmo que o resto do app faz).
+  - **D32** O cartão da tela inicial ouve o canal da lista aberta (um canal a mais no mesmo socket
+    do tempo real que o app já abre).
+
