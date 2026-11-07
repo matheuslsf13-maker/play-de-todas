@@ -139,7 +139,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
       {perdeuEsteMes && (
         <div className="banner warn" style={{ margin: '0 0 10px' }}>
           Passou do dia {Number(vencimento(mes).slice(8))} sem renovar: ela perde a vaga e vai para o fim da fila (Meninas). Não renova mais por aqui.
-          {credito > 0 && <> Quando chegar a vez dela, o crédito de {formatarReais(credito)} completa o valor (até lá, vale para os avulsos).</>}
+          {credito > 0 && <> Os avulsos descontam do crédito dela (hoje {formatarReais(credito)}); quando chegar a vez, o que sobrar completa o valor — se acabar, ela paga completo.</>}
         </div>
       )}
       {credito > 0 && !renovada(f) && !perdeuEsteMes && (() => {
