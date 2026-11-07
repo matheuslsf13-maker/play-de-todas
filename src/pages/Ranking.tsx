@@ -29,10 +29,11 @@ import {
 import { avaliacaoCurta, emAvaliacao, forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
+import { posicoesDaLista, semOPlay, ultimoPlayJogado, variacoes } from '../lib/variacao'
 import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
 import { PerfilDaDupla } from './Stats'
 import CartaoDoMomento from '../components/CartaoDoMomento'
-import { monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
+import { monthLabel, monthOf, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
 const HISTORICO = 'all'
@@ -80,21 +81,18 @@ export default function Ranking({
   /** Quem esta com status vivo agora. */
   const comStatus = useMemo(() => onFire(streaks), [streaks])
 
-  const rows = useMemo(() => {
-    // no mes entram so os plays do campeonato; no historico entra tudo
-    const ms = playedMatches(data, historico ? {} : { month: activeMonth, ranked: true })
-    const awards = historico ? streaks.awards : streaks.awards.filter((a) => a.month === activeMonth)
-    // partidas, V/D e saldo contam tudo; os PONTOS so das partidas que
-    // pontuam (a fase de grupos do grupos+duplas nao pontua -- sem isto o
-    // total do mes nao batia com a soma dos dias)
-    const stats = computeStatsComPontos(data.sessions, ms)
-    // o bye do mata-mata paga pontos: quem passa direto joga uma partida a
-    // menos e nao pode terminar o mes atras de quem precisou jogar
-    const bye = pontosDeBye(data.sessions, ms).porJogadora
-    // no campeonato os pontos saem da colocacao final, nao do placar
-    const colocacao = colocacaoNoRecorte(data.sessions, ms)
-    return rankPlayers(aplicarColocacao(aplicarBye(applyBonuses(stats, awards), bye), colocacao), nameOf)
-  }, [data, activeMonth, historico, nameOf, streaks])
+  const rows = useMemo(() => linhasDoMes(data, streaks, activeMonth, historico, nameOf), [data, activeMonth, historico, nameOf, streaks])
+
+  // ▲/▼ desde o ultimo play do mes (dono, 07/11); com um play so no mes nao ha comparacao
+  const variacaoDoMes = useMemo(() => {
+    if (historico) return undefined
+    const ultimo = ultimoPlayJogado(data, { month: activeMonth, ranked: true })
+    if (!ultimo) return undefined
+    const antes = semOPlay(data, ultimo)
+    if (!playedMatches(antes, { month: activeMonth, ranked: true }).length) return undefined
+    const linhasAntes = linhasDoMes(antes, computeStreaks(antes), activeMonth, false, nameOf)
+    return variacoes(ordenarComDesempates(linhasAntes).posicao, ordenarComDesempates(rows).posicao)
+  }, [data, activeMonth, historico, nameOf, rows])
 
   const fire = comStatus
   const decisoes = useMemo(
@@ -260,7 +258,7 @@ export default function Ranking({
             )}
             {qtd > 0 && (
               <div style={{ marginTop: 12 }}>
-                <RankTable rows={rows.slice(0, qtd)} fire={streaks.current} />
+                <RankTable rows={rows.slice(0, qtd)} fire={streaks.current} variacao={variacaoDoMes} />
                 <div className="row" style={{ gap: 8, marginTop: 10 }}>
                   {qtd < rows.length && (
                     <button className="btn ghost sm grow" onClick={() => setQtd((n) => n + 10)}>
@@ -490,6 +488,29 @@ export default function Ranking({
 const ROTULOS_DA_COLOCACAO = ['🥇 Campeã', '🥈 Vice', '🥉 3º lugar', 'Semifinal', 'Quartas', 'Grupos']
 
 /** Fechar o mes so trava o ranking dele: o status nao depende mais do fechamento. */
+/** A classificacao do mes (ou do historico), como sai na tela. */
+function linhasDoMes(
+  data: AppData,
+  streaks: ReturnType<typeof computeStreaks>,
+  activeMonth: string,
+  historico: boolean,
+  nameOf: (id: string) => string,
+) {
+    // no mes entram so os plays do campeonato; no historico entra tudo
+    const ms = playedMatches(data, historico ? {} : { month: activeMonth, ranked: true })
+    const awards = historico ? streaks.awards : streaks.awards.filter((a) => a.month === activeMonth)
+    // partidas, V/D e saldo contam tudo; os PONTOS so das partidas que
+    // pontuam (a fase de grupos do grupos+duplas nao pontua -- sem isto o
+    // total do mes nao batia com a soma dos dias)
+    const stats = computeStatsComPontos(data.sessions, ms)
+    // o bye do mata-mata paga pontos: quem passa direto joga uma partida a
+    // menos e nao pode terminar o mes atras de quem precisou jogar
+    const bye = pontosDeBye(data.sessions, ms).porJogadora
+    // no campeonato os pontos saem da colocacao final, nao do placar
+    const colocacao = colocacaoNoRecorte(data.sessions, ms)
+    return rankPlayers(aplicarColocacao(aplicarBye(applyBonuses(stats, awards), bye), colocacao), nameOf)
+}
+
 function ConfirmarFechamento({
   mes,
   onClose,
@@ -522,8 +543,11 @@ export function RankTable({
   vagas = 3,
   desempates,
   partidas,
+  variacao,
 }: {
   rows: PlayerStat[]
+  /** ▲/▼ desde o ultimo play (ranking do mes). */
+  variacao?: Map<string, number>
   fire?: Map<string, number>
   /** Quantas posicoes ganham cor de podio: num grupo pequeno o podio tem menos de 3. */
   vagas?: number
@@ -565,7 +589,9 @@ export function RankTable({
             const bal = balance(s)
             return (
               <tr key={s.player_id}>
-                <td className={`rank-pos${posicoes[i] <= vagas ? ` top${posicoes[i]}` : ''}`} style={{ fontWeight: 800 }}>{posicoes[i]}</td>
+                <td>
+                  <Colocacao pos={posicoes[i]} v={variacao?.get(s.player_id)} vagas={vagas} />
+                </td>
                 <td>
                   <div className="row" style={{ gap: 8 }}>
                     <Avatar player={playerById(s.player_id)} size={28} />
@@ -626,25 +652,31 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
       .sort((a, b) => b.nota - a.nota || nameOf(a.a).localeCompare(nameOf(b.a), 'pt-BR'))
   }, [data, nameOf, canEdit])
 
+  // ▲/▼ desde o ultimo play: a mesma lista, com o mesmo filtro, sem ele (dono, 07/11)
+  const variacao = useMemo(() => {
+    const ultimo = ultimoPlayJogado(data)
+    if (!ultimo) return { individual: new Map<string, number>(), duplas: new Map<string, number>() }
+    const antes = semOPlay(data, ultimo)
+    const avaliacao = emAvaliacao(antes)
+    const indAntes = rankingDeForca(antes, nameOf).filter((l) => !l.pausada && (canEdit || l.emAvaliacao === undefined))
+    const dupAntes = [...forcaDeDuplas(antes).values()]
+      .filter((d) => canEdit || (!avaliacao.has(d.a) && !avaliacao.has(d.b)))
+      .sort((a, b) => b.nota - a.nota || nameOf(a.a).localeCompare(nameOf(b.a), 'pt-BR'))
+    return {
+      individual: variacoes(posicoesDaLista(indAntes.map((l) => l.player_id)), posicoesDaLista(individuais.map((l) => l.player_id))),
+      duplas: variacoes(posicoesDaLista(dupAntes.map((d) => d.key)), posicoesDaLista(duplas.map((d) => d.key))),
+    }
+  }, [data, nameOf, canEdit, individuais, duplas])
+
   const total = modo === 'individual' ? individuais.length : duplas.length
   if (individuais.length === 0) return null
 
   return (
     <div className="card">
-      <div className="section-title com-nota">
-        💪 Força e entrosamento <span className="titulo-nota">desempenho individual e em dupla · não é ranking e nunca zera</span>
-      </div>
-      {/* forca e entrosamento explicados no mesmo molde (dono, 07/11) */}
-      <p className="nota-entrosamento">
-        <strong>Força</strong> mede o quanto cada atleta rende contra quem enfrenta: vencer quem tem mais força vale
-        mais, e perder para quem tem menos custa mais.
-      </p>
-      <p className="nota-entrosamento">
-        <strong>Entrosamento</strong> mede o quanto a dupla rende acima (+) ou abaixo (−) do que a força das duas
-        promete.
-      </p>
+      <div className="section-title" style={{ marginBottom: 2 }}>💪 Força e entrosamento</div>
+      <div className="titulo-nota" style={{ marginBottom: 8 }}>não é ranking e nunca zera</div>
 
-      <div className="segmented" style={{ marginBottom: 10 }}>
+      <div className="segmented" style={{ marginBottom: 8 }}>
         <button
           className={modo === 'individual' ? 'on' : ''}
           onClick={() => setModo('individual')}
@@ -655,6 +687,18 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
           🤝 Duplas
         </button>
       </div>
+      {/* uma linha so, a da aba aberta (dono, 07/11: os dois textos juntos ficavam longos) */}
+      <p className="legenda-forca">
+        {modo === 'individual' ? (
+          <>
+            <strong>Força</strong>: o nível de cada atleta pelos resultados
+          </>
+        ) : (
+          <>
+            <strong>Entrosamento</strong>: a dupla rende + ou − que o esperado
+          </>
+        )}
+      </p>
 
       {modo === 'duplas' && duplas.length === 0 ? (
         <p className="tiny muted" style={{ margin: 0 }}>
@@ -674,9 +718,7 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   onClick={() => abrirPerfil?.(l.player_id)}
                   aria-label={`Ver o perfil de ${nameOf(l.player_id)}`}
                 >
-                  <span className={`rank-pos top${i + 1}`} style={{ fontWeight: 800, minWidth: 22 }}>
-                    {i + 1}
-                  </span>
+                  <Colocacao pos={i + 1} v={variacao.individual.get(l.player_id)} />
                   <Avatar player={playerById(l.player_id)} size={28} />
                   {/* a forca colada no nome (dono, 06/11); o tracejado embaixo do nome diz que abre o perfil */}
                   <span className="row" style={{ flex: '0 1 13em', minWidth: 0, gap: 4 }}>
@@ -712,9 +754,7 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   onClick={() => setDuplaAberta({ a: d.a, b: d.b })}
                   aria-label={`Ver o perfil da dupla ${nameOf(d.a)} e ${nameOf(d.b)}`}
                 >
-                  <span className={`rank-pos top${i + 1}`} style={{ fontWeight: 800, minWidth: 22 }}>
-                    {i + 1}
-                  </span>
+                  <Colocacao pos={i + 1} v={variacao.duplas.get(d.key)} />
                   <Avatar player={playerById(d.a)} size={24} />
                   <Avatar player={playerById(d.b)} size={24} />
                   <span style={{ flex: '0 1 13em', minWidth: 0 }}>
@@ -766,6 +806,21 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
 }
 
 /** Palavra da nota do titulo que rola ate o cartao que explica (Como pontua, Status). */
+/** O numero da colocacao com o ▲/▼ desde o ultimo play embaixo (some sem mudanca). */
+function Colocacao({ pos, v, vagas = 3 }: { pos: number; v?: number; vagas?: number }) {
+  return (
+    <span className="pos-com-delta">
+      <span className={`rank-pos${pos <= vagas ? ` top${pos}` : ''}`}>{pos}</span>
+      {v ? (
+        <span className={`rank-delta ${v > 0 ? 'sobe' : 'desce'}`} aria-label={v > 0 ? `subiu ${v}` : `caiu ${-v}`}>
+          {v > 0 ? '▲' : '▼'}
+          {Math.abs(v)}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
 function IrPara({ alvo, children }: { alvo: string; children: React.ReactNode }) {
   return (
     <button

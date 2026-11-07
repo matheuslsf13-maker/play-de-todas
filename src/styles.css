@@ -2090,3 +2090,29 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 /* Forca e entrosamento: a linha que explica e o rotulo em cada dupla */
 .nota-entrosamento { margin: -4px 0 10px; font-size: 13px; color: var(--muted); line-height: 1.35; }
 .nota-entrosamento strong, .rotulo-entrosamento { color: var(--pink); font-weight: 800; }
+
+/* ▲/▼ da colocacao desde o ultimo play (dono, 07/11): embaixo do numero, sem ocupar largura */
+.pos-com-delta { display: inline-flex; flex-direction: column; align-items: center; min-width: 24px; flex: none; line-height: 1.1; }
+.pos-com-delta .rank-pos { width: auto; }
+.rank-delta { font-size: 10px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rank-delta.sobe { color: var(--verde); }
+.rank-delta.desce { color: var(--danger); }
+
+/* legenda do card da forca: uma linha, a da aba aberta */
+.legenda-forca { margin: 0 0 10px; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.legenda-forca strong { color: var(--pink); font-weight: 800; }
+
+/* a seta do circulo desenhada (o "›" da fonte ficava fora do centro) */
+.seta-abrir { position: relative; font-size: 0; }
+.seta-abrir::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-top: 2.5px solid currentColor;
+  border-right: 2.5px solid currentColor;
+  /* o canto do chevron pesa para a direita: puxa 1,5px para a esquerda */
+  transform: translate(-65%, -50%) rotate(45deg);
+}
