@@ -4,7 +4,7 @@ import { caixaDeEventos, checkinsNaArena, contaDoAluguel } from '../src/lib/alug
 import { LOCAIS_INICIAIS } from '../src/lib/checkins'
 import { emptyData, type Checkin } from '../src/lib/types'
 
-test('aluguel de janeiro usa os dez lançamentos do relatório de dezembro da V3', () => {
+test('aluguel de janeiro: check-ins da V3 em dezembro (sem contar o uso do crédito) e o exemplo do dono', () => {
   const data = emptyData()
   data.checkinLocais = LOCAIS_INICIAIS
   const [v3, outra] = data.checkinLocais
@@ -27,9 +27,10 @@ test('aluguel de janeiro usa os dez lançamentos do relatório de dezembro da V3
     id: 'item', player_id: 'bia', tipo: 'checkin', date: '2026-12-15', mes: '2027-01',
     local_id: v3.id, conta_id: null, confirmado: true, valor: null, observacao: null, created_at: '',
   }]
-  const checkinsMesAnterior = checkinsNaArena(data, v3.id, '2026-12')
-  assert.equal(checkinsMesAnterior, 10)
-  assert.deepEqual(contaDoAluguel({ valorNoPlano: 1824, checkinsMesAnterior }), {
+  // 7 plays + o "nao veio, mas fez o check-in" + o da mensalidade; o USO do credito nao e check-in novo
+  assert.equal(checkinsNaArena(data, v3.id, '2026-12'), 9)
+  // o exemplo do dono: 10 check-ins no mes anterior
+  assert.deepEqual(contaDoAluguel({ valorNoPlano: 1824, checkinsMesAnterior: 10 }), {
     semPlano: 1920, economia: 96, credito: 250, pagarNoPix: 1574,
   })
 })

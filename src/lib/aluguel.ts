@@ -1,8 +1,17 @@
-import { centavos, relatorioDasArenas } from './checkins'
-import type { AppData } from './types'
+import { centavos, gastaCheckin } from './checkins'
+import { MES_INICIAL } from './fichaDaMensalidade'
+import { monthOf, type AppData } from './types'
 
+/**
+ * Os check-ins que a arena RECEBEU no mes (o que a V3 abate no aluguel): os de play que gastam
+ * cota (inclui o "nao veio, mas fez o check-in") e os da mensalidade, pela data. O dia em que ela
+ * USA um check-in de credito aparece no relatorio da arena, mas nao e check-in novo: nao conta.
+ */
 export function checkinsNaArena(data: AppData, localId: string, mes: string): number {
-  return relatorioDasArenas(data, { mes, de: null, ate: null, locais: [localId] }, (id) => id).total
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
+  const dePlay = data.checkins.filter((c) => gastaCheckin(c) && c.local_id === localId && monthOf(dias.get(c.dia_id) ?? '') === mes).length
+  const daMensalidade = data.mensalidadeItens.filter((i) => i.tipo === 'checkin' && i.mes >= MES_INICIAL && i.local_id === localId && monthOf(i.date) === mes).length
+  return dePlay + daMensalidade
 }
 
 type DadosDoAluguel = {
