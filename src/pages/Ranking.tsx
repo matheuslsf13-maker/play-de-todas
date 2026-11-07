@@ -28,7 +28,7 @@ import {
 import { avaliacaoCurta, emAvaliacao, forcaDeDuplas, rankingDeForca } from '../lib/forca'
 import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
-import { NomeClicavel } from '../components/NomeClicavel'
+import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
 import { PerfilDaDupla } from './Stats'
 import CartaoDoMomento from '../components/CartaoDoMomento'
 import { monthLabel, monthOf, todayISO, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
@@ -599,6 +599,7 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
   const { data, nameOf, playerById, canEdit } = useStore()
   const [modo, setModo] = useState<'individual' | 'duplas'>('individual')
   const [duplaAberta, setDuplaAberta] = useState<{ a: string; b: string } | null>(null)
+  const abrirPerfil = useAbrirPerfil()
 
   // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca; quem
   // esta em avaliacao so aparece para a admin (marcada 🔍), e a dupla dela tambem
@@ -642,15 +643,24 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
         <div className="stack" style={{ gap: 8 }}>
           {modo === 'individual'
             ? individuais.slice(0, 5).map((l, i) => (
-                <div key={l.player_id} className="row" style={{ gap: 8 }}>
+                // igual as duplas: a linha toda abre o perfil, com a seta mostrando que e tocavel (dono, 06/11)
+                <button
+                  key={l.player_id}
+                  type="button"
+                  className="row linha-dupla-forca"
+                  style={{ gap: 8 }}
+                  disabled={!abrirPerfil}
+                  onClick={() => abrirPerfil?.(l.player_id)}
+                  aria-label={`Ver o perfil de ${nameOf(l.player_id)}`}
+                >
                   <span className={`rank-pos top${i + 1}`} style={{ fontWeight: 800, minWidth: 22 }}>
                     {i + 1}
                   </span>
                   <Avatar player={playerById(l.player_id)} size={28} />
                   <span className="grow row" style={{ minWidth: 0, gap: 4 }}>
-                    <NomeClicavel id={l.player_id} className="ellipsis">
+                    <span className="ellipsis" style={{ fontWeight: 700 }}>
                       {nameOf(l.player_id)}
-                    </NomeClicavel>
+                    </span>
                     {l.emAvaliacao !== undefined && <span className="nowrap tiny muted">{avaliacaoCurta(l.emAvaliacao)}</span>}
                   </span>
                   {LIGA.id === 'misto' && (
@@ -665,7 +675,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   >
                     {l.nota}
                   </span>
-                </div>
+                  <span className="seta-abrir" aria-hidden="true">›</span>
+                </button>
               ))
             : duplas.slice(0, 5).map((d, i) => (
                 // a linha toda abre o perfil DA DUPLA (e nao o de cada uma)
@@ -697,7 +708,7 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   >
                     {d.nota}
                   </span>
-                  <span className="muted" aria-hidden="true">›</span>
+                  <span className="seta-abrir" aria-hidden="true">›</span>
                 </button>
               ))}
         </div>

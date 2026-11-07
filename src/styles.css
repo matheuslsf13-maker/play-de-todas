@@ -2036,3 +2036,18 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   text-transform: none;
   color: var(--muted);
 }
+
+/* a seta das linhas que abrem perfil (forca individual e duplas): em rosa, para ver que e tocavel */
+.seta-abrir {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--pink-suave);
+  color: var(--pink);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  flex: none;
+}
