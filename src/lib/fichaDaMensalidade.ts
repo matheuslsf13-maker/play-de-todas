@@ -136,3 +136,16 @@ export function mesSugeridoDoCheckin(data: AppData, playerId: string, date: stri
   const f = fichaDe(data, playerId, mes)
   return checkinsDaFicha(f) >= f.max_checkins ? proximoMes(mes) : mes
 }
+
+/**
+ * FALTA AVISADA COM 24H (dono, 07/11): a mensalista escolhe R$ 25 de credito na proxima mensalidade
+ * ou um check-in a menos na deste ciclo. Os dois viram um abatimento de `valor_checkin` na ficha; muda o
+ * mes: 'checkin' = a mensalidade do ciclo do play; 'credito' = a primeira, a partir dela, ainda nao quitada.
+ */
+export function mesDaCompensacao(data: AppData, playerId: string, dataDoPlay: string, tipo: 'credito' | 'checkin'): string {
+  let mes = mesDoCiclo(dataDoPlay)
+  if (mes < MES_INICIAL) mes = MES_INICIAL
+  if (tipo === 'checkin') return mes
+  while (quitada(fichaDe(data, playerId, mes))) mes = proximoMes(mes)
+  return mes
+}

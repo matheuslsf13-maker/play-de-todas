@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { LIGA } from '../liga'
 import NovaAtleta from './NovaAtleta'
 import { Avatar, Modal } from './ui'
 import {
@@ -20,7 +21,10 @@ import {
 import { normalizar, semelhanca } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { esquecerCopiaDaApagada, guardarCopiaDaApagada } from '../lib/useLista'
-import { plural, type Player } from '../lib/types'
+import { monthLabel, plural, type Player } from '../lib/types'
+import { useGravarNaFicha } from './FichaDaMensalidade'
+import { MENSALIDADE_PADRAO, mesDaCompensacao } from '../lib/fichaDaMensalidade'
+import { formatarReais } from '../lib/checkins'
 import { avisoDoFinanceiro, lancadosPelaLista, type Desfazer } from '../lib/pagamentoNaLista'
 
 /*
@@ -212,7 +216,8 @@ export function OpcoesDoNome({
   const { data, repo, nameOf, playerById } = useStore()
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
   const { vincular, avisoDeDuplicada } = useVincular(lc, recarregar, onToast)
-  const [tela, setTela] = useState<'menu' | 'outra' | 'nova' | 'tirar'>('menu')
+  const [tela, setTela] = useState<'menu' | 'outra' | 'nova' | 'tirar' | 'compensar'>('menu')
+  const gravarNaFicha = useGravarNaFicha()
   const player = n.player_id ? playerById(n.player_id) : undefined
   const ativas = data.players.filter((p) => p.active)
   const sugestoes = n.player_id ? [] : sugestaoDeVinculo(n.nome, ativas).slice(0, 3)
@@ -263,6 +268,44 @@ export function OpcoesDoNome({
       />
     )
   }
+  if (tela === 'compensar' && player) {
+    // FALTA AVISADA (dono, 07/11): R$ 25 de credito na proxima mensalidade ou um check-in a menos na deste ciclo
+    const quando = dataDoPlay(lc.lista)
+    const compensar = async (tipo: 'credito' | 'checkin' | null) => {
+      if (tipo) {
+        const mes = mesDaCompensacao(data, player.id, quando, tipo)
+        try {
+          gravarNaFicha({
+            id: `falta:${lc.lista.id}:${player.id}`, player_id: player.id, mes, tipo: 'abatimento', date: quando,
+            valor: MENSALIDADE_PADRAO.valor_checkin, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
+            observacao: `falta avisada no play de ${quando.slice(8, 10)}/${quando.slice(5, 7)}: ${tipo === 'credito' ? 'crédito' : 'um check-in a menos'}`,
+          })
+        } catch (e) {
+          onToast(mensagemDeErro(e))
+          return
+        }
+      }
+      await tirar(true)
+    }
+    return (
+      <Modal title={`${nameOf(player.id)} avisou com 24h`} onClose={() => setTela('tirar')}>
+        <div className="stack lista-pagina">
+          <p style={{ margin: 0 }}>
+            <strong>Como ela prefere compensar?</strong>
+            <br />
+            <span className="small muted">Fica registrado na ficha da mensalidade dela.</span>
+          </p>
+          <button className="btn teal block" disabled={ocupada} onClick={() => void compensar('credito')}>
+            💰 {formatarReais(MENSALIDADE_PADRAO.valor_checkin)} de crédito na mensalidade de {monthLabel(mesDaCompensacao(data, player.id, quando, 'credito')).toLowerCase()}
+          </button>
+          <button className="btn block" disabled={ocupada} onClick={() => void compensar('checkin')}>
+            ✅ Um check-in a menos na mensalidade de {monthLabel(mesDaCompensacao(data, player.id, quando, 'checkin')).toLowerCase()}
+          </button>
+          <button className="btn ghost block" disabled={ocupada} onClick={() => void compensar(null)}>Nenhum — só tirar</button>
+        </div>
+      </Modal>
+    )
+  }
   if (tela === 'tirar') {
     const faltam = horasAntesDoPlay(new Date().toISOString(), lc.lista.play_em)
     return (
@@ -278,7 +321,14 @@ export function OpcoesDoNome({
                   (vale para o crédito da mensalista).
                 </span>
               </p>
-              <button className="btn teal block" disabled={ocupada} onClick={() => void tirar(true)}>Sim, avisou — tirar</button>
+              <button
+                className="btn teal block"
+                disabled={ocupada}
+                // a compensacao so existe no Play de Todas, para quem tem cadastro (a ficha e da atleta)
+                onClick={() => (LIGA.id === 'feminino' && player ? setTela('compensar') : void tirar(true))}
+              >
+                Sim, avisou — tirar
+              </button>
               <button className="btn danger block" disabled={ocupada} onClick={() => void tirar(false)}>Não avisou — tirar</button>
             </>
           ) : (

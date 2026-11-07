@@ -132,3 +132,13 @@ test('check-in da mensalidade de dezembro feito em novembro gasta a cota de nove
   assert.equal(livres('2026-11'), 10)
   assert.equal(livres('2026-12'), 12)
 })
+
+test('falta avisada: check-in a menos na ficha do ciclo; credito na primeira nao quitada', async () => {
+  const { mesDaCompensacao } = await import('../src/lib/fichaDaMensalidade')
+  assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-11-16', 'checkin'), '2026-12')
+  assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-11-16', 'credito'), '2026-12')
+  const quitadaDez = dados([item('2026-12', 'dinheiro', '2026-11-10', 180)])
+  assert.equal(mesDaCompensacao(quitadaDez, 'bia', '2026-11-16', 'credito'), '2027-01')
+  assert.equal(mesDaCompensacao(quitadaDez, 'bia', '2026-12-07', 'checkin'), '2027-01') // dia 7: ciclo de janeiro
+  assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-11-02', 'checkin'), '2026-12') // antes da regra nova
+})

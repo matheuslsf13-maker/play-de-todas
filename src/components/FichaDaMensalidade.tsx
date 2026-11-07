@@ -50,8 +50,20 @@ export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string)
   return { texto: `${partes.join(' + ')} · ${vencida ? 'deve' : 'falta'} ${formatarReais(falta)}`, cor: vencida ? 'var(--danger)' : 'var(--yellow)' }
 }
 
+/** Grava um item na ficha, criando o cabecalho (valores congelados) se for o primeiro do mes. Lanca sem o script 34. */
+export function useGravarNaFicha() {
+  const { data, saveMensalidade, saveItemDaMensalidade } = useStore()
+  return (item: ItemDaMensalidade) => {
+    if (!data.mensalidades.some((m) => m.player_id === item.player_id && m.mes === item.mes)) {
+      saveMensalidade({ id: idDaFicha(item.player_id, item.mes), player_id: item.player_id, mes: item.mes, ...MENSALIDADE_PADRAO, created_at: new Date().toISOString() })
+    }
+    saveItemDaMensalidade(item)
+  }
+}
+
 export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: { playerId: string; mesInicial?: string; onClose: () => void; onToast: (m: string) => void }) {
-  const { data, nameOf, saveMensalidade, saveItemDaMensalidade, deleteItemDaMensalidade } = useStore()
+  const { data, nameOf, deleteItemDaMensalidade } = useStore()
+  const gravarNaFicha = useGravarNaFicha()
   const hoje = todayISO()
   const [mes, setMes] = useState(mesInicial ?? mensalidadeDeHoje(hoje))
   const [novo, setNovo] = useState<null | 'checkin' | 'dinheiro'>(null)
@@ -63,10 +75,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
   // o cabecalho congela os valores do mes; grava junto com o primeiro item
   function gravar(item: ItemDaMensalidade) {
     try {
-      if (!data.mensalidades.some((m) => m.player_id === playerId && m.mes === item.mes)) {
-        saveMensalidade({ id: idDaFicha(playerId, item.mes), player_id: playerId, mes: item.mes, ...MENSALIDADE_PADRAO, created_at: new Date().toISOString() })
-      }
-      saveItemDaMensalidade(item)
+      gravarNaFicha(item)
     } catch (e) {
       // sem o script 34 a store recusa: avisa em vez de quebrar a janela
       onToast(e instanceof Error ? e.message : 'Não deu para gravar a mensalidade.')
@@ -120,7 +129,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
                 <strong>{dateLabel(i.date).slice(0, 5)}</strong>{' '}
                 {i.tipo === 'checkin'
                   ? <>check-in {data.checkinLocais.find((l) => l.id === i.local_id)?.nome ?? 'sem arena'} · <span className="muted">{tituloDaConta(i)}</span></>
-                  : <>{i.tipo === 'dinheiro' ? 'Pix' : 'abatimento'} {formatarReais(i.valor ?? 0)}</>}
+                  : <>{i.tipo === 'dinheiro' ? 'Pix' : 'abatimento'} {formatarReais(i.valor ?? 0)}{i.observacao ? <span className="muted"> · {i.observacao}</span> : null}</>}
               </span>
               <button
                 className="btn ghost sm"
