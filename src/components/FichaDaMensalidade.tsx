@@ -4,7 +4,10 @@ import { useStore } from '../lib/store'
 import { contasDaAtleta, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
 import {
   checkinsDaFicha,
+  creditoDaMensalidade,
   dividaDaMensalidade,
+  dividirPix,
+  levarCredito,
   faltaDaFicha,
   fichaDe,
   idDaFicha,
@@ -86,11 +89,17 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
   const f = fichaDe(data, playerId, mes)
   const falta = faltaDaFicha(f)
   const divida = dividaDaMensalidade(data, playerId, hoje)
+  const credito = creditoDaMensalidade(data, playerId, hoje)
+  const novoItem = (i: Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'observacao'>, date = hoje): ItemDaMensalidade => ({
+    ...i, id: uid(), player_id: playerId, date, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
+  })
 
   // o cabecalho congela os valores do mes; grava junto com o primeiro item
-  function gravar(item: ItemDaMensalidade) {
+  function gravar(itens: ItemDaMensalidade | ItemDaMensalidade[]) {
+    const lista = Array.isArray(itens) ? itens : [itens]
+    const item = lista[lista.length - 1]
     try {
-      gravarNaFicha(item)
+      for (const i of lista) gravarNaFicha(i)
     } catch (e) {
       // sem o script 34 a store recusa: avisa em vez de quebrar a janela
       onToast(e instanceof Error ? e.message : 'Não deu para gravar a mensalidade.')
@@ -125,6 +134,15 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
       <p className="tiny muted" style={{ margin: '0 0 10px' }}>
         {formatarReais(f.valor_cheio)} no Pix, ou {formatarReais(f.valor_cheio - f.max_checkins * f.valor_checkin)} + {f.max_checkins} check-ins (cada um vale {formatarReais(f.valor_checkin)}).
       </p>
+      {credito.total > 0 && !renovada(f) && (
+        <div className="banner" style={{ margin: '0 0 10px' }}>
+          💰 Crédito de {formatarReais(credito.total)} (pago sem renovar em {credito.porMes.map((c) => monthLabel(c.mes).toLowerCase()).join(', ')}).
+          {' '}Se for devolver, apague o Pix na mensalidade daquele mês.
+          <button className="btn teal sm block" style={{ marginTop: 8 }} onClick={() => gravar(levarCredito(data, playerId, mes, hoje).map((i) => novoItem(i)))}>
+            Usar o crédito nesta mensalidade
+          </button>
+        </div>
+      )}
       {divida.porMes.some((d) => d.mes !== mes) && (
         <p className="hint aviso" style={{ marginTop: 0 }}>
           ⚠️ Deve {divida.porMes.filter((d) => d.mes !== mes).map((d) => `${formatarReais(d.falta)} de ${monthLabel(d.mes)}`).join(' e ')}.
@@ -169,7 +187,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
         </div>
       )}
       {novo === 'checkin' && <NovoCheckin playerId={playerId} onCancelar={() => setNovo(null)} onGravar={gravar} />}
-      {novo === 'dinheiro' && <NovoPix playerId={playerId} mes={mes} sugestao={renovada(f) ? falta : Math.max(0, valorParaRenovar(f) - f.itens.filter((i) => i.tipo !== 'checkin').reduce((t, i) => t + (i.valor ?? 0), 0))} onCancelar={() => setNovo(null)} onGravar={gravar} />}
+      {novo === 'dinheiro' && <NovoPix playerId={playerId} mes={mes} novoItem={novoItem} sugestao={renovada(f) ? falta : Math.max(0, valorParaRenovar(f) - f.itens.filter((i) => i.tipo !== 'checkin').reduce((t, i) => t + (i.valor ?? 0), 0))} onCancelar={() => setNovo(null)} onGravar={gravar} />}
     </Modal>
   )
 
@@ -234,10 +252,21 @@ function NovoCheckin({ playerId, onCancelar, onGravar }: { playerId: string; onC
   )
 }
 
-function NovoPix({ playerId, mes, sugestao, onCancelar, onGravar }: { playerId: string; mes: string; sugestao: number; onCancelar: () => void; onGravar: (i: ItemDaMensalidade) => void }) {
+function NovoPix({ playerId, mes, sugestao, novoItem, onCancelar, onGravar }: {
+  playerId: string
+  mes: string
+  sugestao: number
+  novoItem: (i: Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'observacao'>, date?: string) => ItemDaMensalidade
+  onCancelar: () => void
+  onGravar: (i: ItemDaMensalidade[]) => void
+}) {
+  const { data } = useStore()
   const [date, setDate] = useState(todayISO())
   const [texto, setTexto] = useState(sugestao > 0 ? String(sugestao) : '')
   const valor = lerValor(texto)
+  // quem deve: o Pix quita a divida primeiro (dono, 07/11)
+  const partes = valor && valor > 0 && date ? dividirPix(data, playerId, mes, valor, date) : []
+  const dividido = partes.some((p) => p.mes !== mes)
   return (
     <div className="stack" style={{ gap: 10 }}>
       <div className="row wrap" style={{ gap: 6 }}>
@@ -255,16 +284,16 @@ function NovoPix({ playerId, mes, sugestao, onCancelar, onGravar }: { playerId: 
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
       </div>
-      <span className="hint">Mensalidade de <strong>{monthLabel(mes)}</strong>.</span>
+      {dividido ? (
+        <span className="hint aviso">
+          Ela deve: {partes.map((p) => `${formatarReais(p.valor ?? 0)} ${p.mes === mes ? `vão para ${monthLabel(mes).toLowerCase()}` : `quitam ${monthLabel(p.mes).toLowerCase()}`}`).join(' · ')}.
+        </span>
+      ) : (
+        <span className="hint">Mensalidade de <strong>{monthLabel(mes)}</strong>.</span>
+      )}
       <div className="row" style={{ gap: 8 }}>
         <button className="btn ghost grow" onClick={onCancelar}>Cancelar</button>
-        <button
-          className="btn grow"
-          disabled={!valor || valor <= 0 || !date}
-          onClick={() =>
-            onGravar({ id: uid(), player_id: playerId, mes, tipo: 'dinheiro', date, valor, conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: new Date().toISOString() })
-          }
-        >
+        <button className="btn grow" disabled={!valor || valor <= 0 || !date} onClick={() => onGravar(partes.map((p) => novoItem(p, date)))}>
           Salvar Pix
         </button>
       </div>

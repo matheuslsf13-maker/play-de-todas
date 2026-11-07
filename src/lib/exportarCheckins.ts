@@ -29,7 +29,7 @@ import {
 } from './checkins'
 import {
   MES_INICIAL, checkinsDaFicha, dinheiroDaFicha, faltaDaFicha, fichaDe, idDaFicha,
-  iniciada, prazoDosCheckins, quitada, renovada, valorDaFicha, vencimento,
+  prazoDosCheckins, quitada, renovada, valorDaFicha, vencimento,
 } from './fichaDaMensalidade'
 import type { Celula, Planilha } from './xlsx'
 
@@ -71,7 +71,7 @@ function planilhaMensalidades(data: AppData, nome: (id: string) => string, mes: 
     const periodo = monthLabel(competencia).toLowerCase().replace(' de ', '/')
     const falta = faltaDaFicha(f)
     const situacao = quitada(f) ? 'Quitada'
-      : hoje > prazoDosCheckins(competencia) && iniciada(f) ? `Deve ${formatarReais(falta)} - virou avulsa`
+      : hoje > prazoDosCheckins(competencia) && renovada(f) ? `Deve ${formatarReais(falta)} - virou avulsa`
       : hoje > vencimento(competencia) && !renovada(f) ? 'Não renovou'
       : `Falta ${formatarReais(falta)}`
     const abatimentos = f.itens.filter(i => i.tipo === 'abatimento')

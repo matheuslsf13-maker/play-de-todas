@@ -635,7 +635,11 @@ liga/            textos do masculino: o código fica no feminino e o build
   check-ins passou). **Dia 6 sem renovar**: joga como avulsa, **sem dívida**, e **cede a vaga** (`perdeuAVaga` em
   `vagasDeMensalista.ts`; o cartão de Meninas lista "não renovaram" com "Passar para avulsa (fim da espera)").
   **Para renovar tem de quitar o que deve da anterior e pagar os 80** (dono, 07/11): devendo check-ins no dia 6,
-  não renovou — joga como avulsa e cede a vaga, como quem não pagou.
+  não renovou — joga como avulsa e cede a vaga, como quem não pagou. **O Pix de quem deve quita a dívida primeiro**
+  (`dividirPix`, a tela mostra a divisão) e o resto vai para a mensalidade escolhida. **Dinheiro pago sem renovar
+  vira crédito, não dívida** (`creditoDaMensalidade`; dívida só de ficha renovada): a Ingryd devolve (apaga o Pix) ou
+  usa na próxima renovação ("Usar o crédito", `levarCredito`: abatimento −X na antiga e +X na nova, a receita fica
+  no mês do Pix); o "Topou e pagou" usa o crédito sozinho e o Pix é só a diferença.
   **Nova mensalista da espera** começa a mensalidade do mês ao pagar ("✅ Topou e pagou": 80 ou 180, grava o Pix e
   vira mensalista) ou "Recusou" (sai da fila). **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
   `pago_mes`; check-in de novembro conta para dezembro).

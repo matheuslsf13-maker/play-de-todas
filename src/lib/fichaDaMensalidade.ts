@@ -98,19 +98,65 @@ function mesesDaAtleta(data: AppData, playerId: string): string[] {
 }
 
 /**
- * A DIVIDA DA MENSALIDADE na data: o que falta das fichas iniciadas cujo prazo dos check-ins
- * (dia 5 do mes seguinte) ja passou. Separada do saldo dos plays (dono, 07/11).
+ * A DIVIDA DA MENSALIDADE na data: o que falta das fichas RENOVADAS cujo prazo dos check-ins
+ * (dia 5 do mes seguinte) ja passou. Separada do saldo dos plays (dono, 07/11). Dinheiro pago sem
+ * renovar nao gera divida: vira credito (`creditoDaMensalidade`).
  */
 export function dividaDaMensalidade(data: AppData, playerId: string, hoje: string): { total: number; porMes: { mes: string; falta: number }[] } {
   const porMes: { mes: string; falta: number }[] = []
   for (const mes of mesesDaAtleta(data, playerId)) {
     if (prazoDosCheckins(mes) >= hoje) continue
     const f = fichaDe(data, playerId, mes)
-    if (!iniciada(f, hoje)) continue
+    if (!renovada(f, hoje)) continue
     const falta = faltaDaFicha(f, hoje)
     if (falta > 0) porMes.push({ mes, falta })
   }
   return { total: centavos(porMes.reduce((s, x) => s + x.falta, 0)), porMes }
+}
+
+/**
+ * CREDITO DA MENSALIDADE (dono, 07/11): dinheiro que entrou numa mensalidade que NAO renovou (passou o
+ * dia 5 sem completar os 80) -- a Ingryd devolve (apaga o Pix) ou ele fica de credito para a proxima
+ * renovacao, e ela so paga a diferenca. Levar o credito (`levarCredito`) zera a ficha antiga com um
+ * abatimento negativo e poe o mesmo valor na nova: a receita fica no mes em que o Pix entrou.
+ */
+export function creditoDaMensalidade(data: AppData, playerId: string, hoje: string): { total: number; porMes: { mes: string; valor: number }[] } {
+  const porMes: { mes: string; valor: number }[] = []
+  for (const mes of mesesDaAtleta(data, playerId)) {
+    if (vencimento(mes) >= hoje) continue
+    const f = fichaDe(data, playerId, mes)
+    if (renovada(f, hoje)) continue
+    const valor = valorDaFicha({ ...f, itens: f.itens.filter((i) => i.tipo !== 'checkin') }, hoje)
+    if (valor > 0) porMes.push({ mes, valor })
+  }
+  return { total: centavos(porMes.reduce((s, x) => s + x.valor, 0)), porMes }
+}
+
+export type ItemNovo = Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'observacao'>
+
+/** Leva todo o credito para a mensalidade `mes`: um abatimento negativo em cada ficha antiga e o positivo na nova. */
+export function levarCredito(data: AppData, playerId: string, mes: string, hoje: string): ItemNovo[] {
+  return creditoDaMensalidade(data, playerId, hoje).porMes.filter((c) => c.mes !== mes).flatMap((c) => [
+    { mes: c.mes, tipo: 'abatimento' as const, valor: -c.valor, observacao: `crédito levado para ${mes.slice(5, 7)}/${mes.slice(0, 4)}` },
+    { mes, tipo: 'abatimento' as const, valor: c.valor, observacao: `crédito da mensalidade de ${c.mes.slice(5, 7)}/${c.mes.slice(0, 4)}` },
+  ])
+}
+
+/**
+ * UM PIX DE QUEM DEVE (dono, 07/11): primeiro quita a divida (a mais antiga primeiro), o resto vai
+ * para a mensalidade escolhida.
+ */
+export function dividirPix(data: AppData, playerId: string, mes: string, valor: number, hoje: string): ItemNovo[] {
+  const out: ItemNovo[] = []
+  let resta = centavos(valor)
+  for (const d of dividaDaMensalidade(data, playerId, hoje).porMes) {
+    if (resta <= 0 || d.mes === mes) continue
+    const v = Math.min(resta, d.falta)
+    out.push({ mes: d.mes, tipo: 'dinheiro', valor: v, observacao: 'quitou a dívida' })
+    resta = centavos(resta - v)
+  }
+  if (resta > 0) out.push({ mes, tipo: 'dinheiro', valor: resta, observacao: null })
+  return out
 }
 
 /** O mes anterior a regra nova quitado pelo `pago_mes` (a transicao de novembro). */

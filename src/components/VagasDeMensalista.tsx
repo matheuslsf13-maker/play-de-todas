@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { plural, todayISO, uid } from '../lib/types'
 import { formatarReais } from '../lib/checkins'
-import { mensalidadeDaData, MENSALIDADE_PADRAO } from '../lib/fichaDaMensalidade'
+import { creditoDaMensalidade, levarCredito, mensalidadeDaData, MENSALIDADE_PADRAO } from '../lib/fichaDaMensalidade'
 import { useGravarNaFicha } from './FichaDaMensalidade'
 import { CHAVE_DO_LIMITE, filaDeEspera, limiteDeMensalistas, mensalistasAtivas, naoRenovaram, vagasLivres } from '../lib/vagasDeMensalista'
 
@@ -29,11 +29,14 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
     const p = data.players.find((x) => x.id === id)
     if (!p) return
     const hoje = todayISO()
+    const mes = mensalidadeDaData(hoje)
+    // o credito dela (pago antes sem renovar) entra primeiro: no Pix so a diferenca (dono, 07/11)
+    const credito = creditoDaMensalidade(data, id, hoje).total
+    const base = { player_id: id, date: hoje, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString() }
     try {
-      gravarNaFicha({
-        id: uid(), player_id: id, mes: mensalidadeDaData(hoje), tipo: 'dinheiro', date: hoje, valor,
-        conta_id: null, local_id: null, confirmado: true, observacao: 'entrou pela lista de espera', created_at: new Date().toISOString(),
-      })
+      for (const i of levarCredito(data, id, mes, hoje)) gravarNaFicha({ ...base, ...i, id: uid() })
+      const pix = Math.max(0, valor - credito)
+      if (pix > 0) gravarNaFicha({ ...base, id: uid(), mes, tipo: 'dinheiro', valor: pix, observacao: 'entrou pela lista de espera' })
     } catch (e) {
       return onToast(e instanceof Error ? e.message : 'Não deu para gravar a mensalidade.')
     }
@@ -122,7 +125,11 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
           ))}
           {vagas > 0 && pagou !== null && (
             <div className="stack" style={{ gap: 6 }}>
-              <span className="small">Quanto {nameOf(fila[0].id)} pagou?</span>
+              <span className="small">
+                Quanto {nameOf(fila[0].id)} pagou?
+                {creditoDaMensalidade(data, fila[0].id, todayISO()).total > 0 &&
+                  ` Ela tem ${formatarReais(creditoDaMensalidade(data, fila[0].id, todayISO()).total)} de crédito: no Pix, só a diferença.`}
+              </span>
               <div className="row wrap" style={{ gap: 6 }}>
                 {[MENSALIDADE_PADRAO.valor_cheio - MENSALIDADE_PADRAO.max_checkins * MENSALIDADE_PADRAO.valor_checkin, MENSALIDADE_PADRAO.valor_cheio].map((v) => (
                   <button key={v} className={`chip ${pagou === v ? 'on' : ''}`} onClick={() => setPagou(v)}>

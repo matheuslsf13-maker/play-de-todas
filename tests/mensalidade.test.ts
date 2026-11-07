@@ -143,3 +143,25 @@ test('falta avisada: check-in a menos na que ela esta fechando; credito na do me
   assert.equal(mesDaCompensacao(quitadaDez, 'bia', '2026-12-07', 'checkin'), '2027-01', 'dezembro quitado')
   assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-12-14', 'credito'), '2027-01')
 })
+
+test('pago sem renovar vira credito (nao divida); o Pix de quem deve quita a divida primeiro; o credito vai para a proxima', async () => {
+  const { creditoDaMensalidade, dividirPix, levarCredito } = await import('../src/lib/fichaDaMensalidade')
+  // pagou 50 de dezembro e nao completou: no dia 6 nao renovou, sem divida, com 50 de credito
+  const parcial = dados([item('2026-12', 'dinheiro', '2026-12-03', 50)])
+  assert.equal(dividaDaMensalidade(parcial, 'bia', '2026-12-06').total, 0)
+  assert.equal(creditoDaMensalidade(parcial, 'bia', '2026-12-06').total, 50)
+  assert.equal(emDiaNaData(parcial, bia, '2026-12-07'), false)
+  // renovou dezembro com 2 check-ins: em 06/01 deve 50; o Pix de 80 quita os 50 e sobram 30 para janeiro
+  const base = [item('2026-12', 'dinheiro', '2026-11-20', 80), ...quatro('2026-12', ['2026-11-23', '2026-11-30'])]
+  const d = dados(base)
+  assert.deepEqual(dividirPix(d, 'bia', '2027-01', 80, '2027-01-06').map((i) => [i.mes, i.valor]), [['2026-12', 50], ['2027-01', 30]])
+  // os 30 nao renovam janeiro: em 06/02 viram credito; levar para fevereiro e pagar so a diferenca (50)
+  const depois = dados([...base, item('2026-12', 'dinheiro', '2027-01-06', 50), item('2027-01', 'dinheiro', '2027-01-06', 30)])
+  assert.equal(emDiaNaData(depois, bia, '2027-01-10'), false, '30 nao renovam')
+  assert.equal(creditoDaMensalidade(depois, 'bia', '2027-02-06').total, 30)
+  const levar = levarCredito(depois, 'bia', '2027-02', '2027-02-06')
+  assert.deepEqual(levar.map((i) => [i.mes, i.valor]), [['2027-01', -30], ['2027-02', 30]])
+  const fev = dados([...depois.mensalidadeItens, ...levar.map((i, k) => ({ ...item(i.mes, i.tipo, '2027-02-06', i.valor), id: `l${k}` })), item('2027-02', 'dinheiro', '2027-02-06', 50)])
+  assert.equal(creditoDaMensalidade(fev, 'bia', '2027-02-06').total, 0)
+  assert.equal(emDiaNaData(fev, bia, '2027-02-10'), true, 'credito + diferenca renovaram fevereiro')
+})
