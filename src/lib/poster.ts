@@ -4,6 +4,7 @@
  */
 
 import { LIGA } from '../liga'
+import { enderecoDoSite } from '../../liga.config'
 
 export type PosterRow = {
   name: string
@@ -545,6 +546,11 @@ export async function buildPosterComFoto(opts: {
   logoUrl?: string
   /** Quantas sao do podio (empate pode fazer subir mais de tres). */
   noPodio?: number
+  /**
+   * Podio de DUPLAS (grupos + duplas, campeonato, duplas fixas): cada medalha
+   * com os dois nomes e o rotulo ("Campeãs do dia"...). Com isso, `rows` nao e usado.
+   */
+  duplas?: { nomes: [string, string]; rotulo: string }[]
 }): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = W
@@ -595,79 +601,112 @@ export async function buildPosterComFoto(opts: {
   c.fillStyle = '#fff'
   c.fillText(opts.data, xTexto + 22, 50 + 109)
 
-  // o painel das medalhistas
-  const noPodio = Math.min(opts.rows.length, Math.max(1, opts.noPodio ?? 3), 4)
-  const podio = opts.rows.slice(0, noPodio)
-  const alturaLinha = noPodio > 3 ? 92 : 108
   const x0 = 56
   const larguraPainel = W - 2 * x0
-  // o painel desce quando o grupo e pequeno: sem 4a a 6a, sobra o espaco das pilulas
-  const y0 = 800 - (opts.rows.length > noPodio ? 0 : 50)
-  const alturaPainel = alturaLinha * podio.length
-  vidro(c, x0, y0, larguraPainel, alturaPainel, 36)
   // as cores das fitas das medalhas de verdade (a do 3o e laranja, nao bronze)
   const cores = [GOLD, SILVER, '#ff8a3d', '#ff8a3d']
-  podio.forEach((r, i) => {
-    const y = y0 + i * alturaLinha
-    if (i > 0) {
-      c.fillStyle = 'rgba(255,255,255,.1)'
-      c.fillRect(x0 + 24, y, larguraPainel - 48, 1.5)
-    }
-    const meio = y + alturaLinha / 2
-    medalhaRedonda(c, x0 + 26 + 32, meio + 8, 30, cores[i], String(i + 1))
-    c.textAlign = 'left'
-    c.fillStyle = '#fff'
-    c.font = '900 42px system-ui, Segoe UI, Arial, sans-serif'
-    c.fillText(cortar(c, r.name, 640), x0 + 128, meio - 4)
-    c.font = '700 23px system-ui, Segoe UI, Arial, sans-serif'
-    c.fillStyle = 'rgba(255,255,255,.72)'
-    const vd = `${r.wins}V · ${r.losses}D`
-    c.fillText(vd, x0 + 128, meio + 32)
-    if (r.statusTitle) {
-      c.fillStyle = GOLD
-      c.fillText(` · ${r.statusEmoji ?? ''} ${r.statusTitle}`, x0 + 128 + c.measureText(vd).width, meio + 32)
-    }
-    c.textAlign = 'right'
-    c.fillStyle = '#fff'
-    c.font = `52px ${FONTE_TITULO}`
-    c.fillText(String(r.points), W - x0 - 28, meio + 10)
-    c.font = '800 15px system-ui, Segoe UI, Arial, sans-serif'
-    c.fillStyle = 'rgba(255,255,255,.6)'
-    c.fillText(r.points === 1 ? 'PT' : 'PTS', W - x0 - 28, meio + 34)
-  })
-
-  // da 4a em diante: pilulas lado a lado (ate tres)
-  const resto = opts.rows.slice(noPodio, noPodio + 3)
-  if (resto.length > 0) {
-    const yp = y0 + alturaPainel + 18
-    const gap = 14
-    const lp = (larguraPainel - gap * 2) / 3
-    resto.forEach((r, i) => {
-      const xp = x0 + i * (lp + gap)
-      vidro(c, xp, yp, lp, 66, 22)
-      c.textAlign = 'left'
-      c.font = '900 26px system-ui, Segoe UI, Arial, sans-serif'
-      c.fillStyle = 'rgba(255,255,255,.55)'
-      const pos = `${noPodio + i + 1}º`
-      c.fillText(pos, xp + 18, yp + 43)
-      const xn = xp + 18 + c.measureText(pos).width + 10
+  if (opts.duplas) {
+    // uma linha por dupla medalhista: os dois nomes empilhados e o rotulo a direita
+    const duplas = opts.duplas.slice(0, 3)
+    const alturaLinha = 136
+    // o painel termina sempre no mesmo lugar, logo acima do rodape
+    const y0 = 1210 - alturaLinha * duplas.length
+    vidro(c, x0, y0, larguraPainel, alturaLinha * duplas.length, 36)
+    duplas.forEach((d, i) => {
+      const y = y0 + i * alturaLinha
+      if (i > 0) {
+        c.fillStyle = 'rgba(255,255,255,.1)'
+        c.fillRect(x0 + 24, y, larguraPainel - 48, 1.5)
+      }
+      const meio = y + alturaLinha / 2
+      medalhaRedonda(c, x0 + 26 + 32, meio + 8, 30, cores[i], String(i + 1))
       c.textAlign = 'right'
-      c.font = `30px ${FONTE_TITULO}`
-      c.fillStyle = GOLD
-      c.fillText(String(r.points), xp + lp - 18, yp + 45)
-      const larguraPts = c.measureText(String(r.points)).width
+      c.fillStyle = cores[i]
+      c.font = `34px ${FONTE_TITULO}`
+      c.fillText(d.rotulo.toUpperCase(), W - x0 - 28, meio + 12)
+      const larguraRotulo = c.measureText(d.rotulo.toUpperCase()).width
       c.textAlign = 'left'
       c.fillStyle = '#fff'
-      c.font = '800 26px system-ui, Segoe UI, Arial, sans-serif'
-      c.fillText(cortar(c, r.name, lp - (xn - xp) - larguraPts - 30), xn, yp + 43)
+      c.font = '900 38px system-ui, Segoe UI, Arial, sans-serif'
+      const max = larguraPainel - 128 - 28 - larguraRotulo - 24
+      c.fillText(cortar(c, d.nomes[0], max), x0 + 128, meio - 8)
+      c.fillText(cortar(c, d.nomes[1], max), x0 + 128, meio + 38)
     })
+  } else {
+    // o painel das medalhistas
+    const noPodio = Math.min(opts.rows.length, Math.max(1, opts.noPodio ?? 3), 4)
+    const podio = opts.rows.slice(0, noPodio)
+    const alturaLinha = noPodio > 3 ? 92 : 108
+    // o painel desce quando o grupo e pequeno: sem 4a a 6a, sobra o espaco das pilulas
+    const y0 = 800 - (opts.rows.length > noPodio ? 0 : 50)
+    const alturaPainel = alturaLinha * podio.length
+    vidro(c, x0, y0, larguraPainel, alturaPainel, 36)
+    podio.forEach((r, i) => {
+      const y = y0 + i * alturaLinha
+      if (i > 0) {
+        c.fillStyle = 'rgba(255,255,255,.1)'
+        c.fillRect(x0 + 24, y, larguraPainel - 48, 1.5)
+      }
+      const meio = y + alturaLinha / 2
+      medalhaRedonda(c, x0 + 26 + 32, meio + 8, 30, cores[i], String(i + 1))
+      c.textAlign = 'left'
+      c.fillStyle = '#fff'
+      c.font = '900 42px system-ui, Segoe UI, Arial, sans-serif'
+      c.fillText(cortar(c, r.name, 640), x0 + 128, meio - 4)
+      c.font = '700 23px system-ui, Segoe UI, Arial, sans-serif'
+      c.fillStyle = 'rgba(255,255,255,.72)'
+      const vd = `${r.wins}V · ${r.losses}D`
+      c.fillText(vd, x0 + 128, meio + 32)
+      if (r.statusTitle) {
+        c.fillStyle = GOLD
+        c.fillText(` · ${r.statusEmoji ?? ''} ${r.statusTitle}`, x0 + 128 + c.measureText(vd).width, meio + 32)
+      }
+      c.textAlign = 'right'
+      c.fillStyle = '#fff'
+      c.font = `52px ${FONTE_TITULO}`
+      c.fillText(String(r.points), W - x0 - 28, meio + 10)
+      c.font = '800 15px system-ui, Segoe UI, Arial, sans-serif'
+      c.fillStyle = 'rgba(255,255,255,.6)'
+      c.fillText(r.points === 1 ? 'PT' : 'PTS', W - x0 - 28, meio + 34)
+    })
+
+    // da 4a em diante: pilulas lado a lado (ate tres)
+    const resto = opts.rows.slice(noPodio, noPodio + 3)
+    if (resto.length > 0) {
+      const yp = y0 + alturaPainel + 18
+      const gap = 14
+      const lp = (larguraPainel - gap * 2) / 3
+      resto.forEach((r, i) => {
+        const xp = x0 + i * (lp + gap)
+        vidro(c, xp, yp, lp, 66, 22)
+        c.textAlign = 'left'
+        c.font = '900 26px system-ui, Segoe UI, Arial, sans-serif'
+        c.fillStyle = 'rgba(255,255,255,.55)'
+        const pos = `${noPodio + i + 1}º`
+        c.fillText(pos, xp + 18, yp + 43)
+        const xn = xp + 18 + c.measureText(pos).width + 10
+        c.textAlign = 'right'
+        c.font = `30px ${FONTE_TITULO}`
+        c.fillStyle = GOLD
+        c.fillText(String(r.points), xp + lp - 18, yp + 45)
+        const larguraPts = c.measureText(String(r.points)).width
+        c.textAlign = 'left'
+        c.fillStyle = '#fff'
+        c.font = '800 26px system-ui, Segoe UI, Arial, sans-serif'
+        c.fillText(cortar(c, r.name, lp - (xn - xp) - larguraPts - 30), xn, yp + 43)
+      })
+    }
   }
 
   // rodape manuscrito
   c.textAlign = 'center'
   c.fillStyle = PINK
   c.font = `44px ${FONTE_MAO}`
-  c.fillText('mais que um play, uma experiência!', W / 2, H - 40)
+  c.fillText('mais que um play, uma experiência!', W / 2, H - 58)
+  // o endereco do site, pequeno e discreto embaixo da frase
+  c.fillStyle = 'rgba(255,255,255,.55)'
+  c.font = '700 21px system-ui, Segoe UI, Arial, sans-serif'
+  c.fillText(enderecoDoSite(LIGA), W / 2, H - 22)
 
   return await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao gerar a imagem'))), 'image/jpeg', 0.92),

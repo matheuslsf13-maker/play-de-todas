@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { Avatar, Empty, Logo, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
-import { buildMonthPoster } from '../lib/poster'
+import { buildMonthPoster, buildPosterComFoto } from '../lib/poster'
+import { BotoesDeFoto } from '../components/BotoesDeFoto'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
 import {
@@ -114,7 +115,8 @@ export default function Ranking({
   }, [rows])
   // cinco basta para saber quem esta na briga; a lista inteira fica a um toque
 
-  async function gerarImagem() {
+  /** Sem foto, a arte de sempre; com foto, a do podio com a foto por fundo. */
+  async function gerarImagem(foto?: File) {
     setGerando(true)
     try {
       const usoDoMes = new Map(
@@ -139,7 +141,9 @@ export default function Ranking({
           statusPoints: usou?.bonus,
         }
       })
-      const blob = await buildMonthPoster(rotuloPeriodo, linhas, URL_DO_LOGO)
+      const blob = foto
+        ? await buildPosterComFoto({ data: rotuloPeriodo, titulo: 'Pódio do mês', rows: linhas.slice(0, 6), foto, logoUrl: URL_DO_LOGO })
+        : await buildMonthPoster(rotuloPeriodo, linhas, URL_DO_LOGO)
       setPoster({ url: URL.createObjectURL(blob), blob })
     } catch (e) {
       onToast('Não consegui gerar a imagem')
@@ -156,7 +160,7 @@ export default function Ranking({
 
   async function salvarImagem() {
     if (!poster) return
-    const arquivo = new File([poster.blob], `ranking-${historico ? 'historico' : activeMonth}.png`, { type: 'image/png' })
+    const arquivo = new File([poster.blob], `ranking-${historico ? 'historico' : activeMonth}.${poster.blob.type === 'image/jpeg' ? 'jpg' : 'png'}`, { type: poster.blob.type })
     const resultado = await baixarOuCompartilhar(arquivo, `Ranking — ${rotuloPeriodo} 🏆`)
     if (resultado === 'baixou') onToast('Imagem salva 📸')
   }
@@ -276,6 +280,7 @@ export default function Ranking({
                 <button className="btn purple block" style={{ marginTop: 8 }} disabled={gerando} onClick={() => void gerarImagem()}>
                   {gerando ? 'Montando a arte…' : '👑 Gerar imagem do fechamento do mês'}
                 </button>
+                <BotoesDeFoto gerando={gerando} textoCamera="📷 Tirar foto" aoEscolher={(f) => void gerarImagem(f)} />
               </div>
             )}
           </>

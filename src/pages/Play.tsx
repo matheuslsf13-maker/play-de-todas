@@ -102,6 +102,7 @@ import {
   pausaAberta,
 } from '../lib/stats'
 import { buildDayPoster, buildDayPosterGrupos, buildPosterComFoto, type PosterRow } from '../lib/poster'
+import { BotoesDeFoto } from '../components/BotoesDeFoto'
 import {
   MODOS,
   REGRA_PADRAO,
@@ -2720,26 +2721,37 @@ function PlayDetail({
   /**
    * A ARTE COM A FOTO DO PODIO: a organizadora tira a foto na hora (ou escolhe
    * da galeria) e ela vira o fundo da arte do grupo (`buildPosterComFoto`). Um
-   * grupo por arte -- cada foto de podio e de um grupo; no grupos + duplas o
-   * podio e de duplas, e la vale a arte de sempre.
+   * grupo (ou uma categoria, no podio de duplas) por arte -- cada foto de podio
+   * e de um grupo.
    */
-  const podeArteComFoto = !soFase2 && podiosSel.length === 1
+  const duplasDaFoto = soFase2 ? soComCampea(duplasDoDia) : []
+  const podeArteComFoto = soFase2 ? duplasDaFoto.length > 0 : podiosSel.length === 1
   async function gerarArteComFoto(foto: File) {
     const um = podiosSel.length === 1 ? podiosSel[0] : null
-    if (!um) {
+    if (!soFase2 && !um) {
       onToast('Escolha um grupo para a arte com foto')
       return
     }
     setGerando(true)
     try {
-      const blob = await buildPosterComFoto({
-        data: dateLabel(session.date),
-        titulo: um.grupo === null ? 'Pódio do dia' : `Pódio · Grupo ${um.grupo}`,
-        rows: rowsSel.slice(0, 7).map((s, i) => linhaDe(s, i < um.rows.length)),
-        noPodio: um.rows.length,
-        foto,
-        logoUrl: URL_DO_LOGO,
-      })
+      const comum = { data: dateLabel(session.date), foto, logoUrl: URL_DO_LOGO }
+      const titulos = ['Campeãs do dia', 'Vice-campeãs', '3º lugar']
+      const blob = soFase2
+        ? await buildPosterComFoto({
+            ...comum,
+            titulo: ehCampeonato && catArte !== null ? `Pódio · Categoria ${cats[catArte].nome}` : 'Pódio do dia',
+            rows: [],
+            duplas: duplasDaFoto
+              .filter((d) => d.medalha > 0)
+              .slice(0, 3)
+              .map((d) => ({ nomes: [nameOf(d.a), nameOf(d.b)], rotulo: titulos[3 - d.medalha] })),
+          })
+        : await buildPosterComFoto({
+            ...comum,
+            titulo: um!.grupo === null ? 'Pódio do dia' : `Pódio · Grupo ${um!.grupo}`,
+            rows: rowsSel.slice(0, 7).map((s, i) => linhaDe(s, i < um!.rows.length)),
+            noPodio: um!.rows.length,
+          })
       setArte({ url: URL.createObjectURL(blob), blob })
     } catch (e) {
       onToast('Não consegui montar a arte com essa foto')
@@ -2817,7 +2829,7 @@ function PlayDetail({
       ? catArte === null ? null : `Categoria ${cats[catArte].nome}`
       : grupoArte === null ? null : `Grupo ${grupoArte}`
     const sufixo = recorte ? `-${recorte.toLowerCase().replace(/\s+/g, '')}` : ''
-    const arquivo = new File([arte.blob], `play-${session.date}${sufixo}.png`, { type: 'image/png' })
+    const arquivo = new File([arte.blob], `play-${session.date}${sufixo}.${arte.blob.type === 'image/jpeg' ? 'jpg' : 'png'}`, { type: arte.blob.type })
     const deQuem = recorte ? ` · ${recorte}` : ''
     const resultado = await baixarOuCompartilhar(arquivo, `${session.title} — ${dateLabel(session.date)}${deQuem} 🏐`)
     if (resultado === 'baixou') onToast('Imagem salva 📸')
@@ -4209,42 +4221,11 @@ function PlayDetail({
                   : `🏐 Imagem ${grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`}`}
               </button>
               {podeArteComFoto ? (
-                <div className="row" style={{ gap: 8, marginTop: 8 }}>
-                  {/* capture abre a camera direto no celular; o outro, a galeria */}
-                  <label className={`btn ghost grow${gerando ? ' off' : ''}`} style={{ textAlign: 'center' }}>
-                    📷 Tirar foto do pódio
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      hidden
-                      disabled={gerando}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        e.target.value = ''
-                        if (f) void gerarArteComFoto(f)
-                      }}
-                    />
-                  </label>
-                  <label className={`btn ghost grow${gerando ? ' off' : ''}`} style={{ textAlign: 'center' }}>
-                    🖼️ Foto da galeria
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      disabled={gerando}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        e.target.value = ''
-                        if (f) void gerarArteComFoto(f)
-                      }}
-                    />
-                  </label>
-                </div>
+                <BotoesDeFoto gerando={gerando} aoEscolher={(f) => void gerarArteComFoto(f)} />
               ) : (
-                !soFase2 && (
+                (!soFase2 || ehCampeonato) && (
                   <p className="tiny muted" style={{ margin: '6px 0 0' }}>
-                    📷 Para a arte com a foto do pódio, escolha um grupo acima.
+                    📷 Para a arte com a foto do pódio, escolha {soFase2 ? 'uma categoria' : 'um grupo'} acima.
                   </p>
                 )
               )}

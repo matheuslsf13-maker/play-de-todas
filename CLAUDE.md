@@ -399,8 +399,13 @@ liga/            textos do masculino: o código fica no feminino e o build
   galeria". A foto vira o fundo (em cima, escurecendo para baixo) e o resultado entra num
   painel de vidro: medalhistas com medalha nas cores das fitas (ouro, prata, laranja), da
   4ª à 6ª em pílulas, título em **Anton** e o rodapé em **Caveat Brush** (`public/fontes`,
-  OFL, carregadas só nessa arte). No grupos + duplas (pódio de duplas) não aparece. A arte
-  de sempre (sem foto) continua; nela o nome longo quebra em duas linhas, a inicial ignora
+  OFL, carregadas só nessa arte). **Desde 06/11/2026** também no grupos + duplas, campeonato
+  e duplas fixas (opção `duplas` do `buildPosterComFoto`: cada medalha com os dois nomes e
+  "Campeãs do dia"/"Vice-campeãs"/"3º lugar"; no campeonato só com **uma** categoria nos chips)
+  e no **fechamento do mês** (Ranking, "📷 Tirar foto"/"🖼️ Foto da galeria" abaixo do 👑;
+  "Pódio do mês", top 3 + 4ª–6ª). Os botões são `components/BotoesDeFoto.tsx`. Toda arte com
+  foto leva o endereço do site pequeno embaixo da frase (`enderecoDoSite` em `liga.config.ts`:
+  domínio + `pasta`, ex. `playdetodas.com.br/masculino`). A arte de sempre (sem foto) continua; nela o nome longo quebra em duas linhas, a inicial ignora
   caractere invisível ("\u2060" colado do WhatsApp) e "1 pt" no singular.
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
   "🔎 procurar pelo nome" (apelido ou cadastro, sem acento), com o V-D de quem foi procurada.

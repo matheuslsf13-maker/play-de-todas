@@ -89,6 +89,15 @@ export const LIGAS: Record<LigaId, Liga> = {
   },
 }
 
+/**
+ * O endereco do site desta liga, sem https (vai pequeno na arte com foto):
+ * "playdetodas.com.br", "playdetodas.com.br/masculino".
+ */
+export function enderecoDoSite(liga: Liga): string {
+  const pasta = liga.pasta.replace(/\/+$/, '')
+  return pasta ? `playdetodas.com.br/${pasta}` : 'playdetodas.com.br'
+}
+
 export function ligaDe(id: string | undefined): Liga {
   return id === 'masculino' ? LIGAS.masculino : id === 'misto' ? LIGAS.misto : LIGAS.feminino
 }
