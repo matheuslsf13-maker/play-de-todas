@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { creditosDeCheckin, disponibilidade, relatorioDasArenas } from '../src/lib/checkins'
+import { contaPrincipalVirtual, textoDoRelatorio, creditosDeCheckin, disponibilidade, relatorioDasArenas } from '../src/lib/checkins'
 import { emptyData, type AppData, type Checkin } from '../src/lib/types'
 
 /*
@@ -65,4 +65,69 @@ test('relatorio da arena: o check-in do credito e o dia em que ele foi usado, co
   assert.match(linhas[0].app, /não veio/i)
   assert.match(linhas[1].app, /crédito/i)
   assert.ok(linhas.every((l) => l.atleta === 'Beatriz Souza'))
+})
+
+type Item = AppData['mensalidadeItens'][number]
+const item = (id: string, date: string, extra: Partial<Item> = {}): Item => ({
+  id, player_id: 'bia', mes: '2027-01', tipo: 'checkin', date, local_id: 'v3', conta_id: null,
+  confirmado: false, valor: null, observacao: null, created_at: '', ...extra,
+})
+const filtro = { mes: '2026-12', de: null, ate: null, locais: null }
+
+test('três plays e quatro check-ins de mensalidade na V3 deixam cinco livres em dezembro', () => {
+  const d = base()
+  d.checkinDias = ['01', '02', '03'].map((dia) => ({ ...d.checkinDias[0], id: dia, date: `2026-12-${dia}` }))
+  d.checkins = d.checkinDias.map((dia) => lanc(dia.id, dia.id))
+  d.mensalidadeItens = ['03', '06', '06', '08'].map((dia, i) => item(String(i), `2026-12-${dia}`))
+  d.mensalidadeItens.push(item('pix', '2026-12-08', { tipo: 'dinheiro' }), item('ab', '2026-12-08', { tipo: 'abatimento' }))
+  const uso = disponibilidade(d, 'bia', filtro.mes).contas[0]
+  assert.equal(uso.locais[0].disponiveis, 5)
+  assert.equal(uso.locais[0].usadosEmPlays, 3)
+  assert.equal(uso.usadosNoMes, 7)
+  assert.equal(uso.avisos.length, 2)
+  assert.match(uso.avisos.join(' '), /03\/12\/2026/)
+  assert.match(uso.avisos.join(' '), /06\/12\/2026/)
+  const rel = relatorioDasArenas(d, filtro, (id) => id)
+  assert.equal(rel.total, 7)
+  assert.match(textoDoRelatorio(rel), /mensalidade de janeiro de 2027/)
+  assert.equal(relatorioDasArenas(d, { ...filtro, mes: '2027-01' }, (id) => id).total, 0)
+})
+
+test('conta emprestada gasta a cota da titular; sem arena gasta só o teto do mês', () => {
+  const d = base()
+  d.checkinContas = [{ ...contaPrincipalVirtual('ana'), id: 'sec', principal: false, nome: 'Matheus' }]
+  d.mensalidadeItens = [
+    item('a', '2026-12-06', { conta_id: 'sec' }),
+    item('b', '2026-12-06', { conta_id: 'principal:ana', local_id: null }),
+  ]
+  assert.equal(disponibilidade(d, 'bia', filtro.mes).contas[0].usadosNoMes, 0)
+  const [ana, matheus] = disponibilidade(d, 'ana', filtro.mes).contas
+  assert.equal(ana.locais[0].disponiveis, 12)
+  assert.equal(ana.livresNoMes, 30)
+  assert.equal(ana.avisos.length, 1)
+  assert.match(ana.avisos[0], /sem arena/)
+  assert.equal(matheus.locais[0].disponiveis, 11)
+  assert.deepEqual(matheus.avisos, [])
+  const nomes = (id: string) => id === 'ana' ? 'Ana' : 'Beatriz Souza'
+  const rel = relatorioDasArenas(d, filtro, nomes)
+  assert.deepEqual(rel.blocos.map((b) => b.linhas[0].titular), ['Matheus', 'Ana'])
+  const arena = relatorioDasArenas(d, { ...filtro, locais: ['v3'], de: '2026-12-06', ate: '2026-12-06' }, nomes)
+  assert.equal(arena.total, 1)
+  const linha = arena.blocos[0].linhas[0]
+  assert.equal(linha.atleta, 'Beatriz Souza')
+  assert.equal(linha.dia, 'mensalidade de janeiro de 2027')
+  assert.equal(linha.confirmado, false)
+  assert.equal(relatorioDasArenas(d, { ...filtro, de: '2026-12-07', ate: '2026-12-08' }, nomes).total, 0)
+})
+
+test('histórico e mês sem itens preservam toda a disponibilidade e o relatório', () => {
+  const d = base()
+  d.checkins = [lanc('c1', 'd1')]
+  const resultado = (mes: string) => [
+    disponibilidade(d, 'bia', mes), relatorioDasArenas(d, { ...filtro, mes }, (id) => id),
+  ]
+  const meses = ['2026-10', '2026-11', '2027-01']
+  const antes = meses.map(resultado)
+  d.mensalidadeItens = [item('novo', '2026-12-06'), item('transicao', '2026-11-20', { mes: '2026-12' })]
+  assert.deepEqual(meses.map(resultado), antes)
 })

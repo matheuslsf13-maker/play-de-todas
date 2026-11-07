@@ -5,6 +5,7 @@
  * check-ins sobram, status, relatorios. Nada e acumulado em coluna: corrigir
  * um lancamento antigo corrige o presente sozinho, como no resto do app.
  */
+import { MES_INICIAL } from './fichaDaMensalidade'
 import type {
   Acerto,
   AppData,
@@ -161,12 +162,22 @@ export function contasDaAtleta(
 }
 
 /** A conta de um lancamento: `conta_id` nulo e a principal da propria menina. */
-export function contaDoCheckin(data: AppData, c: Checkin): CheckinConta {
+export function contaDoCheckin(data: AppData, c: Pick<Checkin, 'player_id' | 'conta_id'>): CheckinConta {
   if (c.conta_id) {
     const achada = data.checkinContas.find((x) => x.id === c.conta_id)
     if (achada) return achada
   }
   return data.checkinContas.find((x) => x.player_id === c.player_id && x.principal) ?? contaPrincipalVirtual(c.player_id)
+}
+
+function itensDeCheckin(data: AppData) {
+  return (data.mensalidadeItens ?? []).filter((i) =>
+    i.tipo === 'checkin' && i.mes >= MES_INICIAL && monthOf(i.date) >= MES_INICIAL)
+}
+
+function contaDoItem(data: AppData, item: Pick<Checkin, 'player_id' | 'conta_id'>) {
+  const dono = item.conta_id?.startsWith('principal:') ? item.conta_id.slice('principal:'.length) : item.player_id
+  return contaDoCheckin(data, { conta_id: item.conta_id, player_id: dono })
 }
 
 /** O nome que a arena ve: o titular da conta. Na principal, a propria menina. */
@@ -490,13 +501,19 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
   const chave = (c: CheckinConta, l: CheckinLocal) => `${c.id}|${l.id}`
   const somaPorSemana = (c: CheckinConta, l: CheckinLocal) =>
     aulasDaConta(c).filter((a) => a.local_id === l.id).reduce((t, a) => t + a.por_semana, 0)
-  const playsEm = (c: CheckinConta, l: CheckinLocal) =>
-    data.checkins.filter((x) => {
-      if (!gastaCheckin(x) || x.local_id !== l.id) return false
-      const dia = dias.get(x.dia_id)
-      if (!dia || monthOf(dia.date) !== mes) return false
-      return contaDoCheckin(data, x).id === c.id
-    }).length
+  const plays = data.checkins.flatMap((c) => {
+    const dia = dias.get(c.dia_id)
+    return gastaCheckin(c) && dia && monthOf(dia.date) === mes
+      ? [{ conta: contaDoCheckin(data, c).id, local: c.local_id, date: dia.date }]
+      : []
+  })
+  const itens = itensDeCheckin(data).filter((i) => monthOf(i.date) === mes)
+    .map((i) => ({ conta: contaDoItem(data, i).id, local: i.local_id, date: i.date }))
+  const usosEm = (conta: CheckinConta, local: CheckinLocal) => {
+    const ali = (u: typeof plays[number]) => u.conta === conta.id && u.local === local.id
+    const dePlay = plays.filter(ali).length
+    return { dePlay, total: dePlay + itens.filter(ali).length }
+  }
 
   type Excesso = { quanto: number; destino: DestinoDoExcedente }
   let excessos = new Map<string, Excesso>()
@@ -519,7 +536,7 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
         // plays ja lancados aqui: com arenas que se cobrem, um play na V3 empurra
         // mais aula para a Itaparica em vez de deixar a V3 negativa
         const recebido = (anteriores.get(chave(conta, local)) ?? []).reduce((t, r) => t + r.quanto, 0)
-        const sobrava = Math.max(0, cota - recebido - playsEm(conta, local))
+        const sobrava = Math.max(0, cota - recebido - usosEm(conta, local).total)
         const quanto = Math.max(0, consumoDasAulas(porSemana) - sobrava)
         if (quanto === 0) continue
         const escolha = aulasDaConta(conta).find((a) => a.local_id === local.id && a.excedente)?.excedente ?? null
@@ -556,15 +573,15 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
       const recebidos = complementos.get(chave(conta, local)) ?? []
       const complemento = recebidos.reduce((t, r) => t + r.quanto, 0)
       const excesso = excessos.get(chave(conta, local))
-      const usadosEmPlays = playsEm(conta, local)
+      const { dePlay: usadosEmPlays, total: usados } = usosEm(conta, local)
       // as aulas daqui usam o que sobrou depois do que a conta cobre dos outros e dos plays
-      const consumoAulas = Math.min(consumoBruto, Math.max(0, cota - complemento - usadosEmPlays))
-      if (!local.ativo && !aceita && aulasPorSemana === 0 && usadosEmPlays === 0 && complemento === 0) continue
+      const consumoAulas = Math.min(consumoBruto, Math.max(0, cota - complemento - usados))
+      if (!local.ativo && !aceita && aulasPorSemana === 0 && usados === 0 && complemento === 0) continue
 
       if (excesso && excesso.destino === null) {
         avisos.push(
           aceita
-            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento - usadosEmPlays)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
+            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento - usados)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
             : `${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} das aulas de lá precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`,
         )
       } else if (excesso?.destino?.tipo === 'local') {
@@ -578,10 +595,10 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
       } else if (complemento > cota) {
         avisos.push(`${nomeDaConta(conta)} não tem ${complemento} em ${local.nome} para cobrir as aulas que mandaram para cá (a cota é ${cota}).`)
       }
-      const disponiveis = cota - complemento - consumoAulas - usadosEmPlays
+      const disponiveis = cota - complemento - consumoAulas - usados
       // play lancado alem do que sobrava: nao bloqueia, mas a organizadora precisa ver
       if (aceita && complemento <= cota && disponiveis < 0) {
-        avisos.push(`${nomeDaConta(conta)} passou ${-disponiveis} check-in${s(-disponiveis)} da cota em ${local.nome} este mês (plays além do que sobrava).`)
+        avisos.push(`${nomeDaConta(conta)} passou ${-disponiveis} check-in${s(-disponiveis)} da cota em ${local.nome} este mês (${usados === usadosEmPlays ? 'plays' : 'check-ins'} além do que sobrava).`)
       }
       usos.push({
         local, aceita, cota, aulasPorSemana, consumoAulas, complemento, complementos: recebidos,
@@ -592,7 +609,16 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
     // o teto do mes: a conta faz um check-in por dia, em qualquer arena. Com
     // tres arenas de 12 o plano "daria" 36, mas o mes tem 30 dias
     const tetoDoMes = diasNoMes(mes)
-    const usadosNoMes = usos.filter((u) => u.aceita).reduce((t, u) => t + u.consumoAulas + u.complemento + u.usadosEmPlays, 0)
+    const daConta = itens.filter((i) => i.conta === conta.id)
+    const datas = new Set(plays.filter((p) => p.conta === conta.id).map((p) => p.date))
+    const repetidas = new Set<string>()
+    for (const item of daConta) {
+      if (!item.local) avisos.push(`${nomeDaConta(conta)} tem check-in de mensalidade sem arena em ${dateLabel(item.date)}.`)
+      if (datas.has(item.date)) repetidas.add(item.date)
+      datas.add(item.date)
+    }
+    for (const date of repetidas) avisos.push(`${nomeDaConta(conta)} tem mais de um check-in em ${dateLabel(date)}.`)
+    const usadosNoMes = daConta.length + usos.filter((u) => u.aceita).reduce((t, u) => t + u.consumoAulas + u.complemento + u.usadosEmPlays, 0)
     const livresNoMes = tetoDoMes - usadosNoMes
     if (livresNoMes < 0) avisos.push(`${nomeDaConta(conta)} passou dos ${tetoDoMes} dias do mês: ${usadosNoMes} check-ins somando as arenas.`)
     for (const u of usos) if (u.aceita) u.disponiveis = Math.min(u.disponiveis, livresNoMes)
@@ -690,12 +716,15 @@ export function relatorioDasArenas(
   const locais = [...data.checkinLocais].sort((a, b) => a.ordem - b.ordem)
   const escolhidos = f.locais ? new Set(f.locais) : null
   const blocos: BlocoDoRelatorio[] = []
+  const itens = itensDeCheckin(data).filter((i) => f.de && f.ate
+    ? i.date >= f.de && i.date <= f.ate
+    : !f.mes || monthOf(i.date) === f.mes)
   const linhasDe = (localId: string | null): LinhaDoRelatorio[] =>
     data.checkins
       // o check-in que virou credito foi feito na arena; e o dia em que ela usa o
       // credito a arena precisa saber, porque nao ha check-in novo
       .filter((c) => (gastaCheckin(c) || (c.compareceu && c.credito_de)) && (c.local_id ?? null) === localId && porId.has(c.dia_id))
-      .map((c) => {
+      .map((c): LinhaDoRelatorio => {
         const dia = porId.get(c.dia_id) as CheckinDia
         const conta = contaDoCheckin(data, c)
         const atleta = nameOf(c.player_id)
@@ -715,6 +744,19 @@ export function relatorioDasArenas(
           confirmado: c.checkin_confirmado,
         }
       })
+      .concat(itens.filter((i) => i.local_id === localId).map((i): LinhaDoRelatorio => {
+        const conta = contaDoItem(data, i)
+        const atleta = nameOf(i.player_id)
+        const descricao = `mensalidade de ${monthLabel(i.mes).toLowerCase()}`
+        return {
+          date: i.date, dia: descricao,
+          local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',
+          atleta: atleta === '-' ? '(atleta removida)' : atleta,
+          titular: nomeDoTitular(conta, nameOf(conta.player_id)),
+          app: `${rotuloDoTipo(appDaConta(data, conta))} · ${descricao}`,
+          modo: 'checkin', compareceu: true, confirmado: i.confirmado,
+        }
+      }))
       .sort((a, b) => a.date.localeCompare(b.date) || a.titular.localeCompare(b.titular, 'pt-BR'))
   for (const l of locais) {
     if (escolhidos && !escolhidos.has(l.id)) continue
