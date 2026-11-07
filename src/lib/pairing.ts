@@ -1070,6 +1070,120 @@ export function custoDaEspera(partidas: readonly { team_a: Duo; team_b: Duo }[],
   return -semAtrasada.length * 10 + v.filter((x) => x === 0).length * 100 + v.reduce((t, x) => t + (x - media) ** 2, 0)
 }
 
+/**
+ * A ATRASADA COM O GRUPO JA COMECADO (D46). So as PENDENTES mudam: as jogadas
+ * e a em quadra (`fixas`) ficam. Troca jogadoras entre as pendentes (cada uma
+ * continua com o mesmo numero de partidas, entao o total e o tamanho da noite
+ * nao mudam) ate que as partidas sem a atrasada girem entre todas as presentes,
+ * sem perder nenhuma dupla do rodizio que ainda falta formar. Devolve as
+ * pendentes novas, ou null se nao der para melhorar a espera de ninguem.
+ */
+export function pendentesPelaAtrasada(opts: {
+  ids: string[]
+  fixas: readonly { team_a: Duo; team_b: Duo }[]
+  pendentes: readonly { team_a: Duo; team_b: Duo }[]
+  ausentes: Set<string>
+  ratings: Map<string, number>
+  entrosamento?: Map<string, number>
+  genero?: Generos
+}): Partida[] | null {
+  const { ids, fixas, ausentes } = opts
+  const presentes = ids.filter((id) => !ausentes.has(id))
+  if (presentes.length === ids.length || opts.pendentes.length < 2) return null
+  const misto = grupoMisto(ids, opts.genero)
+  const formadas = new Set(fixas.flatMap((m) => [pairKey(...m.team_a), pairKey(...m.team_b)]))
+  const faltam: string[] = []
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++)
+      if ((!misto || duplaMista([ids[i], ids[j]], opts.genero)) && !formadas.has(pairKey(ids[i], ids[j]))) faltam.push(pairKey(ids[i], ids[j]))
+  const dia: Confrontos = new Map()
+  for (const m of fixas) marcarConfronto(m.team_a, m.team_b, dia)
+  const ctx: Contexto = { ratings: opts.ratings, entrosamento: opts.entrosamento, antes: new Map(), dia }
+  const comoPartidas = (q: string[][]): Partida[] => q.map((x) => ({ team_a: [x[0], x[1]], team_b: [x[2], x[3]] }))
+  // [duplas que faltam e nao se formam, quem mais fica de fora sem a atrasada, espera];
+  // os confrontos (`custoDoRodizio`, o caro) so desempatam
+  const nota = (q: string[][]): number[] => {
+    const duplas = new Set<string>()
+    for (const x of q) duplas.add(pairKey(x[0], x[1])).add(pairKey(x[2], x[3]))
+    let falta = 0
+    for (const k of faltam) if (!duplas.has(k)) falta++
+    const vezes = new Map(presentes.map((id) => [id, 0]))
+    let sem = 0
+    for (const x of q) {
+      if (x.some((id) => ausentes.has(id))) continue
+      sem++
+      for (const id of x) vezes.set(id, (vezes.get(id) ?? 0) + 1)
+    }
+    const v = [...vezes.values()]
+    const media = v.reduce((t, y) => t + y, 0) / v.length
+    return [falta, sem - Math.min(...v), v.filter((y) => y === 0).length * 100 + v.reduce((t, y) => t + (y - media) ** 2, 0)]
+  }
+  const qualidades = new WeakMap<string[][], number>()
+  const qualidade = (q: string[][]) => {
+    let c = qualidades.get(q)
+    if (c === undefined) qualidades.set(q, (c = custoDoRodizio(comoPartidas(q), ctx)))
+    return c
+  }
+  // a < b? nas tres notas e, empatando, nos confrontos
+  const melhorQue = (a: number[], qa: string[][], b: number[], qb: string[][]) => {
+    for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 1e-9) return a[i] < b[i]
+    return qualidade(qa) < qualidade(qb) - 1e-9
+  }
+  const valida = (x: string[]) =>
+    new Set(x).size === 4 && (!misto || (duplaMista([x[0], x[1]], opts.genero) && duplaMista([x[2], x[3]], opts.genero)))
+  // troca a jogadora do lugar s da partida i com a do lugar t da partida j (i == j: muda a divisao)
+  const trocar = (q: string[][], i: number, s: number, j: number, t: number): string[][] | null => {
+    const n = q.slice()
+    n[i] = q[i].slice()
+    if (j !== i) n[j] = q[j].slice()
+    ;[n[i][s], n[j][t]] = [n[j][t], n[i][s]]
+    return valida(n[i]) && valida(n[j]) ? n : null
+  }
+  const original = opts.pendentes.map((m) => [...m.team_a, ...m.team_b])
+  const notaOriginal = nota(original)
+  if (notaOriginal[0] > 0) return null // o plano ja nao fechava: isso e com o Refazer
+  let melhor = original
+  let melhorNota = notaOriginal
+  const base = [...ids].sort().join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+  const rnd = comSemente(base)
+  const L = original.length * 4
+  for (let reinicio = 0; reinicio < REINICIOS_DA_ATRASADA; reinicio++) {
+    let q = original
+    // cada reinicio sai do plano com algumas trocas ao acaso; a subida conserta as duplas
+    for (let k = 0; k < reinicio % 8; k++) {
+      const a = Math.floor(rnd() * L)
+      const b = Math.floor(rnd() * L)
+      q = trocar(q, a >> 2, a & 3, b >> 2, b & 3) ?? q
+    }
+    let nq = nota(q)
+    for (let melhorou = true; melhorou; ) {
+      melhorou = false
+      for (let a = 0; a < L; a++) {
+        for (let b = a + 1; b < L; b++) {
+          const c = trocar(q, a >> 2, a & 3, b >> 2, b & 3)
+          if (!c) continue
+          const nc = nota(c)
+          if (melhorQue(nc, c, nq, q)) {
+            q = c
+            nq = nc
+            melhorou = true
+          }
+        }
+      }
+    }
+    if (nq[0] === 0 && melhorQue(nq, q, melhorNota, melhor)) {
+      melhor = q
+      melhorNota = nq
+    }
+  }
+  // so vale se alguem presente passa a esperar menos (confronto melhor sozinho nao mexe na fila)
+  if (melhorNota[1] > notaOriginal[1] || (melhorNota[1] === notaOriginal[1] && melhorNota[2] >= notaOriginal[2] - 1e-9)) return null
+  return comoPartidas(melhor)
+}
+
+/** Reinicios da busca da atrasada: medido em tests/atrasada.test.ts (D46). */
+const REINICIOS_DA_ATRASADA = 12
+
 function desigualdadeDeJogos(partidas: Partida[], ids: string[]): number {
   const jogos = new Map(ids.map((id) => [id, 0]))
   for (const p of partidas) {

@@ -66,6 +66,7 @@ import {
   quadrasSimultaneas,
   planToMatches,
   refazerFila,
+  pendentesPelaAtrasada,
 } from '../lib/pairing'
 import { normalizar } from '../lib/roster'
 import { dayRankingText, scheduleText } from '../lib/share'
@@ -2345,8 +2346,12 @@ function PlayDetail({
     if (gi < 0) return
     const grupo = gruposDoPlay[gi]
     const doGrupo = matches.filter((m) => (m.fase ?? 1) === 1 && jogadorasDaPartida(m).some((x) => grupo.includes(x)))
-    if (doGrupo.length === 0 || doGrupo.some((m) => isPlayed(m) || iniciada(m))) return
+    if (doGrupo.length === 0) return
     const nome = (i: number) => (session.groups?.length ? nomeDoGrupo(gi) : `Grupo ${i + 1}`)
+    if (doGrupo.some((m) => isPlayed(m) || iniciada(m))) {
+      if (ausente) await replanejarComecado(id, gi, grupo, doGrupo, proximos, nome)
+      return
+    }
     const fila = gerarFila({
       playerIds: grupo,
       ratings: ratings(data, session.date),
@@ -2371,6 +2376,54 @@ function PlayDetail({
       ),
     )
     onToast(ausente ? `Fila ${onde} refeita para ninguém ficar esperando ${nameOf(id)} ⏳` : `${nameOf(id)} chegou — fila ${onde} de volta ao normal`)
+  }
+
+  /**
+   * GRUPO JA COMECADO (D46): so as pendentes do grupo mudam -- jogadas e em
+   * quadra ficam -- para as partidas sem ela girarem entre todas as presentes.
+   * Mesmo total de cada uma, todas as duplas, noite do mesmo tamanho; a fila
+   * inteira do grupo e conferida (`problemasDaFila`). Sem melhora ou sem
+   * conferir: so empurra as partidas dela para o fim, como antes.
+   */
+  async function replanejarComecado(
+    id: string,
+    gi: number,
+    grupo: string[],
+    doGrupo: Match[],
+    proximos: Set<string>,
+    nome: (i: number) => string,
+  ) {
+    if (doGrupo.some((m) => iniciada(m) && jogadorasDaPartida(m).includes(id))) return
+    const fixas = doGrupo.filter((m) => isPlayed(m) || iniciada(m))
+    const pendentes = doGrupo.filter((m) => !isPlayed(m) && !iniciada(m))
+    const comoPlano = (ms: { team_a: [string, string]; team_b: [string, string] }[]): PlannedMatch[] =>
+      ms.map((m) => ({ team_a: m.team_a, team_b: m.team_b, grupo: 0 }))
+    if (problemasDaFila([grupo], comoPlano(doGrupo), nome, generoDoPlay).length > 0) return
+    const novas = pendentesPelaAtrasada({
+      ids: grupo,
+      fixas,
+      pendentes,
+      ausentes: new Set([...proximos].filter((x) => grupo.includes(x))),
+      ratings: ratings(data, session.date),
+      entrosamento: ajusteDeEntrosamento(data),
+      genero: generoDoPlay,
+    })
+    if (!novas) return
+    if (problemasDaFila([grupo], comoPlano([...fixas, ...novas]), nome, generoDoPlay).length > 0) return
+    const ultima = matches.reduce((n, m) => Math.max(n, m.round), 0)
+    const plano = novas.map((m) => ({ ...m, grupo: gi }))
+    const criadas = planToMatches(session.id, plano).map((m, i) => ({ ...m, round: ultima + i + 1 }))
+    const sai = new Set(pendentes.map((m) => m.id))
+    await replaceSessionMatches(session.id, [...matches.filter((m) => !sai.has(m.id)), ...criadas])
+    const onde = session.groups?.length ? `do ${nomeDoGrupo(gi)}` : 'do play'
+    anotarNoPlay(
+      session.id,
+      novoEvento(
+        'refazer',
+        `Fila ${onde} refeita: ${nameOf(id)} ainda não chegou — as ${plural(pendentes.length, 'partida que faltava', 'partidas que faltavam')} giram entre todas as presentes`,
+      ),
+    )
+    onToast(`Fila ${onde} refeita para ninguém ficar esperando ${nameOf(id)} ⏳`)
   }
 
   function marcarInicio(id: string, quando: string | null) {

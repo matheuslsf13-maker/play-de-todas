@@ -559,8 +559,14 @@ liga/            textos do masculino: o código fica no feminino e o build
   Pretti atrasou num grupo de 6; nos quartetos (`rodizioDeSeis`) a única partida sem ela
   tirava também a parceira de par dela — a Wanessa esperou 1 hora (3,3,**0**,3,3 → agora
   2,2,2,3,3). Com atrasada, o grupo de 6 usa o rodízio geral. Desmarcar antes de começar
-  volta ao plano normal; grupo já começado só empurra as partidas dela para o fim. Anota no
-  diário e a fila é conferida (`problemasDaFila`). `tests/atrasada.test.ts`.
+  volta ao plano normal. Anota no diário e a fila é conferida (`problemasDaFila`).
+  **Marcada com o grupo já começado** (D46, `pendentesPelaAtrasada` em `pairing.ts`,
+  `replanejarComecado` em Play.tsx): só as **pendentes** mudam (jogadas e em quadra ficam),
+  trocando jogadoras entre elas — cada uma fica com o mesmo total, toda dupla que falta ainda se
+  forma (as dela, quando chegar), a noite não cresce. Só grava se alguém presente passa a esperar
+  menos e o grupo inteiro passa no `problemasDaFila`; senão só empurra as dela para o fim, como
+  antes. Desmarcar depois de começar não mexe. Medido: grupo de 6, maior espera de uma presente
+  3 → 1 partida; 8, 5 → 3. `tests/atrasada.test.ts`.
 - **A fila mostrada é a que acontece** (`src/lib/fila.ts`): `filaPorGrupo` ordena as
   pendentes de cada grupo e a quadra que vaga pega **a primeira da fila do grupo dela
   com as quatro livres** (`proximasPelaFila`). Antes a lista era uma previsão feita de

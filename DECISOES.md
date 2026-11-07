@@ -1420,3 +1420,35 @@ Pedidos do dono depois de usar a lista e o cartão do momento (D42):
   criou se ficar vazio e o "pago" que ele marcou; a janela avisa ("O pagamento lançado pelo 💰…").
 - Tudo pela fila da store (`deleteCheckin`, `deleteCheckinDia`, `savePlayer`): nada que o banco recuse.
   Fora: check-in de crédito usado depois (`credito_de`) que apontava para um lançamento apagado.
+
+## D46 — Atrasada marcada com o grupo já começado (06/11/2026)
+
+Em 02/11 (grupo de 6, Ana Pretti atrasada) a Wanessa ficou de fora enquanto as outras quatro jogavam
+tudo. O D antigo da atrasada só remontava o rodízio **antes** de o grupo começar; marcada depois, o app
+só empurrava as partidas dela para o fim — e as partidas sem ela eram as do quarteto que tira também a
+parceira de par dela.
+
+- **Só as pendentes do grupo mudam** (`pendentesPelaAtrasada` em `pairing.ts`, chamada por
+  `replanejarComecado` em Play.tsx): jogadas e em quadra ficam. A busca **troca jogadoras entre as
+  pendentes** (e a divisão dentro de uma partida); toda troca mantém o número de partidas de cada uma,
+  então o total de cada uma (`jogosDoRodizio`) e o tamanho da noite não mudam por construção.
+- **Ordem do que importa**: (1) toda dupla do rodízio que ainda falta se forma (inclusive as dela, que
+  ficam para quando chegar); (2) menor "quem mais fica de fora" das partidas sem ela; (3) as presentes
+  em números parecidos (`custoDaEspera` sem o termo constante); (4) confrontos (`custoDoRodizio`) só
+  desempatam. Subida com 12 reinícios de semente fixa (mesmo grupo → mesmo resultado); ~0,2–0,3 s no PC
+  para 7–8 jogadoras.
+- **Só grava se melhora a espera de alguém** e se o grupo inteiro (jogadas + novas) passa no
+  `problemasDaFila`; o grupo que já não fechava antes (troca na mão) fica com o comportamento antigo
+  (isso é com o Refazer). Ela em quadra: nada. Desmarcar (chegou) não mexe: as pendentes já são um
+  rodízio certo, e ela entra na frente como sempre. Anota no diário (`refazer`).
+- **Medido** (`tests/atrasada.test.ts`, uma quadra, ela marcada depois de k = 1, 2, 3 partidas, cada
+  jogadora do grupo como a atrasada, chega depois de 1, 2 ou só quando não há mais partida sem ela;
+  sorteio da fila com semente). Maior espera seguida de uma presente (média → média; pior → pior):
+  5: 0 → 0 (já girava); 6: 1,9/1,7/1,7 → 1,0 e pior 3 → 1, ninguém mais de fora da fase toda (4 → 0);
+  7: 1,3/1,3/1,4 → 1,0/1,0/1,1, pior 2 → 1/1/2; 8: 2,2/2,1/2,0 → 1,5/1,5/1,6, pior 4–5 → 3. A maior
+  sequência de uma presente nunca piora (6 → 5, 5 → 3 no grupo de 8) e a dela é a mesma.
+- **O que não resolve**: com 5 presentes numa quadra, cada partida deixa só 1 descansando — emendar 3
+  é inevitável numa fase longa sem ela. Com todas girando, mais noites têm alguém emendando 3 (6: 15 →
+  18 de 18), mas por menos tempo (antes eram as mesmas quatro jogando tudo). A busca não olha a ordem:
+  quem decide a ordem continua sendo a fila (`filaPorGrupo`). Grupo misto passa pela mesma busca
+  (só troca que mantém H+M) mas não foi simulado.
