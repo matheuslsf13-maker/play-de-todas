@@ -2014,6 +2014,8 @@ function LancarModal({
     pagExistente?.valor_devido !== null && pagExistente?.valor_devido !== undefined ? textoDoValor(pagExistente.valor_devido) : '',
   )
   const [observacao, setObservacao] = useState(pagExistente?.observacao ?? '')
+  /** A mensalista que ela substituiu (a avulsa que entrou no lugar de quem avisou com 24h). */
+  const [substitui, setSubstitui] = useState<string | null>(existente?.substitui ?? null)
   const [prefeito, setPrefeito] = useState(Boolean(existente))
 
   const dias = [...data.checkinDias].sort((a, b) => b.date.localeCompare(a.date))
@@ -2108,6 +2110,7 @@ function LancarModal({
       checkin_confirmado: modo === 'checkin' ? checkinConfirmado : false,
       credito_checkin: modo === 'checkin' && !compareceu ? creditoCheckin : false,
       credito_de: usandoCredito ? creditoDe : null,
+      substitui: compareceu ? substitui : null,
       created_at: existente?.created_at ?? new Date().toISOString(),
     })
     saveCheckinPagamento({
@@ -2347,12 +2350,40 @@ function LancarModal({
               <input type="checkbox" checked={pagamentoConfirmado} onChange={(e) => setPagamentoConfirmado(e.target.checked)} />
               <span className="grow"><strong>Pagamento confirmado</strong><span className="tiny muted" style={{ display: 'block' }}>o dinheiro (ou o Pix) chegou</span></span>
             </label>
+            {LIGA.id === 'feminino' && compareceu && (() => {
+              // SUBSTITUTA (dono, 07/11): so quem nao e mensalista em dia neste dia entra no lugar de uma
+              const p = data.players.find((x) => x.id === playerId)
+              if (!p || (categoriaDe(p) === 'mensalista' && emDiaNaData(data, p, dia.date))) return null
+              const mensalistas = data.players
+                .filter((x) => x.active && x.id !== playerId && categoriaDe(x) === 'mensalista')
+                .sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR'))
+              return (
+                <div className="field">
+                  <label className="toggle-card row">
+                    <input type="checkbox" checked={substitui !== null} onChange={(e) => setSubstitui(e.target.checked ? '' : null)} />
+                    <span className="grow">
+                      <strong>🔁 Entrou no lugar de uma mensalista</strong>
+                      <span className="tiny muted" style={{ display: 'block' }}>
+                        metade de {formatarReais(dia.valor_cheio)} vai para o 🎉 caixa de eventos; a outra cobre o crédito dela
+                      </span>
+                    </span>
+                  </label>
+                  {substitui !== null && (
+                    <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                      {mensalistas.map((m) => (
+                        <button key={m.id} className={`chip ${substitui === m.id ? 'on' : ''}`} onClick={() => setSubstitui(m.id)}>{nameOf(m.id)}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <label className="field">
               <span>Observação</span>
               <input className="input" placeholder="pagou junto com a Bia" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
             </label>
 
-            <button className="btn pink block" disabled={vPago === null || (precoDiferente.trim() !== '' && vPreco === null)} onClick={salvar}>
+            <button className="btn pink block" disabled={vPago === null || (precoDiferente.trim() !== '' && vPreco === null) || substitui === ''} onClick={salvar}>
               {existente ? 'Salvar' : 'Lançar'}
             </button>
             {existente && (

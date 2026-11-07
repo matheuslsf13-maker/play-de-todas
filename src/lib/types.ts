@@ -462,6 +462,11 @@ export type Checkin = {
   credito_checkin?: boolean | null
   /** Veio usando o check-in de credito deste lancamento (nao gasta cota nova). */
   credito_de?: string | null
+  /**
+   * SUBSTITUTA (script 35, dono 07/11): a avulsa entrou no lugar desta mensalista (que faltou avisando).
+   * Metade do valor cheio do dia vai para o caixa de eventos; a outra metade cobre o credito dela.
+   */
+  substitui?: string | null
   created_at: string
 }
 

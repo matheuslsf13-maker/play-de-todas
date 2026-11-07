@@ -863,6 +863,11 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
   for (const i of data.mensalidadeItens ?? []) {
     if (i.tipo === 'dinheiro' && i.mes >= MES_INICIAL) linha(monthOf(i.date)).mensalidades += i.valor ?? 0
   }
+  // a substituta: metade do valor cheio do dia vai para o caixa de eventos (a outra cobre o credito da mensalista)
+  for (const c of data.checkins) {
+    const dia = c.substitui && c.compareceu ? dias.get(c.dia_id) : undefined
+    if (dia) linha(monthOf(dia.date)).eventos += centavos(dia.valor_cheio / 2)
+  }
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))
     r.eventos += economiaDoAluguel(l)
