@@ -628,15 +628,18 @@ liga/            textos do masculino: o código fica no feminino e o build
   falta pode virar R$ 25). Valores congelados no cabeçalho `mensalidades` (`MENSALIDADE_PADRAO` sem cabeçalho);
   cada Pix, check-in ou abatimento é uma linha de `mensalidade_itens` com a **data dele** (não a do registro).
   Só logada, só o Play de Todas (a store recusa no masculino e sem o 34).
-- **Ciclo da mensalidade de M = dia 6 de M−1 até dia 5 de M** (`mesDoCiclo`, `vencimento`). Tudo derivado, sem
-  rotina (`src/lib/fichaDaMensalidade.ts`, `tests/mensalidade.test.ts`): `emDiaNaData` (até o dia 5 vale o ciclo
-  anterior quitado ou a de M já iniciada; do dia 6 só M quitada), `dividaDaMensalidade` (o que falta das fichas
-  **iniciadas** — com dinheiro — cujo prazo passou). **Quem não renovou não tem dívida**, só joga como avulsa;
-  quem pagou os 80 e faltam check-ins deve o que falta e joga como avulsa até quitar. Quem entra depois do dia 5
-  começa na mensalidade do mês seguinte. **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
-  `pago_mes`, e o ciclo de dezembro aceita check-ins desde 06/11).
-- **Para qual mês vai o check-in** (`mesSugeridoDoCheckin`): primeiro a dívida mais antiga, senão o ciclo da data,
-  cheia a seguinte. A Ingryd registra na **ficha** (`components/FichaDaMensalidade.tsx`, aberta pela linha "📅
+- **Renovar = pagar os 80 (ou 180) até o dia 5 de M** (`vencimento`, `renovada`): renovada, está em dia o mês
+  todo. **Os check-ins de M vão até o dia 5 de M+1** (`prazoDosCheckins`), junto com a renovação seguinte.
+  Tudo derivado, sem rotina (`src/lib/fichaDaMensalidade.ts`, `tests/mensalidade.test.ts`): `emDiaNaData` (até o
+  dia 5 vale a renovação do mês anterior), `dividaDaMensalidade` (o que falta das fichas iniciadas cujo prazo dos
+  check-ins passou). **Dia 6 sem renovar**: joga como avulsa, **sem dívida**, e **cede a vaga** (`perdeuAVaga` em
+  `vagasDeMensalista.ts`; o cartão de Meninas lista "não renovaram" com "Passar para avulsa (fim da espera)").
+  Renovou e não fechou os check-ins do mês anterior: deve o que falta (R$ 25 cada) e joga como avulsa até quitar.
+  **Nova mensalista da espera** começa a mensalidade do mês ao pagar ("✅ Topou e pagou": 80 ou 180, grava o Pix e
+  vira mensalista) ou "Recusou" (sai da fila). **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
+  `pago_mes`; check-in de novembro conta para dezembro).
+- **Para qual mês vai o check-in** (`mesSugeridoDoCheckin`): a mais antiga já paga que ainda falta check-in (dívida
+  primeiro), senão a do mês da data (quitada ou cheia, a seguinte). A Ingryd registra na **ficha** (`components/FichaDaMensalidade.tsx`, aberta pela linha "📅
   Mensalidade de …" de cada mensalista em Check-ins → Atletas): ➕ Check-in (dia, conta, arena; aviso se a conta já
   tem check-in no dia) e ➕ Pix (vem com o que falta).
 - **Quem lê**: lista (pré-incluídas, `ehMensalista`), 💰 (`tipoNaLista`), Novo Play e `situacaoDoAtleta`.
@@ -649,6 +652,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   (`src/lib/aluguel.ts`, só cálculo, sem tela): 5% do plano mensal → caixa de eventos; R$ 25 por check-in na V3
   no mês anterior (`checkinsNaArena`: o **uso** de um check-in de crédito não conta de novo).
 - Juntar cadastros leva fichas e itens (`juntar_mensalidades` no 34, atômico).
+- **Script 35**: aluguel no Caixa (`caixa.plano_mensal/valor_cobrado/checkins_abatidos`; o lançamento é o Pix; a
+  economia de 5% vai para o 🎉 caixa de eventos, reserva dentro do saldo, `economiaDoAluguel`/`eventosAcumulado`),
+  **substituta** (`checkins.substitui`: metade do valor cheio do dia para o caixa de eventos), **falta avisada** (a
+  lista pergunta: R$ 25 de crédito na mensalidade do mês seguinte ou um check-in a menos na que ela está fechando —
+  abatimento na ficha, `mesDaCompensacao`), **limite de mensalistas** (`ajustes.limite_mensalistas`, padrão 12) e
+  **lista de espera** (`players.espera_mensalista`, ordem do pedido; `vagasDeMensalista.ts`).
 
 ## 🗓️ Cartão do momento na tela inicial (D42)
 
