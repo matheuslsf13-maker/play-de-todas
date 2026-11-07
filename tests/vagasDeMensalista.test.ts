@@ -29,3 +29,25 @@ test('espera pela ordem do pedido; quem virou mensalista sai', () => {
   ]
   assert.deepEqual(filaDeEspera(d).map((x) => x.id), ['a', 'b'])
 })
+
+test('dia 6 sem pagar nada: perde a vaga; quem pagou os 80 mantem', async () => {
+  const { naoRenovaram, vagasLivres } = await import('../src/lib/vagasDeMensalista')
+  const d = emptyData()
+  d.players = [p('paga', { categoria: 'mensalista' }), p('nada', { categoria: 'mensalista' }), p('nov', { categoria: 'mensalista' })]
+  d.ajustes = [{ id: 'limite_mensalistas', valor: 3, updated_at: '' }]
+  d.mensalidadeItens = [{ id: 'i', player_id: 'paga', mes: '2026-12', tipo: 'dinheiro', date: '2026-12-02', valor: 80, conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: '' }]
+  assert.equal(vagasLivres(d, '2026-12-05'), 0, 'ate o dia 5 ninguem perde')
+  assert.deepEqual(naoRenovaram(d, '2026-12-06').map((x) => x.id), ['nada', 'nov'])
+  assert.equal(vagasLivres(d, '2026-12-06'), 2)
+  assert.equal(vagasLivres(d, '2026-11-20'), 0, 'novembro e transicao')
+})
+
+test('entrou depois do dia 5 e pagou a mensalidade seguinte: nao perde a vaga', async () => {
+  const { perdeuAVaga } = await import('../src/lib/vagasDeMensalista')
+  const d = emptyData()
+  const nova = p('nova', { categoria: 'mensalista' })
+  d.players = [nova]
+  assert.equal(perdeuAVaga(d, nova, '2026-12-10'), true)
+  d.mensalidadeItens = [{ id: 'i', player_id: 'nova', mes: '2027-01', tipo: 'dinheiro', date: '2026-12-10', valor: 80, conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: '' }]
+  assert.equal(perdeuAVaga(d, nova, '2026-12-10'), false)
+})

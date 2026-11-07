@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { plural } from '../lib/types'
-import { CHAVE_DO_LIMITE, filaDeEspera, limiteDeMensalistas, mensalistasAtivas, vagasLivres } from '../lib/vagasDeMensalista'
+import { CHAVE_DO_LIMITE, filaDeEspera, limiteDeMensalistas, mensalistasAtivas, naoRenovaram, vagasLivres } from '../lib/vagasDeMensalista'
 
 /*
  * 📅 VAGAS DE MENSALISTA (aba Meninas, so quem organiza; dono 07/11): quantas de quantas, o
@@ -16,6 +16,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
   const ocupadas = mensalistasAtivas(data).length
   const vagas = vagasLivres(data)
   const fila = filaDeEspera(data)
+  const semRenovar = naoRenovaram(data)
 
   function salvarLimite() {
     const n = Number(texto)
@@ -46,6 +47,27 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
         {vagas > 0 ? `${plural(vagas, 'vaga livre', 'vagas livres')}.` : 'Lotado: quem pedir entra na lista de espera.'}
         {ocupadas > limite && ` ${ocupadas - limite} acima do limite (ninguém sai sozinha).`}
       </p>
+      {semRenovar.length > 0 && (
+        <div className="stack" style={{ gap: 6, marginTop: 10 }}>
+          <strong className="small">🚪 Não renovaram até o dia 5 (a vaga já está livre)</strong>
+          {semRenovar.map((p) => (
+            <div key={p.id} className="row ficha-item" style={{ gap: 8 }}>
+              <span className="grow">{nameOf(p.id)}</span>
+              <button
+                className="btn ghost sm"
+                onClick={() => {
+                  if (!confirm(`${nameOf(p.id)} passa para avulsa e vai para o fim da lista de espera?`)) return
+                  savePlayer({ ...p, categoria: 'avulsa', espera_mensalista: new Date().toISOString(), pago_mes: null, pago_avulso: false })
+                  onToast(`${nameOf(p.id)} agora é avulsa, no fim da espera`)
+                }}
+              >
+                Passar para avulsa (fim da espera)
+              </button>
+            </div>
+          ))}
+          <span className="hint">Se ela pagar antes, é só registrar na ficha: volta a ocupar a vaga.</span>
+        </div>
+      )}
       {fila.length > 0 && (
         <div className="stack" style={{ gap: 6, marginTop: 10 }}>
           <strong className="small">⏳ Lista de espera</strong>
@@ -58,7 +80,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
                   className="btn teal sm"
                   onClick={() => {
                     savePlayer({ ...p, categoria: 'mensalista', espera_mensalista: null, pago_mes: null, pago_avulso: false })
-                    onToast(`${nameOf(p.id)} agora é mensalista`)
+                    onToast(`${nameOf(p.id)} agora é mensalista: registre o Pix dela na ficha (Check-ins → Atletas)`)
                   }}
                 >
                   ✅ Tornar mensalista
