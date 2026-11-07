@@ -637,6 +637,16 @@ function NewPlay({
           (p.aliases ?? []).some((a) => normalizar(a).includes(termoQuem)),
       )
     : available
+  // a grade so crescia com cada cadastro (dono, 06/11): sem busca, aparecem quem esta marcada e quem
+  // jogou um dos 4 ultimos plays; o resto fica recolhido em "outras atletas"
+  const [verOutras, setVerOutras] = useState(false)
+  const recentes = useMemo(() => {
+    const ultimos = [...data.sessions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4)
+    return new Set(ultimos.flatMap((s) => s.player_ids ?? []))
+  }, [data.sessions])
+  const frequentes = termoQuem ? visiveis : visiveis.filter((p) => selected.includes(p.id) || recentes.has(p.id))
+  const outras = termoQuem ? [] : visiveis.filter((p) => !selected.includes(p.id) && !recentes.has(p.id))
+  const naGrade = verOutras ? [...frequentes, ...outras] : frequentes
 
   const forca = useMemo(() => ratings(data, date), [data, date])
 
@@ -1178,7 +1188,7 @@ function NewPlay({
           />
           {visiveis.length === 0 && <p className="tiny muted" style={{ margin: '8px 0 0' }}>Ninguém com esse nome.</p>}
           <div className="grade-atletas">
-            {visiveis.map((p) => {
+            {naGrade.map((p) => {
               const on = selected.includes(p.id)
               const sit = situacaoDoAtleta(p, data)
               return (
@@ -1199,6 +1209,11 @@ function NewPlay({
               )
             })}
           </div>
+          {outras.length > 0 && (
+            <button className="btn ghost block sm" style={{ marginTop: 8 }} onClick={() => setVerOutras((v) => !v)} aria-expanded={verOutras}>
+              {verOutras ? 'Esconder as outras atletas ↑' : `👀 Outras atletas (${outras.length}) ↓`}
+            </button>
+          )}
           </>
         )}
 

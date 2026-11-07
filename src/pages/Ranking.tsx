@@ -112,8 +112,6 @@ export default function Ranking({
     return rows.map((r) => posicao.get(r.player_id) ?? 0)
   }, [rows])
   // cinco basta para saber quem esta na briga; a lista inteira fica a um toque
-  const TOPO = 5
-  const visiveis = verTodas ? rows : rows.slice(0, TOPO)
 
   async function gerarImagem() {
     setGerando(true)
@@ -244,6 +242,29 @@ export default function Ranking({
               <StatBox k="Partidas" v={totals.games} />
               <StatBox k="Jogadoras" v={totals.players} />
             </div>
+
+            {/* a classificacao inteira fica recolhida aqui dentro (era um cartao a mais na tela inicial; dono, 06/11) */}
+            <button className="btn ghost block sm" style={{ marginTop: 12 }} onClick={() => setVerTodas((v) => !v)} aria-expanded={verTodas}>
+              {verTodas ? 'Esconder a classificação ↑' : `📊 Ver a classificação completa (${rows.length}) ↓`}
+            </button>
+            {verTodas && (
+              <div style={{ marginTop: 12 }}>
+                <RankTable rows={rows} fire={streaks.current} />
+                <button
+                  className="btn pink block"
+                  style={{ marginTop: 12 }}
+                  onClick={async () => {
+                    const ok = await shareOrCopy(monthRankingText(activeMonth, rows, nameOf, streaks.current))
+                    onToast(ok ? 'Ranking pronto para colar no grupo 💬' : 'Não consegui copiar 😕')
+                  }}
+                >
+                  💬 Compartilhar no WhatsApp
+                </button>
+                <button className="btn purple block" style={{ marginTop: 8 }} disabled={gerando} onClick={() => void gerarImagem()}>
+                  {gerando ? 'Montando a arte…' : '👑 Gerar imagem do fechamento do mês'}
+                </button>
+              </div>
+            )}
           </>
         )}
 
@@ -349,31 +370,6 @@ export default function Ranking({
       )}
 
       <TopDaForca onVerTudo={onVerForca} />
-
-      {rows.length > 0 && (
-        <div className="card">
-          <div className="section-title">📊 Classificação do mês</div>
-          <RankTable rows={visiveis} fire={streaks.current} />
-          {rows.length > TOPO && (
-            <button className="btn ghost block sm" style={{ marginTop: 10 }} onClick={() => setVerTodas((v) => !v)}>
-              {verTodas ? `Mostrar só o top ${TOPO}` : `Ver todas as ${rows.length} jogadoras`}
-            </button>
-          )}
-          <button
-            className="btn pink block"
-            style={{ marginTop: 12 }}
-            onClick={async () => {
-              const ok = await shareOrCopy(monthRankingText(activeMonth, rows, nameOf, streaks.current))
-              onToast(ok ? 'Ranking pronto para colar no grupo 💬' : 'Não consegui copiar 😕')
-            }}
-          >
-            💬 Compartilhar no WhatsApp
-          </button>
-          <button className="btn purple block" style={{ marginTop: 8 }} disabled={gerando} onClick={() => void gerarImagem()}>
-            {gerando ? 'Montando a arte…' : '👑 Gerar imagem do fechamento do mês'}
-          </button>
-        </div>
-      )}
 
       {poster && (
         <Modal title={rotuloPeriodo} onClose={fecharPoster}>
