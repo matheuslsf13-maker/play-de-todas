@@ -275,7 +275,7 @@ const acertosDe = (data: AppData, playerId: string): Acerto[] => [
   ...acertosDaMensalidade(data, playerId),
   ...usosDoCreditoNaDivida(data, playerId).map((u) => ({
     id: `credito-na-divida:${playerId}:${u.mes}`, player_id: playerId, date: u.date, valor: -u.valor, dinheiro: false,
-    descricao: `usado na dívida da mensalidade de ${monthLabel(u.mes).toLowerCase()} (automático)`, created_at: u.date,
+    descricao: `crédito cobriu a dívida da mensalidade de ${monthLabel(u.mes).toLowerCase().replace(' de ', '/')} (automático)`, created_at: u.date,
   })),
 ]
 

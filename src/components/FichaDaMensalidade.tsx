@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal } from './ui'
+import { HistoricoFinanceiro } from './HistoricoFinanceiro'
 import { useStore } from '../lib/store'
 import { categoriaDe } from '../lib/mensalidade'
 import { contasDaAtleta, creditoDisponivel, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
@@ -86,6 +87,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
   const hoje = todayISO()
   const [mes, setMes] = useState(mesInicial ?? mensalidadeDeHoje(hoje))
   const [novo, setNovo] = useState<null | 'checkin' | 'dinheiro'>(null)
+  const [historico, setHistorico] = useState(false)
   const f = fichaDe(data, playerId, mes)
   const falta = faltaDaFicha(f)
   const divida = dividaDaMensalidade(data, playerId, hoje)
@@ -127,6 +129,9 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
         </div>
         <button className="btn ghost sm" onClick={() => setMes(proximoMes(mes))} aria-label="Próxima mensalidade">›</button>
       </div>
+
+      <button className="btn ghost sm block" style={{ marginBottom: 10 }} onClick={() => setHistorico(true)}>📜 Histórico (mensalidades, Pix, check-ins e plays)</button>
+      {historico && <HistoricoFinanceiro playerId={playerId} onClose={() => setHistorico(false)} />}
 
       <div className="ficha-barra" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
       <div className="row spread" style={{ margin: '6px 0 10px' }}>

@@ -22,6 +22,7 @@ import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
 import { plural, todayISO, uid, type Player } from '../lib/types'
 import { VagasDeMensalista } from '../components/VagasDeMensalista'
+import { HistoricoFinanceiro } from '../components/HistoricoFinanceiro'
 import { filaDeEspera, vagasLivres } from '../lib/vagasDeMensalista'
 
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
@@ -653,8 +654,14 @@ function EditarPerfil({
     })
   }
 
+  const [verFinanceiro, setVerFinanceiro] = useState(false)
+
   return (
     <Modal title={`Perfil de ${jogadora.name}`} onClose={onClose}>
+      {LIGA.id === 'feminino' && (
+        <button className="btn ghost sm block" style={{ marginBottom: 12 }} onClick={() => setVerFinanceiro(true)}>📜 Histórico financeiro</button>
+      )}
+      {verFinanceiro && <HistoricoFinanceiro playerId={jogadora.id} onClose={() => setVerFinanceiro(false)} />}
       <label className="field">
         <span>Nome de cadastro</span>
         <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} />

@@ -648,6 +648,10 @@ liga/            textos do masculino: o código fica no feminino e o build
   tem crédito (saldo positivo dos plays antes do dia 6, `saldoDosPlaysAntesDe`) tem a dívida coberta — inteira se
   der, senão em parte — e o crédito cai do mesmo tanto. Calculado: na ficha é um abatimento "crédito usado na dívida
   (automático)" (`fichaDe` = `fichaBruta` + esse item) e no saldo um acerto negativo; o Excel segue o mesmo.
+- **📜 Histórico financeiro** (`components/HistoricoFinanceiro.tsx`, só leitura): na ficha ("📜 Histórico") e no
+  perfil em Meninas. Mensalidades mês a mês (renovada/quitada/deve/não renovou, Pix, check-ins, crédito) e todas as
+  movimentações (Pix e para qual mês, check-in com arena e conta, plays com crédito usado, acertos, crédito que
+  cobriu a dívida — uma linha só, pelo saldo), com o crédito depois de cada uma.
   **Nova mensalista da espera** começa a mensalidade do mês ao pagar ("✅ Topou e pagou": 80 ou 180, grava o Pix e
   vira mensalista) ou "Recusou" (sai da fila). **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
   `pago_mes`; check-in de novembro conta para dezembro).
