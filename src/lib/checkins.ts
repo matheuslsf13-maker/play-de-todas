@@ -172,7 +172,8 @@ export function contaDoCheckin(data: AppData, c: Pick<Checkin, 'player_id' | 'co
 
 function itensDeCheckin(data: AppData) {
   return (data.mensalidadeItens ?? []).filter((i) =>
-    i.tipo === 'checkin' && i.mes >= MES_INICIAL && monthOf(i.date) >= MES_INICIAL)
+    // a ficha e da regra nova; o check-in conta no mes da DATA (o ciclo de dezembro comeca em 06/11)
+    i.tipo === 'checkin' && i.mes >= MES_INICIAL)
 }
 
 function contaDoItem(data: AppData, item: Pick<Checkin, 'player_id' | 'conta_id'>) {

@@ -430,7 +430,7 @@ function SecaoAtletas({
                     {temMensalidade(p) && (() => {
                       const r = resumoDaMensalidade(fichaDe(data, p.id, mesDaMensalidade), hoje)
                       return (
-                        <button className="linkish tiny" style={{ padding: 0, marginTop: 2, textAlign: 'left', color: r.cor, fontWeight: 700 }} onClick={() => onMensalidade(p.id)}>
+                        <button className="linkish tiny" style={{ padding: 0, marginTop: 2, textAlign: 'left', color: r.cor, fontWeight: 700, textTransform: 'none', letterSpacing: 0 }} onClick={() => onMensalidade(p.id)}>
                           📅 Mensalidade de {nomeDoMes(mesDaMensalidade)}: {r.texto}
                         </button>
                       )

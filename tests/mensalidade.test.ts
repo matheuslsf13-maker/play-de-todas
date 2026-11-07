@@ -123,3 +123,12 @@ test('desde dezembro a mensalista que nao renovou paga o play como avulsa', asyn
   // novembro segue como sempre
   assert.equal(confirmarPagamento({ ...bia, pago_mes: null }, '2026-11-09').pago_mes, '2026-11')
 })
+
+test('check-in da mensalidade de dezembro feito em novembro gasta a cota de novembro', async () => {
+  const { disponibilidade } = await import('../src/lib/checkins')
+  const d = dados([item('2026-12', 'checkin', '2026-11-09'), item('2026-12', 'checkin', '2026-11-16')].map((i) => ({ ...i, local_id: 'v3' })))
+  d.checkinLocais = [{ id: 'v3', nome: 'V3', ativo: true, ordem: 1 }]
+  const livres = (mes: string) => disponibilidade(d, 'bia', mes).porLocal.find((l) => l.local.id === 'v3')?.disponiveis
+  assert.equal(livres('2026-11'), 10)
+  assert.equal(livres('2026-12'), 12)
+})

@@ -128,6 +128,8 @@ test('histórico e mês sem itens preservam toda a disponibilidade e o relatóri
   ]
   const meses = ['2026-10', '2026-11', '2027-01']
   const antes = meses.map(resultado)
-  d.mensalidadeItens = [item('novo', '2026-12-06'), item('transicao', '2026-11-20', { mes: '2026-12' })]
+  // so um item de dezembro: os outros meses nao mudam (o de 20/11 da mensalidade de dezembro
+  // gasta a cota de NOVEMBRO, pela data -- teste em mensalidade.test.ts)
+  d.mensalidadeItens = [item('novo', '2026-12-06')]
   assert.deepEqual(meses.map(resultado), antes)
 })
