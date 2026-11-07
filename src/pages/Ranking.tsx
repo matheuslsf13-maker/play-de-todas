@@ -632,9 +632,13 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
   return (
     <div className="card">
       <div className="section-title com-nota">
-        💪 Força e entrosamento <span className="titulo-nota">sua habilidade real hoje · não é ranking e nunca zera</span>
+        💪 Força e entrosamento <span className="titulo-nota">desempenho individual e em dupla · não é ranking e nunca zera</span>
       </div>
-      {/* o que e o entrosamento, numa linha (dono, 06/11) */}
+      {/* forca e entrosamento explicados no mesmo molde (dono, 07/11) */}
+      <p className="nota-entrosamento">
+        <strong>Força</strong> mede o quanto cada atleta rende contra quem enfrenta: vencer quem tem mais força vale
+        mais, e perder para quem tem menos custa mais.
+      </p>
       <p className="nota-entrosamento">
         <strong>Entrosamento</strong> mede o quanto a dupla rende acima (+) ou abaixo (−) do que a força das duas
         promete.
