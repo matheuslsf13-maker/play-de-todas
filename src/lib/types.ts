@@ -466,7 +466,7 @@ export type Checkin = {
   credito_de?: string | null
   /**
    * SUBSTITUTA (script 35, dono 07/11): a avulsa entrou no lugar desta mensalista (que faltou avisando).
-   * Metade do valor cheio do dia vai para o caixa de eventos; a outra metade cobre o credito dela.
+   * Metade do que ela pagou vai para o caixa de eventos; a outra metade cobre o credito dela.
    */
   substitui?: string | null
   created_at: string

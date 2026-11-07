@@ -2368,7 +2368,7 @@ function LancarModal({
                     <span className="grow">
                       <strong>🔁 Entrou no lugar de uma mensalista</strong>
                       <span className="tiny muted" style={{ display: 'block' }}>
-                        metade de {formatarReais(dia.valor_cheio)} vai para o 🎉 caixa de eventos; a outra cobre o crédito dela
+                        metade do que ela pagar vai para o 🎉 caixa de eventos; a outra cobre o crédito dela
                       </span>
                     </span>
                   </label>

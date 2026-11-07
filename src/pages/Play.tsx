@@ -135,6 +135,9 @@ import {
   type Categoria,
 } from '../lib/mensalidade'
 import { emDiaNaData } from '../lib/fichaDaMensalidade'
+import { EscolherCompensacao, useCompensarFalta } from '../components/FichaDaMensalidade'
+import { diaDoPlay, diaJaExiste, prepararPagamento } from '../lib/pagamentoNaLista'
+import { formatarReais, lerValor } from '../lib/checkins'
 import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
@@ -1847,10 +1850,13 @@ function PlayDetail({
   onBack: () => void
   onToast: (m: string) => void
 }) {
-  const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, mesclarNoPlay, replaceSessionMatches } =
+  const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, mesclarNoPlay, replaceSessionMatches, saveCheckinDia, saveCheckin, saveCheckinPagamento } =
     useStore()
+  const compensarFalta = useCompensarFalta()
   const [showRank, setShowRank] = useState(false)
   const [substituindo, setSubstituindo] = useState(false)
+  /** Entra / sai em que quem sai e mensalista em dia: antes, as 24h, a compensacao e o pagamento da substituta. */
+  const [faltaNoPlay, setFaltaNoPlay] = useState<Parameters<typeof substituir>[0] | null>(null)
   /** "✏️ Arrumar grupos" aberto: o rascunho dos grupos, so gravado no Salvar. */
   const [arrumando, setArrumando] = useState<string[][] | null>(null)
   const [arte, setArte] = useState<{ url: string; blob: Blob } | null>(null)
@@ -4032,7 +4038,51 @@ function PlayDetail({
           onClose={() => setSubstituindo(false)}
           onAplicar={async (p) => {
             setSubstituindo(false)
+            // QUEM SAI E MENSALISTA (dono, 07/11): as 24h, a compensacao e o pagamento da substituta
+            const quemSai = p.sai ? data.players.find((x) => x.id === p.sai) : undefined
+            if (LIGA.id === 'feminino' && quemSai && emDiaNaData(data, quemSai, session.date)) {
+              setFaltaNoPlay(p)
+              return
+            }
             await substituir(p)
+          }}
+        />
+      )}
+      {faltaNoPlay?.sai && (
+        <FaltaDaMensalistaNoPlay
+          sessionId={session.id}
+          date={session.date}
+          sai={faltaNoPlay.sai}
+          entraId={faltaNoPlay.entra && 'id' in faltaNoPlay.entra ? faltaNoPlay.entra.id : null}
+          entraNome={faltaNoPlay.entra ? ('id' in faltaNoPlay.entra ? nameOf(faltaNoPlay.entra.id) : faltaNoPlay.entra.nome) : null}
+          onCancelar={() => setFaltaNoPlay(null)}
+          onConcluir={async ({ avisou, compensacao, pagou, comCheckin }) => {
+            const p = faltaNoPlay
+            setFaltaNoPlay(null)
+            await substituir(p)
+            const sai = p.sai as string
+            if (avisou && compensacao) {
+              try {
+                compensarFalta(sai, compensacao, session.date, `falta:play:${session.id}:${sai}`)
+              } catch (e) {
+                onToast(e instanceof Error ? e.message : 'Não deu para registrar a compensação.')
+              }
+            }
+            // a substituta pagou: o lancamento dela ja sai ligado a mensalista (metade do pago vai para o caixa de eventos)
+            const entraId = p.entra && 'id' in p.entra ? p.entra.id : null
+            if (pagou !== null && avisou) {
+              if (!entraId) {
+                onToast('Lance o 💰 da substituta na aba Check-ins (cadastro novo) e marque "Entrou no lugar de uma mensalista"')
+                return
+              }
+              const dia = diaDoPlay(data, session.id, session.date)
+              if (!diaJaExiste(data, dia)) saveCheckinDia(dia)
+              const r = prepararPagamento(data, dia, entraId, comCheckin ? 'checkin' : 'integral', pagou)
+              // com check-in: fica para a Ingryd confirmar e acertar a conta em Check-ins, como sempre (dono, 07/11)
+              saveCheckin({ ...r.checkin, substitui: sai, ...(comCheckin ? { checkin_confirmado: false } : {}) })
+              saveCheckinPagamento({ ...r.pagamento, valor_devido: comCheckin ? null : pagou })
+              onToast(`${nameOf(entraId)} lançada como substituta (${formatarReais(pagou)}${comCheckin ? ' + check-in: confirme a conta em Check-ins' : ''})`)
+            }
           }}
         />
       )}
@@ -5601,6 +5651,97 @@ function ArrumarGrupos({
 }
 
 /** O modal do entra/sai: quem sai, quem entra e onde entra. */
+/**
+ * A MENSALISTA SAI DO PLAY (Entra / sai; dono, 07/11): avisou com 24h? -> como compensar -> a substituta
+ * vai pagar pelo play, e quanto? (metade do que ela pagar vai para o caixa de eventos). So depois disso o
+ * Entra / sai e aplicado, junto com o resto.
+ */
+function FaltaDaMensalistaNoPlay({
+  sessionId,
+  date,
+  sai,
+  entraId,
+  entraNome,
+  onCancelar,
+  onConcluir,
+}: {
+  sessionId: string
+  date: string
+  sai: string
+  entraId: string | null
+  entraNome: string | null
+  onCancelar: () => void
+  onConcluir: (r: { avisou: boolean; compensacao: 'credito' | 'checkin' | null; pagou: number | null; comCheckin?: boolean }) => void
+}) {
+  const { data, nameOf } = useStore()
+  const [passo, setPasso] = useState<'avisou' | 'compensar' | 'pagamento'>('avisou')
+  const [compensacao, setCompensacao] = useState<'credito' | 'checkin' | null>(null)
+  const dia = diaDoPlay(data, sessionId, date)
+  const [comCheckin, setComCheckin] = useState(false)
+  const [texto, setTexto] = useState(String(dia.valor_cheio))
+  const valor = lerValor(texto)
+  // o check-in tambem paga (a V3 abate): entra na conta do caixa de eventos
+  const doCheckin = comCheckin ? Math.max(0, dia.valor_cheio - dia.valor_com_checkin) : 0
+  return (
+    <Modal title={`${nameOf(sai)} sai do play`} onClose={onCancelar}>
+      <div className="stack">
+        {passo === 'avisou' && (
+          <>
+            <p style={{ margin: 0 }}><strong>{nameOf(sai)} é mensalista. Ela avisou com 24h de antecedência?</strong></p>
+            <button className="btn teal block" onClick={() => setPasso('compensar')}>Sim, avisou</button>
+            <button className="btn danger block" onClick={() => onConcluir({ avisou: false, compensacao: null, pagou: null })}>Não avisou</button>
+          </>
+        )}
+        {passo === 'compensar' && (
+          <EscolherCompensacao
+            playerId={sai}
+            dataDoPlay={date}
+            onEscolher={(t) => {
+              setCompensacao(t)
+              if (entraNome) setPasso('pagamento')
+              else onConcluir({ avisou: true, compensacao: t, pagou: null })
+            }}
+          />
+        )}
+        {passo === 'pagamento' && entraNome && (
+          <>
+            <p style={{ margin: 0 }}>
+              <strong>{entraNome} vai pagar pelo play?</strong>
+              <br />
+              <span className="small muted">Metade do que ela pagar vai para o 🎉 caixa de eventos; a outra metade cobre o crédito de {nameOf(sai)}.</span>
+            </p>
+            <label className="toggle-card row">
+              <input
+                type="checkbox"
+                checked={comCheckin}
+                onChange={(e) => {
+                  setComCheckin(e.target.checked)
+                  setTexto(String(e.target.checked ? dia.valor_com_checkin : dia.valor_cheio))
+                }}
+              />
+              <span className="grow">
+                <strong>Vai fazer check-in</strong>
+                <span className="tiny muted" style={{ display: 'block' }}>depois você confirma e escolhe a conta em Check-ins, como sempre</span>
+              </span>
+            </label>
+            <label className="field">
+              <span>{comCheckin ? 'Valor no Pix (além do check-in)' : 'Valor que ela vai pagar'}</span>
+              <input className="input" inputMode="decimal" value={texto} onChange={(e) => setTexto(e.target.value)} />
+            </label>
+            {valor !== null && valor >= 0 && <span className="hint">🎉 {formatarReais((valor + doCheckin) / 2)} para o caixa de eventos.</span>}
+            {!entraId && <span className="hint aviso">Cadastro novo: depois, lance o 💰 dela na aba Check-ins.</span>}
+            <button className="btn teal block" disabled={valor === null || valor < 0 || (!comCheckin && valor === 0)} onClick={() => onConcluir({ avisou: true, compensacao, pagou: valor, comCheckin })}>
+              Vai pagar {valor !== null ? formatarReais(valor) : ''}{comCheckin ? ' + check-in' : ''}
+            </button>
+            <button className="btn ghost block" onClick={() => onConcluir({ avisou: true, compensacao, pagou: null })}>Não vai pagar</button>
+          </>
+        )}
+        <button className="btn ghost block" onClick={onCancelar}>Cancelar (não tira ninguém)</button>
+      </div>
+    </Modal>
+  )
+}
+
 function SubstituirJogadora({
   session,
   onClose,

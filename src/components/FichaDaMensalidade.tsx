@@ -15,6 +15,7 @@ import {
   MENSALIDADE_PADRAO,
   mensalidadeDaData,
   mesAnterior,
+  mesDaCompensacao,
   MES_INICIAL,
   mesSugeridoDoCheckin,
   prazoDosCheckins,
@@ -79,6 +80,44 @@ export function useGravarNaFicha() {
     }
     saveItemDaMensalidade(item)
   }
+}
+
+/**
+ * FALTA AVISADA (dono, 07/11): grava a compensacao escolhida na ficha -- R$ 25 de credito na mensalidade
+ * seguinte ou um check-in a menos na que ela esta fechando. `id` fixo por origem (lista ou play): repetir
+ * nao duplica. Lanca sem o script 34.
+ */
+export function useCompensarFalta() {
+  const { data } = useStore()
+  const gravarNaFicha = useGravarNaFicha()
+  return (playerId: string, tipo: 'credito' | 'checkin', dataDoPlay: string, id: string) => {
+    gravarNaFicha({
+      id, player_id: playerId, mes: mesDaCompensacao(data, playerId, dataDoPlay, tipo), tipo: 'abatimento',
+      date: dataDoPlay, valor: MENSALIDADE_PADRAO.valor_checkin, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
+      observacao: `falta avisada no play de ${dataDoPlay.slice(8, 10)}/${dataDoPlay.slice(5, 7)}: ${tipo === 'credito' ? 'crédito' : 'um check-in a menos'}`,
+    })
+  }
+}
+
+/** Os botoes de como compensar a falta avisada (os mesmos na lista e no play). */
+export function EscolherCompensacao({ playerId, dataDoPlay, ocupada, onEscolher }: { playerId: string; dataDoPlay: string; ocupada?: boolean; onEscolher: (t: 'credito' | 'checkin' | null) => void }) {
+  const { data } = useStore()
+  return (
+    <>
+      <p style={{ margin: 0 }}>
+        <strong>Como ela prefere compensar?</strong>
+        <br />
+        <span className="small muted">Fica registrado na ficha da mensalidade dela.</span>
+      </p>
+      <button className="btn teal block" disabled={ocupada} onClick={() => onEscolher('credito')}>
+        💰 {formatarReais(MENSALIDADE_PADRAO.valor_checkin)} de crédito na mensalidade de {monthLabel(mesDaCompensacao(data, playerId, dataDoPlay, 'credito')).toLowerCase()}
+      </button>
+      <button className="btn block" disabled={ocupada} onClick={() => onEscolher('checkin')}>
+        ✅ Um check-in a menos na mensalidade de {monthLabel(mesDaCompensacao(data, playerId, dataDoPlay, 'checkin')).toLowerCase()}
+      </button>
+      <button className="btn ghost block" disabled={ocupada} onClick={() => onEscolher(null)}>Nenhum</button>
+    </>
+  )
 }
 
 export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: { playerId: string; mesInicial?: string; onClose: () => void; onToast: (m: string) => void }) {

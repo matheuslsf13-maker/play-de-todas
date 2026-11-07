@@ -902,10 +902,14 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
   for (const i of data.mensalidadeItens ?? []) {
     if (i.tipo === 'dinheiro' && i.mes >= MES_INICIAL) linha(monthOf(i.date)).mensalidades += i.valor ?? 0
   }
-  // a substituta: metade do valor cheio do dia vai para o caixa de eventos (a outra cobre o credito da mensalista)
+  // a substituta: metade do que ela pagou vai para o caixa de eventos (a outra cobre o credito da mensalista);
+  // com check-in, o check-in tambem paga (a V3 abate no aluguel): conta a diferenca do dia (integral - com check-in)
   for (const c of data.checkins) {
     const dia = c.substitui && c.compareceu ? dias.get(c.dia_id) : undefined
-    if (dia) linha(monthOf(dia.date)).eventos += centavos(dia.valor_cheio / 2)
+    if (!dia) continue
+    const pix = pagamentoDoCheckin(data, c.id)?.valor_pago ?? 0
+    const doCheckin = c.modo === 'checkin' ? Math.max(0, dia.valor_cheio - dia.valor_com_checkin) : 0
+    linha(monthOf(dia.date)).eventos += centavos((pix + doCheckin) / 2)
   }
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))

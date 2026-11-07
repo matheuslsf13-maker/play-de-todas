@@ -21,10 +21,8 @@ import {
 import { normalizar, semelhanca } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { esquecerCopiaDaApagada, guardarCopiaDaApagada } from '../lib/useLista'
-import { monthLabel, plural, type Player } from '../lib/types'
-import { useGravarNaFicha } from './FichaDaMensalidade'
-import { MENSALIDADE_PADRAO, mesDaCompensacao } from '../lib/fichaDaMensalidade'
-import { formatarReais } from '../lib/checkins'
+import { plural, type Player } from '../lib/types'
+import { EscolherCompensacao, useCompensarFalta } from './FichaDaMensalidade'
 import { avisoDoFinanceiro, lancadosPelaLista, type Desfazer } from '../lib/pagamentoNaLista'
 
 /*
@@ -197,40 +195,10 @@ export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, 
   return { vincular, ocupada, avisoDeDuplicada }
 }
 
-/** FALTA AVISADA (dono, 07/11): grava a compensacao escolhida na ficha (R$ 25 de credito ou um check-in a menos). */
-function useCompensarFalta(lc: ListaCompleta) {
-  const { data } = useStore()
-  const gravarNaFicha = useGravarNaFicha()
-  return (playerId: string, tipo: 'credito' | 'checkin') => {
-    const quando = dataDoPlay(lc.lista)
-    gravarNaFicha({
-      id: `falta:${lc.lista.id}:${playerId}`, player_id: playerId, mes: mesDaCompensacao(data, playerId, quando, tipo), tipo: 'abatimento',
-      date: quando, valor: MENSALIDADE_PADRAO.valor_checkin, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
-      observacao: `falta avisada no play de ${quando.slice(8, 10)}/${quando.slice(5, 7)}: ${tipo === 'credito' ? 'crédito' : 'um check-in a menos'}`,
-    })
-  }
-}
-
-/** Os botoes de como compensar a falta avisada (os mesmos no tirar e no trocar de lugar). */
-function EscolherCompensacao({ playerId, lc, ocupada, onEscolher }: { playerId: string; lc: ListaCompleta; ocupada: boolean; onEscolher: (t: 'credito' | 'checkin' | null) => void }) {
-  const { data } = useStore()
-  const quando = dataDoPlay(lc.lista)
-  return (
-    <>
-      <p style={{ margin: 0 }}>
-        <strong>Como ela prefere compensar?</strong>
-        <br />
-        <span className="small muted">Fica registrado na ficha da mensalidade dela.</span>
-      </p>
-      <button className="btn teal block" disabled={ocupada} onClick={() => onEscolher('credito')}>
-        💰 {formatarReais(MENSALIDADE_PADRAO.valor_checkin)} de crédito na mensalidade de {monthLabel(mesDaCompensacao(data, playerId, quando, 'credito')).toLowerCase()}
-      </button>
-      <button className="btn block" disabled={ocupada} onClick={() => onEscolher('checkin')}>
-        ✅ Um check-in a menos na mensalidade de {monthLabel(mesDaCompensacao(data, playerId, quando, 'checkin')).toLowerCase()}
-      </button>
-      <button className="btn ghost block" disabled={ocupada} onClick={() => onEscolher(null)}>Nenhum</button>
-    </>
-  )
+/** A compensacao da falta avisada pela lista: id fixo por lista e atleta. */
+function useCompensarFaltaNaLista(lc: ListaCompleta) {
+  const compensar = useCompensarFalta()
+  return (playerId: string, tipo: 'credito' | 'checkin') => compensar(playerId, tipo, dataDoPlay(lc.lista), `falta:${lc.lista.id}:${playerId}`)
 }
 
 /** Tocar num nome (organizadora): vincular, trocar de lugar, garantir a vaga, tirar. */
@@ -253,7 +221,7 @@ export function OpcoesDoNome({
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
   const { vincular, avisoDeDuplicada } = useVincular(lc, recarregar, onToast)
   const [tela, setTela] = useState<'menu' | 'outra' | 'nova' | 'tirar' | 'compensar'>('menu')
-  const compensarFalta = useCompensarFalta(lc)
+  const compensarFalta = useCompensarFaltaNaLista(lc)
   const player = n.player_id ? playerById(n.player_id) : undefined
   const ativas = data.players.filter((p) => p.active)
   const sugestoes = n.player_id ? [] : sugestaoDeVinculo(n.nome, ativas).slice(0, 3)
@@ -323,7 +291,7 @@ export function OpcoesDoNome({
     return (
       <Modal title={`${nameOf(player.id)} avisou com 24h`} onClose={() => setTela('tirar')}>
         <div className="stack lista-pagina">
-          <EscolherCompensacao playerId={player.id} lc={lc} ocupada={ocupada} onEscolher={(t) => void compensar(t)} />
+          <EscolherCompensacao playerId={player.id} dataDoPlay={dataDoPlay(lc.lista)} ocupada={ocupada} onEscolher={(t) => void compensar(t)} />
         </div>
       </Modal>
     )
@@ -442,7 +410,7 @@ export function ConfirmarTroca({
 }) {
   const { data, repo, nameOf, deleteItemDaMensalidade } = useStore()
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
-  const compensarFalta = useCompensarFalta(lc)
+  const compensarFalta = useCompensarFaltaNaLista(lc)
   const [passo, setPasso] = useState<'confirmar' | 'avisou' | 'compensar'>('confirmar')
   const nome = (n: NomeNaLista) => (n.player_id ? nameOf(n.player_id) : n.nome)
   const pa = posicaoDe(lc.nomes, a.id)
@@ -492,7 +460,7 @@ export function ConfirmarTroca({
         <div className="stack lista-pagina">
           <EscolherCompensacao
             playerId={pid}
-            lc={lc}
+            dataDoPlay={quando}
             ocupada={ocupada}
             onEscolher={(t) => {
               if (t) {

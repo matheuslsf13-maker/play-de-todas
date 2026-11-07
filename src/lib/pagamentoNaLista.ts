@@ -55,15 +55,19 @@ export const idDoLancamento = (dia: string, atleta: string) => `checkin:${encode
  * play, com os valores do ultimo dia (como o "Novo dia" da aba Check-ins).
  */
 export function diaDaLista(data: AppData, lista: Lista): CheckinDia {
-  const date = dataDoPlay(lista)
-  const ligados = lista.session_id ? data.checkinDias.filter((d) => d.session_id === lista.session_id) : []
+  return diaDoPlay(data, lista.session_id, dataDoPlay(lista), lista.id)
+}
+
+/** O dia de check-in de um play (com ou sem lista): o ligado a ele, o solto da data, ou um novo. */
+export function diaDoPlay(data: AppData, sessionId: string | null, date: string, sufixo = 'play'): CheckinDia {
+  const ligados = sessionId ? data.checkinDias.filter((d) => d.session_id === sessionId) : []
   const candidatos = ligados.length ? ligados : data.checkinDias.filter((d) => d.date === date && !d.session_id)
   if (candidatos.length > 1) throw new Error('Há mais de um dia possível. Ligue o dia correto ao play na aba Check-ins.')
   if (candidatos[0]) return candidatos[0]
   const ultimo = [...data.checkinDias].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at))[0]
   return {
-    id: data.checkinDias.some((d) => d.id === `dia:${date}`) ? `dia:${date}:${lista.id}` : `dia:${date}`,
-    date, session_id: lista.session_id, titulo: null,
+    id: data.checkinDias.some((d) => d.id === `dia:${date}`) ? `dia:${date}:${sufixo}` : `dia:${date}`,
+    date, session_id: sessionId, titulo: null,
     valor_cheio: ultimo?.valor_cheio ?? VALOR_CHEIO_INICIAL, valor_com_checkin: ultimo?.valor_com_checkin ?? VALOR_COM_CHECKIN_INICIAL,
     created_at: new Date().toISOString(),
   }

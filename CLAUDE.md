@@ -653,6 +653,11 @@ liga/            textos do masculino: o código fica no feminino e o build
   `EscolherCompensacao`); voltando às confirmadas, o aviso, a compensação e a substituta são desfeitos. A suplente que
   entra (pela troca ou pelo tirar com aviso) fica com `lista_nomes.substitui` = a mensalista, e o 💰 da lista já lança
   o play dela como substituta.
+- **No play, o 🔁 Entra / sai também** (`FaltaDaMensalistaNoPlay` em Play.tsx): quem sai é mensalista em dia → avisou
+  com 24h? → compensação → "a substituta vai pagar? quanto?" (com "Vai fazer check-in": modo check-in sem confirmar,
+  a Ingryd confirma e acerta a conta em Check-ins). Grava o lançamento da substituta (`diaDoPlay`, `substitui`).
+  **Caixa de eventos da substituta = metade do que ela pagou**, contando o check-in como pago (integral − com
+  check-in do dia): R$ 25 no Pix + check-in = R$ 25 para os eventos.
 - **📜 Histórico financeiro** (`components/HistoricoFinanceiro.tsx`, só leitura): na ficha ("📜 Histórico") e no
   perfil em Meninas. Mensalidades mês a mês (renovada/quitada/deve/não renovou, Pix, check-ins, crédito) e todas as
   movimentações (Pix e para qual mês, check-in com arena e conta, plays com crédito usado, acertos, crédito que

@@ -67,12 +67,17 @@ test('caixa de eventos: a economia dos alugueis no plano mensal, acumulada no re
   assert.deepEqual(r.map((x) => [x.eventos, x.eventosAcumulado, x.aluguel]), [[96, 96, 1574], [0, 96, 1574], [96, 192, 1574]])
 })
 
-test('substituta: metade do valor cheio do dia vai para o caixa de eventos', () => {
+test('substituta: metade do que ela pagou vai para o caixa de eventos', () => {
   const data = emptyData()
   data.checkinDias = [{ id: 'd', date: '2026-12-07', session_id: null, titulo: null, valor_cheio: 50, valor_com_checkin: 25, created_at: '' }]
   const c = (id: string, extra: Partial<Checkin>): Checkin => ({
     id, dia_id: 'd', player_id: id, conta_id: null, local_id: null, modo: 'integral', compareceu: true, checkin_confirmado: false, created_at: '', ...extra,
   })
   data.checkins = [c('sub', { substitui: 'mensalista' }), c('normal', {}), c('nao-veio', { substitui: 'mensalista', compareceu: false })]
+  data.checkinPagamentos = ['sub', 'normal', 'nao-veio'].map((id) => ({ checkin_id: id, valor_pago: 50, valor_devido: null, pagamento_confirmado: true, observacao: null }))
   assert.deepEqual(resumoDoCaixa(data).map((r) => [r.eventos, r.eventosAcumulado]), [[25, 25]])
+  // com check-in: 25 no Pix + o check-in (50 - 25) = 50 -> 25 para o caixa de eventos
+  data.checkins = [c('sub', { substitui: 'mensalista', modo: 'checkin' })]
+  data.checkinPagamentos = [{ checkin_id: 'sub', valor_pago: 25, valor_devido: null, pagamento_confirmado: true, observacao: null }]
+  assert.deepEqual(resumoDoCaixa(data).map((r) => r.eventos), [25])
 })
