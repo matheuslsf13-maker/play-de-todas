@@ -5,7 +5,7 @@
  * check-ins sobram, status, relatorios. Nada e acumulado em coluna: corrigir
  * um lancamento antigo corrige o presente sozinho, como no resto do app.
  */
-import { MES_INICIAL } from './fichaDaMensalidade'
+import { creditoDaMensalidade, MES_INICIAL } from './fichaDaMensalidade'
 import type {
   Acerto,
   AppData,
@@ -257,6 +257,24 @@ export type Saldo = { pago: number; devido: number; acertos: number; saldo: numb
  * Positivo e credito para o proximo play; negativo e o que falta. E a soma
  * de todos os lancamentos, entao apagar um dia devolve o credito sozinho.
  */
+/**
+ * O CREDITO DA MENSALIDADE NO SALDO DOS PLAYS (dono, 07/11): o que ela pagou sem renovar vira credito
+ * no dia 6 e os plays avulsos descontam dele sozinhos, como de qualquer credito. Calculado, nao gravado:
+ * apagar o Pix (devolveu) tira o credito. `dinheiro: false` -- a receita ja contou o Pix no mes dele.
+ */
+export function acertosDaMensalidade(data: AppData, playerId: string, hoje = todayISO()): Acerto[] {
+  return creditoDaMensalidade(data, playerId, hoje).porMes.map((c) => ({
+    id: `mensalidade-credito:${playerId}:${c.mes}`, player_id: playerId, date: `${c.mes}-06`, valor: c.valor, dinheiro: false,
+    descricao: `crédito da mensalidade de ${monthLabel(c.mes).toLowerCase()} (não renovou)`, created_at: `${c.mes}-06`,
+  }))
+}
+
+/** Os acertos da atleta: os gravados e o credito da mensalidade. */
+const acertosDe = (data: AppData, playerId: string) => [
+  ...data.checkinAcertos.filter((a) => a.player_id === playerId),
+  ...acertosDaMensalidade(data, playerId),
+]
+
 export function saldoDaAtleta(data: AppData, playerId: string): Saldo {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
   let pago = 0
@@ -271,7 +289,7 @@ export function saldoDaAtleta(data: AppData, playerId: string): Saldo {
     devido += valorDevido(c, dia, pag)
     lancamentos++
   }
-  const acertos = data.checkinAcertos.filter((a) => a.player_id === playerId).reduce((t, a) => t + a.valor, 0)
+  const acertos = acertosDe(data, playerId).reduce((t, a) => t + a.valor, 0)
   return {
     pago: centavos(pago),
     devido: centavos(devido),
@@ -284,7 +302,7 @@ export function saldoDaAtleta(data: AppData, playerId: string): Saldo {
 /** O saldo da menina sem contar um lancamento (o que esta sendo editado): positivo e credito, negativo e divida. */
 export function saldoAntesDe(data: AppData, playerId: string, semCheckinId?: string): number {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
-  let saldo = data.checkinAcertos.filter((a) => a.player_id === playerId).reduce((t, a) => t + a.valor, 0)
+  let saldo = acertosDe(data, playerId).reduce((t, a) => t + a.valor, 0)
   for (const c of data.checkins) {
     if (c.player_id !== playerId || c.id === semCheckinId) continue
     const dia = dias.get(c.dia_id)
@@ -335,9 +353,7 @@ export function extratoDaAtleta(data: AppData, playerId: string): Movimento[] {
     const dia = dias.get(c.dia_id)
     if (dia) brutos.push({ date: dia.date, criado: c.created_at, checkin: c })
   }
-  for (const a of data.checkinAcertos) {
-    if (a.player_id === playerId) brutos.push({ date: a.date, criado: a.created_at, acerto: a })
-  }
+  for (const a of acertosDe(data, playerId)) brutos.push({ date: a.date, criado: a.created_at, acerto: a })
   brutos.sort((a, b) => a.date.localeCompare(b.date) || a.criado.localeCompare(b.criado))
   let saldo = 0
   const extrato: Movimento[] = []

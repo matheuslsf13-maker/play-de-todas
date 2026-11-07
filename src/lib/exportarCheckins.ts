@@ -10,6 +10,7 @@ import type { AppData } from './types'
 import { dateLabel, monthLabel, monthOf, todayISO } from './types'
 import {
   CATEGORIAS_DE_CAIXA,
+  acertosDaMensalidade,
   appDaConta,
   centavos,
   contaDoCheckin,
@@ -185,7 +186,8 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
     a.devido += valorDevido(c, dia, pag)
     a.pago += pag?.valor_pago ?? 0
   }
-  for (const x of data.checkinAcertos) {
+  // com o credito da mensalidade (o que foi pago sem renovar), como o saldo no app
+  for (const x of [...data.checkinAcertos, ...data.players.flatMap((p) => acertosDaMensalidade(data, p.id))]) {
     if (!mes || monthOf(x.date) === mes) acum(x.player_id, monthOf(x.date)).acertos += x.valor
   }
   const saldos: Planilha = {

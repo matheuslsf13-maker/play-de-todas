@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Modal } from './ui'
 import { useStore } from '../lib/store'
-import { contasDaAtleta, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
+import { contasDaAtleta, creditoDisponivel, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
 import {
   checkinsDaFicha,
-  creditoDaMensalidade,
+  contaDaRenovacao,
   dividaDaMensalidade,
   dividirPix,
-  levarCredito,
   faltaDaFicha,
   fichaDe,
   idDaFicha,
@@ -81,7 +80,7 @@ export function useGravarNaFicha() {
 }
 
 export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: { playerId: string; mesInicial?: string; onClose: () => void; onToast: (m: string) => void }) {
-  const { data, nameOf, deleteItemDaMensalidade } = useStore()
+  const { data, nameOf, deleteItemDaMensalidade, saveAcerto } = useStore()
   const gravarNaFicha = useGravarNaFicha()
   const hoje = todayISO()
   const [mes, setMes] = useState(mesInicial ?? mensalidadeDeHoje(hoje))
@@ -89,7 +88,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
   const f = fichaDe(data, playerId, mes)
   const falta = faltaDaFicha(f)
   const divida = dividaDaMensalidade(data, playerId, hoje)
-  const credito = creditoDaMensalidade(data, playerId, hoje)
+  const credito = creditoDisponivel(data, playerId)
   const novoItem = (i: Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'observacao'>, date = hoje): ItemDaMensalidade => ({
     ...i, id: uid(), player_id: playerId, date, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
   })
@@ -134,15 +133,36 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
       <p className="tiny muted" style={{ margin: '0 0 10px' }}>
         {formatarReais(f.valor_cheio)} no Pix, ou {formatarReais(f.valor_cheio - f.max_checkins * f.valor_checkin)} + {f.max_checkins} check-ins (cada um vale {formatarReais(f.valor_checkin)}).
       </p>
-      {credito.total > 0 && !renovada(f) && (
-        <div className="banner" style={{ margin: '0 0 10px' }}>
-          💰 Crédito de {formatarReais(credito.total)} (pago sem renovar em {credito.porMes.map((c) => monthLabel(c.mes).toLowerCase()).join(', ')}).
-          {' '}Se for devolver, apague o Pix na mensalidade daquele mês.
-          <button className="btn teal sm block" style={{ marginTop: 8 }} onClick={() => gravar(levarCredito(data, playerId, mes, hoje).map((i) => novoItem(i)))}>
-            Usar o crédito nesta mensalidade
-          </button>
-        </div>
-      )}
+      {credito > 0 && !renovada(f) && (() => {
+        // RENOVAR COM CREDITO (dono, 07/11): a conta aparece antes; so grava quando ela pagar a diferenca
+        const devendo = divida.porMes.filter((d) => d.mes < mes).reduce((t, d) => t + d.falta, 0)
+        const { usa, cobrar } = contaDaRenovacao(f, credito, devendo, hoje)
+        if (usa <= 0) return null
+        return (
+          <div className="banner" style={{ margin: '0 0 10px' }}>
+            💰 Ela tem {formatarReais(credito)} de crédito. Para renovar: {formatarReais(usa)} do crédito
+            {cobrar > 0 ? <> + <strong>cobrar {formatarReais(cobrar)} no Pix</strong>{devendo > 0 ? ` (com ${formatarReais(devendo)} da dívida)` : ''}</> : ''}.
+            <span className="tiny muted" style={{ display: 'block', marginTop: 4 }}>Se ela não for renovar, não toque: o crédito continua valendo para os avulsos.</span>
+            <button
+              className="btn teal sm block"
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                try {
+                  saveAcerto({ id: uid(), player_id: playerId, date: hoje, valor: -usa, dinheiro: false, descricao: `usado na mensalidade de ${monthLabel(mes).toLowerCase()}`, created_at: new Date().toISOString() })
+                } catch (e) {
+                  return onToast(e instanceof Error ? e.message : 'Não deu para usar o crédito.')
+                }
+                gravar([
+                  novoItem({ mes, tipo: 'abatimento', valor: usa, observacao: 'crédito usado na renovação' }),
+                  ...(cobrar > 0 ? dividirPix(data, playerId, mes, cobrar, hoje).map((p) => novoItem(p)) : []),
+                ])
+              }}
+            >
+              {cobrar > 0 ? `Recebi os ${formatarReais(cobrar)} — renovar` : 'Renovar com o crédito'}
+            </button>
+          </div>
+        )
+      })()}
       {divida.porMes.some((d) => d.mes !== mes) && (
         <p className="hint aviso" style={{ marginTop: 0 }}>
           ⚠️ Deve {divida.porMes.filter((d) => d.mes !== mes).map((d) => `${formatarReais(d.falta)} de ${monthLabel(d.mes)}`).join(' e ')}.

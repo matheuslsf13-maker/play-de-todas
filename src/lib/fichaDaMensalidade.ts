@@ -116,9 +116,9 @@ export function dividaDaMensalidade(data: AppData, playerId: string, hoje: strin
 
 /**
  * CREDITO DA MENSALIDADE (dono, 07/11): dinheiro que entrou numa mensalidade que NAO renovou (passou o
- * dia 5 sem completar os 80) -- a Ingryd devolve (apaga o Pix) ou ele fica de credito para a proxima
- * renovacao, e ela so paga a diferenca. Levar o credito (`levarCredito`) zera a ficha antiga com um
- * abatimento negativo e poe o mesmo valor na nova: a receita fica no mes em que o Pix entrou.
+ * dia 5 sem completar os 80). A Ingryd devolve (apaga o Pix) ou ele vira credito no saldo dos plays
+ * (`acertosDaMensalidade` em checkins.ts): os avulsos descontam dele, e na rematricula o que sobrou
+ * completa os 80 (`contaDaRenovacao`). A receita fica no mes em que o Pix entrou.
  */
 export function creditoDaMensalidade(data: AppData, playerId: string, hoje: string): { total: number; porMes: { mes: string; valor: number }[] } {
   const porMes: { mes: string; valor: number }[] = []
@@ -134,12 +134,16 @@ export function creditoDaMensalidade(data: AppData, playerId: string, hoje: stri
 
 export type ItemNovo = Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'observacao'>
 
-/** Leva todo o credito para a mensalidade `mes`: um abatimento negativo em cada ficha antiga e o positivo na nova. */
-export function levarCredito(data: AppData, playerId: string, mes: string, hoje: string): ItemNovo[] {
-  return creditoDaMensalidade(data, playerId, hoje).porMes.filter((c) => c.mes !== mes).flatMap((c) => [
-    { mes: c.mes, tipo: 'abatimento' as const, valor: -c.valor, observacao: `crédito levado para ${mes.slice(5, 7)}/${mes.slice(0, 4)}` },
-    { mes, tipo: 'abatimento' as const, valor: c.valor, observacao: `crédito da mensalidade de ${c.mes.slice(5, 7)}/${c.mes.slice(0, 4)}` },
-  ])
+/**
+ * RENOVAR COM CREDITO (dono, 07/11): quanto do credito dela (o saldo positivo dos plays, onde entra o
+ * que foi pago sem renovar) completa a parte que renova, e quanto a Ingryd ainda cobra no Pix (com a
+ * divida da mensalidade, se houver). Nada e gravado aqui: so na hora em que ela recebe.
+ */
+export function contaDaRenovacao(f: Ficha, credito: number, divida: number, hoje: string): { usa: number; cobrar: number } {
+  const ja = centavos(ate(f, hoje).filter((i) => i.tipo !== 'checkin').reduce((s, i) => s + (i.valor ?? 0), 0))
+  const falta = Math.max(0, centavos(valorParaRenovar(f) - ja))
+  const usa = Math.min(Math.max(0, credito), falta)
+  return { usa: centavos(usa), cobrar: centavos(falta - usa + divida) }
 }
 
 /**

@@ -638,8 +638,10 @@ liga/            textos do masculino: o código fica no feminino e o build
   não renovou — joga como avulsa e cede a vaga, como quem não pagou. **O Pix de quem deve quita a dívida primeiro**
   (`dividirPix`, a tela mostra a divisão) e o resto vai para a mensalidade escolhida. **Dinheiro pago sem renovar
   vira crédito, não dívida** (`creditoDaMensalidade`; dívida só de ficha renovada): a Ingryd devolve (apaga o Pix) ou
-  usa na próxima renovação ("Usar o crédito", `levarCredito`: abatimento −X na antiga e +X na nova, a receita fica
-  no mês do Pix); o "Topou e pagou" usa o crédito sozinho e o Pix é só a diferença.
+  ele entra no **saldo dos plays** no dia 6 (`acertosDaMensalidade` em `checkins.ts`, calculado, `dinheiro: false`) e
+  os avulsos descontam dele. Na rematrícula a ficha mostra a conta antes (`contaDaRenovacao`: quanto do crédito +
+  quanto cobrar, com a dívida) e só grava em "Recebi os R$ X — renovar" (acerto −usado + abatimento na ficha + o Pix
+  dividido); o "Topou e pagou" faz o mesmo. A receita fica no mês do Pix original.
   **Nova mensalista da espera** começa a mensalidade do mês ao pagar ("✅ Topou e pagou": 80 ou 180, grava o Pix e
   vira mensalista) ou "Recusou" (sai da fila). **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
   `pago_mes`; check-in de novembro conta para dezembro).

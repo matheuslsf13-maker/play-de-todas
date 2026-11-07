@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { plural, todayISO, uid } from '../lib/types'
-import { formatarReais } from '../lib/checkins'
-import { creditoDaMensalidade, levarCredito, mensalidadeDaData, MENSALIDADE_PADRAO } from '../lib/fichaDaMensalidade'
+import { creditoDisponivel, formatarReais } from '../lib/checkins'
+import { mensalidadeDaData, MENSALIDADE_PADRAO } from '../lib/fichaDaMensalidade'
 import { useGravarNaFicha } from './FichaDaMensalidade'
 import { CHAVE_DO_LIMITE, filaDeEspera, limiteDeMensalistas, mensalistasAtivas, naoRenovaram, vagasLivres } from '../lib/vagasDeMensalista'
 
@@ -12,7 +12,7 @@ import { CHAVE_DO_LIMITE, filaDeEspera, limiteDeMensalistas, mensalistasAtivas, 
  * botao de confirmar (a organizadora decide; nada vira mensalista sozinho).
  */
 export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void }) {
-  const { data, nameOf, savePlayer, saveAjuste } = useStore()
+  const { data, nameOf, savePlayer, saveAjuste, saveAcerto } = useStore()
   const [editando, setEditando] = useState(false)
   const limite = limiteDeMensalistas(data)
   const [texto, setTexto] = useState(String(limite))
@@ -31,11 +31,14 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
     const hoje = todayISO()
     const mes = mensalidadeDaData(hoje)
     // o credito dela (pago antes sem renovar) entra primeiro: no Pix so a diferenca (dono, 07/11)
-    const credito = creditoDaMensalidade(data, id, hoje).total
+    const usa = Math.min(creditoDisponivel(data, id), valor)
     const base = { player_id: id, date: hoje, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString() }
     try {
-      for (const i of levarCredito(data, id, mes, hoje)) gravarNaFicha({ ...base, ...i, id: uid() })
-      const pix = Math.max(0, valor - credito)
+      if (usa > 0) {
+        saveAcerto({ id: uid(), player_id: id, date: hoje, valor: -usa, dinheiro: false, descricao: 'usado na mensalidade (entrou pela lista de espera)', created_at: base.created_at })
+        gravarNaFicha({ ...base, id: uid(), mes, tipo: 'abatimento', valor: usa, observacao: 'crédito usado na renovação' })
+      }
+      const pix = Math.max(0, valor - usa)
       if (pix > 0) gravarNaFicha({ ...base, id: uid(), mes, tipo: 'dinheiro', valor: pix, observacao: 'entrou pela lista de espera' })
     } catch (e) {
       return onToast(e instanceof Error ? e.message : 'Não deu para gravar a mensalidade.')
@@ -127,8 +130,8 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
             <div className="stack" style={{ gap: 6 }}>
               <span className="small">
                 Quanto {nameOf(fila[0].id)} pagou?
-                {creditoDaMensalidade(data, fila[0].id, todayISO()).total > 0 &&
-                  ` Ela tem ${formatarReais(creditoDaMensalidade(data, fila[0].id, todayISO()).total)} de crédito: no Pix, só a diferença.`}
+                {creditoDisponivel(data, fila[0].id) > 0 &&
+                  ` Ela tem ${formatarReais(creditoDisponivel(data, fila[0].id))} de crédito: cobre só a diferença.`}
               </span>
               <div className="row wrap" style={{ gap: 6 }}>
                 {[MENSALIDADE_PADRAO.valor_cheio - MENSALIDADE_PADRAO.max_checkins * MENSALIDADE_PADRAO.valor_checkin, MENSALIDADE_PADRAO.valor_cheio].map((v) => (
