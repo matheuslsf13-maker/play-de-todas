@@ -511,6 +511,43 @@ export type Acerto = {
   created_at: string
 }
 
+/**
+ * MENSALIDADE (desde a de dezembro/2026, script 34): o cabecalho da ficha de
+ * uma atleta num mes, com os valores congelados (mudar o preco nao muda mes
+ * passado). Sem cabecalho gravado, valem os padroes (fichaDaMensalidade.ts).
+ */
+export type Mensalidade = {
+  id: string
+  player_id: string
+  mes: string // YYYY-MM: a mensalidade (o ciclo vai do dia 6 do mes anterior ao dia 5 deste)
+  valor_cheio: number
+  valor_checkin: number
+  max_checkins: number
+  created_at: string
+}
+
+export type TipoDeItemDaMensalidade = 'checkin' | 'dinheiro' | 'abatimento'
+
+/** Um comprovante da mensalidade: um check-in direcionado a ela, um Pix, ou um abatimento. */
+export type ItemDaMensalidade = {
+  id: string
+  /** Sem FK de proposito, como os lancamentos: juntar cadastros e so trocar o id. */
+  player_id: string
+  /** A mensalidade que este item paga (YYYY-MM). */
+  mes: string
+  tipo: TipoDeItemDaMensalidade
+  /** Data do check-in / do Pix (nao a do registro): e ela que decide prazo e receita. */
+  date: string
+  /** Dinheiro ou abatimento; nulo no check-in (vale `valor_checkin` da ficha). */
+  valor: number | null
+  /** Check-in: nulo = conta principal dela. */
+  conta_id: string | null
+  local_id: string | null
+  confirmado: boolean
+  observacao: string | null
+  created_at: string
+}
+
 export type AppData = {
   players: Player[]
   sessions: PlaySession[]
@@ -524,13 +561,15 @@ export type AppData = {
   checkinPagamentos: CheckinPagamento[]
   caixa: LancamentoDeCaixa[]
   checkinAcertos: Acerto[]
+  mensalidades: Mensalidade[]
+  mensalidadeItens: ItemDaMensalidade[]
   checkinPlanos: Plano[]
 }
 
 export const emptyData = (): AppData => ({
   players: [], sessions: [], matches: [], choices: [], closures: [],
   checkinLocais: [], checkinContas: [], checkinDias: [], checkins: [], checkinPagamentos: [], caixa: [],
-  checkinAcertos: [], checkinPlanos: [],
+  checkinAcertos: [], checkinPlanos: [], mensalidades: [], mensalidadeItens: [],
 })
 
 export function uid(): string {
