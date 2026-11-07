@@ -467,7 +467,8 @@ liga/            textos do masculino: o código fica no feminino e o build
   **ícones da lista do WhatsApp são descartados** (`ICONES`, em `roster.ts`) — saem
   **antes** da numeração, senão um “✅ 3 - Bia” esconde o “3 -”.
 - **Quem paga define quem entra** (`src/lib/mensalidade.ts`). Quatro categorias:
-  - **📅 Mensalista** — liberada enquanto `players.pago_mes` for o mês de hoje.
+  - **📅 Mensalista** — até novembro/2026, liberada enquanto `players.pago_mes` for o mês de hoje;
+    **desde a de dezembro/2026, pela ficha** (seção "📅 Mensalidade" abaixo).
     A regra é **derivada do calendário**: na virada do mês ela volta a aparecer
     devendo **sozinha**, sem rotina para rodar, esquecer ou rodar duas vezes.
   - **🎟️ Avulsa** — crédito de **uma** participação, gasto ao finalizar o play.
@@ -620,6 +621,34 @@ liga/            textos do masculino: o código fica no feminino e o build
   reaberto ele não entra. Se o mês já foi fechado, o confirmar avisa que o ranking final
   muda. O 2º Finalizar **não gasta de novo o crédito da avulsa** (já gasto na 1ª vez;
   gastar comeria o que ela pagou para o próximo play).
+
+## 📅 Mensalidade (desde dezembro/2026, script 34, D47)
+
+- **R$ 180 no Pix, ou R$ 80 + 4 check-ins de R$ 25** direcionados à mensalidade (80 + 4×25 = 180; check-in que
+  falta pode virar R$ 25). Valores congelados no cabeçalho `mensalidades` (`MENSALIDADE_PADRAO` sem cabeçalho);
+  cada Pix, check-in ou abatimento é uma linha de `mensalidade_itens` com a **data dele** (não a do registro).
+  Só logada, só o Play de Todas (a store recusa no masculino e sem o 34).
+- **Ciclo da mensalidade de M = dia 6 de M−1 até dia 5 de M** (`mesDoCiclo`, `vencimento`). Tudo derivado, sem
+  rotina (`src/lib/fichaDaMensalidade.ts`, `tests/mensalidade.test.ts`): `emDiaNaData` (até o dia 5 vale o ciclo
+  anterior quitado ou a de M já iniciada; do dia 6 só M quitada), `dividaDaMensalidade` (o que falta das fichas
+  **iniciadas** — com dinheiro — cujo prazo passou). **Quem não renovou não tem dívida**, só joga como avulsa;
+  quem pagou os 80 e faltam check-ins deve o que falta e joga como avulsa até quitar. Quem entra depois do dia 5
+  começa na mensalidade do mês seguinte. **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
+  `pago_mes`, e o ciclo de dezembro aceita check-ins desde 06/11).
+- **Para qual mês vai o check-in** (`mesSugeridoDoCheckin`): primeiro a dívida mais antiga, senão o ciclo da data,
+  cheia a seguinte. A Ingryd registra na **ficha** (`components/FichaDaMensalidade.tsx`, aberta pela linha "📅
+  Mensalidade de …" de cada mensalista em Check-ins → Atletas): ➕ Check-in (dia, conta, arena; aviso se a conta já
+  tem check-in no dia) e ➕ Pix (vem com o que falta).
+- **Quem lê**: lista (pré-incluídas, `ehMensalista`), 💰 (`tipoNaLista`), Novo Play e `situacaoDoAtleta`.
+  A mensalista que não está em dia **paga o play como avulsa** (`pago_avulso`: `confirmarPagamento`,
+  `pagoAvulsoDaLista`, `consumirAvulsos`), sem gravar `pago_mes`.
+- **Check-in da ficha gasta a cota do mês da DATA** e entra no relatório da arena ("mensalidade de …")
+  (`disponibilidade`, `relatorioDasArenas` em `checkins.ts`). No dia do play, as mensalistas em dia aparecem
+  "📅 … sem cobrança" (derivado) e o Lançar avisa para não cobrar (dívida falsa).
+- **Excel**: aba Mensalidades e o Pix no Resumo pelo mês do Pix (`exportarCheckins.ts`). **Aluguel da V3**
+  (`src/lib/aluguel.ts`, só cálculo, sem tela): 5% do plano mensal → caixa de eventos; R$ 25 por check-in na V3
+  no mês anterior (`checkinsNaArena`: o **uso** de um check-in de crédito não conta de novo).
+- Juntar cadastros leva fichas e itens (`juntar_mensalidades` no 34, atômico).
 
 ## 🗓️ Cartão do momento na tela inicial (D42)
 

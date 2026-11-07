@@ -1452,3 +1452,22 @@ parceira de par dela.
   18 de 18), mas por menos tempo (antes eram as mesmas quatro jogando tudo). A busca não olha a ordem:
   quem decide a ordem continua sendo a fila (`filaPorGrupo`). Grupo misto passa pela mesma busca
   (só troca que mantém H+M) mas não foi simulado.
+
+## D47 — Mensalidade nova: ficha com Pix e check-ins (07/11/2026)
+
+O app só sabia **se** a mensalista tinha pago o mês (`pago_mes`), não quanto nem como, e a aba Check-ins não
+sabia quem era mensalista (cobrava todas). Modelo novo do dono (análise em
+`QuadraFacil/docs/superpowers/specs/2026-11-07-mensalidade-impactos.md`):
+
+- **Decidido pelo dono**: R$ 180 integral ou R$ 80 + 4 check-ins direcionados (R$ 25 cada; o que falta pode ser
+  pago em dinheiro); ciclo do dia 6 ao dia 5; no dia 6, ciclo incompleto com os 80 pagos = deve o que falta e
+  joga como avulsa até quitar; não renovou = avulsa sem dívida; quem entra depois do dia 5 começa no mês
+  seguinte; check-ins depois do dia 5 quitam a dívida e depois vão para a próxima; novembro é transição; saldo da
+  mensalidade **separado** do saldo dos plays; mensalista em dia aparece no dia do play sem cobrança.
+- **Escolhido por nós**: duas tabelas (cabeçalho + itens com data) em vez de jsonb (dois celulares/fila
+  offline apagariam o check-in do outro) ou de reaproveitar `checkins` (dias falsos, dívida falsa, o D45
+  apagaria os check-ins); tudo derivado, sem rotina no dia 6; só no feminino.
+- **Para depois**: onde gravar "pago no plano mensal" do aluguel e a tela do aluguel/caixa de eventos; falta
+  avisada (R$ 25 de crédito ou um check-in a menos — item `abatimento`/`max_checkins`); substituta (metade para o
+  caixa de eventos); limite de 12 mensalistas com lista de espera.
+
