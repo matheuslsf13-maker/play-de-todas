@@ -246,7 +246,6 @@ function PainelJogadora({
   const noPeriodo = (sid: string) => period === 'all' || monthOf(dataDaSessao.get(sid) ?? '') === period
   const diasVencidos = [...streaks.winnersOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
   const podios = [...streaks.podiumOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
-  const statusUsados = streaks.awards.filter((a) => a.player_id === selected && (period === 'all' || a.month === period))
 
   return (
     <>
@@ -401,18 +400,6 @@ function PainelJogadora({
             </div>
           )}
         </div>
-        {statusUsados.length > 0 && (
-          <div className="stack" style={{ marginTop: 10 }}>
-            {statusUsados.map((a) => (
-              <div key={a.month} className="tiny" style={{ background: 'var(--yellow-suave)', color: 'var(--yellow)', borderRadius: 10, padding: '8px 10px' }}>
-                {a.emoji} usou <strong>{a.title}</strong> no fechamento de {monthLabel(a.month)} — <strong>+{a.bonus} pts</strong> (regra antiga)
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="tiny muted" style={{ marginBottom: 0 }}>
-          O status segue enquanto ela terminar no pódio; no 5º seguido vira 👑 Duquesa e recomeça.
-        </p>
       </div>
 
       <div className="card">

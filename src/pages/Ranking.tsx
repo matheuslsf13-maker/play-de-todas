@@ -296,7 +296,9 @@ export default function Ranking({
 
       {fire.length > 0 && (
         <div className="card">
-          <div className="section-title">🔥 Status</div>
+          <div className="section-title com-nota">
+            🔥 Status <span className="titulo-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</span>
+          </div>
           <div className="stack">
             {fire.map((f) => {
               const lvl = streakLevel(f.streak)
@@ -317,10 +319,6 @@ export default function Ranking({
               )
             })}
           </div>
-          <p className="tiny muted" style={{ marginBottom: 0 }}>
-            O status segue de play em play enquanto ela terminar no <strong>pódio</strong> (do play,
-            do grupo dela ou do mata-mata). Saiu do pódio ou faltou, zera.
-          </p>
         </div>
       )}
 
@@ -413,10 +411,6 @@ export default function Ranking({
               </div>
             ))}
           </div>
-          <p className="regra-nota">
-            Vale para o rodízio e para os grupos. Exemplo numa partida até 4 — o play pode ir até
-            outro número e escolher como fecha o empate no fim.
-          </p>
         </div>
 
         <div className="regra-bloco">
@@ -615,7 +609,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
 
   return (
     <div className="card">
-      <div className="section-title">💪 Força</div>
+      <div className="section-title com-nota">
+        💪 Força <span className="titulo-nota">sua habilidade real hoje · não é ranking e nunca zera</span>
+      </div>
 
       <div className="segmented" style={{ marginBottom: 10 }}>
         <button
@@ -708,18 +704,13 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
         </button>
       )}
 
-      <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
-        {modo === 'individual' && LIGA.id === 'misto' ? (
-          <>
-            Cada um <strong>começou</strong> com a força que tinha no seu campeonato (Play de Todas ou Play de Terça);
-            daí em diante só os jogos do misto contam. A média hoje é {mediaDaForca(data)}.
-          </>
-        ) : modo === 'individual' ? (
-          <>A força atravessa o ano (não zera com o mês). A média do grupo hoje é {mediaDaForca(data)}.</>
-        ) : (
-          <>A força da dupla parte da média das duas e muda com o que rendem <strong>juntas</strong>.</>
-        )}
-      </p>
+      {/* o texto longo saiu (dono, 06/11): o que importa esta na nota do titulo; o misto ainda explica de onde veio */}
+      {modo === 'individual' && LIGA.id === 'misto' && (
+        <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
+          Cada um <strong>começou</strong> com a força que tinha no seu campeonato (Play de Todas ou Play de Terça);
+          daí em diante só os jogos do misto contam. A média hoje é {mediaDaForca(data)}.
+        </p>
+      )}
     </div>
   )
 }

@@ -199,6 +199,8 @@ export default function App() {
       ) : (
         <main>
           {lista && (
+            // tocar no nome de alguem da lista abre o perfil dela (dono, 06/11)
+            <ProvedorDePerfil value={(id) => { setAbrirStats({ jogadora: id }); irParaAba('stats') }}>
             <ListaDePresenca
               codigo={lista}
               onSair={() => irParaAba('ranking')}
@@ -206,6 +208,7 @@ export default function App() {
               onApagou={() => { show('Lista apagada'); irParaAba('play') }}
               onToast={show}
             />
+            </ProvedorDePerfil>
           )}
           {!lista && abaVisivel === 'ranking' && (
             <ProvedorDePerfil value={abrirPerfil}>

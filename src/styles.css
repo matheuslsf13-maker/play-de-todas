@@ -2024,3 +2024,15 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 @keyframes negar-quadra { 25%, 75% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
 .quadra-negada { animation: negar-quadra 180ms ease-in-out; }
 @media (prefers-reduced-motion: reduce) { .quadra-negada { animation: none; } }
+
+/* nota ao lado do titulo (Forca, Status), na letra de pincel da arte do podio (dono, 06/11) */
+@font-face { font-family: 'Caveat Brush'; src: url('/fontes/caveat-brush.woff2') format('woff2'); font-display: swap; }
+.section-title.com-nota { flex-wrap: wrap; row-gap: 2px; }
+.titulo-nota {
+  font-family: 'Caveat Brush', cursive;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}

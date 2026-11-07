@@ -10,7 +10,8 @@ import {
   useEscrita,
   useVincular,
 } from '../components/GestaoDaLista'
-import { Avatar, Modal, shareOrCopy } from '../components/ui'
+import { Avatar, Modal, initials, shareOrCopy } from '../components/ui'
+import { NomeClicavel } from '../components/NomeClicavel'
 import { avaliacaoCurta, emAvaliacao, notaDeForca } from '../lib/forca'
 import {
   MENSAGEM_DO_MOTIVO,
@@ -309,10 +310,11 @@ function LinhaDaLista({
       onKeyDown={gestao ? (e) => { if (e.key === 'Enter') onTocar() } : undefined}
     >
       <span className="lista-pos">{pos}</span>
-      {player ? <Avatar player={player} size={34} /> : <span className="lista-sem-foto" aria-hidden />}
+      {/* sem cadastro: as iniciais no circulo colorido, como quem nao tem foto (o vazio ficava feio) */}
+      {player ? <Avatar player={player} size={34} /> : <span className="avatar" style={{ width: 34, height: 34, fontSize: 13 }} aria-hidden>{initials(n.nome)}</span>}
       <span className="grow" style={{ minWidth: 0 }}>
         <span className="lista-nome">
-          {player ? nameOf(player.id) : n.nome}
+          {player && !gestao ? <NomeClicavel id={player.id}>{nameOf(player.id)}</NomeClicavel> : player ? nameOf(player.id) : n.nome}
           {n.origem === 'mensalista' && <span title="mensalista"> 📅</span>}
           {n.garantida && n.origem === 'organizadora' && <span title="vaga garantida pela organização"> ⭐</span>}
           {eu && <span className="badge open" style={{ marginLeft: 6 }}>você</span>}

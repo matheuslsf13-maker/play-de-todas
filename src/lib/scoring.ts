@@ -18,8 +18,10 @@ export function isPlayed(m: Match): boolean {
 }
 
 export const POINTS_TABLE = [
-  { label: '4 x 0', points: 4, color: 'var(--yellow)' },
-  { label: '4 x 1', points: 3, color: 'var(--pink)' },
-  { label: '4 x 2', points: 2, color: 'var(--purple)' },
-  { label: '4 x 3', points: 1, color: 'var(--orange)' },
+  // exemplos numa partida ate 6 (dono, 06/11): a regra e a diferenca de games, vale para qualquer alvo
+  { label: '6 x 0', points: 6, color: 'var(--yellow)' },
+  { label: '6 x 1', points: 5, color: 'var(--orange)' },
+  { label: '6 x 2', points: 4, color: 'var(--pink)' },
+  { label: '6 x 3', points: 3, color: 'var(--purple)' },
+  { label: '6 x 4', points: 2, color: 'var(--teal)' },
 ]
