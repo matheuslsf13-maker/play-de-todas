@@ -21,6 +21,8 @@ import { normalizar, semInvisiveis } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
 import { plural, todayISO, uid, type Player } from '../lib/types'
+import { VagasDeMensalista } from '../components/VagasDeMensalista'
+import { filaDeEspera, vagasLivres } from '../lib/vagasDeMensalista'
 
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const { data, savePlayer, deletePlayer, mergePlayers, canEdit, repo } = useStore()
@@ -126,7 +128,11 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
       pago_avulso: false,
       forca_inicial: forcaDaNova === mediaHoje ? null : forcaDaNova,
     }
+    // mensalistas lotadas (dono, 07/11): entra como avulsa e vai para a lista de espera
+    const lotado = LIGA.id === 'feminino' && novaCategoria === 'mensalista' && vagasLivres(data) === 0
+    if (lotado) Object.assign(p, { categoria: 'avulsa', espera_mensalista: new Date().toISOString() })
     await savePlayer(p)
+    if (lotado) onToast(`Mensalistas lotadas: ${n} entrou como avulsa e está na lista de espera`)
     setName('')
     // a categoria fica para a proxima de proposito (costuma ser a mesma para
     // uma leva); a forca e de cada pessoa, e nao pode vazar
@@ -172,6 +178,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
 
   return (
     <>
+      {canEdit && LIGA.id === 'feminino' && <VagasDeMensalista onToast={onToast} />}
       {canEdit && novaAberta && (
         <div className="card">
           <div className="row spread">
@@ -613,6 +620,8 @@ function EditarPerfil({
   }, [data, jogadora.id])
 
   const limpo = semInvisiveis(nome).trim()
+  const paraEspera = LIGA.id === 'feminino' && categoria === 'mensalista' && categoriaDe(jogadora) !== 'mensalista' && vagasLivres(data) === 0
+  const posicaoNaEspera = filaDeEspera(data).findIndex((x) => x.id === jogadora.id)
   const repetido = data.players.some(
     (p) => p.id !== jogadora.id && semInvisiveis(p.name).trim().toLowerCase() === limpo.toLowerCase(),
   )
@@ -624,13 +633,18 @@ function EditarPerfil({
       .filter(Boolean)
     // trocar de categoria zera o pagamento: uma mensalista que virou avulsa nao
     // herda o mes pago, e vice-versa -- senao alguem ficaria verde sem ter pago
-    const mudou = categoria !== categoriaDe(jogadora)
+    // mensalistas lotadas: nao troca a categoria, entra na lista de espera (dono, 07/11)
+    const vaiParaEspera = paraEspera
+    const mudou = !vaiParaEspera && categoria !== categoriaDe(jogadora)
     onSalvar({
       ...jogadora,
       name: limpo,
       nickname: apelido.trim() || null,
       aliases: [...new Set(lista)],
-      categoria,
+      categoria: vaiParaEspera ? categoriaDe(jogadora) : categoria,
+      ...(vaiParaEspera ? { espera_mensalista: jogadora.espera_mensalista ?? new Date().toISOString() } : {}),
+      // virou mensalista (havia vaga): sai da espera
+      ...(categoria === 'mensalista' && !vaiParaEspera ? { espera_mensalista: null } : {}),
       pago_mes: mudou ? null : jogadora.pago_mes,
       pago_avulso: mudou ? false : jogadora.pago_avulso,
       // no misto, a forca inicial e a do misto (misto.atletas): mudar aqui nao
@@ -685,8 +699,14 @@ function EditarPerfil({
         </div>
         <em className="hint" style={{ marginTop: 6 }}>
           {CATEGORIAS.find((c) => c.valor === categoria)?.explica}
-          {categoria !== categoriaDe(jogadora) && ' — trocar de categoria zera o pagamento atual.'}
+          {categoria !== categoriaDe(jogadora) && !paraEspera && ' — trocar de categoria zera o pagamento atual.'}
         </em>
+        {paraEspera && (
+          <span className="hint aviso">
+            ⏳ Mensalistas lotadas: ao salvar ela continua {categoriaDe(jogadora)} e entra na lista de espera
+            {posicaoNaEspera >= 0 ? ` (já é a ${posicaoNaEspera + 1}ª)` : ` (${filaDeEspera(data).length + 1}ª)`}.
+          </span>
+        )}
       </div>
 
       <ForcaInicial

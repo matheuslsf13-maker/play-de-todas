@@ -1,6 +1,7 @@
 import type {
   Acerto,
   Mensalidade,
+  Ajuste,
   ItemDaMensalidade,
   Plano,
   AppData,
@@ -56,6 +57,7 @@ export interface Repo {
   saveCaixa(lancamento: LancamentoDeCaixa): Promise<void>
   deleteCaixa(id: string): Promise<void>
   saveMensalidade(ficha: Mensalidade): Promise<void>
+  saveAjuste(ajuste: Ajuste): Promise<void>
   saveItemDaMensalidade(item: ItemDaMensalidade): Promise<void>
   deleteItemDaMensalidade(id: string): Promise<void>
   juntarMensalidades(origem: string, destino: string): Promise<void>

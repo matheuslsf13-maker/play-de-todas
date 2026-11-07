@@ -3,6 +3,7 @@ import { LIGA } from '../liga'
 import type {
   Acerto,
   Mensalidade,
+  Ajuste,
   ItemDaMensalidade,
   Plano,
   AppData,
@@ -255,7 +256,7 @@ export const supabaseRepo: Repo = {
     const sb = client()
     // o misto nao tem check-ins (o dinheiro e de cada campeonato): nem pergunta
     const semCheckins = EH_MISTO ? Promise.resolve({ data: [], error: null }) : null
-    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens] =
+    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens, ajustes] =
       await Promise.all([
         EH_MISTO
           ? jogadoresDosDoisCampeonatos().then((data) => ({ data, error: null }), (error) => ({ data: null, error }))
@@ -275,6 +276,7 @@ export const supabaseRepo: Repo = {
         semCheckins ?? sb.from('checkin_planos').select('*').order('ordem'),
         TEM_MENSALIDADE ? sb.from('mensalidades').select('*') : { data: [], error: null },
         TEM_MENSALIDADE ? sb.from('mensalidade_itens').select('*') : { data: [], error: null },
+        TEM_MENSALIDADE ? sb.from('ajustes').select('*') : { data: [], error: null },
       ])
     const err = players.error || sessions.error || matches.error
     if (err) throw err
@@ -287,7 +289,7 @@ export const supabaseRepo: Repo = {
     const doCheckin: [string, { error: { message: string } | null }][] = [
       ['checkin_locais', locais], ['checkin_contas', contas], ['checkin_dias', dias],
       ['checkins', checkins], ['checkin_pagamentos', pagamentos], ['caixa', caixa], ['checkin_acertos', acertos],
-      ['checkin_planos', planos], ['mensalidades', fichas], ['mensalidade_itens', itens],
+      ['checkin_planos', planos], ['mensalidades', fichas], ['mensalidade_itens', itens], ['ajustes', ajustes],
     ]
     for (const [nome, r] of doCheckin) {
       if (r.error) {
@@ -329,6 +331,7 @@ export const supabaseRepo: Repo = {
       mensalidadeItens: ((itens.data ?? []) as ItemDaMensalidade[]).map((i) => ({
         ...i, valor: i.valor === null ? null : numero(i.valor),
       })),
+      ajustes: (ajustes.data ?? []) as Ajuste[],
       checkinPlanos: ((planos.data ?? []) as Plano[]).map((p) => ({
         ...p,
         cotas: Object.fromEntries(Object.entries(p.cotas ?? {}).map(([k, v]) => [k, numero(v)])),
@@ -531,6 +534,9 @@ export const supabaseRepo: Repo = {
   async saveMensalidade(ficha) {
     await upsertTolerante('mensalidades', ficha)
   },
+  async saveAjuste(ajuste) {
+    await upsertTolerante('ajustes', ajuste)
+  },
   async saveItemDaMensalidade(item) {
     await upsertTolerante('mensalidade_itens', item)
   },
@@ -663,7 +669,7 @@ export const supabaseRepo: Repo = {
       ...(EH_MISTO
         ? ([['public', 'players'], ['masculino', 'players'], ['misto', 'atletas']] as [string, string][])
         : ([[LIGA.schema, 'players']] as [string, string][])),
-      ...(TEM_MENSALIDADE ? ['mensalidades', 'mensalidade_itens'].map((t): [string, string] => ['public', t]) : []),
+      ...(TEM_MENSALIDADE ? ['mensalidades', 'mensalidade_itens', 'ajustes'].map((t): [string, string] => ['public', t]) : []),
       ...['sessions', 'matches', 'streak_choices', 'month_closures'].map((t) => [LIGA.schema, t] as [string, string]),
       ...(EH_MISTO
         ? []

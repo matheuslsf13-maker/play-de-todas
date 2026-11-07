@@ -40,6 +40,8 @@ export type Player = {
   pago_mes?: string | null
   /** Avulsa: credito de UMA participacao, gasto quando o play e finalizado. */
   pago_avulso?: boolean | null
+  /** Lista de espera para virar mensalista (script 35): quando pediu; nulo = nao esta na espera. */
+  espera_mensalista?: string | null
   /**
    * De onde o Elo parte para esta pessoa (escala de 1500). Vazio = 1500, o
    * meio da escala. Quem organiza pode ajustar no cadastro quando ja sabe o
@@ -561,6 +563,12 @@ export type ItemDaMensalidade = {
   created_at: string
 }
 
+/**
+ * UM AJUSTE DA ORGANIZACAO (script 35): chave -> valor. Ex.: 'limite_mensalistas' -> 12.
+ * Uma tabela so para as configuracoes que valem para todo mundo (nao por aparelho).
+ */
+export type Ajuste = { id: string; valor: unknown; updated_at: string }
+
 export type AppData = {
   players: Player[]
   sessions: PlaySession[]
@@ -576,13 +584,14 @@ export type AppData = {
   checkinAcertos: Acerto[]
   mensalidades: Mensalidade[]
   mensalidadeItens: ItemDaMensalidade[]
+  ajustes: Ajuste[]
   checkinPlanos: Plano[]
 }
 
 export const emptyData = (): AppData => ({
   players: [], sessions: [], matches: [], choices: [], closures: [],
   checkinLocais: [], checkinContas: [], checkinDias: [], checkins: [], checkinPagamentos: [], caixa: [],
-  checkinAcertos: [], checkinPlanos: [], mensalidades: [], mensalidadeItens: [],
+  checkinAcertos: [], checkinPlanos: [], mensalidades: [], mensalidadeItens: [], ajustes: [],
 })
 
 export function uid(): string {

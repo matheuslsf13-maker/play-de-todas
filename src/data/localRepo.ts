@@ -64,6 +64,7 @@ function read(): AppData {
       caixa: parsed.caixa ?? [],
       mensalidades: parsed.mensalidades ?? [],
       mensalidadeItens: parsed.mensalidadeItens ?? [],
+      ajustes: parsed.ajustes ?? [],
       checkinAcertos: parsed.checkinAcertos ?? [],
       // os planos de hoje entram quando a chave nunca os teve (mesma regra dos locais)
       checkinPlanos: parsed.checkinPlanos ?? PLANOS_INICIAIS.map((p) => ({ ...p, cotas: { ...p.cotas } })),
@@ -280,6 +281,11 @@ export const localRepo: Repo = {
   async deleteCaixa(id: string) {
     const d = read()
     d.caixa = d.caixa.filter((l) => l.id !== id)
+    write(d)
+  },
+  async saveAjuste(ajuste) {
+    const d = read()
+    upsertEm(d.ajustes, ajuste)
     write(d)
   },
   async saveMensalidade(ficha) {

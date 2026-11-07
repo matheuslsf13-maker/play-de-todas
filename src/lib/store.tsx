@@ -11,6 +11,7 @@ import { hasSupabase, supabase } from './supabase'
 import type {
   Acerto,
   Mensalidade,
+  Ajuste,
   ItemDaMensalidade,
   Plano,
   AppData,
@@ -71,6 +72,7 @@ type Ctx = {
   saveCaixa: (lancamento: LancamentoDeCaixa) => void
   deleteCaixa: (id: string) => void
   saveMensalidade: (ficha: Mensalidade) => void
+  saveAjuste: (ajuste: Ajuste) => void
   saveItemDaMensalidade: (item: ItemDaMensalidade) => void
   deleteItemDaMensalidade: (id: string) => void
   saveAcerto: (acerto: Acerto) => void
@@ -167,6 +169,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const push = useCallback(
     (op: WriteOp) => {
+      if (op.type === 'saveAjuste' && (LIGA.id !== 'feminino' || (repo.kind === 'supabase' && avisosDoBanco.tabelas.has('ajustes')))) {
+        throw new Error('Os ajustes precisam do script 35 no banco.')
+      }
       if (op.type === 'saveMensalidade' || op.type === 'saveItemDaMensalidade' || op.type === 'deleteItemDaMensalidade') {
         if (LIGA.id !== 'feminino') throw new Error('Mensalidade disponível apenas no Play de Todas')
         const tabela = op.type === 'saveMensalidade' ? 'mensalidades' : 'mensalidade_itens'
@@ -296,6 +301,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       saveCaixa: (lancamento) => push({ id: uid(), type: 'saveCaixa', lancamento }),
       deleteCaixa: (lancamentoId) => push({ id: uid(), type: 'deleteCaixa', lancamentoId }),
       saveMensalidade: (ficha) => push({ id: uid(), type: 'saveMensalidade', ficha }),
+      saveAjuste: (ajuste) => push({ id: uid(), type: 'saveAjuste', ajuste }),
       saveItemDaMensalidade: (item) => push({ id: uid(), type: 'saveItemDaMensalidade', item }),
       deleteItemDaMensalidade: (itemId) => push({ id: uid(), type: 'deleteItemDaMensalidade', itemId }),
       saveAcerto: (acerto) => push({ id: uid(), type: 'saveAcerto', acerto }),
@@ -402,6 +408,8 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.deleteCaixa(op.lancamentoId)
     case 'saveMensalidade':
       return repo.saveMensalidade(op.ficha)
+    case 'saveAjuste':
+      return repo.saveAjuste(op.ajuste)
     case 'saveItemDaMensalidade':
       return repo.saveItemDaMensalidade(op.item)
     case 'deleteItemDaMensalidade':
