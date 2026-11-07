@@ -202,7 +202,7 @@ function useTravarFundo() {
   }, [])
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function Modal({ title, onClose, children, semFechar }: { title: string; onClose: () => void; children: React.ReactNode; /** sem o "Fechar" do canto: a janela tem o proprio botao de saida */ semFechar?: boolean }) {
   useTravarFundo()
   // direto no <body>: aberto de dentro do cabecalho (sticky, z-index proprio),
   // o modal ficava preso na camada dele e a barra de abas o cobria -- o
@@ -212,7 +212,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="row spread" style={{ marginBottom: 12 }}>
           <strong>{title}</strong>
-          <button className="btn ghost sm" onClick={onClose}>Fechar</button>
+          {!semFechar && <button className="btn ghost sm" onClick={onClose}>Fechar</button>}
         </div>
         {children}
       </div>

@@ -232,13 +232,17 @@ function Pagina({
         <ConfirmarTroca a={troca[0]} b={troca[1]} lc={lc} recarregar={recarregar} onToast={onToast} onClose={() => setTroca(null)} />
       )}
       {resposta && (
-        <Modal title="✅ Nome na lista" onClose={onSair}>
+        // so um caminho de saida: voltar para o app e conhecer o resto dele (dono, 06/11)
+        <Modal title="✅ Nome na lista" onClose={onSair} semFechar>
           <div className="stack lista-pagina">
             <p className="lista-resposta">{resposta}</p>
             <p className="small muted" style={{ margin: 0 }}>
               Se não puder ir, abra o mesmo link neste celular e toque em <strong>Tirar meu nome</strong>.
             </p>
-            <button className="btn pink block" onClick={onSair}>Ir para o app</button>
+            <p className="small" style={{ margin: 0 }}>
+              Enquanto isso, dá uma explorada no app: ranking do mês, sua força e as estatísticas de cada play. 🎾
+            </p>
+            <button className="btn pink block" onClick={onSair}>Voltar para o app</button>
           </div>
         </Modal>
       )}
