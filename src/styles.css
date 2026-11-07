@@ -2121,3 +2121,7 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 .ficha-barra { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .ficha-barra > span { display: block; height: 100%; background: linear-gradient(90deg, var(--pink), var(--verde)); border-radius: inherit; }
 .ficha-item { padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+
+/* aluguel da V3: a conta na hora (D47) */
+.conta-aluguel { display: grid; gap: 3px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
+.conta-aluguel .pagar { color: var(--text); font-size: 14px; }

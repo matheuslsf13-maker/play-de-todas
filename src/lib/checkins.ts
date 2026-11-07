@@ -9,6 +9,7 @@ import { MES_INICIAL } from './fichaDaMensalidade'
 import type {
   Acerto,
   AppData,
+  LancamentoDeCaixa,
   AulaDaConta,
   Plano,
   CategoriaDeCaixa,
@@ -805,6 +806,8 @@ export function textoDoRelatorio(rel: Relatorio): string {
 export type LinhaDoResumo = {
   mes: string
   receitasPlay: number
+  /** O Pix das mensalidades (desde a de dezembro/2026), no mes do Pix. */
+  mensalidades: number
   receitasExtras: number
   receitaTotal: number
   aluguel: number
@@ -814,6 +817,18 @@ export type LinhaDoResumo = {
   despesaTotal: number
   saldoDoMes: number
   saldoAcumulado: number
+  /** 🎉 o que entrou no caixa de eventos no mes (a economia do aluguel no plano mensal) e o total ate ali. */
+  eventos: number
+  eventosAcumulado: number
+}
+
+/** O desconto do aluguel da V3 no plano mensal (dono, 07/11). */
+export const DESCONTO_DO_PLANO = 0.05
+
+/** A economia de um aluguel pago no plano mensal: o que custaria sem o plano menos o cobrado. */
+export function economiaDoAluguel(l: LancamentoDeCaixa): number {
+  if (l.categoria !== 'aluguel' || !l.plano_mensal || !l.valor_cobrado) return 0
+  return centavos(centavos(l.valor_cobrado / (1 - DESCONTO_DO_PLANO)) - l.valor_cobrado)
 }
 
 /**
@@ -829,7 +844,7 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
     meses.add(mes)
     let l = porMes.get(mes)
     if (!l) {
-      l = { mes, receitasPlay: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0, saldoAcumulado: 0 }
+      l = { mes, receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0, saldoAcumulado: 0, eventos: 0, eventosAcumulado: 0 }
       porMes.set(mes, l)
     }
     return l
@@ -845,8 +860,12 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
   for (const a of data.checkinAcertos) {
     if (a.dinheiro) linha(monthOf(a.date)).receitasPlay += a.valor
   }
+  for (const i of data.mensalidadeItens ?? []) {
+    if (i.tipo === 'dinheiro' && i.mes >= MES_INICIAL) linha(monthOf(i.date)).mensalidades += i.valor ?? 0
+  }
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))
+    r.eventos += economiaDoAluguel(l)
     if (l.tipo === 'entrada') r.receitasExtras += l.valor
     else if (l.categoria === 'aluguel') r.aluguel += l.valor
     else if (l.categoria === 'brinde') r.brindes += l.valor
@@ -854,11 +873,16 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
     else r.outras += l.valor
   }
   let acumulado = 0
+  let eventos = 0
   return [...meses]
     .sort()
     .map((mes) => {
       const r = porMes.get(mes) as LinhaDoResumo
-      r.receitaTotal = centavos(r.receitasPlay + r.receitasExtras)
+      r.mensalidades = centavos(r.mensalidades)
+      r.receitaTotal = centavos(r.receitasPlay + r.mensalidades + r.receitasExtras)
+      r.eventos = centavos(r.eventos)
+      eventos = centavos(eventos + r.eventos)
+      r.eventosAcumulado = eventos
       r.despesaTotal = centavos(r.aluguel + r.brindes + r.confraternizacao + r.outras)
       r.saldoDoMes = centavos(r.receitaTotal - r.despesaTotal)
       acumulado = centavos(acumulado + r.saldoDoMes)

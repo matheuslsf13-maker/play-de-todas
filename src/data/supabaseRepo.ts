@@ -321,7 +321,7 @@ export const supabaseRepo: Repo = {
         valor_pago: numero(p.valor_pago),
         valor_devido: p.valor_devido === null || p.valor_devido === undefined ? null : numero(p.valor_devido),
       })),
-      caixa: ((caixa.data ?? []) as LancamentoDeCaixa[]).map((c) => ({ ...c, valor: numero(c.valor) })),
+      caixa: ((caixa.data ?? []) as LancamentoDeCaixa[]).map((c) => ({ ...c, valor: numero(c.valor), valor_cobrado: c.valor_cobrado == null ? null : numero(c.valor_cobrado) })),
       checkinAcertos: ((acertos.data ?? []) as Acerto[]).map((a) => ({ ...a, valor: numero(a.valor) })),
       mensalidades: ((fichas.data ?? []) as Mensalidade[]).map((m) => ({
         ...m, valor_cheio: numero(m.valor_cheio), valor_checkin: numero(m.valor_checkin),

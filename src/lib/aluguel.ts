@@ -1,4 +1,4 @@
-import { centavos, gastaCheckin } from './checkins'
+import { centavos, DESCONTO_DO_PLANO, gastaCheckin } from './checkins'
 import { MES_INICIAL } from './fichaDaMensalidade'
 import { monthOf, type AppData } from './types'
 
@@ -21,7 +21,7 @@ type DadosDoAluguel = {
   valorPorCheckin?: number
 }
 
-export function contaDoAluguel({ valorNoPlano, desconto = 0.05, checkinsMesAnterior, valorPorCheckin = 25 }: DadosDoAluguel) {
+export function contaDoAluguel({ valorNoPlano, desconto = DESCONTO_DO_PLANO, checkinsMesAnterior, valorPorCheckin = 25 }: DadosDoAluguel) {
   if (!(desconto >= 0 && desconto < 1)) throw new RangeError('O desconto deve estar entre 0 e 1, sem incluir 1.')
   const plano = centavos(valorNoPlano)
   const semPlano = centavos(plano / (1 - desconto))
@@ -34,9 +34,5 @@ export function contaDoAluguel({ valorNoPlano, desconto = 0.05, checkinsMesAnter
   }
 }
 
-export type EconomiaDoAluguel = { economia: number }
-
-// shortcut: recebe só as economias do aluguel até o dono decidir onde gravar a marca "pago no plano mensal".
-export function caixaDeEventos(data: readonly EconomiaDoAluguel[]): number {
-  return centavos(data.reduce((total, aluguel) => total + aluguel.economia, 0))
-}
+// o caixa de eventos sai do resumo do caixa (`eventos`/`eventosAcumulado` em resumoDoCaixa): a economia de cada
+// aluguel lancado no plano mensal (`economiaDoAluguel`).

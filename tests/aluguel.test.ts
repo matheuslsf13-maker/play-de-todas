@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { caixaDeEventos, checkinsNaArena, contaDoAluguel } from '../src/lib/aluguel'
-import { LOCAIS_INICIAIS } from '../src/lib/checkins'
-import { emptyData, type Checkin } from '../src/lib/types'
+import { checkinsNaArena, contaDoAluguel } from '../src/lib/aluguel'
+import { LOCAIS_INICIAIS, economiaDoAluguel, resumoDoCaixa } from '../src/lib/checkins'
+import { emptyData, type Checkin, type LancamentoDeCaixa } from '../src/lib/types'
 
 test('aluguel de janeiro: check-ins da V3 em dezembro (sem contar o uso do crédito) e o exemplo do dono', () => {
   const data = emptyData()
@@ -51,9 +51,18 @@ test('mês sem check-ins paga exatamente o valor do plano', () => {
   })
 })
 
-test('caixa de eventos soma somente as economias dos aluguéis', () => {
-  const aluguel = contaDoAluguel({ valorNoPlano: 90.09, desconto: 0.1, checkinsMesAnterior: 2, valorPorCheckin: 12.34 })
-  assert.deepEqual(aluguel, { semPlano: 100.1, economia: 10.01, credito: 24.68, pagarNoPix: 65.41 })
-  assert.equal(caixaDeEventos([aluguel, { economia: 96 }]), 106.01)
-  assert.equal(caixaDeEventos([]), 0)
+test('caixa de eventos: a economia dos alugueis no plano mensal, acumulada no resumo', () => {
+  const data = emptyData()
+  const aluguel = (id: string, date: string, extra: Partial<LancamentoDeCaixa>): LancamentoDeCaixa => ({
+    id, date, descricao: '', categoria: 'aluguel', tipo: 'saida', valor: 1574, created_at: '', ...extra,
+  })
+  data.caixa = [
+    aluguel('dez', '2026-12-10', { plano_mensal: true, valor_cobrado: 1824, checkins_abatidos: 10 }),
+    aluguel('jan', '2027-01-10', { plano_mensal: false, valor_cobrado: 1920 }),
+    aluguel('fev', '2027-02-10', { plano_mensal: true, valor_cobrado: 1824 }),
+  ]
+  assert.equal(economiaDoAluguel(data.caixa[0]), 96)
+  assert.equal(economiaDoAluguel(data.caixa[1]), 0)
+  const r = resumoDoCaixa(data)
+  assert.deepEqual(r.map((x) => [x.eventos, x.eventosAcumulado, x.aluguel]), [[96, 96, 1574], [0, 96, 1574], [96, 192, 1574]])
 })

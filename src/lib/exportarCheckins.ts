@@ -203,46 +203,22 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
     ])
   }
 
-  // ---- Resumo: igual a aba Resumo, todos os meses
-  // O Resumo cobre todo o histórico. Uma exportação anterior à regra mantém a saída antiga inteira.
-  const pixPorMes = new Map<string, number>()
-  if (!mes || mes >= MES_INICIAL) {
-    for (const i of data.mensalidadeItens ?? []) {
-      if (i.mes < MES_INICIAL || i.tipo !== 'dinheiro') continue
-      const periodo = monthOf(i.date)
-      pixPorMes.set(periodo, centavos((pixPorMes.get(periodo) ?? 0) + (i.valor ?? 0)))
-    }
-  }
-  const caixa = new Map(resumoDoCaixa(data).map(r => [r.mes, r]))
-  const periodos = [...new Set([...caixa.keys(), ...pixPorMes.keys()])].sort()
-  let acumulado = 0
+  // ---- Resumo: igual ao Resumo do Caixa no app (mensalidades e caixa de eventos inclusos, D47)
   const resumo: Planilha = {
     nome: 'Resumo',
     linhas: [
       [
-        'Mês', 'Receita dos plays', 'Receitas extras', 'Receita total', 'Aluguel', 'Brindes', 'Confraternização',
-        'Outras despesas', 'Despesa total', 'Saldo do mês', 'Saldo acumulado',
+        'Mês', 'Receita dos plays', 'Mensalidades', 'Receitas extras', 'Receita total', 'Aluguel', 'Brindes',
+        'Confraternização', 'Outras despesas', 'Despesa total', 'Saldo do mês', 'Saldo acumulado',
+        'Caixa de eventos (reserva)',
       ],
-      ...periodos.map(periodo => {
-        const r = caixa.get(periodo)
-        const pix = pixPorMes.get(periodo) ?? 0
-        const saldo = centavos((r?.saldoDoMes ?? 0) + pix)
-        acumulado = centavos(acumulado + saldo)
-        return [
-          monthLabel(periodo), { reais: r?.receitasPlay ?? 0 }, { reais: r?.receitasExtras ?? 0 },
-          { reais: centavos((r?.receitaTotal ?? 0) + pix) }, { reais: r?.aluguel ?? 0 }, { reais: r?.brindes ?? 0 },
-          { reais: r?.confraternizacao ?? 0 }, { reais: r?.outras ?? 0 }, { reais: r?.despesaTotal ?? 0 },
-          { reais: saldo }, { reais: acumulado },
-        ]
-      }),
+      ...resumoDoCaixa(data).map((r) => [
+        monthLabel(r.mes), { reais: r.receitasPlay }, { reais: r.mensalidades }, { reais: r.receitasExtras },
+        { reais: r.receitaTotal }, { reais: r.aluguel }, { reais: r.brindes }, { reais: r.confraternizacao },
+        { reais: r.outras }, { reais: r.despesaTotal }, { reais: r.saldoDoMes }, { reais: r.saldoAcumulado },
+        { reais: r.eventosAcumulado },
+      ]),
     ],
-  }
-
-  if (pixPorMes.size) {
-    resumo.linhas.push([], ['Receita', 'Mês do Pix', 'Valor'])
-    for (const periodo of periodos) {
-      if (pixPorMes.has(periodo)) resumo.linhas.push(['Mensalidades', monthLabel(periodo), { reais: pixPorMes.get(periodo)! }])
-    }
   }
 
   // ---- Pagamentos: a aba de saidas da planilha (mais as receitas extras), uma por linha

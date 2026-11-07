@@ -489,7 +489,15 @@ export type LancamentoDeCaixa = {
   descricao: string
   categoria: CategoriaDeCaixa
   tipo: 'entrada' | 'saida'
+  /** O que saiu (ou entrou) de verdade. No aluguel, o que foi pago no Pix. */
   valor: number
+  /**
+   * ALUGUEL DA V3 (script 35, dono 07/11): pago no plano mensal (5% de desconto; a economia vai para o
+   * caixa de eventos), o valor que a V3 cobrou no plano e quantos check-ins do mes anterior ela abateu.
+   */
+  plano_mensal?: boolean | null
+  valor_cobrado?: number | null
+  checkins_abatidos?: number | null
   created_at: string
 }
 

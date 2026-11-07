@@ -31,13 +31,16 @@ function exemplo() {
   return d
 }
 
-test('exportações anteriores à regra preservam todas as abas, inclusive o Resumo de todo o histórico', () => {
+// o Resumo e de todo o historico e mostra o dinheiro que ENTROU (o Pix de 29/11 da mensalidade de dezembro entra
+// em novembro); as outras abas de outubro e novembro ficam iguais
+test('exportações anteriores à regra preservam as abas do período', () => {
   const d = exemplo()
   const semFichas = { ...d, mensalidades: [], mensalidadeItens: [] }
   for (const periodo of ['2026-10', '2026-11']) {
     const anterior = planilhasCompletas(semFichas, nome, periodo, hoje)
     assert.deepEqual(anterior.map(a => a.nome), ['Controle Play', 'Pagamentos', 'Resumo', 'Saldos'])
-    assert.deepEqual(planilhasCompletas(d, nome, periodo, hoje), anterior)
+    const semResumo = (abas: typeof anterior) => abas.filter((a) => a.nome !== 'Resumo')
+    assert.deepEqual(semResumo(planilhasCompletas(d, nome, periodo, hoje)), semResumo(anterior))
   }
 })
 
@@ -64,13 +67,11 @@ test('o Resumo recebe o Pix no mês do recebimento e carrega o saldo para meses 
   const abas = planilhasCompletas(d, nome, '2027-01', hoje)
   assert.ok(!abas.some(a => a.nome === 'Mensalidades'))
   const resumo = abas.find(a => a.nome === 'Resumo')!.linhas
-  assert.deepEqual(resumo.slice(-3), [
-    ['Mensalidades', 'Novembro de 2026', reais(80)], ['Mensalidades', 'Dezembro de 2026', reais(260)],
-    ['Mensalidades', 'Janeiro de 2027', reais(15)],
-  ])
-  assert.deepEqual(resumo[1].slice(1), [reais(0), reais(0), reais(80), reais(10), reais(0), reais(0), reais(0), reais(10), reais(70), reais(70)])
-  assert.deepEqual(resumo[2].slice(-2), [reais(260), reais(330)])
-  assert.deepEqual(resumo[3].slice(-2), [reais(15), reais(345)])
+  // colunas: plays, mensalidades, extras, receita, aluguel, brindes, confrat., outras, despesa, saldo, acumulado, eventos
+  assert.deepEqual(resumo[1].slice(1), [reais(0), reais(80), reais(0), reais(80), reais(10), reais(0), reais(0), reais(0), reais(10), reais(70), reais(70), reais(0)])
+  assert.deepEqual(resumo[2][2], reais(260))
+  assert.deepEqual(resumo[2].slice(-3), [reais(260), reais(330), reais(0)])
+  assert.deepEqual(resumo[3].slice(-3), [reais(15), reais(345), reais(0)])
   d.mensalidades.push({ ...d.mensalidades[0], id: 'jan', mes: '2027-01' })
   const tudo = planilhasCompletas(d, nome, null, '2027-01-10').find(a => a.nome === 'Mensalidades')!.linhas
   assert.deepEqual(tudo[4], ['Ana Souza', 'janeiro/2027', reais(0), 0, reais(0), reais(0), reais(180), 'Falta ' + formatarReais(180)])

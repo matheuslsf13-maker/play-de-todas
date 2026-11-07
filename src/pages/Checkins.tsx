@@ -2,7 +2,8 @@ import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '
 import { useEffect, useMemo, useState } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
-import { emDiaNaData, fichaDe, MES_INICIAL } from '../lib/fichaDaMensalidade'
+import { emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
+import { checkinsNaArena, contaDoAluguel } from '../lib/aluguel'
 import { categoriaDe } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
@@ -34,6 +35,7 @@ import {
   planoDaConta,
   relatorioDasArenas,
   resumoDoCaixa,
+  economiaDoAluguel,
   rotuloDoDia,
   rotuloDoTipo,
   saldoDaAtleta,
@@ -775,23 +777,40 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [tudo, setTudo] = useState(false)
+  /** Aluguel da V3 pago no plano mensal (5% de desconto): ja vem marcado (dono, 07/11). */
+  const [planoMensal, setPlanoMensal] = useState(true)
   // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
   const [aberto, setAberto] = useState<(typeof data.caixa)[number] | null>(null)
 
   const resumo = useMemo(() => resumoDoCaixa(data), [data])
   const doMes = data.caixa.filter((l) => monthOf(l.date) === mes).sort((a, b) => b.date.localeCompare(a.date))
   const linhaDoMes: LinhaDoResumo = resumo.find((r) => r.mes === mes) ?? {
-    mes, receitasPlay: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0,
-    despesaTotal: 0, saldoDoMes: 0,
+    mes, receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0,
+    despesaTotal: 0, saldoDoMes: 0, eventos: 0,
+    eventosAcumulado: resumo.filter((r) => r.mes < mes).slice(-1)[0]?.eventosAcumulado ?? 0,
     // sem movimento no mes, o acumulado e o do ultimo mes anterior
     saldoAcumulado: resumo.filter((r) => r.mes < mes).slice(-1)[0]?.saldoAcumulado ?? 0,
   }
   const tipo = CATEGORIAS_DE_CAIXA.find((c) => c.valor === categoria)?.tipo ?? 'saida'
   const valorLido = lerValor(valor)
+  // ALUGUEL DA V3 (D47): o valor digitado e o que a V3 cobrou; ela abate R$ 25 por check-in feito la no mes
+  // anterior, e o que sai de verdade (o lancamento) e o Pix. No plano mensal a economia vai para o caixa de eventos.
+  const v3 = data.checkinLocais.find((l) => /v3/i.test(l.nome))
+  const ehAluguel = categoria === 'aluguel' && LIGA.id === 'feminino'
+  const mesDosCheckins = date ? mesAnterior(monthOf(date)) : ''
+  const checkinsAbatidos = ehAluguel && v3 && date ? checkinsNaArena(data, v3.id, mesDosCheckins) : 0
+  const aluguel = ehAluguel && valorLido !== null && valorLido > 0
+    ? contaDoAluguel({ valorNoPlano: valorLido, desconto: planoMensal ? undefined : 0, checkinsMesAnterior: checkinsAbatidos })
+    : null
 
   function lancar() {
     if (valorLido === null || valorLido <= 0 || !date) return
-    saveCaixa({ id: uid(), date, descricao: descricao.trim(), categoria, tipo, valor: valorLido, created_at: new Date().toISOString() })
+    saveCaixa({
+      id: uid(), date, descricao: descricao.trim(), categoria, tipo, created_at: new Date().toISOString(),
+      ...(aluguel
+        ? { valor: aluguel.pagarNoPix, plano_mensal: planoMensal, valor_cobrado: valorLido, checkins_abatidos: checkinsAbatidos }
+        : { valor: valorLido }),
+    })
     setDescricao('')
     setValor('')
     onToast(tipo === 'entrada' ? 'Receita lançada' : 'Saída lançada')
@@ -799,12 +818,12 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
 
   const totais = resumo.reduce(
     (t, r) => ({
-      receitasPlay: t.receitasPlay + r.receitasPlay, receitasExtras: t.receitasExtras + r.receitasExtras,
+      receitasPlay: t.receitasPlay + r.receitasPlay, mensalidades: t.mensalidades + r.mensalidades, receitasExtras: t.receitasExtras + r.receitasExtras,
       receitaTotal: t.receitaTotal + r.receitaTotal, aluguel: t.aluguel + r.aluguel, brindes: t.brindes + r.brindes,
       confraternizacao: t.confraternizacao + r.confraternizacao, outras: t.outras + r.outras,
       despesaTotal: t.despesaTotal + r.despesaTotal, saldoDoMes: t.saldoDoMes + r.saldoDoMes,
     }),
-    { receitasPlay: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0 },
+    { receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0 },
   )
 
   return (
@@ -821,6 +840,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
           <table className="table">
             <tbody>
               <tr><td>Receita dos plays</td><td><Reais n={linhaDoMes.receitasPlay} /></td></tr>
+              {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td><Reais n={linhaDoMes.mensalidades} /></td></tr>}
               <tr><td>Receitas extras</td><td><Reais n={linhaDoMes.receitasExtras} /></td></tr>
               <tr><td><strong>Receita total</strong></td><td><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
               <tr><td>Aluguel</td><td><Reais n={linhaDoMes.aluguel} /></td></tr>
@@ -830,6 +850,9 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
               <tr><td><strong>Despesa total</strong></td><td><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
               <tr><td><strong>Saldo do mês</strong></td><td><strong><Reais n={linhaDoMes.saldoDoMes} sinal /></strong></td></tr>
               <tr><td><strong>Saldo acumulado</strong></td><td><strong><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong></td></tr>
+              {linhaDoMes.eventosAcumulado > 0 && (
+                <tr><td>🎉 Caixa de eventos <span className="tiny muted">(reservado dentro do saldo)</span></td><td><Reais n={linhaDoMes.eventosAcumulado} /></td></tr>
+              )}
             </tbody>
           </table>
         ) : resumo.length === 0 ? (
@@ -839,7 +862,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
             <table className="table">
               <thead>
                 <tr>
-                  <th>Mês</th><th>Plays</th><th>Extras</th><th>Receita</th><th>Aluguel</th><th>Brindes</th>
+                  <th>Mês</th><th>Plays</th><th>Mens.</th><th>Extras</th><th>Receita</th><th>Aluguel</th><th>Brindes</th>
                   <th>Confrat.</th><th>Outras</th><th>Despesa</th><th>Saldo</th><th>Acumulado</th>
                 </tr>
               </thead>
@@ -847,7 +870,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 {resumo.map((r) => (
                   <tr key={r.mes}>
                     <td>{monthLabel(r.mes).slice(0, 3)}/{r.mes.slice(2, 4)}</td>
-                    <td><Reais n={r.receitasPlay} /></td><td><Reais n={r.receitasExtras} /></td><td><Reais n={r.receitaTotal} /></td>
+                    <td><Reais n={r.receitasPlay} /></td><td><Reais n={r.mensalidades} /></td><td><Reais n={r.receitasExtras} /></td><td><Reais n={r.receitaTotal} /></td>
                     <td><Reais n={r.aluguel} /></td><td><Reais n={r.brindes} /></td><td><Reais n={r.confraternizacao} /></td>
                     <td><Reais n={r.outras} /></td><td><Reais n={r.despesaTotal} /></td>
                     <td><Reais n={r.saldoDoMes} sinal /></td><td><Reais n={r.saldoAcumulado} sinal /></td>
@@ -857,7 +880,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
               <tfoot>
                 <tr>
                   <td>Total</td>
-                  <td><Reais n={totais.receitasPlay} /></td><td><Reais n={totais.receitasExtras} /></td><td><Reais n={totais.receitaTotal} /></td>
+                  <td><Reais n={totais.receitasPlay} /></td><td><Reais n={totais.mensalidades} /></td><td><Reais n={totais.receitasExtras} /></td><td><Reais n={totais.receitaTotal} /></td>
                   <td><Reais n={totais.aluguel} /></td><td><Reais n={totais.brindes} /></td><td><Reais n={totais.confraternizacao} /></td>
                   <td><Reais n={totais.outras} /></td><td><Reais n={totais.despesaTotal} /></td>
                   <td><Reais n={totais.saldoDoMes} sinal /></td><td><Reais n={resumo[resumo.length - 1]?.saldoAcumulado ?? 0} sinal /></td>
@@ -902,15 +925,40 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </label>
               <label className="field">
-                <span>Valor (R$)</span>
+                <span>{ehAluguel ? 'Valor que a V3 cobrou' : 'Valor (R$)'}</span>
                 <input className="input valor" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
               </label>
             </div>
+            {ehAluguel && (
+              <>
+                <label className="toggle-card row">
+                  <input type="checkbox" checked={planoMensal} onChange={(e) => setPlanoMensal(e.target.checked)} />
+                  <span>
+                    <strong>Pago no plano mensal (5% de desconto)</strong>
+                    <span className="tiny muted" style={{ display: 'block' }}>A economia vai para o 🎉 caixa de eventos.</span>
+                  </span>
+                </label>
+                {aluguel && (
+                  <div className="conta-aluguel tiny">
+                    {planoMensal && (
+                      <div>Sem o plano seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para o 🎉 caixa de eventos</strong></div>
+                    )}
+                    <div>
+                      Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)} × {formatarReais(25)} ={' '}
+                      {formatarReais(aluguel.credito)}
+                    </div>
+                    <div className="pagar">Pagar no Pix: <strong>{formatarReais(aluguel.pagarNoPix)}</strong></div>
+                    {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
+                  </div>
+                )}
+                {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
+              </>
+            )}
             <label className="field">
               <span>Descrição</span>
               <input
                 className="input"
-                placeholder={tipo === 'entrada' ? 'Valor avulso do play de sexta' : 'Brindes Shopee'}
+                placeholder={tipo === 'entrada' ? 'Valor avulso do play de sexta' : ehAluguel ? 'Aluguel de dezembro' : 'Brindes Shopee'}
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && lancar()}
@@ -956,6 +1004,13 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
             <div className={aberto.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'} style={{ fontSize: 22, fontWeight: 800 }}>
               {aberto.tipo === 'entrada' ? '+' : '−'} {formatarReais(aberto.valor)}
             </div>
+            {aberto.valor_cobrado ? (
+              <div className="conta-aluguel tiny">
+                <div>A V3 cobrou {formatarReais(aberto.valor_cobrado)}{aberto.plano_mensal ? ' no plano mensal' : ''}</div>
+                {aberto.plano_mensal && <div>🎉 {formatarReais(economiaDoAluguel(aberto))} para o caixa de eventos</div>}
+                <div>{plural(aberto.checkins_abatidos ?? 0, 'check-in abatido', 'check-ins abatidos')} do mês anterior</div>
+              </div>
+            ) : null}
             <button
               className="btn danger block"
               onClick={() => {
