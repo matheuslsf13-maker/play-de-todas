@@ -213,6 +213,10 @@ export default function Ranking({
             <option value={HISTORICO}>🏅 Histórico completo</option>
           </select>
         </div>
+        {/* a palavra leva ao cartao que explica (dono, 06/11); embaixo, para nao apertar o titulo ao lado do mes */}
+        <div className="titulo-nota" style={{ marginTop: 4 }}>
+          somado por <IrPara alvo="como-pontua">pontos</IrPara>
+        </div>
 
         {historico && (
           <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -336,7 +340,10 @@ export default function Ranking({
       {fire.length > 0 && (
         <div className="card">
           <div className="section-title com-nota">
-            🔥 Status <span className="titulo-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</span>
+            🔥 Status{' '}
+            <span className="titulo-nota">
+              <IrPara alvo="como-funciona-status">pódios seguidos</IrPara> sem faltar · o último tem um prêmio secreto
+            </span>
           </div>
           <div className="stack">
             {fire.map((f) => {
@@ -404,7 +411,7 @@ export default function Ranking({
       {/* Como funciona: o que pontua e o que da status. Os numeros saem das
           mesmas constantes que o app usa (POINTS_TABLE, PONTUACAO_PADRAO,
           STREAK_LADDER), para o cartao nunca contar uma regra velha. */}
-      <div className="card dark regras">
+      <div className="card dark regras" id="como-pontua">
         <div className="section-title">⭐ Como pontua</div>
 
         <div className="regra-bloco">
@@ -448,7 +455,7 @@ export default function Ranking({
         </div>
       </div>
 
-      <div className="card dark regras">
+      <div className="card dark regras" id="como-funciona-status">
         <div className="section-title">🔥 Status</div>
         <p className="regra-texto" style={{ marginTop: 0 }}>
           Cada play terminado no <strong>pódio</strong> sobe um degrau: o top 3 do play, o pódio do seu
@@ -662,8 +669,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                     {i + 1}
                   </span>
                   <Avatar player={playerById(l.player_id)} size={28} />
-                  <span className="grow row" style={{ minWidth: 0, gap: 4 }}>
-                    <span className="ellipsis" style={{ fontWeight: 700 }}>
+                  {/* a forca colada no nome (dono, 06/11); o tracejado embaixo do nome diz que abre o perfil */}
+                  <span className="row" style={{ flex: '0 1 13em', minWidth: 0, gap: 4 }}>
+                    <span className="ellipsis nome-tocavel" style={{ fontWeight: 700 }}>
                       {nameOf(l.player_id)}
                     </span>
                     {l.emAvaliacao !== undefined && <span className="nowrap tiny muted">{avaliacaoCurta(l.emAvaliacao)}</span>}
@@ -680,6 +688,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   >
                     {l.nota}
                   </span>
+                  {/* a nota fica numa coluna logo depois do nome; a seta vai para a ponta */}
+                  <span className="grow" />
                   <span className="seta-abrir" aria-hidden="true">›</span>
                 </button>
               ))
@@ -698,8 +708,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   </span>
                   <Avatar player={playerById(d.a)} size={24} />
                   <Avatar player={playerById(d.b)} size={24} />
-                  <span className="grow" style={{ minWidth: 0 }}>
-                    <span className="ellipsis" style={{ display: 'block', fontWeight: 700 }}>
+                  <span style={{ flex: '0 1 13em', minWidth: 0 }}>
+                    <span className="ellipsis nome-tocavel" style={{ display: 'block', fontWeight: 700 }}>
                       {nameOf(d.a)} <span className="muted">+</span> {nameOf(d.b)}
                     </span>
                     <span className="tiny muted" style={{ display: 'block' }} title="Ajuste da força da dupla em relação à média individual; não soma pontos ao ranking.">
@@ -713,6 +723,8 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   >
                     {d.nota}
                   </span>
+                  {/* a nota fica numa coluna logo depois do nome; a seta vai para a ponta */}
+                  <span className="grow" />
                   <span className="seta-abrir" aria-hidden="true">›</span>
                 </button>
               ))}
@@ -737,5 +749,18 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
         </p>
       )}
     </div>
+  )
+}
+
+/** Palavra da nota do titulo que rola ate o cartao que explica (Como pontua, Status). */
+function IrPara({ alvo, children }: { alvo: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      className="nota-link"
+      onClick={() => document.getElementById(alvo)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+    >
+      {children} ↓
+    </button>
   )
 }

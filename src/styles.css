@@ -2037,7 +2037,22 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   color: var(--muted);
 }
 
-/* a seta das linhas que abrem perfil (forca individual e duplas): em rosa, para ver que e tocavel */
+/* nome que abre o perfil (forca individual e duplas): tracejado discreto embaixo (dono, 06/11) */
+/* borda, nao sublinhado: o overflow do ellipsis cortava o sublinhado */
+.nome-tocavel { border-bottom: 1px dashed var(--muted); padding-bottom: 1px; }
+
+/* a palavra que leva ao cartao que explica: rosa, sublinhado pontilhado, na mesma letra da nota */
+.nota-link {
+  all: unset;
+  cursor: pointer;
+  color: var(--pink);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.nota-link:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; border-radius: 4px; }
+#como-pontua, #como-funciona-status { scroll-margin-top: 90px; }
+
+/* a seta das linhas que abrem perfil (forca individual e duplas), junto com o tracejado do nome */
 .seta-abrir {
   display: inline-grid;
   place-items: center;
