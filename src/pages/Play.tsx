@@ -638,10 +638,10 @@ function NewPlay({
       )
     : available
   // a grade so crescia com cada cadastro (dono, 06/11): sem busca, aparecem quem esta marcada e quem
-  // jogou um dos 4 ultimos plays; o resto fica recolhido em "outras atletas"
+  // jogou um dos 2 ultimos plays; o resto fica recolhido em "outras atletas"
   const [verOutras, setVerOutras] = useState(false)
   const recentes = useMemo(() => {
-    const ultimos = [...data.sessions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4)
+    const ultimos = [...data.sessions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 2)
     return new Set(ultimos.flatMap((s) => s.player_ids ?? []))
   }, [data.sessions])
   const frequentes = termoQuem ? visiveis : visiveis.filter((p) => selected.includes(p.id) || recentes.has(p.id))
