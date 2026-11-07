@@ -42,6 +42,9 @@ export function useLista(ref: { codigo: string } | 'momento' | null) {
     try {
       const l = chave === 'momento' ? await repo.listaDoMomento() : await repo.carregarLista({ codigo: chave })
       ultimaLida.set(chave, l)
+      // a pagina da lista acabou de ler (fechar, reabrir, editar): o cartao do momento nao volta com a copia velha
+      const momento = ultimaLida.get('momento')
+      if (chave !== 'momento' && l && momento?.lista.id === l.lista.id) ultimaLida.set('momento', l)
       setLista(l)
     } catch (e) {
       // sem sinal: fica com o que ja tinha

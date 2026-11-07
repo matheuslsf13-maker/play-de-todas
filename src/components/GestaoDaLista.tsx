@@ -21,6 +21,7 @@ import { normalizar, semelhanca } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { esquecerCopiaDaApagada, guardarCopiaDaApagada } from '../lib/useLista'
 import { plural, type Player } from '../lib/types'
+import { avisoDoFinanceiro, lancadosPelaLista, type Desfazer } from '../lib/pagamentoNaLista'
 
 /*
  * GESTAO DA LISTA (organizadora, logada). Toda escrita espera o banco e o erro
@@ -454,28 +455,56 @@ export function AdicionarNaLista({
 }
 
 /** "Apagar esta lista?" (D39): os avisos, um so passo, sem digitar. Espera o banco; erro deixa a janela aberta. */
+/** Quem tem cadastro na lista (ativa ou que saiu): o 💰 so lanca para elas. */
+export const cadastrosDaLista = (lc: ListaCompleta) => lc.nomes.flatMap((n) => (n.player_id ? [n.player_id] : []))
+
+/** Grava o desfazer pela fila da store (nunca recusada pelo banco): cadastros, lancamentos soltos e os dias. */
+export function aplicarDesfazer(store: ReturnType<typeof useStore>, d: Desfazer) {
+  for (const p of d.players) store.savePlayer(p)
+  const dosDias = new Set(store.data.checkins.filter((c) => d.dias.includes(c.dia_id)).map((c) => c.id))
+  for (const id of d.checkins) if (!dosDias.has(id)) store.deleteCheckin(id)
+  // o dia leva junto os lancamentos e pagamentos dele (cascata no banco e na store)
+  for (const id of d.dias) store.deleteCheckinDia(id)
+}
+
+/**
+ * Apaga a lista (D39) e desfaz o 💰 dela. `antes`: o que roda antes de apagar
+ * (apagar o play junto: soltar o vinculo, senao o banco recusa).
+ */
+export async function apagarListaComTudo(store: ReturnType<typeof useStore>, lc: ListaCompleta, antes?: () => Promise<void>) {
+  const desfazer = lancadosPelaLista(store.data, { ...lc.lista, session_id: null }, cadastrosDaLista(lc))
+  await antes?.()
+  await store.repo.apagarLista(lc.lista.id)
+  aplicarDesfazer(store, desfazer)
+  // D41: os nomes ficam neste celular por 30 minutos, para a lista refeita (lista sem nomes: nao sobra a copia de antes)
+  const copia = copiaDaApagada(lc.lista, lc.nomes, new Date())
+  if (copia) guardarCopiaDaApagada(copia)
+  else esquecerCopiaDaApagada()
+}
+
 export function ApagarLista({ lc, onApagou, onClose }: { lc: ListaCompleta; onApagou: () => void; onClose: () => void }) {
-  const { repo } = useStore()
+  const store = useStore()
+  const { repo } = store
   const [busy, setBusy] = useState(false)
   const [erro, setErro] = useState('')
-  function apagou() {
-    // D41: os nomes ficam neste celular por 30 minutos, para a lista refeita (lista sem nomes: nao sobra a copia de antes)
-    const copia = copiaDaApagada(lc.lista, lc.nomes, new Date())
-    if (copia) guardarCopiaDaApagada(copia)
-    else esquecerCopiaDaApagada()
-    onApagou()
-  }
+  const financeiro = avisoDoFinanceiro(store.data, lancadosPelaLista(store.data, lc.lista, cadastrosDaLista(lc)), true)
   async function apagar() {
     setBusy(true)
     setErro('')
     try {
-      await repo.apagarLista(lc.lista.id)
-      apagou()
+      await apagarListaComTudo(store, lc)
+      onApagou()
     } catch (e) {
       console.warn('não consegui apagar a lista:', e)
       // a resposta pode ter se perdido com a lista ja apagada, ou outro celular montou o play
       const atual = await repo.carregarLista({ id: lc.lista.id }).catch(() => undefined)
-      if (atual === null) return apagou()
+      if (atual === null) {
+        // apagou mesmo: desfaz o 💰 e guarda a copia como no caminho certo
+        aplicarDesfazer(store, lancadosPelaLista(store.data, lc.lista, cadastrosDaLista(lc)))
+        const copia = copiaDaApagada(lc.lista, lc.nomes, new Date())
+        if (copia) guardarCopiaDaApagada(copia)
+        return onApagou()
+      }
       setErro(atual?.lista.session_id ? 'Esta lista já virou play e não pode ser apagada.' : 'Não consegui apagar agora. Confira a internet e tente de novo.')
       setBusy(false)
     }
@@ -487,7 +516,8 @@ export function ApagarLista({ lc, onApagou, onClose }: { lc: ListaCompleta; onAp
           {lc.lista.titulo} · {quandoComData(lc.lista.play_em)}
         </p>
         <ul style={{ margin: 0, paddingLeft: 20 }}>
-          {avisosAoApagar(lc.nomes).map((a) => <li key={a}>{a}</li>)}
+          {/* o 💰 entra antes do "Não dá para desfazer", que fecha a lista */}
+          {avisosAoApagar(lc.nomes).flatMap((a, i, xs) => (i === xs.length - 1 && financeiro ? [financeiro, a] : [a])).map((a) => <li key={a}>{a}</li>)}
         </ul>
         {erro && <div className="banner err" style={{ margin: 0 }}>{erro}</div>}
         <button className="btn danger block" disabled={busy} onClick={() => void apagar()}>

@@ -7,7 +7,8 @@
  *                       atividade nas ultimas 3 horas -- salvo lista aberta de OUTRO
  *                       play: ai a lista prevalece e o ao vivo vem junto, reduzido
  *   b) LISTA ABERTA     a de play mais cedo (com o play de hoje junto, reduzido)
- *   c) LISTA FECHADA    com o play por vir (ate 6h depois da hora do play)
+ *   c) LISTA FECHADA    com o play por vir (ate 6h depois da hora do play), enquanto
+ *                       o play nao foi montado (sem session_id e sem play na data dela)
  *   d) PLAY             play aberto que nao esta ao vivo: o "Proximo play" de
  *                       sempre, ou o "Play em andamento" parado de dias atras
  *   e) PODIO DA NOITE   o ultimo play finalizado, no dia e ate o meio-dia seguinte
@@ -17,7 +18,7 @@
  */
 import { categoriasDoPlay, duosDaCategoria, partidasDaCategoria } from './campeonato'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from './desempateDoDia'
-import { HORAS_DA_LISTA_DEPOIS_DO_PLAY, dataEmSaoPaulo, estaAberta, type ListaCompleta } from './listaDePresenca'
+import { HORAS_DA_LISTA_DEPOIS_DO_PLAY, dataEmSaoPaulo, estaAberta, type Lista, type ListaCompleta } from './listaDePresenca'
 import { isPlayed } from './scoring'
 import { computeStats, rankDuplasDoDia, rankPlayers } from './stats'
 import { podiosDoDia } from './streaks'
@@ -33,7 +34,7 @@ export type Momento =
   | { tipo: 'ao-vivo'; session: PlaySession }
   /** `play`: o play de hoje (ao vivo ou por comecar), mostrado reduzido embaixo da lista. */
   | { tipo: 'lista-aberta'; lista: ListaCompleta; play: { session: PlaySession; aoVivo: boolean } | null }
-  | { tipo: 'lista-fechada'; lista: ListaCompleta; session: PlaySession | null }
+  | { tipo: 'lista-fechada'; lista: ListaCompleta }
   | { tipo: 'play'; session: PlaySession; parado: boolean }
   | { tipo: 'podio'; session: PlaySession }
 
@@ -70,7 +71,8 @@ export function momentoDaInicio(opts: {
     [...xs].sort((a, b) => b.date.localeCompare(a.date) || (b.created_at ?? '').localeCompare(a.created_at ?? ''))
   const abertos = recentes(sessions.filter((s) => s.status === 'open'))
 
-  const lc = opts.lista
+  // lista que virou play sai do cartao: dali em diante o cartao e o do play (dono, 06/11)
+  const lc = opts.lista?.lista.session_id ? null : opts.lista
   const aberta = lc && estaAberta(lc.lista, agora) ? lc : null
   // a lista aberta e de outro play: nem ligada a ele, nem da data dele
   const deOutroPlay = (s: PlaySession) =>
@@ -87,13 +89,10 @@ export function momentoDaInicio(opts: {
     return { tipo: 'lista-aberta', lista: aberta, play: deHoje ? { session: deHoje, aoVivo: false } : null }
   }
   if (lc) {
-    const ligada = lc.lista.session_id ? (sessions.find((s) => s.id === lc.lista.session_id) ?? null) : null
     const porVir = agora.getTime() < Date.parse(lc.lista.play_em) + HORAS_DA_LISTA_DEPOIS_DO_PLAY * HORA
-    // sem play ligado (montado a mao, ou o ligado apagado): play finalizado na data da lista encerra a noite
-    const jaFoi = ligada
-      ? ligada.status === 'finished'
-      : sessions.some((s) => s.status === 'finished' && s.date === dataEmSaoPaulo(lc.lista.play_em))
-    if (porVir && !jaFoi) return { tipo: 'lista-fechada', lista: lc, session: ligada }
+    // play (aberto ou finalizado) na data da lista: montado agora, a mao, ou com o vinculo ainda gravando
+    const temPlay = sessions.some((s) => s.date === dataEmSaoPaulo(lc.lista.play_em))
+    if (porVir && !temPlay) return { tipo: 'lista-fechada', lista: lc }
   }
 
   // d) play aberto que nao esta ao vivo (o cartao de sempre)
@@ -109,6 +108,13 @@ export function momentoDaInicio(opts: {
     if (ultimo.date === hoje || (ultimo.date === ontem && horaSP < PODIO_ATE_A_HORA)) return { tipo: 'podio', session: ultimo }
   }
   return null
+}
+
+/** O tempo no canto do cartao da lista: "fecha em …" (aberta), "começa em …" (fechada) ou "hora do play". */
+export function tempoDaLista(lista: Lista, agora: Date): string {
+  const aberta = estaAberta(lista, agora)
+  const falta = Date.parse(aberta ? lista.fecha_em : lista.play_em) - agora.getTime()
+  return aberta ? `fecha em ${contagem(falta)}` : falta > 0 ? `começa em ${contagem(falta)}` : 'hora do play'
 }
 
 /** "1d 4h" / "3h 20min" / "25 min" (para cima: nunca "0 min"). */

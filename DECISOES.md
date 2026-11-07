@@ -1389,3 +1389,34 @@ preciso" e "alterar o tempo de acordo com o acréscimo ou retirada das quantidad
   toque e movimento reduzido. Relatório e roteiros em `pdt-teste/RELATORIO-QUADRAS.md`.
   Sem push, publicação, login ou SQL real. PostgREST/Realtime reais e celulares físicos não
   foram usados; aparelhos com PWA antigo precisam carregar a versão nova para os novos cards.
+
+## D45 — Ajustes da lista e apagar play/lista desfaz o financeiro (07/11/2026)
+
+Pedidos do dono depois de usar a lista e o cartão do momento (D42):
+
+- **Lista lotada e aberta convida a suplente** (`soSuplente`): o cartão diz "16/16 · lotada · entre
+  como suplente" (ou "· N suplentes") e a pílula "entrar como suplente →" ("ver a lista →" com o nome
+  deste celular); a página da lista troca o botão/título para "Entrar como suplente" e explica.
+- **Montado o play, o cartão é do play**: lista com `session_id` sai de `escolherListaDoMomento` e de
+  `momentoDaInicio`, e a lista fechada também some se já há play (aberto ou finalizado) na data dela
+  (cobre o vínculo ainda gravando e a cópia velha no celular). Antes a regra (c) mostrava a lista até a
+  1ª partida começar. O 2º toque "ver o play" da lista fechada saiu (não tem mais quando aparecer).
+- **Contagem do cartão** (`tempoDaLista`, testada) e **cache**: a página da lista, ao reler (fechar,
+  reabrir, editar), atualiza também a cópia do cartão (`ultimaLida`); o cartão relê quando um play é
+  criado ou apagado; o canal da lista no Supabase tem nome único por inscrição (o supabase-js devolvia o
+  canal de mesmo nome que ainda estava saindo, e o cartão ficava ouvindo um canal morto).
+- **Datas impossíveis**: `problemaDaLista` recusa play no passado (criar/editar aberta/reabrir) além do
+  prazo depois do play; a mensagem fica embaixo das datas, ao vivo, e o botão trava. Editar lista já
+  fechada (sem reabrir) segue aceitando o passado, mas não prazo depois do play. Ano inválido não quebra.
+- **Aba Play**: saiu o "📋 Listas de presença" (`ListasRecentes`); fica o cartão do momento. Lista antiga
+  (play montado, ou mais de 6 h depois do play) só abre pelo link.
+- **Apagar o play** desfaz o que ele causou (`desfazerDoPlay`): o dia de check-in ligado sai inteiro
+  (lançamentos e pagamentos), a avulsa que pagou pelo 💰 volta ao "pago" de antes, a que pagou por fora
+  recebe de volta o crédito gasto no Finalizar — gravado agora no diário do play (`eventos` tipo
+  `creditos`, fora das "Intervenções"); play finalizado antes disso não tem como saber, nada volta. Se o
+  play veio de uma lista, a janela pergunta: **manter a lista** (sem vínculo, `fechada = false`, com os
+  nomes) ou **apagar também** (o mesmo caminho do "Apagar lista").
+- **Apagar a lista** desfaz o 💰 dela (`lancadosPelaLista`): os lançamentos com o id do 💰, o dia que ele
+  criou se ficar vazio e o "pago" que ele marcou; a janela avisa ("O pagamento lançado pelo 💰…").
+- Tudo pela fila da store (`deleteCheckin`, `deleteCheckinDia`, `savePlayer`): nada que o banco recuse.
+  Fora: check-in de crédito usado depois (`credito_de`) que apontava para um lançamento apagado.

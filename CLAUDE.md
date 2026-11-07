@@ -146,6 +146,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   Quem veio pelo link perde o "Tirar meu nome" (o código do aparelho ficou na apagada).
 - **Rótulos**: "🔒 Fechar a lista agora" / "🔓 Reabrir a lista" (linha inteira); "Fechar" sozinho é
   só o das janelas.
+- **Lotada e aberta**: "entre como suplente" no cartão e na página (`soSuplente`). **Datas**: prazo ≤ play
+  e play no futuro (`problemaDaLista`), mensagem embaixo das datas e botão travado.
+- **Apagar play/lista desfaz o financeiro** (D45, `desfazerDoPlay`/`lancadosPelaLista` em
+  `pagamentoNaLista.ts`): dia do play com lançamentos, o 💰 da lista, o "pago" da avulsa e o crédito gasto
+  no Finalizar (diário `creditos`). Play montado pela lista: a janela pergunta manter (volta aberta, sem
+  vínculo) ou apagar a lista junto. Não há mais "📋 Listas de presença" na aba Play.
 - **Na tela inicial** a lista aparece no **cartão do momento** (D42, abaixo).
 - **Play de Terça / Play Mista**: `TEM_LISTA = false` — nada aparece e nada é consultado. **Não**
   rodar o 27/29 por causa do 31. Sem o 31 no feminino, a leitura tolerante esconde tudo
@@ -609,8 +615,8 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **Um cartão só acima do ranking** (`components/CartaoDoMomento.tsx`); qual momento vale é
   `momentoDaInicio` (`src/lib/momentoDaInicio.ts`, puro, `tests/momentoDaInicio.test.ts`):
   **ao vivo** (play aberto com partida iniciada/lançada, de hoje −03:00 ou com atividade < 3 h) →
-  **lista aberta** → **lista fechada** com o play por vir (até 6 h depois e sem play finalizado
-  naquela noite; com play ligado aberto, 2º toque "🎾 ver o play") → **play aberto** sem estar ao vivo ("Próximo play", ou "Play em
+  **lista aberta** → **lista fechada** com o play por vir (até 6 h depois, sem `session_id` e sem play
+  na data dela: montado o play, o cartão já é do play — D45) → **play aberto** sem estar ao vivo ("Próximo play", ou "Play em
   andamento" parado de dias atrás) → **pódio da noite** (último play finalizado, até o meio-dia
   seguinte; até 5 grupos e "+N") → nada. Terça e Mista: só ao vivo, play e pódio. **Lista aberta de
   outro play prevalece** até sobre o ao vivo: o play de hoje (ao vivo ou por começar) vira uma faixa

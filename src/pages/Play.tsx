@@ -4,11 +4,12 @@ import { LIGA, URL_DO_LOGO } from '../liga'
 /** O app do Play Mista (homens e mulheres dos dois campeonatos). */
 const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
-import CriarLista, { ListasRecentes, MensagemDoLink } from '../components/CriarLista'
+import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import CartaoDoMomento from '../components/CartaoDoMomento'
 import type { Montagem } from './ListaDePresenca'
-import { dataDoPlay, type Lista } from '../lib/listaDePresenca'
-import { diaParaLigar } from '../lib/pagamentoNaLista'
+import { dataDoPlay, type Lista, type ListaCompleta } from '../lib/listaDePresenca'
+import { avisoDoFinanceiro, desfazerDoPlay, diaParaLigar } from '../lib/pagamentoNaLista'
+import { aplicarDesfazer, apagarListaComTudo, cadastrosDaLista, mensagemDeErro } from '../components/GestaoDaLista'
 import { TEM_LISTA } from '../lib/useLista'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
@@ -299,9 +300,8 @@ export default function Play({
 
   return (
     <>
-      {/* o mesmo cartao da tela inicial, e a lista em cima: embaixo de todos os plays ninguem achava (dono, 06/11) */}
+      {/* o mesmo cartao da tela inicial (o "📋 Listas de presença" saiu: o cartao ja leva a lista, dono 06/11) */}
       <CartaoDoMomento onAbrirPlay={setOpenId} onAbrirLista={onAbrirLista ?? (() => {})} />
-      {onAbrirLista && <ListasRecentes onAbrir={onAbrirLista} />}
       <PlayList sessions={sessions} onOpen={setOpenId} onNew={() => setCreating({})} />
       {mensagemDaCriada}
     </>
@@ -426,9 +426,49 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
  * sequencias, entao nao basta um "ok": tem que escrever APAGAR.
  */
 function ConfirmarExclusao({ session, onClose }: { session: PlaySession; onClose: () => void }) {
-  const { data, nameOf, deleteSession } = useStore()
+  const store = useStore()
+  const { data, nameOf, deleteSession, repo } = store
   const [texto, setTexto] = useState('')
   const PALAVRA = 'APAGAR'
+  // a lista de onde o play foi montado: a organizadora escolhe manter ou apagar junto (dono, 07/11)
+  const [lc, setLc] = useState<ListaCompleta | null | undefined>(TEM_LISTA ? undefined : null)
+  const [destino, setDestino] = useState<'manter' | 'apagar' | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [erro, setErro] = useState('')
+  useEffect(() => {
+    if (!TEM_LISTA) return
+    let vivo = true
+    repo.carregarLista({ sessionId: session.id }).then(
+      (l) => vivo && setLc(l),
+      () => vivo && setLc(null), // sem sinal: o banco solta a lista sozinho (on delete set null)
+    )
+    return () => {
+      vivo = false
+    }
+  }, [repo, session.id])
+  const desfazer = useMemo(
+    () => desfazerDoPlay(data, session, lc ? { lista: lc.lista, playerIds: cadastrosDaLista(lc) } : undefined),
+    [data, session, lc],
+  )
+  const financeiro = avisoDoFinanceiro(data, desfazer, false)
+  const devolvidos = desfazer.players.filter((p) => p.pago_avulso).length
+
+  async function apagar() {
+    setBusy(true)
+    setErro('')
+    try {
+      // a lista primeiro: se o banco recusar, nada foi apagado ainda
+      if (lc && destino === 'apagar') await apagarListaComTudo(store, lc, () => repo.salvarLista({ ...lc.lista, session_id: null }))
+      else if (lc) await repo.salvarLista({ ...lc.lista, session_id: null, fechada: false })
+    } catch (e) {
+      setErro(mensagemDeErro(e))
+      setBusy(false)
+      return
+    }
+    aplicarDesfazer(store, desfazer)
+    void deleteSession(session.id)
+    onClose()
+  }
 
   const jogadas = useMemo(
     () => playedMatches(data, { sessionId: session.id }),
@@ -474,6 +514,35 @@ function ConfirmarExclusao({ session, onClose }: { session: PlaySession; onClose
         </div>
       )}
 
+      {(financeiro || devolvidos > 0) && (
+        <div className="banner warn">
+          💰 {financeiro}
+          {devolvidos > 0 && <> {plural(devolvidos, 'avulsa volta', 'avulsas voltam')} a ter o crédito que o Finalizar tinha gastado.</>}
+        </div>
+      )}
+
+      {lc && (
+        <div className="field">
+          <span>Este play foi montado pela lista “{lc.lista.titulo}”. O que fazer com ela?</span>
+          <div className="stack" style={{ gap: 6 }}>
+            <button className={`opcao ${destino === 'manter' ? 'on' : ''}`} aria-pressed={destino === 'manter'} onClick={() => setDestino('manter')}>
+              <span className="opcao-marca">{destino === 'manter' ? '●' : '○'}</span>
+              <span style={{ minWidth: 0 }}>
+                <strong>Manter a lista</strong>
+                <span className="tiny muted">Volta a ficar aberta para montar de novo, com os {plural(lc.nomes.filter((n) => !n.saiu_em).length, 'nome')}. Se o prazo já passou, reabra com um prazo novo.</span>
+              </span>
+            </button>
+            <button className={`opcao ${destino === 'apagar' ? 'on' : ''}`} aria-pressed={destino === 'apagar'} onClick={() => setDestino('apagar')}>
+              <span className="opcao-marca">{destino === 'apagar' ? '●' : '○'}</span>
+              <span style={{ minWidth: 0 }}>
+                <strong>Apagar a lista também</strong>
+                <span className="tiny muted">Some com os nomes e os pagamentos lançados pelo 💰. O link para de funcionar.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <label className="field">
         <span>Para confirmar, escreva {PALAVRA}</span>
         <input
@@ -487,11 +556,13 @@ function ConfirmarExclusao({ session, onClose }: { session: PlaySession; onClose
       <button
         className="btn danger block"
         style={{ marginTop: 12 }}
-        disabled={texto.trim().toUpperCase() !== PALAVRA}
-        onClick={() => { void deleteSession(session.id); onClose() }}
+        disabled={busy || lc === undefined || (!!lc && !destino) || texto.trim().toUpperCase() !== PALAVRA}
+        onClick={() => void apagar()}
       >
-        🗑 Apagar o play{jogadas.length === 0 ? '' : jogadas.length === 1 ? ' e o resultado' : ` e os ${jogadas.length} resultados`}
+        {busy ? 'Apagando…' : `🗑 Apagar o play${jogadas.length === 0 ? '' : jogadas.length === 1 ? ' e o resultado' : ` e os ${jogadas.length} resultados`}`}
       </button>
+      {erro && <div className="banner err" role="alert" style={{ marginTop: 8 }}>{erro}</div>}
+      {lc && !destino && <p className="tiny muted" style={{ margin: '6px 0 0' }}>Escolha o que fazer com a lista.</p>}
       <button className="btn ghost block sm" style={{ marginTop: 8 }} onClick={onClose}>
         Cancelar
       </button>
@@ -3180,9 +3251,13 @@ function PlayDetail({
     // reaberto para corrigir: o credito da avulsa ja foi gasto na 1a vez (gastar
     // de novo comeria o que ela pagou para o PROXIMO play)
     const jaFinalizado = (session.eventos ?? []).some((e) => e.tipo === 'reabrir')
-    await saveSession({ ...session, status: 'finished' })
-    // o credito da avulsa vale por UM play: finalizado, ela volta a dever
-    if (!jaFinalizado) for (const p of consumirAvulsos(session.player_ids, data)) await savePlayer(p)
+    // o credito da avulsa vale por UM play: finalizado, ela volta a dever (e o diario guarda quem gastou: apagar o play devolve)
+    const gastas = jaFinalizado ? [] : consumirAvulsos(session.player_ids, data)
+    const comCreditos = gastas.length
+      ? { ...session, eventos: [...(session.eventos ?? []), { ...novoEvento('creditos', 'Crédito das avulsas gasto'), ids: gastas.map((p) => p.id) }] }
+      : session
+    await saveSession({ ...comCreditos, status: 'finished' })
+    for (const p of gastas) await savePlayer(p)
     setShowRank(true)
     onToast(jaFinalizado ? 'Play finalizado de novo, com as correções 🏆' : 'Play finalizado! Pontos somados ao ranking do mês 🏆')
   }
@@ -3217,6 +3292,8 @@ function PlayDetail({
   function novoEvento(tipo: EventoDoPlay['tipo'], texto: string, extra?: Pick<EventoDoPlay, 'round' | 'entra'>): EventoDoPlay {
     return { at: new Date().toISOString(), tipo, texto, jogadas: matches.filter((m) => isPlayed(m)).length, ...extra }
   }
+  // o 'creditos' e conta do financeiro, nao intervencao na mao
+  const intervencoes = (session.eventos ?? []).filter((e) => e.tipo !== 'creditos')
   function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string): PlaySession {
     return { ...sessao, eventos: [...(sessao.eventos ?? []), novoEvento(tipo, texto)] }
   }
@@ -3731,14 +3808,14 @@ function PlayDetail({
         filtravel
       />
 
-      {(session.eventos?.length ?? 0) > 0 && (
+      {intervencoes.length > 0 && (
         <div className="card">
-          <div className="section-title">🛠️ Intervenções nesta noite ({session.eventos?.length})</div>
+          <div className="section-title">🛠️ Intervenções nesta noite ({intervencoes.length})</div>
           <p className="tiny muted" style={{ margin: '0 0 8px' }}>
             O que foi feito na mão, com a hora.
           </p>
           <div className="stack" style={{ gap: 6 }}>
-            {[...(session.eventos ?? [])].reverse().map((e, i) => (
+            {[...intervencoes].reverse().map((e, i) => (
               <div key={`${e.at}-${i}`} className="fila-linha">
                 <span className="fila-num">{horaLocal(e.at)}</span>
                 <div className="grow">

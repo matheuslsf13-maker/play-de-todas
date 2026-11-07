@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { escolherListaDoMomento, type Lista, type ListaCompleta, type NomeNaLista } from '../src/lib/listaDePresenca'
-import { contagem, decorrido, estaAoVivo, momentoDaInicio, podioDaNoite, type Momento } from '../src/lib/momentoDaInicio'
+import { contagem, decorrido, estaAoVivo, momentoDaInicio, podioDaNoite, tempoDaLista, type Momento } from '../src/lib/momentoDaInicio'
 import type { Match, PlaySession } from '../src/lib/types'
 
 /*
@@ -91,17 +91,25 @@ test('lista aberta do MESMO play que esta ao vivo: o ao vivo segue no cartao int
     assert.equal(tipo(momentoDaInicio({ sessions: [s], matches: ms, lista: l, agora })), 'ao-vivo')
 })
 
-test('lista fechada com o play por vir: na mao ou pelo prazo, e leva o play ligado', () => {
+test('lista fechada com o play por vir: na mao ou pelo prazo; montado o play, o cartao e o do play', () => {
   const agora = em('2026-11-09T21:00:00Z') // seg 18h
   const fechadaNaMao = lc({ fechada: true, fecha_em: '2026-11-09T22:00:00Z' })
   assert.equal(tipo(momentoDaInicio({ sessions: [], matches: [], lista: fechadaNaMao, agora })), 'lista-fechada')
   const pelaHora = lc() // fechou dom 18h
   const m = momentoDaInicio({ sessions: [], matches: [], lista: pelaHora, agora })
-  assert.deepEqual(m, { tipo: 'lista-fechada', lista: pelaHora, session: null })
-  // montou o play: o cartao continua o da lista, com o play junto
+  assert.deepEqual(m, { tipo: 'lista-fechada', lista: pelaHora })
+  // montou o play (dono, 07/11): o cartao passa na hora para o play, antes de qualquer partida comecar
   const s = play('s1', '2026-11-09')
   const ligada = lc({ fechada: true, session_id: 's1' })
-  assert.deepEqual(momentoDaInicio({ sessions: [s], matches: [partida('s1')], lista: ligada, agora }), { tipo: 'lista-fechada', lista: ligada, session: s })
+  assert.deepEqual(momentoDaInicio({ sessions: [s], matches: [partida('s1')], lista: ligada, agora }), { tipo: 'play', session: s, parado: false })
+  // o vinculo ainda gravando (ou a copia velha da lista no celular): o play na data da lista ja basta
+  assert.deepEqual(momentoDaInicio({ sessions: [s], matches: [partida('s1')], lista: lc({ fechada: true }), agora }), { tipo: 'play', session: s, parado: false })
+  // play montado a mao em OUTRA data nao esconde a lista
+  const outro = play('s2', '2026-11-12')
+  assert.equal(tipo(momentoDaInicio({ sessions: [outro], matches: [], lista: lc({ fechada: true }), agora })), 'lista-fechada')
+  // lista reaberta depois de montar o play: o cartao segue o do play
+  const reaberta = lc({ session_id: 's1', fecha_em: '2026-11-09T22:30:00Z' })
+  assert.equal(tipo(momentoDaInicio({ sessions: [s], matches: [partida('s1')], lista: reaberta, agora })), 'play')
 })
 
 test('janela de 6h: a lista fechada some 6h depois da hora do play', () => {
@@ -188,8 +196,8 @@ test('transicoes de uma semana: lista aberta -> fechada -> ao vivo -> podio -> n
     { agora: '2026-11-05T18:00:00Z', lista: ligada(false), sessions: [] as PlaySession[], matches: [] as Match[], esperado: 'lista-aberta' },
     // dom 18h01: fechou pelo prazo
     { agora: '2026-11-08T21:01:00Z', lista: lc({}, 18), sessions: [], matches: [], esperado: 'lista-fechada' },
-    // seg 19h: montou o play, ninguem em quadra
-    { agora: '2026-11-09T22:00:00Z', lista: ligada(true), sessions: [s], matches: [p1, p2], esperado: 'lista-fechada' },
+    // seg 19h: montou o play, ninguem em quadra -> o play (nao mais a lista)
+    { agora: '2026-11-09T22:00:00Z', lista: ligada(true), sessions: [s], matches: [p1, p2], esperado: 'play' },
     // seg 20h10: a 1a partida entrou em quadra
     { agora: '2026-11-09T23:10:00Z', lista: ligada(true), sessions: [s], matches: [{ ...p1, started_at: '2026-11-09T23:05:00Z' }, p2], esperado: 'ao-vivo' },
     // seg 22h40: finalizado
@@ -220,6 +228,22 @@ test('a lista do momento: aberta primeiro; senao a fechada de play mais cedo ate
   // 5h59 depois do play ainda vale; 6h depois, nao
   assert.equal(escolherListaDoMomento([fechada], em('2026-11-10T04:59:00Z'))?.id, 'F')
   assert.equal(escolherListaDoMomento([fechada], em('2026-11-10T05:00:00Z')), undefined)
+  // a que virou play nao e mais "a do momento" (nem aberta de novo)
+  assert.equal(escolherListaDoMomento([{ ...fechada, session_id: 's1' }], agora), undefined)
+  assert.equal(escolherListaDoMomento([{ ...aberta, session_id: 's1' }, fechada], agora)?.id, 'F')
+})
+
+test('tempo no canto do cartao da lista: segue os horarios atuais (editar, fechar antes, reabrir)', () => {
+  const agora = em('2026-11-08T12:00:00Z') // dom 09h
+  assert.equal(tempoDaLista(LISTA, agora), 'fecha em 9h') // fecha dom 18h
+  // editou o prazo para seg 12h: a contagem e a nova
+  assert.equal(tempoDaLista({ ...LISTA, fecha_em: '2026-11-09T15:00:00Z' }, agora), 'fecha em 1d 3h')
+  // fechou antes do prazo: conta ate o play
+  assert.equal(tempoDaLista({ ...LISTA, fechada: true }, agora), 'começa em 1d 11h')
+  // reabriu: volta a contar o prazo
+  assert.equal(tempoDaLista({ ...LISTA, fechada: false }, agora), 'fecha em 9h')
+  // passou da hora do play
+  assert.equal(tempoDaLista({ ...LISTA, fechada: true }, em('2026-11-09T23:30:00Z')), 'hora do play')
 })
 
 test('contagem e tempo decorrido', () => {

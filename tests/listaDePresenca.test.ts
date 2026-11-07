@@ -24,6 +24,7 @@ import {
   paraMontar,
   preIncluidas,
   problemaDaLista,
+  soSuplente,
   quando,
   quandoComData,
   resumoDoCartao,
@@ -269,6 +270,27 @@ test('problemaDaLista: prazo antes do play e no futuro', () => {
   assert.ok(problemaDaLista({ ...LISTA, fecha_em: '2026-11-07T11:00:00.000Z' }, agora))
   assert.ok(problemaDaLista({ ...LISTA, vagas: 0 }, agora))
   assert.ok(problemaDaLista({ ...LISTA, titulo: '  ' }, agora))
+  // datas impossiveis (dono, 07/11): prazo depois do play, play no passado, campo vazio
+  assert.match(problemaDaLista({ ...LISTA, fecha_em: '2026-11-09T23:01:00.000Z' }, agora) ?? '', /fechar antes do play/)
+  assert.equal(problemaDaLista({ ...LISTA, fecha_em: LISTA.play_em }, agora), null) // fechar na hora do play vale
+  assert.match(problemaDaLista({ ...LISTA, play_em: '2026-11-06T23:00:00.000Z', fecha_em: '2026-11-06T21:00:00.000Z' }, agora) ?? '', /já passaram/)
+  assert.equal(problemaDaLista({ ...LISTA, play_em: '' }, agora), 'Confira as datas.')
+  // editando lista ja fechada (agora = 0): passado vale, mas o prazo segue antes do play
+  const antiga = { ...LISTA, play_em: '2026-11-02T23:00:00.000Z', fecha_em: '2026-11-01T21:00:00.000Z' }
+  assert.equal(problemaDaLista(antiga, new Date(0)), null)
+  assert.ok(problemaDaLista({ ...antiga, fecha_em: '2026-11-03T00:00:00.000Z' }, new Date(0)))
+})
+
+test('soSuplente: aberta e sem vaga (16/16) ainda aceita nome, como suplente', () => {
+  const agora = new Date('2026-11-07T12:00:00Z')
+  const cheia = Array.from({ length: 16 }, (_, i) => nome(i + 1))
+  assert.equal(soSuplente(LISTA, cheia.slice(0, 15), agora), false)
+  assert.equal(soSuplente(LISTA, cheia, agora), true)
+  assert.equal(soSuplente(LISTA, [...cheia, nome(17)], agora), true)
+  // quem saiu libera a vaga
+  assert.equal(soSuplente(LISTA, [...cheia.slice(0, 15), nome(16, { saiu_em: '2026-11-07T10:00:00Z' })], agora), false)
+  // fechada: nao convida
+  assert.equal(soSuplente({ ...LISTA, fechada: true }, cheia, agora), false)
 })
 
 test('paraMontar: so as confirmadas; as sem vinculo travam', () => {

@@ -225,6 +225,8 @@ function lerNome(n: NomeNaLista): NomeNaLista {
   return { ...n, chegada: numero(n.chegada), ordem: n.ordem === null ? null : numero(n.ordem) }
 }
 
+let inscricoesDaLista = 0
+
 async function comNomes(lista: Lista | null): Promise<ListaCompleta | null> {
   if (!lista) return null
   const r = await client().from('lista_nomes').select('*').eq('lista_id', lista.id).order('chegada')
@@ -538,7 +540,12 @@ export const supabaseRepo: Repo = {
   async carregarLista(ref) {
     if (!TEM_LISTA) return null
     const q = client().from('listas').select('*')
-    const r = await ('codigo' in ref ? q.eq('codigo', ref.codigo.trim().toLowerCase()) : q.eq('id', ref.id)).maybeSingle()
+    const r = await ('codigo' in ref
+      ? q.eq('codigo', ref.codigo.trim().toLowerCase())
+      : 'sessionId' in ref
+        ? q.eq('session_id', ref.sessionId).limit(1)
+        : q.eq('id', ref.id)
+    ).maybeSingle()
     return comNomes(lerDaLista<Lista | null>(r, null))
   },
   async listaDoMomento() {
@@ -607,8 +614,10 @@ export const supabaseRepo: Repo = {
     const sb = client()
     // canal so desta lista: o geral (`subscribe`) nao ouve estas tabelas, e o
     // app da organizadora nao recarrega inteiro a cada nome que chega
+    // nome unico por inscricao: o supabase-js devolve o canal de MESMO nome que ainda esta saindo (a pagina da
+    // lista fecha e o cartao abre na hora), e o cartao ficava ouvindo um canal morto -- sem atualizar ao vivo
     const ch = sb
-      .channel(`lista-${listaId}`)
+      .channel(`lista-${listaId}-${++inscricoesDaLista}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lista_nomes', filter: `lista_id=eq.${listaId}` }, cb)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'listas', filter: `id=eq.${listaId}` }, cb)
       .subscribe()

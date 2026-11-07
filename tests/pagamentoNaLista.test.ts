@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { pagoAvulsoDaLista } from '../src/lib/pagamentoNaLista'
 import { consumirAvulsos, situacaoDoAtleta } from '../src/lib/mensalidade'
-import { contaInicial, diaDaLista, diaJaExiste, diaParaLigar, prepararPagamento, retrato, tipoNaLista, valorInicial } from '../src/lib/pagamentoNaLista'
-import { emptyData, type AppData, type CheckinConta, type CheckinDia, type CheckinLocal, type Player } from '../src/lib/types'
+import { avisoDoFinanceiro, creditosGastos, desfazerDoPlay, idDoLancamento, lancadosPelaLista, contaInicial, diaDaLista, diaJaExiste, diaParaLigar, prepararPagamento, retrato, tipoNaLista, valorInicial } from '../src/lib/pagamentoNaLista'
+import { emptyData, type AppData, type CheckinConta, type CheckinDia, type CheckinLocal, type Player, type PlaySession } from '../src/lib/types'
 import { saldoDaAtleta } from '../src/lib/checkins'
 import type { Lista } from '../src/lib/listaDePresenca'
 
@@ -170,4 +170,60 @@ test('conta: check-in de credito mantem a conta e a arena do credito', () => {
   s.checkins[0] = { ...s.checkins[0], credito_de: 'outro', conta_id: 'marido', local_id: 'gw' }
   const r = prepararPagamento(s, dia, atleta.id, 'checkin', 25, { contaId: null, localId: 'v3' })
   assert.equal(r.checkin.conta_id, 'marido'); assert.equal(r.checkin.local_id, 'gw')
+})
+
+/* ---- apagar a lista ou o play desfaz o 💰 e o financeiro do play (dono, 07/11) */
+
+test('apagar a lista: sai o que o 💰 lancou, o dia que ele criou (se vazio) e o "pago" que ele marcou', () => {
+  const dia = diaDaLista(dados(), lista)
+  let d = gravar(dados(), dia, 50)
+  d = { ...d, players: [pagoAvulsoDaLista(d, lista, atleta, true)!] }
+  const r = lancadosPelaLista(d, lista, [atleta.id])
+  assert.deepEqual(r.checkins, [idDoLancamento(dia.id, atleta.id)])
+  assert.deepEqual(r.dias, [dia.id])
+  assert.equal(r.players[0].pago_avulso, false)
+  assert.match(avisoDoFinanceiro(d, r, true) ?? '', /O pagamento lançado pelo 💰 desta lista \(R\$\s50,00 pagos\) sai da aba Check-ins, junto com o dia 09\/11\./)
+  // lancamento feito na aba Check-ins (outro id) no mesmo dia: fica, e o dia tambem
+  const daAba = { ...d.checkins[0], id: 'aba-1', player_id: 'b' }
+  const r2 = lancadosPelaLista({ ...d, checkins: [...d.checkins, daAba] }, lista, [atleta.id, 'b'])
+  assert.deepEqual(r2.checkins, [idDoLancamento(dia.id, atleta.id)]); assert.deepEqual(r2.dias, [])
+  // quem nao esta na lista nao entra; sem nada lancado, sem aviso
+  assert.deepEqual(lancadosPelaLista(d, lista, []).checkins, [])
+  assert.equal(avisoDoFinanceiro(d, lancadosPelaLista(d, lista, []), true), null)
+  // dia de outro play (ligado) na mesma data nao e da lista sem play
+  const ligado = { ...d, checkinDias: [{ ...dia, session_id: 'outro' }] }
+  assert.deepEqual(lancadosPelaLista(ligado, lista, [atleta.id]).checkins, [])
+})
+
+test('apagar o play: o dia ligado sai inteiro; credito gasto no Finalizar volta; o do 💰 nao', () => {
+  const dia = { ...diaDaLista(dados(), lista), session_id: 's1' }
+  const fora = { id: 'f', categoria: 'avulsa', pago_avulso: false } as Player // pagou por fora, Finalizar gastou
+  const nunca = { id: 'n', categoria: 'avulsa', pago_avulso: false } as Player // jogou sem pagar
+  let d = gravar({ ...dados(), players: [{ ...atleta, pago_avulso: false }, fora, nunca] }, dia, 50) // a: 💰, gasto no Finalizar
+  const play = { id: 's1', date: '2026-11-09', status: 'finished', player_ids: ['a', 'f', 'n'],
+    eventos: [{ at: '', tipo: 'creditos', texto: '', jogadas: 4, ids: ['a', 'f'] }] } as unknown as PlaySession
+  d = { ...d, sessions: [play] }
+  assert.deepEqual(creditosGastos(play), ['a', 'f'])
+  const r = desfazerDoPlay(d, play)
+  assert.deepEqual(r.dias, [dia.id]); assert.equal(r.checkins.length, 1)
+  // so a que pagou por fora ganha o credito de volta; a do 💰 perdeu o pagamento junto
+  assert.deepEqual(r.players.map((p) => [p.id, p.pago_avulso]), [['f', true]])
+  assert.match(avisoDoFinanceiro(d, r, false) ?? '', /O lançamento do dia deste play/)
+  // jogou outro play finalizado depois: aquele ja usou o credito
+  const depois = { ...play, id: 's2', date: '2026-11-16', eventos: [] } as PlaySession
+  assert.deepEqual(desfazerDoPlay({ ...d, sessions: [play, depois] }, play).players, [])
+  // play ainda aberto: o 💰 tinha marcado o "pago" e o Finalizar nao gastou -> desmarca
+  const aberto = { ...play, status: 'open', eventos: [] } as PlaySession
+  const marcada = { ...d, players: [{ ...atleta, pago_avulso: true }, fora], sessions: [aberto] }
+  assert.deepEqual(desfazerDoPlay(marcada, aberto).players.map((p) => [p.id, p.pago_avulso]), [['a', false]])
+  // play antigo, finalizado antes do diario guardar os creditos: nada volta
+  assert.deepEqual(desfazerDoPlay(d, { ...play, eventos: [] } as PlaySession).players, [])
+})
+
+test('apagar o play com lista: tambem o 💰 lancado num dia solto da data (que nao foi ligado)', () => {
+  const solto = diaDaLista(dados(), lista)
+  const d = { ...gravar(dados(), solto, 50), sessions: [] as PlaySession[] }
+  const play = { id: 's1', date: '2026-11-09', status: 'open', player_ids: ['a'] } as unknown as PlaySession
+  const r = desfazerDoPlay(d, play, { lista: { ...lista, session_id: 's1' }, playerIds: ['a'] })
+  assert.deepEqual(r.checkins, [idDoLancamento(solto.id, 'a')]); assert.deepEqual(r.dias, [solto.id])
 })

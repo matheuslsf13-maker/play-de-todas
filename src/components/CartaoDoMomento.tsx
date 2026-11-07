@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Avatar, initials } from './ui'
 import {
   dividir,
@@ -7,10 +7,11 @@ import {
   ocupacao,
   posicaoDe,
   quandoComData,
+  soSuplente,
   textoDaPosicao,
   type ListaCompleta,
 } from '../lib/listaDePresenca'
-import { contagem, decorrido, momentoDaInicio, podioDaNoite, type Momento, type PodioDaNoite as PodioDaNoiteT } from '../lib/momentoDaInicio'
+import { decorrido, momentoDaInicio, tempoDaLista, podioDaNoite, type Momento, type PodioDaNoite as PodioDaNoiteT } from '../lib/momentoDaInicio'
 import { horaLocal, resumoAoVivo } from '../lib/previsaoDaNoite'
 import { isPlayed } from '../lib/scoring'
 import { useStore } from '../lib/store'
@@ -30,7 +31,16 @@ export default function CartaoDoMomento({
   onAbrirLista: (codigo: string) => void
 }) {
   const { data } = useStore()
-  const { lista } = useLista(TEM_LISTA ? 'momento' : null)
+  const { lista, recarregar } = useLista(TEM_LISTA ? 'momento' : null)
+  // play criado ou apagado: a lista do momento pode mudar (montada vira play; play apagado devolve a lista) e,
+  // sem lista na tela, nao ha canal de lista para avisar
+  const nPlays = data.sessions.length
+  const playsAntes = useRef(nPlays)
+  useEffect(() => {
+    if (playsAntes.current === nPlays) return
+    playsAntes.current = nPlays
+    void recarregar()
+  }, [nPlays, recarregar])
   // o relogio entra no render: a contagem e a troca de momento (lista que fecha) andam sozinhas
   const [, setTique] = useState(0)
   const agora = new Date()
@@ -65,24 +75,23 @@ function Cartao({
       const { lista, nomes } = momento.lista
       const aberta = estaAberta(lista, agora)
       const { titulares, suplentes } = dividir(lista, nomes)
-      const session = momento.tipo === 'lista-fechada' ? momento.session : null
-      const falta = Date.parse(aberta ? lista.fecha_em : lista.play_em) - agora.getTime()
       const meu = meuAtivo(momento.lista)
+      // lotada e aberta: ainda da para entrar, como suplente (16/16 parecia "nao da mais", dono 06/11)
+      const suplente = soSuplente(lista, nomes, agora)
       return (
         <Quadro
           cor={aberta ? 'lista' : 'fechada'}
           selo={aberta ? '📋 Lista aberta' : '🔒 Lista fechada'}
-          tempo={aberta ? `fecha em ${contagem(falta)}` : falta > 0 ? `começa em ${contagem(falta)}` : 'hora do play'}
+          tempo={tempoDaLista(lista, agora)}
           titulo={aberta ? `${lista.titulo} · ${quandoComData(lista.play_em)}` : `Próximo play · ${quandoComData(lista.play_em)}`}
           info={
             aberta
-              ? ocupacao(lista, nomes)
+              ? `${ocupacao(lista, nomes)}${suplente && suplentes.length === 0 ? ' · entre como suplente' : ''}`
               : `${plural(titulares.length, 'confirmada')}${suplentes.length ? ` · ${plural(suplentes.length, 'suplente')}` : ''}`
           }
           barra={{ valor: titulares.length, max: lista.vagas, rotulo: 'Vagas preenchidas' }}
-          acao={aberta && !meu ? 'ver a lista e colocar seu nome' : 'ver a lista'}
+          acao={aberta && !meu ? (suplente ? 'entrar como suplente' : 'ver a lista e colocar seu nome') : 'ver a lista'}
           onAbrir={() => onAbrirLista(lista.codigo)}
-          extra={session && session.status === 'open' ? { texto: '🎾 ver o play', onClick: () => onAbrirPlay(session.id) } : undefined}
           faixa={momento.tipo === 'lista-aberta' && momento.play ? <PlayDeHoje {...momento.play} onAbrir={onAbrirPlay} /> : undefined}
         >
           <Rostinhos lc={momento.lista} />
@@ -158,7 +167,6 @@ function Quadro(p: {
   linha?: string
   acao: string
   onAbrir: () => void
-  extra?: { texto: string; onClick: () => void }
   /** O play de hoje, reduzido, quando a lista de outro play prevalece (botao proprio). */
   faixa?: ReactNode
   children?: ReactNode
@@ -208,11 +216,6 @@ function Quadro(p: {
       {p.children}
       <div className="momento-rodape">
         <span className="momento-acao">{p.acao} →</span>
-        {p.extra && (
-          <button className="momento-extra" onClick={p.extra.onClick}>
-            {p.extra.texto} →
-          </button>
-        )}
       </div>
       {p.faixa}
     </div>
@@ -230,9 +233,9 @@ function Rostinhos({ lc }: { lc: ListaCompleta }) {
       {titulares.slice(0, 5).map((n) => {
         const p = n.player_id ? playerById(n.player_id) : undefined
         return p ? (
-          <Avatar key={n.id} player={p} size={30} />
+          <Avatar key={n.id} player={p} size={26} />
         ) : (
-          <span key={n.id} className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>
+          <span key={n.id} className="avatar" style={{ width: 26, height: 26, fontSize: 10 }}>
             {initials(n.nome)}
           </span>
         )

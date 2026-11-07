@@ -172,6 +172,9 @@ export const localRepo: Repo = {
     // o dia de check-in sobrevive ao play: so perde o vinculo
     d.checkinDias = d.checkinDias.map((x) => (x.session_id === id ? { ...x, session_id: null } : x))
     write(d)
+    // como o `on delete set null` do banco (script 31): a lista solta do play apagado
+    const l = lerListas()
+    if (l.listas.some((x) => x.session_id === id)) gravarListas({ ...l, listas: l.listas.map((x) => (x.session_id === id ? { ...x, session_id: null } : x)) })
   },
   async saveMatches(ms: Match[]) {
     const d = read()
@@ -300,7 +303,8 @@ export const localRepo: Repo = {
   },
   async carregarLista(ref) {
     const l = lerListas()
-    return completa(l, l.listas.find((x) => ('codigo' in ref ? x.codigo === ref.codigo.toLowerCase() : x.id === ref.id)))
+    return completa(l, l.listas.find((x) =>
+      'codigo' in ref ? x.codigo === ref.codigo.toLowerCase() : 'sessionId' in ref ? x.session_id === ref.sessionId : x.id === ref.id))
   },
   async listaDoMomento() {
     const l = lerListas()

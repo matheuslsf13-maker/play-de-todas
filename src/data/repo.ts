@@ -62,7 +62,8 @@ export interface Repo {
   deletePhoto(url: string): Promise<void>
   /* lista de presenca (so o Play de Todas; script 31). Fora da fila de envio:
      a ordem e decidida no servidor, entao cada escrita espera a resposta. */
-  carregarLista(ref: { codigo: string } | { id: string }): Promise<ListaCompleta | null>
+  /** `sessionId`: a lista de onde o play foi montado (apagar o play). */
+  carregarLista(ref: { codigo: string } | { id: string } | { sessionId: string }): Promise<ListaCompleta | null>
   /** A lista do momento (cartao da tela inicial): a aberta, ou a fechada com o play por vir. */
   listaDoMomento(): Promise<ListaCompleta | null>
   listasRecentes(limite: number): Promise<Lista[]>

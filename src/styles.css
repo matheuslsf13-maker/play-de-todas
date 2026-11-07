@@ -1849,7 +1849,10 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* um pouco mais baixo (dono, 07/11): menos folga em cima/embaixo e entre as linhas */
+  gap: 4px;
+  padding-top: 11px;
+  padding-bottom: 11px;
   min-width: 0;
 }
 /* o degrade da cor do momento fica por baixo e fraco: o cinza do texto segue com 4,5:1 */
@@ -1970,34 +1973,19 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   padding: 4px 8px;
 }
 .momento-recado { font-size: 14px; font-weight: 800; color: var(--text); }
-.momento-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.momento-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
 /* parece botao (dono, 06/11): pilula na cor do momento, para ninguem achar que o cartao e so aviso */
 .momento-acao {
   display: inline-flex;
   align-items: center;
   min-height: 40px;
-  padding: 8px 16px;
+  padding: 4px 16px;
   border-radius: 999px;
   border: 1.5px solid var(--m);
   background: var(--m-suave);
   color: var(--text);
   font-size: 14px;
   font-weight: 800;
-}
-/* o segundo toque (as partidas) fica por cima do toque do cartao */
-.momento-extra {
-  position: relative;
-  z-index: 2;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--m);
-  border-radius: 999px;
-  min-height: 44px;
-  padding: 6px 12px;
-  cursor: pointer;
 }
 .bolinha-viva {
   width: 9px;

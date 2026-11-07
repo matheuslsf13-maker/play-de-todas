@@ -13,12 +13,11 @@ import {
   preIncluidas,
   previaDosNomes,
   problemaDaLista,
-  quandoComData,
   urlDaLista,
   type Lista,
 } from '../lib/listaDePresenca'
 import { avisosDoBanco } from '../data/supabaseRepo'
-import { baseDoApp, esquecerCopiaDaApagada, lerCopiaDaApagada, TEM_LISTA } from '../lib/useLista'
+import { baseDoApp, esquecerCopiaDaApagada, lerCopiaDaApagada } from '../lib/useLista'
 import { useStore } from '../lib/store'
 import { plural, todayISO, uid } from '../lib/types'
 
@@ -63,35 +62,42 @@ export default function CriarLista({
   // a hora do play mudou: o prazo padrao acompanha so enquanto ninguem mexeu nele
   const [mexeuNoPrazo, setMexeuNoPrazo] = useState(!!editar)
   useEffect(() => {
-    if (mexeuNoPrazo || !dia) return
-    const vespera = new Date(Date.parse(`${dia}T12:00:00Z`) - 86400000).toISOString().slice(0, 10)
+    const meioDia = Date.parse(`${dia}T12:00:00Z`)
+    if (mexeuNoPrazo || !Number.isFinite(meioDia)) return
+    const vespera = new Date(meioDia - 86400000).toISOString().slice(0, 10)
     setFechaDia(vespera)
   }, [dia, mexeuNoPrazo])
 
+  // o rascunho e o problema dele a cada toque: a mensagem aparece embaixo das datas e o botao trava
+  const quandoISO = (d: string, h: string) => {
+    try {
+      return d && h ? inicioEmSaoPaulo(d, h) : ''
+    } catch {
+      return '' // ano digitado com 5 algarismos etc.: data invalida
+    }
+  }
+  const lista: Lista = {
+    id: editar?.id ?? '',
+    codigo: editar?.codigo ?? '',
+    titulo: titulo.trim(),
+    play_em: quandoISO(dia, hora),
+    fecha_em: quandoISO(fechaDia, fechaHora),
+    vagas,
+    texto: texto.trim() || null,
+    fechada: reabrir ? false : (editar?.fechada ?? false),
+    session_id: editar?.session_id ?? null,
+    created_at: editar?.created_at ?? '',
+  }
+  // editando uma lista que ja fechou (sem reabrir), o play e o prazo podem estar no passado
+  const jaFechada = !!editar && !reabrir && !estaAberta(editar, new Date())
+  const problema = problemaDaLista(lista, jaFechada ? new Date(0) : new Date())
+
   async function salvar() {
-    if (!dia || !hora || !fechaDia || !fechaHora) {
-      onToast('Preencha a data e a hora do play e do prazo')
-      return
-    }
-    const lista: Lista = {
-      id: editar?.id ?? uid(),
-      codigo: editar?.codigo ?? novoCodigo(),
-      titulo: titulo.trim(),
-      play_em: inicioEmSaoPaulo(dia, hora),
-      fecha_em: inicioEmSaoPaulo(fechaDia, fechaHora),
-      vagas,
-      texto: texto.trim() || null,
-      fechada: reabrir ? false : (editar?.fechada ?? false),
-      session_id: editar?.session_id ?? null,
-      created_at: editar?.created_at ?? new Date().toISOString(),
-    }
-    // editando uma lista que ja fechou (sem reabrir), o prazo pode estar no passado
-    const jaFechada = !!editar && !reabrir && !estaAberta(editar, new Date())
-    const problema = problemaDaLista(lista, jaFechada ? new Date(0) : new Date())
     if (problema) {
       onToast(problema)
       return
     }
+    if (!editar) Object.assign(lista, { id: uid(), codigo: novoCodigo(), created_at: new Date().toISOString() })
     setBusy(true)
     try {
       await repo.salvarLista(lista, !editar)
@@ -182,6 +188,11 @@ export default function CriarLista({
             <input className="input" type="time" value={fechaHora} onChange={(e) => { setMexeuNoPrazo(true); setFechaHora(e.target.value) }} />
           </label>
         </div>
+        {problema && (
+          <div className="banner err" role="alert" style={{ margin: 0 }}>
+            {problema}
+          </div>
+        )}
         <div className="field">
           <span>Vagas</span>
           <Stepper value={vagas} min={1} max={100} onChange={setVagas} />
@@ -202,7 +213,7 @@ export default function CriarLista({
             </span>
           </label>
         )}
-        <button className="btn pink block" disabled={busy} onClick={() => void salvar()}>
+        <button className="btn pink block" disabled={busy || !!problema} onClick={() => void salvar()}>
           {busy ? 'Salvando…' : editar ? 'Salvar' : '📋 Criar a lista'}
         </button>
       </div>
@@ -239,42 +250,5 @@ export function MensagemDoLink({
         {onAbrir && <button className="btn ghost block" onClick={onAbrir}>📋 Abrir a lista</button>}
       </div>
     </Modal>
-  )
-}
-
-/** As listas mais recentes, na aba Play da organizadora. */
-export function ListasRecentes({ onAbrir }: { onAbrir: (codigo: string) => void }) {
-  const { repo, canEdit } = useStore()
-  const [listas, setListas] = useState<Lista[] | null>(null)
-  useEffect(() => {
-    if (!TEM_LISTA || !canEdit) return
-    let vivo = true
-    repo.listasRecentes(5).then(
-      (l) => vivo && setListas(l),
-      () => vivo && setListas([]),
-    )
-    return () => {
-      vivo = false
-    }
-  }, [repo, canEdit])
-  if (!listas || listas.length === 0) return null
-  const agora = new Date()
-  return (
-    <div className="card">
-      <div className="section-title">📋 Listas de presença</div>
-      <div className="stack" style={{ gap: 8 }}>
-        {listas.map((l) => (
-          <button key={l.id} className="lista-escolha" onClick={() => onAbrir(l.codigo)}>
-            <span className="grow" style={{ minWidth: 0 }}>
-              <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{l.titulo} · {quandoComData(l.play_em)}</strong>
-              <span className="tiny muted">
-                {l.session_id ? 'play montado' : estaAberta(l, agora) ? `aberta até ${quandoComData(l.fecha_em)}` : 'fechada'} · {l.vagas} vagas
-              </span>
-            </span>
-            <span className="tiny muted nowrap">abrir →</span>
-          </button>
-        ))}
-      </div>
-    </div>
   )
 }

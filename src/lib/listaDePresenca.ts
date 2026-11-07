@@ -168,11 +168,12 @@ export function desdeDaListaDoMomento(agora: Date): string {
 /**
  * A lista que importa agora, para o cartao da tela inicial (D42): a aberta de
  * play mais cedo; sem nenhuma aberta, a fechada (na mao ou pelo prazo) de play
- * mais cedo que ainda nao passou de ~6h.
+ * mais cedo que ainda nao passou de ~6h. A que ja virou play (`session_id`) fica de
+ * fora: dali em diante o cartao e o do play.
  */
 export function escolherListaDoMomento<T extends Lista>(listas: T[], agora: Date): T | undefined {
   const desde = Date.parse(desdeDaListaDoMomento(agora))
-  const porVir = listas.filter((l) => Date.parse(l.play_em) > desde).sort((a, b) => a.play_em.localeCompare(b.play_em))
+  const porVir = listas.filter((l) => !l.session_id && Date.parse(l.play_em) > desde).sort((a, b) => a.play_em.localeCompare(b.play_em))
   return porVir.find((l) => estaAberta(l, agora)) ?? porVir[0]
 }
 
@@ -260,14 +261,15 @@ export function padraoDaLista(hojeISO: string) {
   }
 }
 
-/** O que impede de gravar a lista, ou null. */
+/** O que impede de gravar a lista, ou null. `agora` = new Date(0) dispensa as checagens de futuro (lista ja fechada, so editando). */
 export function problemaDaLista(l: Lista, agora: Date): string | null {
   if (!l.titulo.trim()) return 'Dê um nome ao play.'
   if (l.titulo.trim().length > 60) return 'O nome do play pode ter até 60 letras.'
   if (!(l.vagas >= 1 && l.vagas <= 100)) return 'As vagas vão de 1 a 100.'
   if ((l.texto ?? '').length > 300) return 'O texto curto pode ter até 300 letras.'
   if (!Number.isFinite(Date.parse(l.play_em)) || !Number.isFinite(Date.parse(l.fecha_em))) return 'Confira as datas.'
-  if (Date.parse(l.fecha_em) > Date.parse(l.play_em)) return 'A lista precisa fechar antes do play.'
+  if (Date.parse(l.play_em) <= agora.getTime()) return 'O dia e a hora do play já passaram: escolha uma data no futuro.'
+  if (Date.parse(l.fecha_em) > Date.parse(l.play_em)) return 'A lista precisa fechar antes do play (ou na hora dele).'
   if (Date.parse(l.fecha_em) <= agora.getTime()) return 'O prazo da lista já passou: escolha um horário no futuro.'
   return null
 }
@@ -287,6 +289,11 @@ export function ocupacao(lista: Lista, nomes: NomeNaLista[]): string {
 export function resumoDoCartao(lista: Lista, nomes: NomeNaLista[], agora: Date): string {
   const estado = estaAberta(lista, agora) ? 'Lista aberta' : 'Lista fechada'
   return `${estado} · ${quando(lista.play_em)} · ${ocupacao(lista, nomes)} · fecha ${quando(lista.fecha_em)}`
+}
+
+/** Lista aberta sem vaga: quem chega ainda entra, como suplente (o cartao e a pagina dizem isso). */
+export function soSuplente(lista: Lista, nomes: NomeNaLista[], agora: Date): boolean {
+  return estaAberta(lista, agora) && dividir(lista, nomes).titulares.length >= lista.vagas
 }
 
 /** "Você é a 15ª — confirmada" / "Você é a 2ª suplente". */

@@ -22,6 +22,7 @@ import {
   podeApagar,
   posicaoDe,
   quandoComData,
+  soSuplente,
   sugestaoSegura,
   textoDaPosicao,
   urlDaLista,
@@ -100,6 +101,8 @@ function Pagina({
   const { lista } = lc
   const aberta = estaAberta(lista, new Date())
   const { titulares, suplentes } = dividir(lista, lc.nomes)
+  // lotada e aberta: quem chega entra como suplente (o 16/16 parecia "nao da mais", dono 06/11)
+  const suplente = soSuplente(lista, lc.nomes, new Date())
   const meu = meuNome(lista.id)
   const meuAtivo = lc.nomes.find((n) => n.id === meu && !n.saiu_em) ?? null
   const formRef = useRef<HTMLDivElement>(null)
@@ -152,6 +155,11 @@ function Pagina({
               : `A lista fechou ${quandoComData(lista.fecha_em)}.`}
         </div>
         <div className="lista-ocupacao">{ocupacao(lista, lc.nomes)}</div>
+        {suplente && !meuAtivo && (
+          <p className="small" style={{ margin: '6px 0 0' }}>
+            As vagas acabaram, mas a lista segue aberta: entre como suplente. Quando alguém sai, a primeira suplente sobe sozinha.
+          </p>
+        )}
         {lista.texto && <p className="small" style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{lista.texto}</p>}
         {!canEdit && aberta && !meuAtivo && (
           <button
@@ -159,7 +167,7 @@ function Pagina({
             style={{ marginTop: 12 }}
             onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
           >
-            ✍️ Colocar meu nome
+            {suplente ? '✍️ Entrar como suplente' : '✍️ Colocar meu nome'}
           </button>
         )}
         {!canEdit && meuAtivo && (
@@ -202,7 +210,7 @@ function Pagina({
       {!canEdit && (
         <div ref={formRef}>
           {aberta && !meuAtivo ? (
-            <ColocarNome lista={lista} recarregar={recarregar} onSair={onSair} onColocou={setResposta} />
+            <ColocarNome lista={lista} suplente={suplente} recarregar={recarregar} onSair={onSair} onColocou={setResposta} />
           ) : (
             <button className="btn ghost block" onClick={onSair}>Ir para o app</button>
           )}
@@ -336,11 +344,14 @@ function LinhaDaLista({
 /** O formulario da atleta: so o nome completo, sem sugestao de cadastro. */
 function ColocarNome({
   lista,
+  suplente,
   recarregar,
   onSair,
   onColocou,
 }: {
   lista: Lista
+  /** Lotada: o mesmo formulario, com o texto de suplente. */
+  suplente: boolean
   recarregar: () => Promise<void>
   onSair: () => void
   /** A resposta do banco ("Voce e a 15a — confirmada"); o aviso fica na pagina, que sobrevive a releitura. */
@@ -378,7 +389,7 @@ function ColocarNome({
 
   return (
     <div className="card">
-      <div className="section-title">✍️ Colocar meu nome</div>
+      <div className="section-title">{suplente ? '✍️ Entrar como suplente' : '✍️ Colocar meu nome'}</div>
       <div className="stack">
         <label className="field">
           <span>Seu nome e sobrenome</span>
@@ -396,7 +407,7 @@ function ColocarNome({
         <p className="tiny muted" style={{ margin: '-4px 0 0' }}>Nome e sobrenome, como a organização conhece você.</p>
         {erro && <div className="banner err" style={{ margin: 0 }}>{erro}</div>}
         <button className="btn pink block" disabled={busy || !texto.trim()} onClick={() => void colocar()}>
-          {busy ? 'Colocando…' : 'Colocar meu nome'}
+          {busy ? 'Colocando…' : suplente ? 'Entrar como suplente' : 'Colocar meu nome'}
         </button>
         <button className="btn ghost block" onClick={onSair}>Agora não</button>
       </div>

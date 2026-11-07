@@ -1,7 +1,7 @@
 import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
-import { centavos, checkinDaAtletaNoDia, creditoDisponivel, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
+import { centavos, checkinDaAtletaNoDia, creditoDisponivel, formatarReais, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
-import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player } from './types'
+import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player, PlaySession } from './types'
 
 /*
  * 💰 NA LISTA: a organizadora lanca o pagamento da avulsa direto da lista de
@@ -141,4 +141,90 @@ export function valorInicial(data: AppData, dia: CheckinDia, playerId: string, m
   const antes = retrato(data, dia.id, playerId)
   if (antes?.pagamento) return antes.pagamento.valor_pago
   return centavos(Math.max(0, devidoNoModo(data, dia, playerId, modo) - creditoDisponivel(data, playerId, antes?.checkin.id)))
+}
+
+// ---------------------------------------------------------------- desfazer (apagar lista ou play)
+
+/** O que sai da aba Check-ins e do cadastro ao apagar a lista ou o play (nada disso e gravado aqui). */
+export type Desfazer = { checkins: string[]; dias: string[]; players: Player[] }
+
+const somar = (a: Desfazer, b: Desfazer): Desfazer => ({
+  checkins: [...new Set([...a.checkins, ...b.checkins])],
+  dias: [...new Set([...a.dias, ...b.dias])],
+  players: [...a.players, ...b.players.filter((p) => !a.players.some((x) => x.id === p.id))],
+})
+
+/**
+ * O que o 💰 desta lista lancou: os lancamentos com o id do 💰 (`idDoLancamento`;
+ * um lancamento da aba Check-ins que o 💰 so corrigiu guarda o id dele e fica), o
+ * dia que o 💰 criou se ele ficar vazio, e o "pago" da avulsa que o 💰 marcou
+ * (so enquanto o play nao foi finalizado, como em `pagoAvulsoDaLista`).
+ */
+export function lancadosPelaLista(data: AppData, lista: Lista, playerIds: string[]): Desfazer {
+  const date = dataDoPlay(lista)
+  const dias = data.checkinDias.filter((d) => d.date === date && (lista.session_id ? d.session_id === lista.session_id : !d.session_id))
+  const quem = new Set(playerIds)
+  const checkins = data.checkins.filter(
+    (c) => dias.some((d) => d.id === c.dia_id) && quem.has(c.player_id) && c.id === idDoLancamento(c.dia_id, c.player_id),
+  )
+  const sai = new Set(checkins.map((c) => c.id))
+  const criadosPeloCofre = [`dia:${date}`, `dia:${date}:${lista.id}`]
+  return {
+    checkins: checkins.map((c) => c.id),
+    dias: dias
+      .filter((d) => checkins.some((c) => c.dia_id === d.id) && criadosPeloCofre.includes(d.id))
+      .filter((d) => data.checkins.every((c) => c.dia_id !== d.id || sai.has(c.id)))
+      .map((d) => d.id),
+    players: [...new Set(checkins.map((c) => c.player_id))].flatMap((id) => {
+      const p = data.players.find((x) => x.id === id)
+      const novo = p ? pagoAvulsoDaLista(data, lista, p, false) : null
+      return novo ? [novo] : []
+    }),
+  }
+}
+
+/** As avulsas que o Finalizar deste play deixou sem credito (`consumirAvulsos`), gravado no diario. */
+export function creditosGastos(s: PlaySession): string[] {
+  return (s.eventos ?? []).flatMap((e) => (e.tipo === 'creditos' ? (e.ids ?? []) : []))
+}
+
+/**
+ * APAGAR O PLAY desfaz o que ele causou no financeiro (dono, 07/11): o dia de
+ * check-in ligado a ele sai inteiro (lancamentos e pagamentos vao junto); a
+ * avulsa que pagou pelo 💰 volta ao "pago" de antes (o pagamento sumiu); a que
+ * pagou por fora tem o credito gasto no Finalizar devolvido -- se nao jogou outro
+ * play finalizado depois (esse ja usaria o credito). Play finalizado antes de o
+ * diario guardar os creditos (07/11) nao tem como saber quem gastou: nada volta.
+ * `lista` = a lista ligada ao play, com quem esta nela (o 💰 de antes do play montado).
+ */
+export function desfazerDoPlay(data: AppData, s: PlaySession, lista?: { lista: Lista; playerIds: string[] }): Desfazer {
+  const dias = data.checkinDias.filter((d) => d.session_id === s.id)
+  const doDia = data.checkins.filter((c) => dias.some((d) => d.id === c.dia_id))
+  const peloCofre = new Set(
+    doDia.filter((c) => c.id === idDoLancamento(c.dia_id, c.player_id) && pagamentoDoCheckin(data, c.id)?.pagamento_confirmado).map((c) => c.player_id),
+  )
+  const gastos = new Set(creditosGastos(s))
+  const finalizado = s.status === 'finished' || gastos.size > 0 || (s.eventos ?? []).some((e) => e.tipo === 'reabrir')
+  const jogouDepois = (id: string) =>
+    data.sessions.some((x) => x.id !== s.id && x.status === 'finished' && x.date > s.date && x.player_ids.includes(id))
+  const players = data.players.flatMap((p) => {
+    if (categoriaDe(p) !== 'avulsa') return []
+    if (peloCofre.has(p.id)) return !finalizado && p.pago_avulso ? [{ ...p, pago_avulso: false }] : []
+    return gastos.has(p.id) && !p.pago_avulso && !jogouDepois(p.id) ? [{ ...p, pago_avulso: true }] : []
+  })
+  const doPlay: Desfazer = { checkins: doDia.map((c) => c.id), dias: dias.map((d) => d.id), players }
+  // o 💰 lancado num dia ainda sem play que nao foi ligado ao montar (havia dois dias soltos na data)
+  return lista ? somar(doPlay, lancadosPelaLista(data, { ...lista.lista, session_id: null }, lista.playerIds)) : doPlay
+}
+
+/** Uma linha para a janela de apagar: "3 pagamentos lançados ... (R$ 75,00)". Nulo sem nada. */
+export function avisoDoFinanceiro(data: AppData, d: Desfazer, peloCofre: boolean): string | null {
+  if (d.checkins.length === 0 && d.dias.length === 0) return null
+  const pago = d.checkins.reduce((t, id) => t + (pagamentoDoCheckin(data, id)?.valor_pago ?? 0), 0)
+  const n = d.checkins.length
+  const dias = d.dias.map((id) => data.checkinDias.find((x) => x.id === id)?.date).filter(Boolean).map((x) => `${x!.slice(8, 10)}/${x!.slice(5, 7)}`)
+  const quais = peloCofre ? `${n === 1 ? 'O pagamento lançado' : `Os ${n} pagamentos lançados`} pelo 💰 desta lista` : `${n === 1 ? 'O lançamento' : `Os ${n} lançamentos`} do dia deste play`
+  const valor = pago > 0 ? ` (${formatarReais(pago)} pagos)` : ''
+  const dia = dias.length ? `, junto com o dia ${dias.join(', ')}` : ''
+  return n > 0 ? `${quais}${valor} ${n === 1 ? 'sai' : 'saem'} da aba Check-ins${dia}.` : `O dia ${dias.join(', ')} sai da aba Check-ins.`
 }

@@ -74,7 +74,7 @@ export type SessionStatus = 'open' | 'finished'
  */
 export type PlayFormat = 'todas' | 'grupos' | 'grupos-duplas'
 
-export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra' | 'desempate' | 'grupos' | 'reabrir'
+export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra' | 'desempate' | 'grupos' | 'reabrir' | 'creditos'
 
 export type EventoDoPlay = {
   /** Hora da intervencao (ISO). */
@@ -88,6 +88,8 @@ export type EventoDoPlay = {
   round?: number
   /** Na troca: quem entrou (so as duplas dela mudam -- e o que separa a repeticao da troca da do plano). */
   entra?: string
+  /** 'creditos': as avulsas que o Finalizar deixou sem credito (apagar o play devolve; nao aparece nas intervencoes). */
+  ids?: string[]
 }
 
 /**
