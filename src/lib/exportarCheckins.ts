@@ -7,12 +7,14 @@
  * arena, sem dinheiro, para mandar para cada uma conferir os check-ins do mes).
  */
 import type { AppData } from './types'
-import { dateLabel, monthLabel, monthOf } from './types'
+import { dateLabel, monthLabel, monthOf, todayISO } from './types'
 import {
   CATEGORIAS_DE_CAIXA,
   appDaConta,
+  centavos,
   contaDoCheckin,
   extratoDaAtleta,
+  formatarReais,
   nomeDoTitular,
   pagamentoDoCheckin,
   planoDaConta,
@@ -25,6 +27,10 @@ import {
   valorDevido,
   type Relatorio,
 } from './checkins'
+import {
+  MES_INICIAL, checkinsDaFicha, dinheiroDaFicha, faltaDaFicha, fichaDe, idDaFicha,
+  iniciada, quitada, valorDaFicha, vencimento,
+} from './fichaDaMensalidade'
 import type { Celula, Planilha } from './xlsx'
 
 const SIM_NAO = (v: boolean) => (v ? 'Sim' : 'Não')
@@ -44,12 +50,53 @@ export function planilhasDasArenas(rel: Relatorio): Planilha[] {
   return abas
 }
 
+function planilhaMensalidades(data: AppData, nome: (id: string) => string, mes: string | null, hoje: string): Planilha | null {
+  // O item pode chegar antes do cabeçalho. A chave é a atleta e o mês, mesmo nesse caso.
+  const chaves = new Map<string, { player_id: string; mes: string }>()
+  for (const registro of [...data.mensalidades, ...data.mensalidadeItens]) {
+    if (registro.mes >= MES_INICIAL && (!mes || registro.mes === mes)) {
+      chaves.set(idDaFicha(registro.player_id, registro.mes), registro)
+    }
+  }
+  if (!chaves.size) return null
+
+  const linhas: Celula[][] = [['Atleta', 'Mensalidade', 'Dinheiro', 'Check-ins', 'Abatimentos', 'Vale', 'Falta', 'Situação']]
+  const detalhes: Celula[][] = [['Atleta', 'Mensalidade', 'Data', 'Tipo', 'Arena', 'Titular da conta', 'Valor', 'Confirmado', 'Observação']]
+  const tipos = { checkin: 'Check-in', dinheiro: 'Pix', abatimento: 'Abatimento' }
+  const ordenadas = [...chaves.values()].sort((a, b) => a.mes.localeCompare(b.mes)
+    || nome(a.player_id).localeCompare(nome(b.player_id), 'pt-BR'))
+  for (const { player_id, mes: competencia } of ordenadas) {
+    const f = fichaDe(data, player_id, competencia)
+    const atleta = nome(player_id)
+    const periodo = monthLabel(competencia).toLowerCase().replace(' de ', '/')
+    const falta = faltaDaFicha(f)
+    const situacao = quitada(f) ? 'Quitada'
+      : hoje > vencimento(competencia) && iniciada(f) ? `Deve ${formatarReais(falta)} - virou avulsa`
+      : `Falta ${formatarReais(falta)}`
+    const abatimentos = f.itens.filter(i => i.tipo === 'abatimento')
+      .reduce((soma, i) => soma + (i.valor ?? 0), 0)
+    linhas.push([atleta, periodo, { reais: dinheiroDaFicha(f) }, checkinsDaFicha(f),
+      { reais: centavos(abatimentos) }, { reais: valorDaFicha(f) }, { reais: falta }, situacao])
+
+    for (const i of f.itens.sort((a, b) => a.date.localeCompare(b.date))) {
+      const conta = data.checkinContas.find(c => c.id === i.conta_id)
+      const titular = conta ? nomeDoTitular(conta, nome(conta.player_id))
+        : i.conta_id?.startsWith('principal:') ? nome(i.conta_id.slice('principal:'.length)) : atleta
+      detalhes.push([atleta, periodo, dateLabel(i.date), tipos[i.tipo],
+        data.checkinLocais.find(l => l.id === i.local_id)?.nome ?? '',
+        i.tipo === 'checkin' ? titular : '', { reais: i.tipo === 'checkin' ? f.valor_checkin : i.valor ?? 0 },
+        SIM_NAO(i.confirmado), i.observacao ?? ''])
+    }
+  }
+  return { nome: 'Mensalidades', linhas: [...linhas, [], ...detalhes] }
+}
+
 /**
  * O controle completo. `mes` nulo exporta tudo; com mes, so os lancamentos e
  * o caixa daquele mes (o resumo sai inteiro de todo jeito, e o acumulado
  * precisa dos meses anteriores).
  */
-export function planilhasCompletas(data: AppData, nameOf: (id: string) => string, mes: string | null): Planilha[] {
+export function planilhasCompletas(data: AppData, nameOf: (id: string) => string, mes: string | null, hoje = todayISO()): Planilha[] {
   const dias = data.checkinDias
     .filter((d) => !mes || monthOf(d.date) === mes)
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -157,6 +204,18 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
   }
 
   // ---- Resumo: igual a aba Resumo, todos os meses
+  // O Resumo cobre todo o histórico. Uma exportação anterior à regra mantém a saída antiga inteira.
+  const pixPorMes = new Map<string, number>()
+  if (!mes || mes >= MES_INICIAL) {
+    for (const i of data.mensalidadeItens ?? []) {
+      if (i.mes < MES_INICIAL || i.tipo !== 'dinheiro') continue
+      const periodo = monthOf(i.date)
+      pixPorMes.set(periodo, centavos((pixPorMes.get(periodo) ?? 0) + (i.valor ?? 0)))
+    }
+  }
+  const caixa = new Map(resumoDoCaixa(data).map(r => [r.mes, r]))
+  const periodos = [...new Set([...caixa.keys(), ...pixPorMes.keys()])].sort()
+  let acumulado = 0
   const resumo: Planilha = {
     nome: 'Resumo',
     linhas: [
@@ -164,12 +223,26 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
         'Mês', 'Receita dos plays', 'Receitas extras', 'Receita total', 'Aluguel', 'Brindes', 'Confraternização',
         'Outras despesas', 'Despesa total', 'Saldo do mês', 'Saldo acumulado',
       ],
-      ...resumoDoCaixa(data).map((r) => [
-        monthLabel(r.mes), { reais: r.receitasPlay }, { reais: r.receitasExtras }, { reais: r.receitaTotal },
-        { reais: r.aluguel }, { reais: r.brindes }, { reais: r.confraternizacao }, { reais: r.outras },
-        { reais: r.despesaTotal }, { reais: r.saldoDoMes }, { reais: r.saldoAcumulado },
-      ]),
+      ...periodos.map(periodo => {
+        const r = caixa.get(periodo)
+        const pix = pixPorMes.get(periodo) ?? 0
+        const saldo = centavos((r?.saldoDoMes ?? 0) + pix)
+        acumulado = centavos(acumulado + saldo)
+        return [
+          monthLabel(periodo), { reais: r?.receitasPlay ?? 0 }, { reais: r?.receitasExtras ?? 0 },
+          { reais: centavos((r?.receitaTotal ?? 0) + pix) }, { reais: r?.aluguel ?? 0 }, { reais: r?.brindes ?? 0 },
+          { reais: r?.confraternizacao ?? 0 }, { reais: r?.outras ?? 0 }, { reais: r?.despesaTotal ?? 0 },
+          { reais: saldo }, { reais: acumulado },
+        ]
+      }),
     ],
+  }
+
+  if (pixPorMes.size) {
+    resumo.linhas.push([], ['Receita', 'Mês do Pix', 'Valor'])
+    for (const periodo of periodos) {
+      if (pixPorMes.has(periodo)) resumo.linhas.push(['Mensalidades', monthLabel(periodo), { reais: pixPorMes.get(periodo)! }])
+    }
   }
 
   // ---- Pagamentos: a aba de saidas da planilha (mais as receitas extras), uma por linha
@@ -208,5 +281,12 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
     ],
   }
 
-  return [controle, pagamentos, resumo, saldos]
+  const abas = [controle, pagamentos, resumo, saldos]
+  if (!mes || mes >= MES_INICIAL) {
+    const mensalidades = planilhaMensalidades({
+      ...data, mensalidades: data.mensalidades ?? [], mensalidadeItens: data.mensalidadeItens ?? [],
+    }, nome, mes, hoje)
+    if (mensalidades) abas.push(mensalidades)
+  }
+  return abas
 }
