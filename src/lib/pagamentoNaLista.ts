@@ -1,8 +1,9 @@
 import { categoriaDe } from './mensalidade'
-import { emDiaNaData } from './fichaDaMensalidade'
+import { emDiaNaData, MES_INICIAL } from './fichaDaMensalidade'
 import { centavos, checkinDaAtletaNoDia, creditoDisponivel, formatarReais, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
 import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player, PlaySession } from './types'
+import { monthOf } from './types'
 
 /*
  * 💰 NA LISTA: a organizadora lanca o pagamento da avulsa direto da lista de
@@ -36,7 +37,9 @@ export function tipoNaLista(data: AppData, p: Player | undefined, lista: Lista) 
  * Nulo = nada a gravar.
  */
 export function pagoAvulsoDaLista(data: AppData, lista: Lista, p: Player, pago: boolean): Player | null {
-  if (categoriaDe(p) !== 'avulsa' || Boolean(p.pago_avulso) === pago) return null
+  // desde dezembro/2026 a mensalista que nao renovou tambem paga o play como avulsa
+  const comoAvulsa = categoriaDe(p) === 'avulsa' || (categoriaDe(p) === 'mensalista' && monthOf(dataDoPlay(lista)) >= MES_INICIAL)
+  if (!comoAvulsa || Boolean(p.pago_avulso) === pago) return null
   const play = lista.session_id ? data.sessions.find((s) => s.id === lista.session_id) : undefined
   // reaberto para corrigir: o 2o Finalizar nao gasta de novo, entao tambem nao mexe
   if (play && (play.status === 'finished' || (play.eventos ?? []).some((e) => e.tipo === 'reabrir'))) return null

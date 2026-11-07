@@ -122,6 +122,8 @@ export function situacaoDoAtleta(p: Player, data: AppData, hoje = todayISO()): S
   // mensalista: desde a mensalidade de dezembro/2026, a ficha (fichaDaMensalidade.ts)
   if (mes >= MES_INICIAL) {
     if (emDiaNaData(data, p, hoje)) return { liberado: true, cor: 'ok', rotulo: 'Mensalidade em dia' }
+    // sem a mensalidade em dia ela joga como avulsa: o play pago libera
+    if (p.pago_avulso) return { liberado: true, cor: 'ok', rotulo: 'Play pago como avulsa (mensalidade não renovada)' }
     const divida = dividaDaMensalidade(data, p.id, hoje).total
     return {
       liberado: false,
@@ -158,15 +160,16 @@ export function mensalistaEmDiaNoPlay(p: Player, dataDoPlay: string): boolean {
 export function confirmarPagamento(p: Player, hoje = todayISO()): Player {
   const categoria = categoriaDe(p)
   if (categoria === 'avulsa') return { ...p, pago_avulso: true }
-  if (categoria === 'mensalista') return { ...p, pago_mes: monthOf(hoje) }
+  // desde dezembro/2026 a mensalidade e a ficha; o confirmar daqui e o play pago como avulsa
+  if (categoria === 'mensalista') return monthOf(hoje) >= MES_INICIAL ? { ...p, pago_avulso: true } : { ...p, pago_mes: monthOf(hoje) }
   return p
 }
 
 /** Desfaz a confirmacao -- para quando alguem marca por engano. */
-export function desfazerPagamento(p: Player): Player {
+export function desfazerPagamento(p: Player, hoje = todayISO()): Player {
   const categoria = categoriaDe(p)
   if (categoria === 'avulsa') return { ...p, pago_avulso: false }
-  if (categoria === 'mensalista') return { ...p, pago_mes: null }
+  if (categoria === 'mensalista') return monthOf(hoje) >= MES_INICIAL ? { ...p, pago_avulso: false } : { ...p, pago_mes: null }
   return p
 }
 
@@ -176,6 +179,7 @@ export function desfazerPagamento(p: Player): Player {
  */
 export function consumirAvulsos(jogaram: string[], data: AppData): Player[] {
   return data.players.filter(
-    (p) => jogaram.includes(p.id) && categoriaDe(p) === 'avulsa' && p.pago_avulso,
+    // a mensalista que nao renovou paga o play como avulsa: o credito dela tambem acaba
+    (p) => jogaram.includes(p.id) && (categoriaDe(p) === 'avulsa' || categoriaDe(p) === 'mensalista') && p.pago_avulso,
   ).map((p) => ({ ...p, pago_avulso: false }))
 }

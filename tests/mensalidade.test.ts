@@ -109,3 +109,17 @@ test('para qual mensalidade vai o check-in', () => {
   const cheio = dados(quatro('2026-12', ['2026-11-16', '2026-11-23', '2026-11-30', '2026-12-01']))
   assert.equal(mesSugeridoDoCheckin(cheio, 'bia', '2026-12-03'), '2027-01')
 })
+
+test('desde dezembro a mensalista que nao renovou paga o play como avulsa', async () => {
+  const { confirmarPagamento, consumirAvulsos, desfazerPagamento, situacaoDoAtleta } = await import('../src/lib/mensalidade')
+  const d = dados([], { ...bia, pago_mes: '2026-11' })
+  assert.equal(situacaoDoAtleta(bia, d, '2026-12-07').liberado, false)
+  const paga = confirmarPagamento(bia, '2026-12-07')
+  assert.equal(paga.pago_avulso, true)
+  assert.equal(paga.pago_mes, '2026-11', 'nao grava mes pago: a mensalidade e a ficha')
+  assert.equal(situacaoDoAtleta(paga, d, '2026-12-07').liberado, true)
+  assert.equal(desfazerPagamento(paga, '2026-12-07').pago_avulso, false)
+  assert.deepEqual(consumirAvulsos(['bia'], { ...d, players: [paga] }).map((p) => p.pago_avulso), [false])
+  // novembro segue como sempre
+  assert.equal(confirmarPagamento({ ...bia, pago_mes: null }, '2026-11-09').pago_mes, '2026-11')
+})
