@@ -26,20 +26,20 @@ function gravar(d: AppData, dia: CheckinDia, pago: number, modo: 'integral' | 'c
 }
 
 test('categoria: avulsa e cobrada; convidada e isenta nao; sem cadastro pede vinculo', () => {
-  assert.equal(tipoNaLista(undefined, lista), 'vincular')
-  for (const categoria of ['convidada', 'isenta', 'avulsa']) assert.equal(tipoNaLista({ ...atleta, categoria }, lista), categoria)
+  assert.equal(tipoNaLista(emptyData(), undefined, lista), 'vincular')
+  for (const categoria of ['convidada', 'isenta', 'avulsa']) assert.equal(tipoNaLista(emptyData(), { ...atleta, categoria }, lista), categoria)
 })
 
 test('mensalista: em dia nao e cobrada; atrasada depois do dia 5 e cobrada como avulsa', () => {
   const m = (pago_mes: string | null) => ({ ...atleta, categoria: 'mensalista', pago_mes }) as Player
   // play 09/11 (depois do dia 5)
-  assert.equal(tipoNaLista(m('2026-11'), lista), 'mensalista')
-  assert.equal(tipoNaLista(m('2026-10'), lista), 'mensalista-atrasada')
-  assert.equal(tipoNaLista(m(null), lista), 'mensalista-atrasada')
+  assert.equal(tipoNaLista(emptyData(), m('2026-11'), lista), 'mensalista')
+  assert.equal(tipoNaLista(emptyData(), m('2026-10'), lista), 'mensalista-atrasada')
+  assert.equal(tipoNaLista(emptyData(), m(null), lista), 'mensalista-atrasada')
   // play 02/11 (ate o dia 5): com outubro pago ainda esta no prazo
   const cedo = { ...lista, play_em: '2026-11-02T23:00:00Z' }
-  assert.equal(tipoNaLista(m('2026-10'), cedo), 'mensalista')
-  assert.equal(tipoNaLista(m('2026-09'), cedo), 'mensalista-atrasada')
+  assert.equal(tipoNaLista(emptyData(), m('2026-10'), cedo), 'mensalista')
+  assert.equal(tipoNaLista(emptyData(), m('2026-09'), cedo), 'mensalista-atrasada')
   // atrasada paga o play, nao o mes: o 💰 nao mexe no cadastro dela
   assert.equal(pagoAvulsoDaLista(dados(), lista, m('2026-10'), true), null)
 })

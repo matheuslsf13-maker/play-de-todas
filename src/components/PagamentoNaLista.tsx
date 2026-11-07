@@ -32,7 +32,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
   const chave = `${LIGA.prefixo}:pagamento-lista:${lista.id}`
   if (!canEdit || LIGA.id !== 'feminino') return null
   const player = data.players.find((p) => p.id === nome.player_id)
-  const categoria = tipoNaLista(player, lista)
+  const categoria = tipoNaLista(data, player, lista)
   // mensalista paga o mês, convidada e isenta não pagam: nada a cobrar aqui
   if (categoria === 'mensalista') return <span className="tiny muted" style={{ whiteSpace: 'nowrap' }}>📅 mensalista</span>
   if (categoria === 'convidada' || categoria === 'isenta') return null

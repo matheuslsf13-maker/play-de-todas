@@ -1,4 +1,5 @@
-import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
+import { categoriaDe } from './mensalidade'
+import { emDiaNaData } from './fichaDaMensalidade'
 import { centavos, checkinDaAtletaNoDia, creditoDisponivel, formatarReais, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
 import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player, PlaySession } from './types'
@@ -19,10 +20,10 @@ export type RetratoPagamento = { checkin: Checkin; pagamento: CheckinPagamento |
  * Mensalista em dia no play (mes pago, ou ate o dia 5 com o anterior pago) nao
  * e cobrada; atrasada e cobrada como avulsa naquele play ('mensalista-atrasada').
  */
-export function tipoNaLista(p: Player | undefined, lista: Lista) {
+export function tipoNaLista(data: AppData, p: Player | undefined, lista: Lista) {
   if (!p) return 'vincular' as const
   const c = categoriaDe(p)
-  if (c === 'mensalista' && !mensalistaEmDiaNoPlay(p, dataDoPlay(lista))) return 'mensalista-atrasada' as const
+  if (c === 'mensalista' && !emDiaNaData(data, p, dataDoPlay(lista))) return 'mensalista-atrasada' as const
   return c
 }
 

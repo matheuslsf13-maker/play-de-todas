@@ -131,10 +131,10 @@ import {
   categoriaDe,
   confirmarPagamento,
   consumirAvulsos,
-  mensalistaEmDiaNoPlay,
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
+import { emDiaNaData } from '../lib/fichaDaMensalidade'
 import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
@@ -920,7 +920,7 @@ function NewPlay({
   }
 
   /** Mensalista da lista de presenca no prazo ate o dia 5: entra garantida, sem pagar ainda (dono, 06/11). */
-  const garantidaPelaLista = (p: Player) => !!daLista?.includes(p.id) && mensalistaEmDiaNoPlay(p, date)
+  const garantidaPelaLista = (p: Player) => !!daLista?.includes(p.id) && emDiaNaData(data, p, date)
   const liberada = (p: Player) => situacaoDoAtleta(p, data).liberado || garantidaPelaLista(p)
 
   function aplicarLista(idsDaLista: string[]): number {

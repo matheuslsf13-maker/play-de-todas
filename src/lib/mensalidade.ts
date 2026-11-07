@@ -1,5 +1,7 @@
 import type { AppData, Player } from './types'
 import { monthOf, todayISO } from './types'
+import { formatarReais } from './checkins'
+import { dividaDaMensalidade, emDiaNaData, MES_INICIAL } from './fichaDaMensalidade'
 
 /**
  * QUEM PODE ENTRAR NO PLAY
@@ -117,7 +119,17 @@ export function situacaoDoAtleta(p: Player, data: AppData, hoje = todayISO()): S
         }
   }
 
-  // mensalista
+  // mensalista: desde a mensalidade de dezembro/2026, a ficha (fichaDaMensalidade.ts)
+  if (mes >= MES_INICIAL) {
+    if (emDiaNaData(data, p, hoje)) return { liberado: true, cor: 'ok', rotulo: 'Mensalidade em dia' }
+    const divida = dividaDaMensalidade(data, p.id, hoje).total
+    return {
+      liberado: false,
+      cor: 'devendo',
+      rotulo: divida > 0 ? `Deve ${formatarReais(divida)} da mensalidade` : 'Mensalidade não renovada',
+      comoResolver: 'Registre a mensalidade dela (ou cobre este play como avulsa).',
+    }
+  }
   return p.pago_mes === mes
     ? { liberado: true, cor: 'ok', rotulo: 'Mensalidade em dia' }
     : {

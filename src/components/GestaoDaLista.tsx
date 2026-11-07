@@ -218,7 +218,7 @@ export function OpcoesDoNome({
   const sugestoes = n.player_id ? [] : sugestaoDeVinculo(n.nome, ativas).slice(0, 3)
   const ocupadas = new Set(lc.nomes.filter((x) => !x.saiu_em && x.player_id).map((x) => x.player_id as string))
   const posicao = posicaoDe(lc.nomes, n.id)
-  const mensalista = ehMensalista(n, data.players, dataDoPlay(lc.lista))
+  const mensalista = ehMensalista(n, data, dataDoPlay(lc.lista))
 
   async function vincularEFechar(p: Player) {
     if (await vincular(n, p)) onClose()

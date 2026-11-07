@@ -1,4 +1,4 @@
-import { mensalistaEmDiaNoPlay } from './mensalidade'
+import { emDiaNaData } from './fichaDaMensalidade'
 import { normalizar, semInvisiveis, semelhanca, type Sugestao } from './roster'
 import { notaDeForca } from './forca'
 import { pausaAberta, ratings } from './stats'
@@ -437,7 +437,7 @@ export function grafiaNova(texto: string, p: Player): boolean {
 export function preIncluidas(data: AppData, dataDoPlay: string): string[] {
   const forca = ratings(data)
   return data.players
-    .filter((p) => p.active && mensalistaEmDiaNoPlay(p, dataDoPlay) && !pausaAberta(data, p))
+    .filter((p) => p.active && emDiaNaData(data, p, dataDoPlay) && !pausaAberta(data, p))
     .map((p) => ({ p, nota: notaDeForca(forca.get(p.id) ?? 2) }))
     .sort((a, b) => b.nota - a.nota || a.p.name.localeCompare(b.p.name, 'pt-BR'))
     .map((x) => x.p.id)
@@ -447,10 +447,10 @@ export function preIncluidas(data: AppData, dataDoPlay: string): string[] {
  * Ao tirar este nome a organizadora responde "avisou com 24h?": pre-incluida,
  * ou mensalista em dia para este play. A que nao renovou entrou como avulsa.
  */
-export function ehMensalista(n: NomeNaLista, players: Player[], dataDoPlay: string): boolean {
+export function ehMensalista(n: NomeNaLista, data: AppData, dataDoPlay: string): boolean {
   if (n.origem === 'mensalista') return true
-  const p = n.player_id ? players.find((x) => x.id === n.player_id) : undefined
-  return !!p && mensalistaEmDiaNoPlay(p, dataDoPlay)
+  const p = n.player_id ? data.players.find((x) => x.id === n.player_id) : undefined
+  return !!p && emDiaNaData(data, p, dataDoPlay)
 }
 
 /** Para montar o play: os cadastros das confirmadas e as confirmadas ainda sem cadastro. */

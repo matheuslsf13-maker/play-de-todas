@@ -182,11 +182,12 @@ test('ehMensalista: pre-incluida ou em dia para o play; quem nao renovou entrou 
     jogadora('emdia', { categoria: 'mensalista', pago_mes: '2026-11' }),
     jogadora('atrasada', { categoria: 'mensalista', pago_mes: '2026-10' }),
   ]
-  assert.equal(ehMensalista(nome(1, { player_id: 'emdia' }), ps, '2026-11-09'), true)
-  assert.equal(ehMensalista(nome(2, { player_id: 'atrasada' }), ps, '2026-11-09'), false, 'pagou so ate outubro: avulsa')
-  assert.equal(ehMensalista(nome(3, { player_id: 'atrasada' }), ps, '2026-12-01'), false)
-  assert.equal(ehMensalista(nome(4, { origem: 'mensalista' }), ps, '2026-11-09'), true)
-  assert.equal(ehMensalista(nome(5), ps, '2026-11-09'), false, 'sem cadastro')
+  const d = { ...emptyData(), players: ps }
+  assert.equal(ehMensalista(nome(1, { player_id: 'emdia' }), d, '2026-11-09'), true)
+  assert.equal(ehMensalista(nome(2, { player_id: 'atrasada' }), d, '2026-11-09'), false, 'pagou so ate outubro: avulsa')
+  assert.equal(ehMensalista(nome(3, { player_id: 'atrasada' }), d, '2026-12-01'), false)
+  assert.equal(ehMensalista(nome(4, { origem: 'mensalista' }), d, '2026-11-09'), true)
+  assert.equal(ehMensalista(nome(5), d, '2026-11-09'), false, 'sem cadastro')
 })
 
 test('mensalistaEmDiaNoPlay: pago no mes, ou ate o dia 5 com o mes anterior pago', () => {
