@@ -197,6 +197,42 @@ export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, 
   return { vincular, ocupada, avisoDeDuplicada }
 }
 
+/** FALTA AVISADA (dono, 07/11): grava a compensacao escolhida na ficha (R$ 25 de credito ou um check-in a menos). */
+function useCompensarFalta(lc: ListaCompleta) {
+  const { data } = useStore()
+  const gravarNaFicha = useGravarNaFicha()
+  return (playerId: string, tipo: 'credito' | 'checkin') => {
+    const quando = dataDoPlay(lc.lista)
+    gravarNaFicha({
+      id: `falta:${lc.lista.id}:${playerId}`, player_id: playerId, mes: mesDaCompensacao(data, playerId, quando, tipo), tipo: 'abatimento',
+      date: quando, valor: MENSALIDADE_PADRAO.valor_checkin, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
+      observacao: `falta avisada no play de ${quando.slice(8, 10)}/${quando.slice(5, 7)}: ${tipo === 'credito' ? 'crédito' : 'um check-in a menos'}`,
+    })
+  }
+}
+
+/** Os botoes de como compensar a falta avisada (os mesmos no tirar e no trocar de lugar). */
+function EscolherCompensacao({ playerId, lc, ocupada, onEscolher }: { playerId: string; lc: ListaCompleta; ocupada: boolean; onEscolher: (t: 'credito' | 'checkin' | null) => void }) {
+  const { data } = useStore()
+  const quando = dataDoPlay(lc.lista)
+  return (
+    <>
+      <p style={{ margin: 0 }}>
+        <strong>Como ela prefere compensar?</strong>
+        <br />
+        <span className="small muted">Fica registrado na ficha da mensalidade dela.</span>
+      </p>
+      <button className="btn teal block" disabled={ocupada} onClick={() => onEscolher('credito')}>
+        💰 {formatarReais(MENSALIDADE_PADRAO.valor_checkin)} de crédito na mensalidade de {monthLabel(mesDaCompensacao(data, playerId, quando, 'credito')).toLowerCase()}
+      </button>
+      <button className="btn block" disabled={ocupada} onClick={() => onEscolher('checkin')}>
+        ✅ Um check-in a menos na mensalidade de {monthLabel(mesDaCompensacao(data, playerId, quando, 'checkin')).toLowerCase()}
+      </button>
+      <button className="btn ghost block" disabled={ocupada} onClick={() => onEscolher(null)}>Nenhum</button>
+    </>
+  )
+}
+
 /** Tocar num nome (organizadora): vincular, trocar de lugar, garantir a vaga, tirar. */
 export function OpcoesDoNome({
   n,
@@ -217,7 +253,7 @@ export function OpcoesDoNome({
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
   const { vincular, avisoDeDuplicada } = useVincular(lc, recarregar, onToast)
   const [tela, setTela] = useState<'menu' | 'outra' | 'nova' | 'tirar' | 'compensar'>('menu')
-  const gravarNaFicha = useGravarNaFicha()
+  const compensarFalta = useCompensarFalta(lc)
   const player = n.player_id ? playerById(n.player_id) : undefined
   const ativas = data.players.filter((p) => p.active)
   const sugestoes = n.player_id ? [] : sugestaoDeVinculo(n.nome, ativas).slice(0, 3)
@@ -230,10 +266,13 @@ export function OpcoesDoNome({
   }
 
   async function tirar(avisou: boolean | null) {
-    const ok = await escrever(
-      () => repo.mexerNoNome(n.id, { saiu_em: new Date().toISOString(), saiu_por: 'organizadora', avisou_24h: avisou }),
-      `${player ? nameOf(player.id) : n.nome} saiu da lista`,
-    )
+    // a confirmada que sai com aviso: a 1a suplente sobe e fica marcada como substituta dela
+    const ordem = ativosEmOrdem(lc.nomes)
+    const entra = avisou && n.player_id && posicao <= lc.lista.vagas ? ordem[lc.lista.vagas] : undefined
+    const ok = await escrever(async () => {
+      await repo.mexerNoNome(n.id, { saiu_em: new Date().toISOString(), saiu_por: 'organizadora', avisou_24h: avisou })
+      if (entra) await repo.mexerNoNome(entra.id, { substitui: n.player_id }).catch(() => {}) // sem o script 36: so nao liga
+    }, `${player ? nameOf(player.id) : n.nome} saiu da lista`)
     if (ok) onClose()
   }
 
@@ -270,16 +309,10 @@ export function OpcoesDoNome({
   }
   if (tela === 'compensar' && player) {
     // FALTA AVISADA (dono, 07/11): R$ 25 de credito na proxima mensalidade ou um check-in a menos na deste ciclo
-    const quando = dataDoPlay(lc.lista)
     const compensar = async (tipo: 'credito' | 'checkin' | null) => {
       if (tipo) {
-        const mes = mesDaCompensacao(data, player.id, quando, tipo)
         try {
-          gravarNaFicha({
-            id: `falta:${lc.lista.id}:${player.id}`, player_id: player.id, mes, tipo: 'abatimento', date: quando,
-            valor: MENSALIDADE_PADRAO.valor_checkin, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
-            observacao: `falta avisada no play de ${quando.slice(8, 10)}/${quando.slice(5, 7)}: ${tipo === 'credito' ? 'crédito' : 'um check-in a menos'}`,
-          })
+          compensarFalta(player.id, tipo)
         } catch (e) {
           onToast(mensagemDeErro(e))
           return
@@ -290,18 +323,7 @@ export function OpcoesDoNome({
     return (
       <Modal title={`${nameOf(player.id)} avisou com 24h`} onClose={() => setTela('tirar')}>
         <div className="stack lista-pagina">
-          <p style={{ margin: 0 }}>
-            <strong>Como ela prefere compensar?</strong>
-            <br />
-            <span className="small muted">Fica registrado na ficha da mensalidade dela.</span>
-          </p>
-          <button className="btn teal block" disabled={ocupada} onClick={() => void compensar('credito')}>
-            💰 {formatarReais(MENSALIDADE_PADRAO.valor_checkin)} de crédito na mensalidade de {monthLabel(mesDaCompensacao(data, player.id, quando, 'credito')).toLowerCase()}
-          </button>
-          <button className="btn block" disabled={ocupada} onClick={() => void compensar('checkin')}>
-            ✅ Um check-in a menos na mensalidade de {monthLabel(mesDaCompensacao(data, player.id, quando, 'checkin')).toLowerCase()}
-          </button>
-          <button className="btn ghost block" disabled={ocupada} onClick={() => void compensar(null)}>Nenhum — só tirar</button>
+          <EscolherCompensacao playerId={player.id} lc={lc} ocupada={ocupada} onEscolher={(t) => void compensar(t)} />
         </div>
       </Modal>
     )
@@ -418,24 +440,87 @@ export function ConfirmarTroca({
   onToast: (m: string) => void
   onClose: () => void
 }) {
-  const { repo, nameOf } = useStore()
+  const { data, repo, nameOf, deleteItemDaMensalidade } = useStore()
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
+  const compensarFalta = useCompensarFalta(lc)
+  const [passo, setPasso] = useState<'confirmar' | 'avisou' | 'compensar'>('confirmar')
   const nome = (n: NomeNaLista) => (n.player_id ? nameOf(n.player_id) : n.nome)
   const pa = posicaoDe(lc.nomes, a.id)
   const pb = posicaoDe(lc.nomes, b.id)
+  const vagas = lc.lista.vagas
+  const quando = dataDoPlay(lc.lista)
+  const movidas: [NomeNaLista, number, number][] = [[a, pa, pb], [b, pb, pa]]
+  // TROCAR DE LUGAR (dono, 07/11): a mensalista que sai das confirmadas e como a tirada -- pergunta as 24h
+  const sai = LIGA.id === 'feminino' ? movidas.find(([n, de, para]) => de <= vagas && para > vagas && n.player_id && ehMensalista(n, data, quando))?.[0] : undefined
+  const entra = sai ? (sai.id === a.id ? b : a) : undefined
+  // e a que volta para as confirmadas: desfaz o aviso, a compensacao e a substituta
+  const volta = movidas.find(([n, de, para]) => de > vagas && para <= vagas && n.player_id && n.avisou_24h !== null)?.[0]
+
+  async function trocar(avisou: boolean | null) {
+    const ok = await escrever(async () => {
+      await repo.trocarNaLista(a.id, b.id)
+      if (sai) {
+        await repo.mexerNoNome(sai.id, { avisou_24h: avisou })
+        if (avisou && entra) await repo.mexerNoNome(entra.id, { substitui: sai.player_id }).catch(() => {}) // sem o script 36: so nao liga
+      }
+      if (volta?.player_id) {
+        await repo.mexerNoNome(volta.id, { avisou_24h: null })
+        const falta = `falta:${lc.lista.id}:${volta.player_id}`
+        if (data.mensalidadeItens.some((i) => i.id === falta)) deleteItemDaMensalidade(falta)
+        for (const x of lc.nomes.filter((x) => x.substitui === volta.player_id)) await repo.mexerNoNome(x.id, { substitui: null }).catch(() => {})
+      }
+    }, 'Trocadas ⇅')
+    if (ok) onClose()
+  }
+
+  if (sai && passo === 'avisou') {
+    return (
+      <Modal title={`${nome(sai)} sai das confirmadas`} onClose={() => setPasso('confirmar')}>
+        <div className="stack lista-pagina">
+          <p style={{ margin: 0 }}><strong>Ela avisou com 24h de antecedência?</strong></p>
+          <button className="btn teal block" disabled={ocupada} onClick={() => setPasso('compensar')}>Sim, avisou — trocar</button>
+          <button className="btn danger block" disabled={ocupada} onClick={() => void trocar(false)}>Não avisou — trocar</button>
+          <button className="btn ghost block" onClick={() => setPasso('confirmar')}>Voltar</button>
+        </div>
+      </Modal>
+    )
+  }
+  if (sai && sai.player_id && passo === 'compensar') {
+    const pid = sai.player_id
+    return (
+      <Modal title={`${nome(sai)} avisou com 24h`} onClose={() => setPasso('avisou')}>
+        <div className="stack lista-pagina">
+          <EscolherCompensacao
+            playerId={pid}
+            lc={lc}
+            ocupada={ocupada}
+            onEscolher={(t) => {
+              if (t) {
+                try {
+                  compensarFalta(pid, t)
+                } catch (e) {
+                  onToast(mensagemDeErro(e))
+                  return
+                }
+              }
+              void trocar(true)
+            }}
+          />
+          {entra && <span className="hint">{nome(entra)} fica marcada como substituta dela (no 💰).</span>}
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal title="Trocar de lugar" onClose={onClose}>
       <div className="stack lista-pagina">
         <p style={{ margin: 0 }}>
           A decisão é sua: <strong>{nome(a)}</strong> vai para a posição {pb} e <strong>{nome(b)}</strong> para a {pa}.
+          {sai && <> <strong>{nome(sai)}</strong> é mensalista e sai das confirmadas: vem a pergunta das 24h.</>}
+          {volta && <> <strong>{nome(volta)}</strong> volta para as confirmadas: o aviso e a compensação dela são desfeitos.</>}
         </p>
-        <button
-          className="btn purple block"
-          disabled={ocupada}
-          onClick={async () => {
-            if (await escrever(() => repo.trocarNaLista(a.id, b.id), 'Trocadas ⇅')) onClose()
-          }}
-        >
+        <button className="btn purple block" disabled={ocupada} onClick={() => (sai ? setPasso('avisou') : void trocar(null))}>
           Trocar
         </button>
         <button className="btn ghost block" onClick={onClose}>Cancelar</button>

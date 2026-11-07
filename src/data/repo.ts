@@ -24,7 +24,7 @@ import type { Lista, ListaCompleta, NomeNaLista, RespostaDaLista } from '../lib/
 /** O que a organizadora inclui direto na lista (a chegada e o id vem do banco). */
 export type NomeIncluido = Pick<NomeNaLista, 'lista_id' | 'nome' | 'player_id' | 'origem' | 'garantida' | 'ordem'>
 /** O que a organizadora mexe num nome ja na lista. */
-export type MudancaNoNome = Partial<Pick<NomeNaLista, 'player_id' | 'ordem' | 'garantida' | 'saiu_em' | 'saiu_por' | 'avisou_24h'>>
+export type MudancaNoNome = Partial<Pick<NomeNaLista, 'player_id' | 'ordem' | 'garantida' | 'saiu_em' | 'saiu_por' | 'avisou_24h' | 'substitui'>>
 
 export interface Repo {
   readonly kind: 'local' | 'supabase'

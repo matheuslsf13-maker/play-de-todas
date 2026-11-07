@@ -54,8 +54,10 @@ export type NomeNaLista = {
   entrou_em: string
   saiu_em: string | null
   saiu_por: 'atleta' | 'organizadora' | null
-  /** Mensalista tirada pela organizadora: ela avisou com 24h? */
+  /** Mensalista tirada pela organizadora (ou trocada para fora das confirmadas): ela avisou com 24h? */
   avisou_24h: boolean | null
+  /** SUBSTITUTA (script 36): a mensalista (id do cadastro) em cujo lugar ela entrou -- vai para o 💰 da lista. */
+  substitui?: string | null
 }
 
 export type ListaCompleta = { lista: Lista; nomes: NomeNaLista[] }

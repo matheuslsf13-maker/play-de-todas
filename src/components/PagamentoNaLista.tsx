@@ -77,6 +77,8 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
     try {
       const antes = retrato(data, edicao.dia.id, player.id)
       const depois = prepararPagamento(data, edicao.dia, player.id, edicao.modo, valor, edicao.conta)
+      // entrou no lugar de uma mensalista (troca ou tirada com aviso de 24h): o lancamento ja sai como substituta
+      if (nome.substitui && !depois.checkin.substitui) depois.checkin.substitui = nome.substitui
       if (novo) saveCheckinDia(edicao.dia)
       saveCheckin(depois.checkin)
       saveCheckinPagamento(depois.pagamento)

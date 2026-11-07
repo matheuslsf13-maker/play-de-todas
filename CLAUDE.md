@@ -648,6 +648,11 @@ liga/            textos do masculino: o código fica no feminino e o build
   tem crédito (saldo positivo dos plays antes do dia 6, `saldoDosPlaysAntesDe`) tem a dívida coberta — inteira se
   der, senão em parte — e o crédito cai do mesmo tanto. Calculado: na ficha é um abatimento "crédito usado na dívida
   (automático)" (`fichaDe` = `fichaBruta` + esse item) e no saldo um acerto negativo; o Excel segue o mesmo.
+- **Falta avisada também na troca de lugar** (script 36, `TrocarDeLugar` em `GestaoDaLista.tsx`): a mensalista que o
+  "⇅ Trocar de lugar" tira das confirmadas recebe a mesma pergunta das 24h e a compensação (`useCompensarFalta`,
+  `EscolherCompensacao`); voltando às confirmadas, o aviso, a compensação e a substituta são desfeitos. A suplente que
+  entra (pela troca ou pelo tirar com aviso) fica com `lista_nomes.substitui` = a mensalista, e o 💰 da lista já lança
+  o play dela como substituta.
 - **📜 Histórico financeiro** (`components/HistoricoFinanceiro.tsx`, só leitura): na ficha ("📜 Histórico") e no
   perfil em Meninas. Mensalidades mês a mês (renovada/quitada/deve/não renovou, Pix, check-ins, crédito) e todas as
   movimentações (Pix e para qual mês, check-in com arena e conta, plays com crédito usado, acertos, crédito que
