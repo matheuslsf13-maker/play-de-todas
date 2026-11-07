@@ -16,6 +16,7 @@ import type {
   Player,
   StreakChoice,
 } from '../lib/types'
+import { juntarMensalidades } from '../lib/juntarMensalidades'
 import { emptyData } from '../lib/types'
 import { garantirQuadrasEmJogo, mudarQuadra, preservarQuadras } from '../lib/quadras'
 import { LOCAIS_INICIAIS, PLANOS_INICIAIS } from '../lib/checkins'
@@ -61,6 +62,8 @@ function read(): AppData {
       checkins: parsed.checkins ?? [],
       checkinPagamentos: parsed.checkinPagamentos ?? [],
       caixa: parsed.caixa ?? [],
+      mensalidades: parsed.mensalidades ?? [],
+      mensalidadeItens: parsed.mensalidadeItens ?? [],
       checkinAcertos: parsed.checkinAcertos ?? [],
       // os planos de hoje entram quando a chave nunca os teve (mesma regra dos locais)
       checkinPlanos: parsed.checkinPlanos ?? PLANOS_INICIAIS.map((p) => ({ ...p, cotas: { ...p.cotas } })),
@@ -140,6 +143,8 @@ export const localRepo: Repo = {
   },
   async deletePlayer(id: string) {
     const d = read()
+    const contas = new Set(d.checkinContas.filter((c) => c.player_id === id).map((c) => c.id))
+    d.mensalidadeItens = d.mensalidadeItens.map((i) => i.conta_id && contas.has(i.conta_id) ? { ...i, conta_id: null } : i)
     d.players = d.players.filter((p) => p.id !== id)
     // as contas de passe sao da menina; os lancamentos ficam (o relatorio da arena)
     d.checkinContas = d.checkinContas.filter((c) => c.player_id !== id)
@@ -214,6 +219,7 @@ export const localRepo: Repo = {
   async deleteCheckinLocal(id: string) {
     const d = read()
     d.checkinLocais = d.checkinLocais.filter((l) => l.id !== id)
+    d.mensalidadeItens = d.mensalidadeItens.map((i) => i.local_id === id ? { ...i, local_id: null } : i)
     d.checkins = d.checkins.map((c) => (c.local_id === id ? { ...c, local_id: null } : c))
     d.checkinContas = d.checkinContas.map((c) => (c.local_padrao_id === id ? { ...c, local_padrao_id: null } : c))
     write(d)
@@ -226,6 +232,7 @@ export const localRepo: Repo = {
   async deleteCheckinConta(id: string) {
     const d = read()
     d.checkinContas = d.checkinContas.filter((c) => c.id !== id)
+    d.mensalidadeItens = d.mensalidadeItens.map((i) => i.conta_id === id ? { ...i, conta_id: null } : i)
     d.checkins = d.checkins.map((c) => (c.conta_id === id ? { ...c, conta_id: null } : c))
     write(d)
   },
@@ -274,6 +281,25 @@ export const localRepo: Repo = {
     const d = read()
     d.caixa = d.caixa.filter((l) => l.id !== id)
     write(d)
+  },
+  async saveMensalidade(ficha) {
+    const d = read()
+    upsertEm(d.mensalidades, ficha)
+    write(d)
+  },
+  async saveItemDaMensalidade(item) {
+    const d = read()
+    upsertEm(d.mensalidadeItens, item)
+    write(d)
+  },
+  async deleteItemDaMensalidade(id) {
+    const d = read()
+    d.mensalidadeItens = d.mensalidadeItens.filter((i) => i.id !== id)
+    write(d)
+  },
+  async juntarMensalidades(origem, destino) {
+    const d = read()
+    write({ ...d, ...juntarMensalidades(d, origem, destino) })
   },
   async saveAcerto(acerto: Acerto) {
     const d = read()

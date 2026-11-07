@@ -1,6 +1,8 @@
 import { CHAVE } from '../lib/chaves'
 import type {
   Acerto,
+  Mensalidade,
+  ItemDaMensalidade,
   Plano,
   Checkin,
   CheckinConta,
@@ -45,6 +47,9 @@ export type WriteOp =
   | { id: string; type: 'deleteCheckinPagamento'; checkinId: string }
   | { id: string; type: 'saveCaixa'; lancamento: LancamentoDeCaixa }
   | { id: string; type: 'deleteCaixa'; lancamentoId: string }
+  | { id: string; type: 'saveMensalidade'; ficha: Mensalidade }
+  | { id: string; type: 'saveItemDaMensalidade'; item: ItemDaMensalidade }
+  | { id: string; type: 'deleteItemDaMensalidade'; itemId: string }
   | { id: string; type: 'saveAcerto'; acerto: Acerto }
   | { id: string; type: 'deleteAcerto'; acertoId: string }
   | { id: string; type: 'savePlano'; plano: Plano }

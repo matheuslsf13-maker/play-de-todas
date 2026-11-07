@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase'
 import { LIGA } from '../liga'
 import type {
   Acerto,
+  Mensalidade,
+  ItemDaMensalidade,
   Plano,
   AppData,
   Checkin,
@@ -39,6 +41,7 @@ import { emptyData } from '../lib/types'
  *
  * Nada do misto volta para os campeonatos, e nada deles entra mais no misto.
  */
+const TEM_MENSALIDADE = LIGA.id === 'feminino'
 const EH_MISTO = LIGA.id === 'misto'
 const SCHEMA_DO_GENERO = { F: 'public', M: 'masculino' } as const
 
@@ -252,7 +255,7 @@ export const supabaseRepo: Repo = {
     const sb = client()
     // o misto nao tem check-ins (o dinheiro e de cada campeonato): nem pergunta
     const semCheckins = EH_MISTO ? Promise.resolve({ data: [], error: null }) : null
-    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos] =
+    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens] =
       await Promise.all([
         EH_MISTO
           ? jogadoresDosDoisCampeonatos().then((data) => ({ data, error: null }), (error) => ({ data: null, error }))
@@ -270,6 +273,8 @@ export const supabaseRepo: Repo = {
         semCheckins ?? sb.from('caixa').select('*'),
         semCheckins ?? sb.from('checkin_acertos').select('*'),
         semCheckins ?? sb.from('checkin_planos').select('*').order('ordem'),
+        TEM_MENSALIDADE ? sb.from('mensalidades').select('*') : { data: [], error: null },
+        TEM_MENSALIDADE ? sb.from('mensalidade_itens').select('*') : { data: [], error: null },
       ])
     const err = players.error || sessions.error || matches.error
     if (err) throw err
@@ -282,7 +287,7 @@ export const supabaseRepo: Repo = {
     const doCheckin: [string, { error: { message: string } | null }][] = [
       ['checkin_locais', locais], ['checkin_contas', contas], ['checkin_dias', dias],
       ['checkins', checkins], ['checkin_pagamentos', pagamentos], ['caixa', caixa], ['checkin_acertos', acertos],
-      ['checkin_planos', planos],
+      ['checkin_planos', planos], ['mensalidades', fichas], ['mensalidade_itens', itens],
     ]
     for (const [nome, r] of doCheckin) {
       if (r.error) {
@@ -318,6 +323,12 @@ export const supabaseRepo: Repo = {
       })),
       caixa: ((caixa.data ?? []) as LancamentoDeCaixa[]).map((c) => ({ ...c, valor: numero(c.valor) })),
       checkinAcertos: ((acertos.data ?? []) as Acerto[]).map((a) => ({ ...a, valor: numero(a.valor) })),
+      mensalidades: ((fichas.data ?? []) as Mensalidade[]).map((m) => ({
+        ...m, valor_cheio: numero(m.valor_cheio), valor_checkin: numero(m.valor_checkin),
+      })),
+      mensalidadeItens: ((itens.data ?? []) as ItemDaMensalidade[]).map((i) => ({
+        ...i, valor: i.valor === null ? null : numero(i.valor),
+      })),
       checkinPlanos: ((planos.data ?? []) as Plano[]).map((p) => ({
         ...p,
         cotas: Object.fromEntries(Object.entries(p.cotas ?? {}).map(([k, v]) => [k, numero(v)])),
@@ -517,6 +528,23 @@ export const supabaseRepo: Repo = {
     const { error } = await client().from('caixa').delete().eq('id', id)
     if (error) throw error
   },
+  async saveMensalidade(ficha) {
+    await upsertTolerante('mensalidades', ficha)
+  },
+  async saveItemDaMensalidade(item) {
+    await upsertTolerante('mensalidade_itens', item)
+  },
+  async deleteItemDaMensalidade(id) {
+    const { error } = await client().from('mensalidade_itens').delete().eq('id', id)
+    if (error) throw error
+  },
+  async juntarMensalidades(origem, destino) {
+    if (!TEM_MENSALIDADE) return
+    const { error } = await client().rpc('juntar_mensalidades', { origem, destino })
+    // Antes do script 34 nao ha fichas para mover e o juntar antigo continua funcionando.
+    if (error && !(error.code === 'PGRST202' && avisosDoBanco.tabelas.has('mensalidades') &&
+      avisosDoBanco.tabelas.has('mensalidade_itens'))) throw error
+  },
   async saveAcerto(acerto: Acerto) {
     await upsertTolerante('checkin_acertos', acerto)
   },
@@ -635,6 +663,7 @@ export const supabaseRepo: Repo = {
       ...(EH_MISTO
         ? ([['public', 'players'], ['masculino', 'players'], ['misto', 'atletas']] as [string, string][])
         : ([[LIGA.schema, 'players']] as [string, string][])),
+      ...(TEM_MENSALIDADE ? ['mensalidades', 'mensalidade_itens'].map((t): [string, string] => ['public', t]) : []),
       ...['sessions', 'matches', 'streak_choices', 'month_closures'].map((t) => [LIGA.schema, t] as [string, string]),
       ...(EH_MISTO
         ? []
