@@ -181,3 +181,27 @@ test('credito do que pagou sem renovar: os avulsos descontam; na rematricula, so
   assert.deepEqual(contaDaRenovacao(fichaDe(d, 'bia', '2027-01'), credito, 50, '2027-01-03'), { usa: 20, cobrar: 110 })
 
 })
+
+test('dia 6: o credito cobre a divida dos check-ins sozinho (inteira se der, senao em parte)', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2027-01-10T15:00:00Z') })
+  const { creditoDisponivel } = await import('../src/lib/checkins')
+  // renovou dezembro (80) e fez 2 check-ins: em 06/01 deve 50; renovou janeiro (80) no dia 03
+  const base = [item('2026-12', 'dinheiro', '2026-12-02', 80), ...quatro('2026-12', ['2026-12-07', '2026-12-14']), item('2027-01', 'dinheiro', '2027-01-03', 80)]
+  const comCredito = (valor: number) => {
+    const d = dados(base)
+    d.checkinAcertos = [{ id: 'a', player_id: 'bia', date: '2026-12-20', valor, dinheiro: true, descricao: 'pagou a mais', created_at: '' }]
+    return d
+  }
+  // 60 de credito: cobre os 50, sobram 10; janeiro renovado -> em dia
+  let d = comCredito(60)
+  assert.equal(dividaDaMensalidade(d, 'bia', '2027-01-07').total, 0)
+  assert.equal(creditoDisponivel(d, 'bia'), 10)
+  assert.equal(emDiaNaData(d, bia, '2027-01-07'), true)
+  // 30 de credito: a divida cai para 20, o credito zera; nao renovou (joga como avulsa)
+  d = comCredito(30)
+  assert.equal(dividaDaMensalidade(d, 'bia', '2027-01-07').total, 20)
+  assert.equal(creditoDisponivel(d, 'bia'), 0)
+  assert.equal(emDiaNaData(d, bia, '2027-01-07'), false)
+  // sem credito: deve os 50, como antes
+  assert.equal(dividaDaMensalidade(dados(base), 'bia', '2027-01-07').total, 50)
+})

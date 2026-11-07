@@ -5,7 +5,7 @@
  * check-ins sobram, status, relatorios. Nada e acumulado em coluna: corrigir
  * um lancamento antigo corrige o presente sozinho, como no resto do app.
  */
-import { creditoDaMensalidade, MES_INICIAL } from './fichaDaMensalidade'
+import { creditoDaMensalidade, MES_INICIAL, usosDoCreditoNaDivida } from './fichaDaMensalidade'
 import type {
   Acerto,
   AppData,
@@ -269,11 +269,34 @@ export function acertosDaMensalidade(data: AppData, playerId: string, hoje = tod
   }))
 }
 
-/** Os acertos da atleta: os gravados e o credito da mensalidade. */
-const acertosDe = (data: AppData, playerId: string) => [
+/** Os acertos da atleta: os gravados, o credito da mensalidade e o credito que cobriu a divida (negativo). */
+const acertosDe = (data: AppData, playerId: string): Acerto[] => [
   ...data.checkinAcertos.filter((a) => a.player_id === playerId),
   ...acertosDaMensalidade(data, playerId),
+  ...usosDoCreditoNaDivida(data, playerId).map((u) => ({
+    id: `credito-na-divida:${playerId}:${u.mes}`, player_id: playerId, date: u.date, valor: -u.valor, dinheiro: false,
+    descricao: `usado na dívida da mensalidade de ${monthLabel(u.mes).toLowerCase()} (automático)`, created_at: u.date,
+  })),
 ]
+
+/**
+ * O saldo dos plays ANTES de uma data (lancamentos e acertos com data anterior, mais o credito da mensalidade),
+ * sem o credito ja usado na divida: a base de `usosDoCreditoNaDivida`.
+ */
+export function saldoDosPlaysAntesDe(data: AppData, playerId: string, date: string): number {
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
+  let saldo = [...data.checkinAcertos.filter((a) => a.player_id === playerId), ...acertosDaMensalidade(data, playerId)]
+    .filter((a) => a.date < date)
+    .reduce((t, a) => t + a.valor, 0)
+  for (const c of data.checkins) {
+    if (c.player_id !== playerId) continue
+    const dia = dias.get(c.dia_id)
+    if (!dia || dia.date >= date) continue
+    const pag = pagamentoDoCheckin(data, c.id)
+    saldo += (pag?.valor_pago ?? 0) - valorDevido(c, dia, pag)
+  }
+  return centavos(saldo)
+}
 
 export function saldoDaAtleta(data: AppData, playerId: string): Saldo {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d]))

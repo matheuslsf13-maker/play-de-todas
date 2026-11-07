@@ -644,6 +644,10 @@ liga/            textos do masculino: o código fica no feminino e o build
   dividido); o "Topou e pagou" faz o mesmo. A receita fica no mês do Pix original. **Passou do dia 5 sem renovar,
   não renova mais pela ficha** (`perdeuEsteMes`: some o ➕ Pix do mês e o aviso manda para a fila), mesmo com
   crédito ou vaga livre: volta só pela fila, e aí o crédito completa o valor.
+- **No dia 6 o crédito cobre a dívida sozinho** (`usosDoCreditoNaDivida`): quem renovou e não fechou os check-ins e
+  tem crédito (saldo positivo dos plays antes do dia 6, `saldoDosPlaysAntesDe`) tem a dívida coberta — inteira se
+  der, senão em parte — e o crédito cai do mesmo tanto. Calculado: na ficha é um abatimento "crédito usado na dívida
+  (automático)" (`fichaDe` = `fichaBruta` + esse item) e no saldo um acerto negativo; o Excel segue o mesmo.
   **Nova mensalista da espera** começa a mensalidade do mês ao pagar ("✅ Topou e pagou": 80 ou 180, grava o Pix e
   vira mensalista) ou "Recusou" (sai da fila). **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
   `pago_mes`; check-in de novembro conta para dezembro).

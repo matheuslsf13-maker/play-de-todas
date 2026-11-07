@@ -30,7 +30,7 @@ import {
 } from './checkins'
 import {
   MES_INICIAL, checkinsDaFicha, dinheiroDaFicha, faltaDaFicha, fichaDe, idDaFicha,
-  prazoDosCheckins, quitada, renovada, valorDaFicha, vencimento,
+  prazoDosCheckins, quitada, renovada, usosDoCreditoNaDivida, valorDaFicha, vencimento,
 } from './fichaDaMensalidade'
 import type { Celula, Planilha } from './xlsx'
 
@@ -187,7 +187,13 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
     a.pago += pag?.valor_pago ?? 0
   }
   // com o credito da mensalidade (o que foi pago sem renovar), como o saldo no app
-  for (const x of [...data.checkinAcertos, ...data.players.flatMap((p) => acertosDaMensalidade(data, p.id))]) {
+  for (const x of [
+    ...data.checkinAcertos,
+    ...data.players.flatMap((p) => [
+      ...acertosDaMensalidade(data, p.id),
+      ...usosDoCreditoNaDivida(data, p.id).map((u) => ({ player_id: p.id, date: u.date, valor: -u.valor })),
+    ]),
+  ]) {
     if (!mes || monthOf(x.date) === mes) acum(x.player_id, monthOf(x.date)).acertos += x.valor
   }
   const saldos: Planilha = {

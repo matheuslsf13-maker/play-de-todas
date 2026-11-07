@@ -1,5 +1,6 @@
 import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
-import { monthOf, type AppData, type ItemDaMensalidade, type Player } from './types'
+import { saldoDosPlaysAntesDe } from './checkins'
+import { monthOf, todayISO, type AppData, type ItemDaMensalidade, type Player } from './types'
 
 /*
  * A MENSALIDADE NOVA (dono, 07/11/2026; D47). Tudo derivado das fichas e dos itens: nada e
@@ -49,7 +50,15 @@ export type Ficha = {
   itens: ItemDaMensalidade[]
 }
 
+/** A ficha com o credito usado na divida (automatico, no dia 6). E a que todo o app le. */
 export function fichaDe(data: AppData, playerId: string, mes: string): Ficha {
+  const f = fichaBruta(data, playerId, mes)
+  const uso = usosDoCreditoNaDivida(data, playerId).find((u) => u.mes === mes)
+  return uso ? { ...f, itens: [...f.itens, itemDoUso(playerId, uso)] } : f
+}
+
+/** So os itens gravados (sem o credito automatico): a base das contas do credito, sem dar voltas. */
+export function fichaBruta(data: AppData, playerId: string, mes: string): Ficha {
   const cab = data.mensalidades.find((m) => m.player_id === playerId && m.mes === mes)
   return {
     player_id: playerId,
@@ -124,7 +133,7 @@ export function creditoDaMensalidade(data: AppData, playerId: string, hoje: stri
   const porMes: { mes: string; valor: number }[] = []
   for (const mes of mesesDaAtleta(data, playerId)) {
     if (vencimento(mes) >= hoje) continue
-    const f = fichaDe(data, playerId, mes)
+    const f = fichaBruta(data, playerId, mes)
     if (renovada(f, hoje)) continue
     const valor = valorDaFicha({ ...f, itens: f.itens.filter((i) => i.tipo !== 'checkin') }, hoje)
     if (valor > 0) porMes.push({ mes, valor })
@@ -162,6 +171,46 @@ export function dividirPix(data: AppData, playerId: string, mes: string, valor: 
   if (resta > 0) out.push({ mes, tipo: 'dinheiro', valor: resta, observacao: null })
   return out
 }
+
+/**
+ * O CREDITO COBRE A DIVIDA NO DIA 6 (dono, 07/11): quem renovou e nao fechou os check-ins no prazo, e tem
+ * credito (o saldo positivo dos plays, onde entra o pago sem renovar), tem a divida coberta sozinha --
+ * inteira se der, senao em parte -- e o credito cai do mesmo tanto. Calculado, nao gravado: aparece na
+ * ficha como um abatimento "credito usado na divida" e no saldo dos plays como um acerto negativo.
+ */
+export type UsoDoCredito = { mes: string; date: string; valor: number }
+const memoDosUsos = new WeakMap<AppData, Map<string, UsoDoCredito[]>>()
+
+export function usosDoCreditoNaDivida(data: AppData, playerId: string, hoje = todayISO()): UsoDoCredito[] {
+  let porAtleta = memoDosUsos.get(data)
+  if (!porAtleta) memoDosUsos.set(data, (porAtleta = new Map()))
+  const chave = `${playerId}|${hoje}`
+  const pronto = porAtleta.get(chave)
+  if (pronto) return pronto
+  const usos: UsoDoCredito[] = []
+  let usado = 0
+  for (const mes of mesesDaAtleta(data, playerId)) {
+    const prazo = prazoDosCheckins(mes)
+    const dia6 = `${prazo.slice(0, 8)}06`
+    if (dia6 > hoje) break
+    const f = fichaBruta(data, playerId, mes)
+    if (!renovada(f, prazo)) continue
+    const falta = faltaDaFicha(f, prazo)
+    if (falta <= 0) continue
+    const livre = centavos(saldoDosPlaysAntesDe(data, playerId, dia6) - usado)
+    const valor = centavos(Math.min(Math.max(0, livre), falta))
+    if (valor <= 0) continue
+    usos.push({ mes, date: dia6, valor })
+    usado = centavos(usado + valor)
+  }
+  porAtleta.set(chave, usos)
+  return usos
+}
+
+const itemDoUso = (playerId: string, u: UsoDoCredito): ItemDaMensalidade => ({
+  id: `credito-na-divida:${playerId}:${u.mes}`, player_id: playerId, mes: u.mes, tipo: 'abatimento', date: u.date, valor: u.valor,
+  conta_id: null, local_id: null, confirmado: true, observacao: 'crédito usado na dívida (automático)', created_at: u.date,
+})
 
 /** O mes anterior a regra nova quitado pelo `pago_mes` (a transicao de novembro). */
 const quitadaAntiga = (p: Player, mes: string) => Boolean(p.pago_mes && p.pago_mes >= mes)
