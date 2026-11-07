@@ -2069,3 +2069,20 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   line-height: 1;
   flex: none;
 }
+
+/* resultado da busca de menina (Stats): uma por linha, com foto */
+.busca-lista { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.busca-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+.busca-item + .busca-item { border-top: 1px solid var(--line); }
+.busca-item.on, .busca-item:active { background: var(--pink-suave); }

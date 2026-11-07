@@ -397,8 +397,9 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                     // sem jogos nao ha linha de forca, mas a pausa aparece igual
                     if (!f) return pausas.get(p.id) === 'manual' ? <div className="tiny muted">⏸️ pausada</div> : null
                     return (
-                      <div className="tiny nowrap" style={{ marginTop: 2 }}>
-                        <span style={{ color: f.nivel.cor, fontWeight: 800 }}>
+                      // quebra a linha: com "provisória" e "pausada (2+ faltas)" ela passava da tela e a pagina inteira andava de lado
+                      <div className="tiny" style={{ marginTop: 2 }}>
+                        <span className="nowrap" style={{ color: f.nivel.cor, fontWeight: 800 }}>
                           {f.nivel.emoji} {f.nivel.titulo}
                         </span>
                         <span className="muted"> · força {f.nota}</span>

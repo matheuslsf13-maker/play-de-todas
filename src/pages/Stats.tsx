@@ -268,19 +268,21 @@ function PainelJogadora({
           />
         </label>
         {achadas.length > 0 && (
-          <div className="row wrap" style={{ gap: 6, margin: '-4px 0 10px' }}>
+          // lista, uma por linha com a foto (os chips soltos ficavam baguncados; dono, 06/11)
+          <div className="busca-lista" style={{ margin: '-4px 0 10px' }}>
             {achadas.map((p) => (
               <button
                 key={p.id}
                 type="button"
-                className={`chip ${p.id === selected ? 'on' : 'off'}`}
-                style={{ flex: 'none' }}
+                className={`busca-item${p.id === selected ? ' on' : ''}`}
                 onClick={() => {
                   setPlayerId(p.id)
                   setBusca('')
                 }}
               >
-                {p.nickname?.trim() || p.name}
+                <Avatar player={p} size={28} />
+                <span className="grow ellipsis" style={{ fontWeight: 700 }}>{p.nickname?.trim() || p.name}</span>
+                {p.nickname?.trim() && p.nickname.trim() !== p.name && <span className="tiny muted ellipsis">{p.name}</span>}
               </button>
             ))}
           </div>
