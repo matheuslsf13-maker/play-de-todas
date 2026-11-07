@@ -51,9 +51,10 @@ test('dezembro mostra as fichas, os comprovantes e a virada do dia 5 para o dia 
   assert.deepEqual(l.slice(1, 4), [
     ['Ana Souza', 'dezembro/2026', reais(80), 4, reais(0), reais(180), reais(0), 'Quitada'],
     ['Beatriz Lima', 'dezembro/2026', reais(180), 0, reais(0), reais(180), reais(0), 'Quitada'],
-    ['Cristina Alves', 'dezembro/2026', reais(80), 0, reais(25), reais(105), reais(75), 'Deve ' + formatarReais(75) + ' - virou avulsa'],
+    ['Cristina Alves', 'dezembro/2026', reais(80), 0, reais(25), reais(105), reais(75), 'Falta ' + formatarReais(75)],
   ])
-  assert.equal(linhas('2026-12-05')[3][7], 'Falta ' + formatarReais(75))
+  // renovou em dezembro: os check-ins tinham ate 05/01
+  assert.equal(linhas('2027-01-06')[3][7], 'Deve ' + formatarReais(75) + ' - virou avulsa')
   assert.equal(l.length - 6, d.mensalidadeItens.length)
   assert.deepEqual(l[6], ['Ana Souza', 'dezembro/2026', '29/11/2026', 'Pix', '', '', reais(80), 'Não', ''])
   assert.deepEqual(l[7], ['Ana Souza', 'dezembro/2026', '01/12/2026', 'Check-in', 'V3', 'Maria Lima', reais(25), 'Sim', 'Conferido'])
@@ -74,5 +75,5 @@ test('o Resumo recebe o Pix no mês do recebimento e carrega o saldo para meses 
   assert.deepEqual(resumo[3].slice(-3), [reais(15), reais(345), reais(0)])
   d.mensalidades.push({ ...d.mensalidades[0], id: 'jan', mes: '2027-01' })
   const tudo = planilhasCompletas(d, nome, null, '2027-01-10').find(a => a.nome === 'Mensalidades')!.linhas
-  assert.deepEqual(tudo[4], ['Ana Souza', 'janeiro/2027', reais(0), 0, reais(0), reais(0), reais(180), 'Falta ' + formatarReais(180)])
+  assert.deepEqual(tudo[4], ['Ana Souza', 'janeiro/2027', reais(0), 0, reais(0), reais(0), reais(180), 'Não renovou'])
 })

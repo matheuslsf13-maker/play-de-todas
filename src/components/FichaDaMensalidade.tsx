@@ -8,15 +8,17 @@ import {
   faltaDaFicha,
   fichaDe,
   idDaFicha,
-  iniciada,
   MENSALIDADE_PADRAO,
+  mensalidadeDaData,
   mesAnterior,
-  mesDoCiclo,
   MES_INICIAL,
   mesSugeridoDoCheckin,
+  prazoDosCheckins,
   proximoMes,
   quitada,
+  renovada,
   valorDaFicha,
+  valorParaRenovar,
   vencimento,
 } from '../lib/fichaDaMensalidade'
 import { dateLabel, monthLabel, todayISO, uid, type ItemDaMensalidade } from '../lib/types'
@@ -28,13 +30,23 @@ import { dateLabel, monthLabel, todayISO, uid, type ItemDaMensalidade } from '..
  * (fichaDaMensalidade.ts); aqui so se grava item.
  */
 
-/** A mensalidade que importa hoje: a do ciclo em andamento (nunca antes da regra nova). */
-export const mensalidadeDeHoje = (hoje = todayISO()) => {
-  const m = mesDoCiclo(hoje)
-  return m < MES_INICIAL ? MES_INICIAL : m
-}
+/** A mensalidade que importa hoje: a do mes (nunca antes da regra nova). */
+export const mensalidadeDeHoje = (hoje = todayISO()) => mensalidadeDaData(hoje)
 
-const ciclo = (mes: string) => `${dateLabel(`${mesAnterior(mes)}-06`).slice(0, 5)} a ${dateLabel(vencimento(mes)).slice(0, 5)}`
+const dm = (date: string) => dateLabel(date).slice(0, 5)
+const prazos = (mes: string) => `renovar até ${dm(vencimento(mes))} · check-ins até ${dm(prazoDosCheckins(mes))}`
+
+/** A situacao da ficha numa data, em texto curto e cor (a mesma na lista e na ficha). */
+function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string): { t: string; c: string } {
+  const falta = faltaDaFicha(f, hoje)
+  if (quitada(f, hoje)) return { t: '✅ quitada', c: 'var(--verde)' }
+  if (!renovada(f, hoje)) {
+    if (vencimento(f.mes) < hoje) return { t: 'não renovou (joga como avulsa)', c: f.itens.length ? 'var(--danger)' : 'var(--muted)' }
+    return { t: f.itens.length ? `falta renovar até ${dm(vencimento(f.mes))}` : 'nada registrado', c: f.itens.length ? 'var(--yellow)' : 'var(--muted)' }
+  }
+  if (prazoDosCheckins(f.mes) < hoje) return { t: `deve ${formatarReais(falta)} (joga como avulsa até quitar)`, c: 'var(--danger)' }
+  return { t: `renovada · faltam ${formatarReais(falta)} em check-ins até ${dm(prazoDosCheckins(f.mes))}`, c: 'var(--verde)' }
+}
 
 /** Uma linha curta para a lista de atletas: "R$ 80 + 2/4 check-ins · falta R$ 50". */
 export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string): { texto: string; cor: string } {
@@ -44,10 +56,8 @@ export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string)
   if (dinheiro > 0) partes.push(formatarReais(dinheiro))
   const ck = checkinsDaFicha(f)
   if (ck > 0 || (dinheiro > 0 && dinheiro < f.valor_cheio)) partes.push(`${Math.min(ck, f.max_checkins)}/${f.max_checkins} check-ins`)
-  const falta = faltaDaFicha(f)
-  if (falta === 0) return { texto: `${partes.join(' + ')} · ✅ quitada`, cor: 'var(--verde)' }
-  const vencida = vencimento(f.mes) < hoje && iniciada(f, hoje)
-  return { texto: `${partes.join(' + ')} · ${vencida ? 'deve' : 'falta'} ${formatarReais(falta)}`, cor: vencida ? 'var(--danger)' : 'var(--yellow)' }
+  const s = situacaoDaFicha(f, hoje)
+  return { texto: `${partes.join(' + ')} · ${s.t}`, cor: s.c }
 }
 
 /** Grava um item na ficha, criando o cabecalho (valores congelados) se for o primeiro do mes. Lanca sem o script 34. */
@@ -70,7 +80,6 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
   const f = fichaDe(data, playerId, mes)
   const falta = faltaDaFicha(f)
   const divida = dividaDaMensalidade(data, playerId, hoje)
-  const vencida = vencimento(mes) < hoje
 
   // o cabecalho congela os valores do mes; grava junto com o primeiro item
   function gravar(item: ItemDaMensalidade) {
@@ -86,13 +95,8 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
     onToast(item.tipo === 'checkin' ? `Check-in na mensalidade de ${monthLabel(item.mes)}` : `${formatarReais(item.valor ?? 0)} na mensalidade de ${monthLabel(item.mes)}`)
   }
 
-  const situacao = quitada(f)
-    ? { t: '✅ Quitada', c: 'var(--verde)' }
-    : f.itens.length === 0
-      ? { t: vencida ? 'Não renovou' : 'Nada registrado ainda', c: 'var(--muted)' }
-      : vencida && iniciada(f, hoje)
-        ? { t: `Deve ${formatarReais(falta)}: joga como avulsa até quitar`, c: 'var(--danger)' }
-        : { t: `Falta ${formatarReais(falta)} até ${dateLabel(vencimento(mes)).slice(0, 5)}`, c: 'var(--yellow)' }
+  const s = situacaoDaFicha(f, hoje)
+  const situacao = { t: s.t[0].toUpperCase() + s.t.slice(1), c: s.c }
   const pct = Math.min(100, Math.round((valorDaFicha(f) / f.valor_cheio) * 100))
 
   return (
@@ -101,7 +105,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
         <button className="btn ghost sm" disabled={mesAnterior(mes) < MES_INICIAL} onClick={() => setMes(mesAnterior(mes))} aria-label="Mensalidade anterior">‹</button>
         <div style={{ textAlign: 'center' }}>
           <strong>{monthLabel(mes)}</strong>
-          <div className="tiny muted">ciclo {ciclo(mes)}</div>
+          <div className="tiny muted">{prazos(mes)}</div>
         </div>
         <button className="btn ghost sm" onClick={() => setMes(proximoMes(mes))} aria-label="Próxima mensalidade">›</button>
       </div>
@@ -158,7 +162,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
         </div>
       )}
       {novo === 'checkin' && <NovoCheckin playerId={playerId} onCancelar={() => setNovo(null)} onGravar={gravar} />}
-      {novo === 'dinheiro' && <NovoPix playerId={playerId} mes={mes} sugestao={f.itens.length === 0 ? f.valor_cheio - f.max_checkins * f.valor_checkin : falta} onCancelar={() => setNovo(null)} onGravar={gravar} />}
+      {novo === 'dinheiro' && <NovoPix playerId={playerId} mes={mes} sugestao={renovada(f) ? falta : Math.max(0, valorParaRenovar(f) - f.itens.filter((i) => i.tipo !== 'checkin').reduce((t, i) => t + (i.valor ?? 0), 0))} onCancelar={() => setNovo(null)} onGravar={gravar} />}
     </Modal>
   )
 

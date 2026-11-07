@@ -49,17 +49,21 @@ test('integral 180 em dinheiro', () => {
   assert.equal(emDiaNaData(d, bia, '2026-12-14'), true)
 })
 
-test('pagou 80 e so 2 check-ins: no prazo em dia; dia 6 vira avulsa com divida; quita e volta', () => {
+test('renovou com 80: em dia o mes todo; check-ins ate o dia 5 do seguinte; faltando, vira divida e quita', () => {
   const base = [item('2026-12', 'dinheiro', '2026-11-20', 80), ...quatro('2026-12', ['2026-11-23', '2026-11-30'])]
   let d = dados(base)
-  assert.equal(emDiaNaData(d, bia, '2026-12-01'), true) // novembro pago + dezembro iniciada, no prazo
-  assert.equal(emDiaNaData(d, bia, '2026-12-07'), false)
-  assert.deepEqual(dividaDaMensalidade(d, 'bia', '2026-12-07'), { total: 50, porMes: [{ mes: '2026-12', falta: 50 }] })
-  // dia 10: mais um check-in e R$ 25 no lugar do outro
-  d = dados([...base, item('2026-12', 'checkin', '2026-12-10'), item('2026-12', 'dinheiro', '2026-12-10', 25)])
-  assert.equal(emDiaNaData(d, bia, '2026-12-07'), false) // o play do dia 7 continua avulso
-  assert.equal(emDiaNaData(d, bia, '2026-12-14'), true)
-  assert.equal(dividaDaMensalidade(d, 'bia', '2026-12-14').total, 0)
+  assert.equal(emDiaNaData(d, bia, '2026-12-01'), true)
+  assert.equal(emDiaNaData(d, bia, '2026-12-07'), true, 'renovou: o mes todo em dia')
+  assert.equal(dividaDaMensalidade(d, 'bia', '2026-12-28').total, 0, 'check-ins ate 05/01')
+  // renovou janeiro, mas nao fechou os check-ins de dezembro ate 05/01
+  d = dados([...base, item('2027-01', 'dinheiro', '2027-01-03', 80)])
+  assert.equal(emDiaNaData(d, bia, '2027-01-04'), true, 'ainda no prazo dos check-ins')
+  assert.equal(emDiaNaData(d, bia, '2027-01-07'), false)
+  assert.deepEqual(dividaDaMensalidade(d, 'bia', '2027-01-07'), { total: 50, porMes: [{ mes: '2026-12', falta: 50 }] })
+  // dia 10: mais um check-in e R$ 25 no lugar do outro, na mensalidade de dezembro
+  d = dados([...base, item('2027-01', 'dinheiro', '2027-01-03', 80), item('2026-12', 'checkin', '2027-01-10'), item('2026-12', 'dinheiro', '2027-01-10', 25)])
+  assert.equal(emDiaNaData(d, bia, '2027-01-07'), false, 'o play do dia 7 continua avulso')
+  assert.equal(emDiaNaData(d, bia, '2027-01-14'), true)
 })
 
 test('nao renovou: no prazo vale o mes anterior; dia 6 avulsa SEM divida', () => {
@@ -75,13 +79,13 @@ test('so check-in sem pagar nao inicia a mensalidade nem gera divida', () => {
   assert.equal(dividaDaMensalidade(d, 'bia', '2026-12-07').total, 0)
 })
 
-test('entrou depois do dia 5: joga o mes como avulsa e a mensalidade comeca no seguinte', () => {
+test('nova mensalista no meio do mes: paga e ja comeca a mensalidade do mes', () => {
   const nova = { ...bia, pago_mes: null }
-  const d = dados([item('2027-01', 'dinheiro', '2026-12-10', 80)], nova)
-  assert.equal(emDiaNaData(d, nova, '2026-12-14'), false)
-  assert.equal(emDiaNaData(d, nova, '2027-01-04'), true) // iniciada, no prazo
-  assert.equal(emDiaNaData(d, nova, '2027-01-11'), false) // faltam os check-ins
-  assert.equal(dividaDaMensalidade(d, 'bia', '2027-01-11').total, 100)
+  const d = dados([item('2026-12', 'dinheiro', '2026-12-10', 80)], nova)
+  assert.equal(emDiaNaData(d, nova, '2026-12-07'), false, 'antes de pagar, avulsa')
+  assert.equal(emDiaNaData(d, nova, '2026-12-14'), true)
+  assert.equal(dividaDaMensalidade(d, 'bia', '2026-12-28').total, 0)
+  assert.equal(dividaDaMensalidade(d, 'bia', '2027-01-06').total, 100, 'os 4 check-ins tinham ate 05/01')
 })
 
 test('comprovante com data antiga registrado depois conta pela data dele', () => {
@@ -96,15 +100,12 @@ test('quem nao e mensalista nunca esta em dia por aqui', () => {
 })
 
 test('para qual mensalidade vai o check-in', () => {
-  // ciclo: 20/11 vai para dezembro, 03/12 tambem, 08/12 ja e janeiro
-  assert.equal(mesSugeridoDoCheckin(dados([]), 'bia', '2026-11-20'), '2026-12')
-  assert.equal(mesSugeridoDoCheckin(dados([]), 'bia', '2026-12-03'), '2026-12')
-  assert.equal(mesSugeridoDoCheckin(dados([]), 'bia', '2026-12-08'), '2027-01')
-  // antes da regra nova, cai na primeira mensalidade dela
+  assert.equal(mesSugeridoDoCheckin(dados([]), 'bia', '2026-11-20'), '2026-12', 'novembro conta para dezembro')
+  assert.equal(mesSugeridoDoCheckin(dados([]), 'bia', '2026-12-08'), '2026-12')
   assert.equal(mesSugeridoDoCheckin(dados([]), 'bia', '2026-10-20'), '2026-12')
-  // com divida de dezembro, o check-in do dia 8 quita dezembro primeiro
+  // dezembro renovado e faltando: o check-in de 03/01 ainda fecha dezembro
   const devendo = dados([item('2026-12', 'dinheiro', '2026-11-20', 80), ...quatro('2026-12', ['2026-11-23'])])
-  assert.equal(mesSugeridoDoCheckin(devendo, 'bia', '2026-12-08'), '2026-12')
+  assert.equal(mesSugeridoDoCheckin(devendo, 'bia', '2027-01-03'), '2026-12')
   // dezembro cheio de check-ins: o proximo vai para janeiro
   const cheio = dados(quatro('2026-12', ['2026-11-16', '2026-11-23', '2026-11-30', '2026-12-01']))
   assert.equal(mesSugeridoDoCheckin(cheio, 'bia', '2026-12-03'), '2027-01')
@@ -133,12 +134,12 @@ test('check-in da mensalidade de dezembro feito em novembro gasta a cota de nove
   assert.equal(livres('2026-12'), 12)
 })
 
-test('falta avisada: check-in a menos na ficha do ciclo; credito na primeira nao quitada', async () => {
+test('falta avisada: check-in a menos na que ela esta fechando; credito na do mes seguinte', async () => {
   const { mesDaCompensacao } = await import('../src/lib/fichaDaMensalidade')
   assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-11-16', 'checkin'), '2026-12')
   assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-11-16', 'credito'), '2026-12')
   const quitadaDez = dados([item('2026-12', 'dinheiro', '2026-11-10', 180)])
   assert.equal(mesDaCompensacao(quitadaDez, 'bia', '2026-11-16', 'credito'), '2027-01')
-  assert.equal(mesDaCompensacao(quitadaDez, 'bia', '2026-12-07', 'checkin'), '2027-01') // dia 7: ciclo de janeiro
-  assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-11-02', 'checkin'), '2026-12') // antes da regra nova
+  assert.equal(mesDaCompensacao(quitadaDez, 'bia', '2026-12-07', 'checkin'), '2027-01', 'dezembro quitado')
+  assert.equal(mesDaCompensacao(dados([]), 'bia', '2026-12-14', 'credito'), '2027-01')
 })

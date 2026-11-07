@@ -1,5 +1,5 @@
 import { categoriaDe } from './mensalidade'
-import { fichaDe, iniciada, MES_INICIAL, proximoMes } from './fichaDaMensalidade'
+import { fichaDe, MES_INICIAL, proximoMes, renovada } from './fichaDaMensalidade'
 import { monthOf, todayISO, type AppData, type Player } from './types'
 
 /*
@@ -17,15 +17,15 @@ export function limiteDeMensalistas(data: AppData): number {
 }
 
 /**
- * NAO RENOVOU (dono, 07/11): passou o dia 5 e nada foi pago da mensalidade do mes -> perde a vaga na
- * hora (a vaga conta como livre). A organizadora passa ela para avulsa no fim da espera. Quem pagou os
- * 80 e so deve check-ins MANTEM a vaga (joga como avulsa ate quitar, mas renovou).
+ * NAO RENOVOU (dono, 07/11): passou o dia 5 sem pagar a parte que renova (80, ou os 180) da mensalidade
+ * do mes -> perde a vaga na hora (a vaga conta como livre). A organizadora passa ela para avulsa no fim
+ * da espera. Quem renovou e so deve check-ins MANTEM a vaga (joga como avulsa ate quitar).
  */
 export function perdeuAVaga(data: AppData, p: Player, hoje = todayISO()): boolean {
   const mes = monthOf(hoje)
   if (!p.active || categoriaDe(p) !== 'mensalista' || mes < MES_INICIAL || Number(hoje.slice(8, 10)) <= 5) return false
   // quem entrou depois do dia 5 comeca na mensalidade seguinte: paga-la tambem segura a vaga
-  return !iniciada(fichaDe(data, p.id, mes), hoje) && !iniciada(fichaDe(data, p.id, proximoMes(mes)), hoje)
+  return !renovada(fichaDe(data, p.id, mes), hoje) && !renovada(fichaDe(data, p.id, proximoMes(mes)), hoje)
 }
 
 export const naoRenovaram = (data: AppData, hoje = todayISO()) => data.players.filter((p) => perdeuAVaga(data, p, hoje))

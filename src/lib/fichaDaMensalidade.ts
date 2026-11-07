@@ -2,21 +2,23 @@ import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
 import { monthOf, type AppData, type ItemDaMensalidade, type Player } from './types'
 
 /*
- * A MENSALIDADE NOVA (dono, 07/11/2026; decisoes em QuadraFacil/docs/superpowers/specs/
- * 2026-11-07-mensalidade-impactos.md, secao 5b). Tudo derivado das fichas e dos
- * itens: nada e gravado na virada do dia 6, como o `pago_mes` na virada do mes.
+ * A MENSALIDADE NOVA (dono, 07/11/2026; D47). Tudo derivado das fichas e dos itens: nada e
+ * gravado na virada do dia 6, como o `pago_mes` na virada do mes.
  *
- *  - A mensalidade do mes M vale 180: integral em dinheiro, ou 80 + 4 check-ins
- *    direcionados a ela (cada check-in vale 25; check-in que falta pode virar 25 em dinheiro).
- *  - Ciclo de M: do dia 6 de M-1 ao dia 5 de M (o vencimento).
- *  - Ate o dia 5, vale o ciclo anterior quitado (ou a de M ja iniciada, com dinheiro).
- *  - Dia 6: M quitada -> em dia. Iniciada e faltando -> deve o que falta e joga como
- *    avulsa ate quitar. Nada pago -> avulsa, SEM divida. Quem entra depois do dia 5
- *    comeca na mensalidade do mes seguinte.
- *  - Ate novembro/2026 vale a regra antiga (`pago_mes`).
+ *  - A mensalidade do mes M vale 180: integral em dinheiro, ou 80 + 4 check-ins direcionados
+ *    a ela (cada check-in vale 25; check-in que falta pode virar 25 em dinheiro).
+ *  - RENOVAR = pagar a parte em dinheiro (80; ou os 180) ATE O DIA 5 de M (`vencimento`).
+ *    Renovada, ela esta em dia o mes todo.
+ *  - Os CHECK-INS de M podem ser feitos ao longo do mes: o prazo e o dia 5 de M+1
+ *    (`prazoDosCheckins`), junto com a renovacao seguinte.
+ *  - Dia 6: nao renovou -> joga como avulsa (e perde a vaga, vagasDeMensalista.ts), SEM divida.
+ *    Renovou M mas nao fechou os check-ins de M-1 -> deve o que falta e joga como avulsa ate quitar.
+ *  - A nova mensalista que pega uma vaga no meio do mes comeca a mensalidade DO MES ao pagar
+ *    (80 ou 180) e faz os check-ins ate o dia 5 do seguinte.
+ *  - Ate novembro/2026 vale a regra antiga (`pago_mes`); check-in de novembro conta para dezembro.
  */
 
-/** A primeira mensalidade da regra nova (ciclo 06/11 a 05/12/2026). */
+/** A primeira mensalidade da regra nova. */
 export const MES_INICIAL = '2026-12'
 export const MENSALIDADE_PADRAO = { valor_cheio: 180, valor_checkin: 25, max_checkins: 4 }
 
@@ -28,11 +30,13 @@ export function proximoMes(mes: string): string {
   const [a, m] = mes.split('-').map(Number)
   return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`
 }
-/** O ultimo dia do prazo da mensalidade do mes. */
+/** Ultimo dia para RENOVAR a mensalidade do mes (pagar os 80). */
 export const vencimento = (mes: string) => `${mes}-05`
+/** Ultimo dia para fechar os check-ins da mensalidade do mes: o dia 5 do mes seguinte. */
+export const prazoDosCheckins = (mes: string) => `${proximoMes(mes)}-05`
 const dia = (date: string) => Number(date.slice(8, 10))
-/** A mensalidade cujo ciclo contem a data (dia 6 em diante ja e a do mes seguinte). */
-export const mesDoCiclo = (date: string) => (dia(date) >= 6 ? proximoMes(monthOf(date)) : monthOf(date))
+/** A mensalidade "do momento" numa data: a do mes (nunca antes da regra nova). */
+export const mensalidadeDaData = (date: string) => (monthOf(date) < MES_INICIAL ? MES_INICIAL : monthOf(date))
 
 export const idDaFicha = (playerId: string, mes: string) => `mensalidade:${playerId}:${mes}`
 
@@ -77,6 +81,13 @@ export const faltaDaFicha = (f: Ficha, data?: string) => Math.max(0, centavos(f.
 /** Renovou: entrou dinheiro (o valor inicial). So check-in, sem pagar, nao inicia (e nao gera divida). */
 export const iniciada = (f: Ficha, data?: string) => dinheiroDaFicha(f, data) > 0
 export const quitada = (f: Ficha, data?: string) => f.itens.length > 0 && faltaDaFicha(f, data) === 0
+/** A parte em dinheiro que renova (80 no padrao): o cheio menos o que os check-ins valem. */
+export const valorParaRenovar = (f: Ficha) => centavos(f.valor_cheio - f.max_checkins * f.valor_checkin)
+/** Renovou: o dinheiro (e abatimentos, como o credito de uma falta avisada) cobre a parte que renova. */
+export function renovada(f: Ficha, data?: string): boolean {
+  const abat = ate(f, data).filter((i) => i.tipo === 'abatimento').reduce((s, i) => s + (i.valor ?? 0), 0)
+  return quitada(f, data) || (f.itens.length > 0 && centavos(dinheiroDaFicha(f, data) + abat) >= valorParaRenovar(f))
+}
 
 /** Os meses (da regra nova) em que a atleta tem ficha ou item. */
 function mesesDaAtleta(data: AppData, playerId: string): string[] {
@@ -87,13 +98,13 @@ function mesesDaAtleta(data: AppData, playerId: string): string[] {
 }
 
 /**
- * A DIVIDA DA MENSALIDADE na data: o que falta das fichas iniciadas cujo prazo
- * (dia 5) ja passou. Separada do saldo dos plays (dono, 07/11).
+ * A DIVIDA DA MENSALIDADE na data: o que falta das fichas iniciadas cujo prazo dos check-ins
+ * (dia 5 do mes seguinte) ja passou. Separada do saldo dos plays (dono, 07/11).
  */
 export function dividaDaMensalidade(data: AppData, playerId: string, hoje: string): { total: number; porMes: { mes: string; falta: number }[] } {
   const porMes: { mes: string; falta: number }[] = []
   for (const mes of mesesDaAtleta(data, playerId)) {
-    if (vencimento(mes) >= hoje) continue
+    if (prazoDosCheckins(mes) >= hoje) continue
     const f = fichaDe(data, playerId, mes)
     if (!iniciada(f, hoje)) continue
     const falta = faltaDaFicha(f, hoje)
@@ -106,46 +117,48 @@ export function dividaDaMensalidade(data: AppData, playerId: string, hoje: strin
 const quitadaAntiga = (p: Player, mes: string) => Boolean(p.pago_mes && p.pago_mes >= mes)
 
 /**
- * MENSALISTA EM DIA NA DATA (de um play, ou hoje). Antes da regra nova, a de
- * sempre (`mensalistaEmDiaNoPlay`). Nao em dia = joga como avulsa.
+ * MENSALISTA EM DIA NA DATA (de um play, ou hoje). Antes da regra nova, a de sempre
+ * (`mensalistaEmDiaNoPlay`). Nao em dia = joga como avulsa.
  */
 export function emDiaNaData(data: AppData, p: Player, date: string): boolean {
   if (categoriaDe(p) !== 'mensalista') return false
   const mes = monthOf(date)
   if (mes < MES_INICIAL) return mensalistaEmDiaNoPlay(p, date)
   if (dividaDaMensalidade(data, p.id, date).total > 0) return false
-  const f = fichaDe(data, p.id, mes)
-  if (quitada(f, date)) return true
+  if (renovada(fichaDe(data, p.id, mes), date)) return true
   if (dia(date) > 5) return false
-  // no prazo: a mensalidade do mes ja renovada, ou o ciclo anterior quitado
-  if (iniciada(f, date)) return true
+  // ate o dia 5 vale a renovacao do mes anterior
   const ant = mesAnterior(mes)
-  return ant < MES_INICIAL ? quitadaAntiga(p, ant) : quitada(fichaDe(data, p.id, ant), date)
+  return ant < MES_INICIAL ? quitadaAntiga(p, ant) : renovada(fichaDe(data, p.id, ant), date)
 }
 
 /**
- * PARA QUAL MENSALIDADE VAI UM CHECK-IN (o palpite da tela; a Ingryd pode trocar):
- * primeiro a divida mais antiga (ficha iniciada, vencida e faltando); senao a
- * mensalidade do ciclo da data; cheia de check-ins, a seguinte.
+ * PARA QUAL MENSALIDADE VAI UM CHECK-IN (o palpite da tela; a Ingryd pode trocar): a mais
+ * antiga ja paga (iniciada) que ainda falta check-in -- divida primeiro, depois a que esta
+ * correndo --; sem nenhuma, a do mes da data (cheia, a seguinte).
  */
 export function mesSugeridoDoCheckin(data: AppData, playerId: string, date: string): string {
-  const divida = dividaDaMensalidade(data, playerId, date).porMes[0]
-  if (divida) return divida.mes
-  let mes = mesDoCiclo(date)
-  if (mes < MES_INICIAL) mes = MES_INICIAL
-  const f = fichaDe(data, playerId, mes)
-  return checkinsDaFicha(f) >= f.max_checkins ? proximoMes(mes) : mes
+  const doMes = mensalidadeDaData(date)
+  for (const mes of mesesDaAtleta(data, playerId)) {
+    if (mes > doMes) break
+    const f = fichaDe(data, playerId, mes)
+    if (iniciada(f) && checkinsDaFicha(f) < f.max_checkins && faltaDaFicha(f) > 0) return mes
+  }
+  let mes = doMes
+  for (let f = fichaDe(data, playerId, mes); quitada(f) || checkinsDaFicha(f) >= f.max_checkins; f = fichaDe(data, playerId, mes)) mes = proximoMes(mes)
+  return mes
 }
 
 /**
- * FALTA AVISADA COM 24H (dono, 07/11): a mensalista escolhe R$ 25 de credito na proxima mensalidade
- * ou um check-in a menos na deste ciclo. Os dois viram um abatimento de `valor_checkin` na ficha; muda o
- * mes: 'checkin' = a mensalidade do ciclo do play; 'credito' = a primeira, a partir dela, ainda nao quitada.
+ * FALTA AVISADA COM 24H (dono, 07/11): R$ 25 de credito na proxima mensalidade ou um check-in a
+ * menos na que ela esta fechando. Os dois viram um abatimento de `valor_checkin` na ficha; muda o
+ * mes: 'checkin' = a dos check-ins em andamento; 'credito' = a do mes seguinte ao play (a primeira
+ * nao quitada dali em diante).
  */
 export function mesDaCompensacao(data: AppData, playerId: string, dataDoPlay: string, tipo: 'credito' | 'checkin'): string {
-  let mes = mesDoCiclo(dataDoPlay)
+  if (tipo === 'checkin') return mesSugeridoDoCheckin(data, playerId, dataDoPlay)
+  let mes = proximoMes(monthOf(dataDoPlay))
   if (mes < MES_INICIAL) mes = MES_INICIAL
-  if (tipo === 'checkin') return mes
   while (quitada(fichaDe(data, playerId, mes))) mes = proximoMes(mes)
   return mes
 }
