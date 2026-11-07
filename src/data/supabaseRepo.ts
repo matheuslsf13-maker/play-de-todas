@@ -177,9 +177,11 @@ async function upsertTolerante<T extends object>(
   /** Outro schema que o da liga (o misto grava jogadores no campeonato de cada um). */
   esquema?: 'public' | 'masculino',
 ): Promise<void> {
-  const lista: Record<string, unknown>[] = (Array.isArray(dados) ? dados : [dados]).map((d) => ({
-    ...(d as object),
-  }))
+  // sem as chaves undefined: o upsert em lista manda `columns=` com TODAS as chaves, e uma coluna que nao
+  // existe neste schema (duplas_mistas fora do misto) virava o aviso "o banco ainda nao tem estas colunas" (06/11)
+  const lista: Record<string, unknown>[] = (Array.isArray(dados) ? dados : [dados]).map((d) =>
+    Object.fromEntries(Object.entries(d as object).filter(([, v]) => v !== undefined)),
+  )
   if (lista.length === 0) return
 
   for (let tentativa = 0; tentativa < 12; tentativa++) {
