@@ -760,7 +760,7 @@ function IrPara({ alvo, children }: { alvo: string; children: React.ReactNode })
       className="nota-link"
       onClick={() => document.getElementById(alvo)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
     >
-      {children} ↓
+      {children}
     </button>
   )
 }
