@@ -62,10 +62,16 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
 
   // o cabecalho congela os valores do mes; grava junto com o primeiro item
   function gravar(item: ItemDaMensalidade) {
-    if (!data.mensalidades.some((m) => m.player_id === playerId && m.mes === item.mes)) {
-      saveMensalidade({ id: idDaFicha(playerId, item.mes), player_id: playerId, mes: item.mes, ...MENSALIDADE_PADRAO, created_at: new Date().toISOString() })
+    try {
+      if (!data.mensalidades.some((m) => m.player_id === playerId && m.mes === item.mes)) {
+        saveMensalidade({ id: idDaFicha(playerId, item.mes), player_id: playerId, mes: item.mes, ...MENSALIDADE_PADRAO, created_at: new Date().toISOString() })
+      }
+      saveItemDaMensalidade(item)
+    } catch (e) {
+      // sem o script 34 a store recusa: avisa em vez de quebrar a janela
+      onToast(e instanceof Error ? e.message : 'Não deu para gravar a mensalidade.')
+      return
     }
-    saveItemDaMensalidade(item)
     setNovo(null)
     if (item.mes !== mes) setMes(item.mes)
     onToast(item.tipo === 'checkin' ? `Check-in na mensalidade de ${monthLabel(item.mes)}` : `${formatarReais(item.valor ?? 0)} na mensalidade de ${monthLabel(item.mes)}`)
@@ -121,8 +127,12 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
                 aria-label="Apagar"
                 onClick={() => {
                   if (!confirm('Apagar este registro da mensalidade?')) return
-                  deleteItemDaMensalidade(i.id)
-                  onToast('Registro apagado')
+                  try {
+                    deleteItemDaMensalidade(i.id)
+                    onToast('Registro apagado')
+                  } catch (e) {
+                    onToast(e instanceof Error ? e.message : 'Não deu para apagar.')
+                  }
                 }}
               >
                 ✕
