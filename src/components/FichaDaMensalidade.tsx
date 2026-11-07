@@ -41,7 +41,7 @@ function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string): { t: stri
   const falta = faltaDaFicha(f, hoje)
   if (quitada(f, hoje)) return { t: '✅ quitada', c: 'var(--verde)' }
   if (!renovada(f, hoje)) {
-    if (vencimento(f.mes) < hoje) return { t: 'não renovou (joga como avulsa)', c: f.itens.length ? 'var(--danger)' : 'var(--muted)' }
+    if (vencimento(f.mes) < hoje) return { t: 'não renovou (joga como avulsa)', c: 'var(--danger)' }
     return { t: f.itens.length ? `falta renovar até ${dm(vencimento(f.mes))}` : 'nada registrado', c: f.itens.length ? 'var(--yellow)' : 'var(--muted)' }
   }
   if (prazoDosCheckins(f.mes) < hoje) return { t: `deve ${formatarReais(falta)} (joga como avulsa até quitar)`, c: 'var(--danger)' }
@@ -50,7 +50,7 @@ function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string): { t: stri
 
 /** Uma linha curta para a lista de atletas: "R$ 80 + 2/4 check-ins · falta R$ 50". */
 export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string): { texto: string; cor: string } {
-  if (f.itens.length === 0) return { texto: 'nada registrado', cor: 'var(--muted)' }
+  if (f.itens.length === 0) return vencimento(f.mes) < hoje ? { texto: 'não renovou (joga como avulsa)', cor: 'var(--danger)' } : { texto: 'nada registrado', cor: 'var(--muted)' }
   const partes = [] as string[]
   const dinheiro = f.itens.filter((i) => i.tipo === 'dinheiro').reduce((s, i) => s + (i.valor ?? 0), 0)
   if (dinheiro > 0) partes.push(formatarReais(dinheiro))
