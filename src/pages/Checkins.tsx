@@ -2,7 +2,7 @@ import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '
 import { useEffect, useMemo, useState } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
-import { fichaDe } from '../lib/fichaDaMensalidade'
+import { emDiaNaData, fichaDe, MES_INICIAL } from '../lib/fichaDaMensalidade'
 import { categoriaDe } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
@@ -607,6 +607,21 @@ function SecaoDias({
                 </button>
                 {estaAberto && (
                   <div className="stack" style={{ padding: '10px 4px 4px' }}>
+                    {(() => {
+                      // 📅 as mensalistas em dia que jogaram o play deste dia: nada a cobrar (dono, 07/11);
+                      // derivado, nada gravado. Se fez check-in, ele vai na ficha da mensalidade dela.
+                      const play = d.session_id ? data.sessions.find((x) => x.id === d.session_id) : undefined
+                      const lancadas = new Set(lanc.map((c) => c.player_id))
+                      const mensalistas = LIGA.id !== 'feminino' || !play || monthOf(d.date) < MES_INICIAL ? [] : play.player_ids
+                        .map((id) => data.players.find((p) => p.id === id))
+                        .filter((p): p is Player => !!p && !lancadas.has(p.id) && emDiaNaData(data, p, d.date))
+                      if (mensalistas.length === 0) return null
+                      return (
+                        <div className="tiny muted" style={{ padding: '0 4px' }}>
+                          📅 Mensalistas em dia, sem cobrança: {mensalistas.map((p) => nameOf(p.id)).sort((a, b) => a.localeCompare(b, 'pt-BR')).join(', ')}
+                        </div>
+                      )
+                    })()}
                     {lanc.length === 0 ? (
                       <div className="tiny muted" style={{ textAlign: 'center' }}>Ninguém lançada ainda.</div>
                     ) : (
@@ -2087,6 +2102,16 @@ function LancarModal({
           </div>
         )}
 
+        {/* mensalista em dia nao paga o play: lancar aqui criaria uma divida falsa (dono, 07/11) */}
+        {!existente && playerId && dia && LIGA.id === 'feminino' && monthOf(dia.date) >= MES_INICIAL && (() => {
+          const p = data.players.find((x) => x.id === playerId)
+          return p && emDiaNaData(data, p, dia.date) ? (
+            <div className="banner warn" style={{ margin: 0 }}>
+              📅 {nameOf(playerId)} é mensalista em dia: este play não tem cobrança. Se ela fez check-in para a
+              mensalidade, registre na ficha dela (aba Atletas → 📅 Mensalidade).
+            </div>
+          ) : null
+        })()}
         {playerId && dia && !duplicado && (
           <>
             <div className="field">
