@@ -1,0 +1,243 @@
+import { useState } from 'react'
+import { Modal } from './ui'
+import { useStore } from '../lib/store'
+import { contasDaAtleta, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
+import {
+  checkinsDaFicha,
+  dividaDaMensalidade,
+  faltaDaFicha,
+  fichaDe,
+  idDaFicha,
+  iniciada,
+  MENSALIDADE_PADRAO,
+  mesAnterior,
+  mesDoCiclo,
+  MES_INICIAL,
+  mesSugeridoDoCheckin,
+  proximoMes,
+  quitada,
+  valorDaFicha,
+  vencimento,
+} from '../lib/fichaDaMensalidade'
+import { dateLabel, monthLabel, todayISO, uid, type ItemDaMensalidade } from '../lib/types'
+
+/*
+ * 📅 A FICHA DA MENSALIDADE (dono, 07/11): a Ingryd registra o que chega pelo
+ * WhatsApp -- o Pix e cada check-in direcionado a mensalidade (data, arena e
+ * conta). Tudo o mais (em dia, divida, virou avulsa) sai da regra pura
+ * (fichaDaMensalidade.ts); aqui so se grava item.
+ */
+
+/** A mensalidade que importa hoje: a do ciclo em andamento (nunca antes da regra nova). */
+export const mensalidadeDeHoje = (hoje = todayISO()) => {
+  const m = mesDoCiclo(hoje)
+  return m < MES_INICIAL ? MES_INICIAL : m
+}
+
+const ciclo = (mes: string) => `${dateLabel(`${mesAnterior(mes)}-06`).slice(0, 5)} a ${dateLabel(vencimento(mes)).slice(0, 5)}`
+
+/** Uma linha curta para a lista de atletas: "R$ 80 + 2/4 check-ins · falta R$ 50". */
+export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string): { texto: string; cor: string } {
+  if (f.itens.length === 0) return { texto: 'nada registrado', cor: 'var(--muted)' }
+  const partes = [] as string[]
+  const dinheiro = f.itens.filter((i) => i.tipo === 'dinheiro').reduce((s, i) => s + (i.valor ?? 0), 0)
+  if (dinheiro > 0) partes.push(formatarReais(dinheiro))
+  const ck = checkinsDaFicha(f)
+  if (ck > 0 || (dinheiro > 0 && dinheiro < f.valor_cheio)) partes.push(`${Math.min(ck, f.max_checkins)}/${f.max_checkins} check-ins`)
+  const falta = faltaDaFicha(f)
+  if (falta === 0) return { texto: `${partes.join(' + ')} · ✅ quitada`, cor: 'var(--verde)' }
+  const vencida = vencimento(f.mes) < hoje && iniciada(f, hoje)
+  return { texto: `${partes.join(' + ')} · ${vencida ? 'deve' : 'falta'} ${formatarReais(falta)}`, cor: vencida ? 'var(--danger)' : 'var(--yellow)' }
+}
+
+export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: { playerId: string; mesInicial?: string; onClose: () => void; onToast: (m: string) => void }) {
+  const { data, nameOf, saveMensalidade, saveItemDaMensalidade, deleteItemDaMensalidade } = useStore()
+  const hoje = todayISO()
+  const [mes, setMes] = useState(mesInicial ?? mensalidadeDeHoje(hoje))
+  const [novo, setNovo] = useState<null | 'checkin' | 'dinheiro'>(null)
+  const f = fichaDe(data, playerId, mes)
+  const falta = faltaDaFicha(f)
+  const divida = dividaDaMensalidade(data, playerId, hoje)
+  const vencida = vencimento(mes) < hoje
+
+  // o cabecalho congela os valores do mes; grava junto com o primeiro item
+  function gravar(item: ItemDaMensalidade) {
+    if (!data.mensalidades.some((m) => m.player_id === playerId && m.mes === item.mes)) {
+      saveMensalidade({ id: idDaFicha(playerId, item.mes), player_id: playerId, mes: item.mes, ...MENSALIDADE_PADRAO, created_at: new Date().toISOString() })
+    }
+    saveItemDaMensalidade(item)
+    setNovo(null)
+    if (item.mes !== mes) setMes(item.mes)
+    onToast(item.tipo === 'checkin' ? `Check-in na mensalidade de ${monthLabel(item.mes)}` : `${formatarReais(item.valor ?? 0)} na mensalidade de ${monthLabel(item.mes)}`)
+  }
+
+  const situacao = quitada(f)
+    ? { t: '✅ Quitada', c: 'var(--verde)' }
+    : f.itens.length === 0
+      ? { t: vencida ? 'Não renovou' : 'Nada registrado ainda', c: 'var(--muted)' }
+      : vencida && iniciada(f, hoje)
+        ? { t: `Deve ${formatarReais(falta)}: joga como avulsa até quitar`, c: 'var(--danger)' }
+        : { t: `Falta ${formatarReais(falta)} até ${dateLabel(vencimento(mes)).slice(0, 5)}`, c: 'var(--yellow)' }
+  const pct = Math.min(100, Math.round((valorDaFicha(f) / f.valor_cheio) * 100))
+
+  return (
+    <Modal title={`📅 Mensalidade · ${nameOf(playerId)}`} onClose={onClose}>
+      <div className="row spread" style={{ marginBottom: 8 }}>
+        <button className="btn ghost sm" disabled={mesAnterior(mes) < MES_INICIAL} onClick={() => setMes(mesAnterior(mes))} aria-label="Mensalidade anterior">‹</button>
+        <div style={{ textAlign: 'center' }}>
+          <strong>{monthLabel(mes)}</strong>
+          <div className="tiny muted">ciclo {ciclo(mes)}</div>
+        </div>
+        <button className="btn ghost sm" onClick={() => setMes(proximoMes(mes))} aria-label="Próxima mensalidade">›</button>
+      </div>
+
+      <div className="ficha-barra" aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
+      <div className="row spread" style={{ margin: '6px 0 10px' }}>
+        <strong style={{ color: situacao.c }}>{situacao.t}</strong>
+        <span className="tiny muted">{formatarReais(valorDaFicha(f))} de {formatarReais(f.valor_cheio)}</span>
+      </div>
+      <p className="tiny muted" style={{ margin: '0 0 10px' }}>
+        {formatarReais(f.valor_cheio)} no Pix, ou {formatarReais(f.valor_cheio - f.max_checkins * f.valor_checkin)} + {f.max_checkins} check-ins (cada um vale {formatarReais(f.valor_checkin)}).
+      </p>
+      {divida.porMes.some((d) => d.mes !== mes) && (
+        <p className="hint aviso" style={{ marginTop: 0 }}>
+          ⚠️ Deve {divida.porMes.filter((d) => d.mes !== mes).map((d) => `${formatarReais(d.falta)} de ${monthLabel(d.mes)}`).join(' e ')}.
+        </p>
+      )}
+
+      {f.itens.length > 0 && (
+        <div className="stack" style={{ gap: 6, marginBottom: 12 }}>
+          {[...f.itens].sort((a, b) => a.date.localeCompare(b.date)).map((i) => (
+            <div key={i.id} className="row ficha-item" style={{ gap: 8 }}>
+              <span aria-hidden="true">{i.tipo === 'checkin' ? '✅' : i.tipo === 'dinheiro' ? '💸' : '➖'}</span>
+              <span className="grow">
+                <strong>{dateLabel(i.date).slice(0, 5)}</strong>{' '}
+                {i.tipo === 'checkin'
+                  ? <>check-in {data.checkinLocais.find((l) => l.id === i.local_id)?.nome ?? 'sem arena'} · <span className="muted">{tituloDaConta(i)}</span></>
+                  : <>{i.tipo === 'dinheiro' ? 'Pix' : 'abatimento'} {formatarReais(i.valor ?? 0)}</>}
+              </span>
+              <button
+                className="btn ghost sm"
+                aria-label="Apagar"
+                onClick={() => {
+                  if (!confirm('Apagar este registro da mensalidade?')) return
+                  deleteItemDaMensalidade(i.id)
+                  onToast('Registro apagado')
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {novo === null && (
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn grow" onClick={() => setNovo('checkin')}>➕ Check-in</button>
+          <button className="btn grow" onClick={() => setNovo('dinheiro')}>➕ Pix</button>
+        </div>
+      )}
+      {novo === 'checkin' && <NovoCheckin playerId={playerId} onCancelar={() => setNovo(null)} onGravar={gravar} />}
+      {novo === 'dinheiro' && <NovoPix playerId={playerId} mes={mes} sugestao={f.itens.length === 0 ? f.valor_cheio - f.max_checkins * f.valor_checkin : falta} onCancelar={() => setNovo(null)} onGravar={gravar} />}
+    </Modal>
+  )
+
+  function tituloDaConta(i: ItemDaMensalidade) {
+    const c = contasDaAtleta(data, playerId).find((x) => (i.conta_id === null ? x.principal : x.id === i.conta_id))
+    return c ? nomeDoTitular(c, nameOf(playerId)) : 'conta apagada'
+  }
+}
+
+function NovoCheckin({ playerId, onCancelar, onGravar }: { playerId: string; onCancelar: () => void; onGravar: (i: ItemDaMensalidade) => void }) {
+  const { data, nameOf } = useStore()
+  const contas = contasDaAtleta(data, playerId)
+  const locais = data.checkinLocais.filter((l) => l.ativo).sort((a, b) => a.ordem - b.ordem)
+  const principal = contas.find((c) => c.principal) ?? contas[0]
+  const [date, setDate] = useState(todayISO())
+  const [contaId, setContaId] = useState<string | null>(null)
+  const conta = contas.find((c) => (contaId === null ? c.principal : c.id === contaId)) ?? principal
+  const [localId, setLocalId] = useState<string | null>(conta?.local_padrao_id ?? locais[0]?.id ?? null)
+  const mes = mesSugeridoDoCheckin(data, playerId, date)
+  // 1 check-in por dia por conta: o mesmo dia de novo e engano quase sempre
+  const repetido = data.mensalidadeItens.some((i) => i.tipo === 'checkin' && i.player_id === playerId && i.date === date && i.conta_id === contaId)
+
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      <label className="field">
+        <span>Dia do check-in</span>
+        <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
+      <div className="field">
+        <span>Conta usada</span>
+        <div className="row wrap" style={{ gap: 6 }}>
+          {contas.map((c) => (
+            <button key={c.id} className={`chip ${conta?.id === c.id ? 'on' : ''}`} onClick={() => { setContaId(c.principal ? null : c.id); if (c.local_padrao_id) setLocalId(c.local_padrao_id) }}>
+              {nomeDoTitular(c, nameOf(playerId))}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span>Arena</span>
+        <div className="row wrap" style={{ gap: 6 }}>
+          {locais.map((l) => (
+            <button key={l.id} className={`chip ${localId === l.id ? 'on' : ''}`} onClick={() => setLocalId(l.id)}>{l.nome}</button>
+          ))}
+        </div>
+      </div>
+      <span className="hint">Vai para a mensalidade de <strong>{monthLabel(mes)}</strong>.</span>
+      {repetido && <span className="hint aviso">⚠️ Esta conta já tem um check-in da mensalidade neste dia.</span>}
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn ghost grow" onClick={onCancelar}>Cancelar</button>
+        <button
+          className="btn grow"
+          disabled={!date || !localId}
+          onClick={() =>
+            onGravar({ id: uid(), player_id: playerId, mes, tipo: 'checkin', date, valor: null, conta_id: contaId, local_id: localId, confirmado: true, observacao: null, created_at: new Date().toISOString() })
+          }
+        >
+          Salvar check-in
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function NovoPix({ playerId, mes, sugestao, onCancelar, onGravar }: { playerId: string; mes: string; sugestao: number; onCancelar: () => void; onGravar: (i: ItemDaMensalidade) => void }) {
+  const [date, setDate] = useState(todayISO())
+  const [texto, setTexto] = useState(sugestao > 0 ? String(sugestao) : '')
+  const valor = lerValor(texto)
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      <div className="row wrap" style={{ gap: 6 }}>
+        {[80, 180, 25].map((v) => (
+          <button key={v} className={`chip ${valor === v ? 'on' : ''}`} onClick={() => setTexto(String(v))}>{formatarReais(v)}</button>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <label className="field grow">
+          <span>Valor</span>
+          <input className="input" inputMode="decimal" value={texto} onChange={(e) => setTexto(e.target.value)} />
+        </label>
+        <label className="field grow">
+          <span>Dia do Pix</span>
+          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+      </div>
+      <span className="hint">Mensalidade de <strong>{monthLabel(mes)}</strong>.</span>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn ghost grow" onClick={onCancelar}>Cancelar</button>
+        <button
+          className="btn grow"
+          disabled={!valor || valor <= 0 || !date}
+          onClick={() =>
+            onGravar({ id: uid(), player_id: playerId, mes, tipo: 'dinheiro', date, valor, conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: new Date().toISOString() })
+          }
+        >
+          Salvar Pix
+        </button>
+      </div>
+    </div>
+  )
+}

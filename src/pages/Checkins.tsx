@@ -1,6 +1,9 @@
 import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '../lib/pagamentoNaLista'
 import { useEffect, useMemo, useState } from 'react'
 import { LIGA } from '../liga'
+import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
+import { fichaDe } from '../lib/fichaDaMensalidade'
+import { categoriaDe } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -127,6 +130,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
   const [mes, setMes] = useState(() => monthOf(todayISO()))
   const [contasDe, setContasDe] = useState<{ jogadora: Player; visao: VisaoDasContas } | null>(null)
   const [lancando, setLancando] = useState<PedidoDeLancamento | null>(null)
+  const [fichaDe_, setFichaDe] = useState<string | null>(null)
   const [editandoDia, setEditandoDia] = useState<CheckinDia | 'novo' | null>(null)
 
   // so quem esta logada ve dinheiro (no modo local, todo mundo e a organizadora)
@@ -186,6 +190,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
           podeEditar={podeEditar}
           onContas={(jogadora, visao) => setContasDe({ jogadora, visao })}
           onLancar={(playerId) => setLancando({ playerId, diaId: diasDoMes(data, mes)[0]?.id })}
+          onMensalidade={setFichaDe}
         />
       )}
       {secaoAtiva === 'dias' && (
@@ -202,6 +207,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       {secaoAtiva === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
       {secaoAtiva === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
 
+      {fichaDe_ && <FichaDaMensalidade playerId={fichaDe_} onClose={() => setFichaDe(null)} onToast={onToast} />}
       {contasDe && (
         <ContasModal
           jogadora={contasDe.jogadora}
@@ -312,14 +318,20 @@ function SecaoAtletas({
   podeEditar,
   onContas,
   onLancar,
+  onMensalidade,
 }: {
   mes: string
   veDinheiro: boolean
   podeEditar: boolean
   onContas: (p: Player, visao: VisaoDasContas) => void
   onLancar: (playerId: string) => void
+  /** 📅 a ficha da mensalidade (so mensalista, so o Play de Todas). */
+  onMensalidade: (playerId: string) => void
 }) {
   const { data, nameOf } = useStore()
+  const hoje = todayISO()
+  const mesDaMensalidade = mensalidadeDeHoje(hoje)
+  const temMensalidade = (p: Player) => LIGA.id === 'feminino' && veDinheiro && categoriaDe(p) === 'mensalista'
   const [busca, setBusca] = useState('')
   const termo = normalizar(busca)
 
@@ -413,6 +425,14 @@ function SecaoAtletas({
                           🎟️ {plural(cred.length, 'check-in de crédito', 'check-ins de crédito')}:{' '}
                           {cred.map((c) => `${c.dia ? dateLabel(c.dia.date).slice(0, 5) : '?'} ${nomeCurto(data.checkinLocais.find((l) => l.id === c.checkin.local_id)?.nome ?? '')}`).join(' · ')}
                         </div>
+                      )
+                    })()}
+                    {temMensalidade(p) && (() => {
+                      const r = resumoDaMensalidade(fichaDe(data, p.id, mesDaMensalidade), hoje)
+                      return (
+                        <button className="linkish tiny" style={{ padding: 0, marginTop: 2, textAlign: 'left', color: r.cor, fontWeight: 700 }} onClick={() => onMensalidade(p.id)}>
+                          📅 Mensalidade de {nomeDoMes(mesDaMensalidade)}: {r.texto}
+                        </button>
                       )
                     })()}
                     {podeEditar && disp.avisos.map((a) => (

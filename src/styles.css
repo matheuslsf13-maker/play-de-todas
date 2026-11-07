@@ -2116,3 +2116,8 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   /* o canto do chevron pesa para a direita: puxa 1,5px para a esquerda */
   transform: translate(-65%, -50%) rotate(45deg);
 }
+
+/* 📅 ficha da mensalidade: barra do quanto ja vale e os registros */
+.ficha-barra { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.ficha-barra > span { display: block; height: 100%; background: linear-gradient(90deg, var(--pink), var(--verde)); border-radius: inherit; }
+.ficha-item { padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
