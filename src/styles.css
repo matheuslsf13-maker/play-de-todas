@@ -465,7 +465,9 @@ label.field { display: block; }
 }
 .table tbody tr { border-bottom: 1px dashed var(--line); }
 .table tbody tr:last-child { border-bottom: 0; }
-.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* overflow-y: hidden -- com so o overflow-x, o y vira "auto" e, sobrando 1px na altura, a faixa vira
+   rolavel na vertical e prende o arraste do dedo: a pagina so descia puxando pelas bordas (06/11) */
+.scroll-x { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -568,6 +570,7 @@ hr.sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
   display: flex;
   gap: 6px;
   overflow-x: auto;
+  overflow-y: hidden; /* ver .scroll-x: sem isso a fileira podia prender o arraste vertical */
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 2px;
@@ -1399,7 +1402,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 .valor-pos { color: var(--teal); font-weight: 800; font-variant-numeric: tabular-nums; }
 .valor-neg { color: var(--danger); font-weight: 800; font-variant-numeric: tabular-nums; }
 /* o resumo do caixa tem 10 colunas: rola de lado dentro do cartao, nunca a pagina */
-.tabela-rolavel { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+.tabela-rolavel { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
 .tabela-rolavel .table { min-width: 640px; font-variant-numeric: tabular-nums; }
 .tabela-rolavel .table th:first-child, .tabela-rolavel .table td:first-child {
   position: sticky; left: 0; background: var(--card); z-index: 1;
