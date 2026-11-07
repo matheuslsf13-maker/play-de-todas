@@ -632,8 +632,13 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
   return (
     <div className="card">
       <div className="section-title com-nota">
-        💪 Força <span className="titulo-nota">sua habilidade real hoje · não é ranking e nunca zera</span>
+        💪 Força e entrosamento <span className="titulo-nota">sua habilidade real hoje · não é ranking e nunca zera</span>
       </div>
+      {/* o que e o entrosamento, numa linha (dono, 06/11) */}
+      <p className="nota-entrosamento">
+        <strong>Entrosamento</strong> mede o quanto a dupla rende acima (+) ou abaixo (−) do que a força das duas
+        promete.
+      </p>
 
       <div className="segmented" style={{ marginBottom: 10 }}>
         <button
@@ -709,12 +714,16 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   <Avatar player={playerById(d.a)} size={24} />
                   <Avatar player={playerById(d.b)} size={24} />
                   <span style={{ flex: '0 1 13em', minWidth: 0 }}>
-                    <span className="ellipsis nome-tocavel" style={{ display: 'block', fontWeight: 700 }}>
-                      {nameOf(d.a)} <span className="muted">+</span> {nameOf(d.b)}
+                    {/* os dois nomes quebram em duas linhas em vez de cortar ("Brenda + Van…") */}
+                    <span className="nome-tocavel" style={{ display: 'inline', fontWeight: 700, lineHeight: 1.25 }}>
+                      <span className="nowrap">{nameOf(d.a)}</span> <span className="muted">+</span> <span className="nowrap">{nameOf(d.b)}</span>
                     </span>
                     <span className="tiny muted" style={{ display: 'block' }} title="Ajuste da força da dupla em relação à média individual; não soma pontos ao ranking.">
-                      Entrosamento {d.entrosamento > 0 ? '+' : ''}
-                      {d.entrosamento}
+                      <span className="rotulo-entrosamento">Entrosamento</span>{' '}
+                      <strong style={{ color: d.entrosamento > 0 ? 'var(--verde)' : d.entrosamento < 0 ? 'var(--danger)' : undefined }}>
+                        {d.entrosamento > 0 ? '+' : ''}
+                        {d.entrosamento}
+                      </strong>
                     </span>
                   </span>
                   <span

@@ -2086,3 +2086,7 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 }
 .busca-item + .busca-item { border-top: 1px solid var(--line); }
 .busca-item.on, .busca-item:active { background: var(--pink-suave); }
+
+/* Forca e entrosamento: a linha que explica e o rotulo em cada dupla */
+.nota-entrosamento { margin: -4px 0 10px; font-size: 13px; color: var(--muted); line-height: 1.35; }
+.nota-entrosamento strong, .rotulo-entrosamento { color: var(--pink); font-weight: 800; }
