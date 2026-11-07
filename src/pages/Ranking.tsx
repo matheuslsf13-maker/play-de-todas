@@ -58,7 +58,8 @@ export default function Ranking({
   }, [data.sessions])
 
   const [month, setMonth] = useState(months[0])
-  const [verTodas, setVerTodas] = useState(false)
+  // quantas da classificacao aparecem: 0 = recolhida; abre de 10 em 10 (dono, 06/11)
+  const [qtd, setQtd] = useState(0)
   const [poster, setPoster] = useState<{ url: string; blob: Blob } | null>(null)
   const [gerando, setGerando] = useState(false)
   const [fechando, setFechando] = useState(false)
@@ -244,12 +245,24 @@ export default function Ranking({
             </div>
 
             {/* a classificacao inteira fica recolhida aqui dentro (era um cartao a mais na tela inicial; dono, 06/11) */}
-            <button className="btn ghost block sm" style={{ marginTop: 12 }} onClick={() => setVerTodas((v) => !v)} aria-expanded={verTodas}>
-              {verTodas ? 'Esconder a classificação ↑' : `📊 Ver a classificação completa (${rows.length}) ↓`}
-            </button>
-            {verTodas && (
+            {qtd === 0 && (
+              <button className="btn ghost block sm" style={{ marginTop: 12 }} onClick={() => setQtd(10)} aria-expanded={false}>
+                📊 Ver a classificação ({rows.length}) ↓
+              </button>
+            )}
+            {qtd > 0 && (
               <div style={{ marginTop: 12 }}>
-                <RankTable rows={rows} fire={streaks.current} />
+                <RankTable rows={rows.slice(0, qtd)} fire={streaks.current} />
+                <div className="row" style={{ gap: 8, marginTop: 10 }}>
+                  {qtd < rows.length && (
+                    <button className="btn ghost sm grow" onClick={() => setQtd((n) => n + 10)}>
+                      Mostrar mais {Math.min(10, rows.length - qtd)} ↓
+                    </button>
+                  )}
+                  <button className="btn ghost sm grow" onClick={() => setQtd(0)} aria-expanded={true}>
+                    Recolher ↑
+                  </button>
+                </div>
                 <button
                   className="btn pink block"
                   style={{ marginTop: 12 }}
