@@ -641,7 +641,9 @@ liga/            textos do masculino: o código fica no feminino e o build
   ele entra no **saldo dos plays** no dia 6 (`acertosDaMensalidade` em `checkins.ts`, calculado, `dinheiro: false`) e
   os avulsos descontam dele. Na rematrícula a ficha mostra a conta antes (`contaDaRenovacao`: quanto do crédito +
   quanto cobrar, com a dívida) e só grava em "Recebi os R$ X — renovar" (acerto −usado + abatimento na ficha + o Pix
-  dividido); o "Topou e pagou" faz o mesmo. A receita fica no mês do Pix original.
+  dividido); o "Topou e pagou" faz o mesmo. A receita fica no mês do Pix original. **Passou do dia 5 sem renovar,
+  não renova mais pela ficha** (`perdeuEsteMes`: some o ➕ Pix do mês e o aviso manda para a fila), mesmo com
+  crédito ou vaga livre: volta só pela fila, e aí o crédito completa o valor.
   **Nova mensalista da espera** começa a mensalidade do mês ao pagar ("✅ Topou e pagou": 80 ou 180, grava o Pix e
   vira mensalista) ou "Recusou" (sai da fila). **Novembro/2026 é transição** (`MES_INICIAL` = 2026-12; antes vale o
   `pago_mes`; check-in de novembro conta para dezembro).

@@ -95,7 +95,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
               </button>
             </div>
           ))}
-          <span className="hint">Se ela pagar antes, é só registrar na ficha: volta a ocupar a vaga.</span>
+          <span className="hint">Passou do dia 5: não renova mais pela ficha. Passe para avulsa; quando chegar a vez dela na fila, o crédito que tiver completa o valor.</span>
         </div>
       )}
       {fila.length > 0 && (
