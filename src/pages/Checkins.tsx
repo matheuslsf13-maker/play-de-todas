@@ -2,7 +2,7 @@ import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '
 import { useEffect, useMemo, useState } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
-import { emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
+import { dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
 import { checkinsNaArena, contaDoAluguel } from '../lib/aluguel'
 import { categoriaDe } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
@@ -430,7 +430,11 @@ function SecaoAtletas({
                       )
                     })()}
                     {temMensalidade(p) && (() => {
-                      const r = resumoDaMensalidade(fichaDe(data, p.id, mesDaMensalidade), hoje)
+                      const r = resumoDaMensalidade(
+                        fichaDe(data, p.id, mesDaMensalidade),
+                        hoje,
+                        dividaDaMensalidade(data, p.id, hoje).porMes.filter((x) => x.mes < mesDaMensalidade).reduce((t, x) => t + x.falta, 0),
+                      )
                       return (
                         <button className="linkish tiny" style={{ padding: 0, marginTop: 2, textAlign: 'left', color: r.cor, fontWeight: 700, textTransform: 'none', letterSpacing: 0 }} onClick={() => onMensalidade(p.id)}>
                           📅 Mensalidade de {nomeDoMes(mesDaMensalidade)}: {r.texto}

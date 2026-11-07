@@ -37,8 +37,10 @@ const dm = (date: string) => dateLabel(date).slice(0, 5)
 const prazos = (mes: string) => `renovar até ${dm(vencimento(mes))} · check-ins até ${dm(prazoDosCheckins(mes))}`
 
 /** A situacao da ficha numa data, em texto curto e cor (a mesma na lista e na ficha). */
-function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string): { t: string; c: string } {
+function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string, devendoAntes = 0): { t: string; c: string } {
   const falta = faltaDaFicha(f, hoje)
+  // para renovar tem de quitar a anterior (dono, 07/11): com divida vencida, os 80 deste mes nao bastam
+  if (devendoAntes > 0 && !quitada(f, hoje)) return { t: `não renovou: deve ${formatarReais(devendoAntes)} da anterior (joga como avulsa)`, c: 'var(--danger)' }
   if (quitada(f, hoje)) return { t: '✅ quitada', c: 'var(--verde)' }
   if (!renovada(f, hoje)) {
     if (vencimento(f.mes) < hoje) return { t: 'não renovou (joga como avulsa)', c: 'var(--danger)' }
@@ -49,7 +51,11 @@ function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string): { t: stri
 }
 
 /** Uma linha curta para a lista de atletas: "R$ 80 + 2/4 check-ins · falta R$ 50". */
-export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string): { texto: string; cor: string } {
+export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string, devendoAntes = 0): { texto: string; cor: string } {
+  if (devendoAntes > 0) {
+    const s = situacaoDaFicha(f, hoje, devendoAntes)
+    return { texto: s.t, cor: s.c }
+  }
   if (f.itens.length === 0) return vencimento(f.mes) < hoje ? { texto: 'não renovou (joga como avulsa)', cor: 'var(--danger)' } : { texto: 'nada registrado', cor: 'var(--muted)' }
   const partes = [] as string[]
   const dinheiro = f.itens.filter((i) => i.tipo === 'dinheiro').reduce((s, i) => s + (i.valor ?? 0), 0)
@@ -95,7 +101,8 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
     onToast(item.tipo === 'checkin' ? `Check-in na mensalidade de ${monthLabel(item.mes)}` : `${formatarReais(item.valor ?? 0)} na mensalidade de ${monthLabel(item.mes)}`)
   }
 
-  const s = situacaoDaFicha(f, hoje)
+  const devendoAntes = divida.porMes.filter((x) => x.mes < mes).reduce((t, x) => t + x.falta, 0)
+  const s = situacaoDaFicha(f, hoje, devendoAntes)
   const situacao = { t: s.t[0].toUpperCase() + s.t.slice(1), c: s.c }
   const pct = Math.min(100, Math.round((valorDaFicha(f) / f.valor_cheio) * 100))
 

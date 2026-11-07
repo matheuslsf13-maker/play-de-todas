@@ -104,7 +104,8 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
                   ✅ Topou e pagou
                 </button>
               )}
-              <button
+              {/* escolhendo quanto ela pagou, o Recusou some (no print parecia que ela tinha recusado) */}
+              {!(i === 0 && pagou !== null) && <button
                 className="btn ghost sm"
                 aria-label={i === 0 && vagas > 0 ? `${nameOf(p.id)} recusou` : `Tirar ${nameOf(p.id)} da espera`}
                 onClick={() => {
@@ -116,7 +117,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
                 }}
               >
                 {i === 0 && vagas > 0 ? 'Recusou' : '✕'}
-              </button>
+              </button>}
             </div>
           ))}
           {vagas > 0 && pagou !== null && (

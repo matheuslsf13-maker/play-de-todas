@@ -51,3 +51,16 @@ test('entrou depois do dia 5 e pagou a mensalidade seguinte: nao perde a vaga', 
   d.mensalidadeItens = [{ id: 'i', player_id: 'nova', mes: '2027-01', tipo: 'dinheiro', date: '2026-12-10', valor: 80, conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: '' }]
   assert.equal(perdeuAVaga(d, nova, '2026-12-10'), false)
 })
+
+test('renovou janeiro mas ainda deve check-ins de dezembro no dia 6: nao renovou, cede a vaga', async () => {
+  const { perdeuAVaga } = await import('../src/lib/vagasDeMensalista')
+  const d = emptyData()
+  const m = p('m', { categoria: 'mensalista' })
+  d.players = [m]
+  const pix = (mes: string, date: string, valor: number) => ({ id: `${mes}-${date}`, player_id: 'm', mes, tipo: 'dinheiro' as const, date, valor, conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: '' })
+  d.mensalidadeItens = [pix('2026-12', '2026-12-02', 80), pix('2027-01', '2027-01-03', 80)]
+  assert.equal(perdeuAVaga(d, m, '2027-01-05'), false, 'ainda no prazo')
+  assert.equal(perdeuAVaga(d, m, '2027-01-06'), true, 'deve os 4 check-ins de dezembro')
+  d.mensalidadeItens.push(pix('2026-12', '2027-01-04', 100))
+  assert.equal(perdeuAVaga(d, m, '2027-01-06'), false, 'quitou dezembro e pagou os 80 de janeiro')
+})
