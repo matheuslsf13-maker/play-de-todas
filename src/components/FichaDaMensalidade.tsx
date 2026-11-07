@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Modal } from './ui'
 import { useStore } from '../lib/store'
+import { categoriaDe } from '../lib/mensalidade'
+import { perdeuAVaga, vagasLivres } from '../lib/vagasDeMensalista'
 import { contasDaAtleta, creditoDisponivel, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
 import {
   checkinsDaFicha,
@@ -133,11 +135,25 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
       <p className="tiny muted" style={{ margin: '0 0 10px' }}>
         {formatarReais(f.valor_cheio)} no Pix, ou {formatarReais(f.valor_cheio - f.max_checkins * f.valor_checkin)} + {f.max_checkins} check-ins (cada um vale {formatarReais(f.valor_checkin)}).
       </p>
+      {credito <= 0 && (() => {
+        const atleta = data.players.find((x) => x.id === playerId)
+        return atleta && perdeuAVaga(data, atleta, hoje) && vagasLivres(data, hoje) === 0 ? (
+          <div className="banner warn" style={{ margin: '0 0 10px' }}>Sem vaga: a vaga dela já foi ocupada. Ela volta pela fila de espera (Meninas), não por aqui.</div>
+        ) : null
+      })()}
       {credito > 0 && !renovada(f) && (() => {
         // RENOVAR COM CREDITO (dono, 07/11): a conta aparece antes; so grava quando ela pagar a diferenca
         const devendo = divida.porMes.filter((d) => d.mes < mes).reduce((t, d) => t + d.falta, 0)
         const { usa, cobrar } = contaDaRenovacao(f, credito, devendo, hoje)
         if (usa <= 0) return null
+        // so renova quem ainda e mensalista e tem vaga (dono, 07/11): quem ja foi para a fila volta pelo "Topou e pagou"
+        const atleta = data.players.find((x) => x.id === playerId)
+        if (!atleta || categoriaDe(atleta) !== 'mensalista') {
+          return <div className="banner" style={{ margin: '0 0 10px' }}>💰 Ela tem {formatarReais(credito)} de crédito. Não é mais mensalista: volta pela fila de espera (Meninas → “Topou e pagou”), e o crédito entra sozinho.</div>
+        }
+        if (perdeuAVaga(data, atleta, hoje) && vagasLivres(data, hoje) === 0) {
+          return <div className="banner warn" style={{ margin: '0 0 10px' }}>Sem vaga: a vaga dela já foi ocupada. Passe ela para avulsa no fim da fila (Meninas). O crédito de {formatarReais(credito)} continua valendo.</div>
+        }
         return (
           <div className="banner" style={{ margin: '0 0 10px' }}>
             💰 Ela tem {formatarReais(credito)} de crédito. Para renovar: {formatarReais(usa)} do crédito
