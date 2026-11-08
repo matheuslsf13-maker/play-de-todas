@@ -3720,6 +3720,15 @@ function PlayDetail({
         ))}
       </div>
 
+      {editable && faltaFase && abaAtiva !== 'quadras' && (
+        <div className="ini-grupo pl-aviso-fase" style={{ marginBottom: 14 }}>
+          <button className="ini-linha ini-chev" onClick={() => { setAba('quadras'); window.scrollTo({ top: 0 }) }}>
+            <span className="ini-ic rosa" aria-hidden="true">⏭️</span>
+            <span className="g"><b>Falta montar a próxima fase</b><span className="sub">toque para ir montar</span></span>
+          </button>
+        </div>
+      )}
+
       {abaAtiva === 'grupos' && (
       <>
       {grupos && grupos.length > 1 && arrumando && podeArrumarGrupos && (
@@ -3791,6 +3800,60 @@ function PlayDetail({
 
       </>
       )}
+
+      {abaAtiva === 'quadras' && editable &&
+        porCategoria
+          .filter((c) => c.podeGerarFase2 || c.podeGerarRodada)
+          .map((c) => (
+            <div key={c.ci} className="card" style={{ borderColor: 'var(--marca)' }}>
+              <div className="section-title" style={{ marginTop: 0 }}>
+                ⏭️ {ehCampeonato ? `Categoria ${c.cat.nome}: ainda tem fase pela frente` : 'O play ainda tem fase pela frente'}
+              </div>
+              <p className="tiny muted" style={{ marginTop: 0 }}>
+                {c.podeGerarFase2
+                  ? duplasFixas
+                    ? `Todas as duplas${ehCampeonato ? ' desta categoria' : ''} já se enfrentaram. O próximo passo é montar a chave do mata-mata pela classificação — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                    : `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                  : `A rodada terminou e ainda há ${c.vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
+              </p>
+              {c.podeGerarFase2 &&
+                c.desempates.map((d) => (
+                  <DesempateEmQuadra
+                    key={`${d.grupo}-${d.ids.join('|')}`}
+                    titulo={
+                      duplasFixas
+                        ? `${ehCampeonato ? `Categoria ${c.cat.nome} · ` : ''}duplas`
+                        : `${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`
+                    }
+                    ids={d.ids}
+                    nameOf={duplasFixas ? nomeDaDuplaFixa : nameOf}
+                    onSalvar={(ordem, como) => salvarDesempate(d.grupo, ordem, como)}
+                  />
+                ))}
+              <button
+                className="btn pink block"
+                disabled={montando || (c.podeGerarFase2 && c.desempates.length > 0)}
+                onClick={async () => {
+                  // um toque so: o segundo, antes de a tela atualizar, montaria a chave duas vezes
+                  if (montando) return
+                  setMontando(true)
+                  try {
+                    await (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))
+                  } finally {
+                    setMontando(false)
+                  }
+                }}
+              >
+                {c.podeGerarFase2
+                  ? duplasFixas
+                    ? `🥅 Montar a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                    : `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                  : c.vivas.length === 2
+                    ? '🥅 Montar final e 3º lugar'
+                    : `🥅 Montar ${c.rotuloDaProxima.toLowerCase()}`}
+              </button>
+            </div>
+          ))}
 
       {abaAtiva === 'quadras' && (
       <div className="card">
@@ -4085,60 +4148,6 @@ function PlayDetail({
 
       </>
       )}
-
-      {abaAtiva === 'quadras' && editable &&
-        porCategoria
-          .filter((c) => c.podeGerarFase2 || c.podeGerarRodada)
-          .map((c) => (
-            <div key={c.ci} className="card" style={{ borderColor: 'var(--marca)' }}>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                ⏭️ {ehCampeonato ? `Categoria ${c.cat.nome}: ainda tem fase pela frente` : 'O play ainda tem fase pela frente'}
-              </div>
-              <p className="tiny muted" style={{ marginTop: 0 }}>
-                {c.podeGerarFase2
-                  ? duplasFixas
-                    ? `Todas as duplas${ehCampeonato ? ' desta categoria' : ''} já se enfrentaram. O próximo passo é montar a chave do mata-mata pela classificação — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
-                    : `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
-                  : `A rodada terminou e ainda há ${c.vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
-              </p>
-              {c.podeGerarFase2 &&
-                c.desempates.map((d) => (
-                  <DesempateEmQuadra
-                    key={`${d.grupo}-${d.ids.join('|')}`}
-                    titulo={
-                      duplasFixas
-                        ? `${ehCampeonato ? `Categoria ${c.cat.nome} · ` : ''}duplas`
-                        : `${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`
-                    }
-                    ids={d.ids}
-                    nameOf={duplasFixas ? nomeDaDuplaFixa : nameOf}
-                    onSalvar={(ordem, como) => salvarDesempate(d.grupo, ordem, como)}
-                  />
-                ))}
-              <button
-                className="btn pink block"
-                disabled={montando || (c.podeGerarFase2 && c.desempates.length > 0)}
-                onClick={async () => {
-                  // um toque so: o segundo, antes de a tela atualizar, montaria a chave duas vezes
-                  if (montando) return
-                  setMontando(true)
-                  try {
-                    await (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))
-                  } finally {
-                    setMontando(false)
-                  }
-                }}
-              >
-                {c.podeGerarFase2
-                  ? duplasFixas
-                    ? `🥅 Montar a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
-                    : `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
-                  : c.vivas.length === 2
-                    ? '🥅 Montar final e 3º lugar'
-                    : `🥅 Montar ${c.rotuloDaProxima.toLowerCase()}`}
-              </button>
-            </div>
-          ))}
 
       {/* tambem no play ja finalizado: o empate do ultimo play ainda pode ser decidido */}
       {canEdit && empatesAbertos.length > 0 && (
