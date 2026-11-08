@@ -1,4 +1,4 @@
-import { useId, useRef, type PointerEvent } from 'react'
+import { useId, useRef, type MouseEvent, type PointerEvent } from 'react'
 
 /** Largura extra do desenho para a regua, ao lado do grafico (em unidades do viewBox). */
 export const LARGURA_DA_REGUA = 34
@@ -49,6 +49,10 @@ export function ReguaDeForca({
 /**
  * Arrastar o dedo no grafico escolhe o ponto mais perto, 1:1 (Pointer Events com captura). Tocar sem arrastar
  * num ponto ja escolhido limpa a escolha, como o toque de antes.
+ *
+ * O toque NUNCA depende da captura nem dos Pointer Events (dono, 09/11: no celular as bolinhas nao abriam o
+ * balao): o ponto e escolhido antes de tentar capturar (a captura pode falhar e antes cortava a escolha), e o
+ * click escolhe sozinho quando o navegador nao entregou os eventos de ponteiro.
  */
 export function useArrastarNoGrafico(opts: {
   n: number
@@ -61,7 +65,9 @@ export function useArrastarNoGrafico(opts: {
 }) {
   const { n, larguraDoDesenho, esq, dir, larguraTotal, tocado, setTocado } = opts
   const estado = useRef<{ i: number; moveu: boolean; eraIgual: boolean } | null>(null)
-  const indice = (e: PointerEvent<SVGSVGElement>) => {
+  // o gesto ja foi tratado pelos eventos de ponteiro: o click que vem depois nao faz de novo
+  const tratado = useRef(false)
+  const indice = (e: { clientX: number; currentTarget: SVGSVGElement }) => {
     const r = e.currentTarget.getBoundingClientRect()
     const px = ((e.clientX - r.left) / r.width) * larguraTotal
     const f = ((px - esq) / (larguraDoDesenho - esq - dir)) * (n - 1)
@@ -69,10 +75,15 @@ export function useArrastarNoGrafico(opts: {
   }
   return {
     onPointerDown: (e: PointerEvent<SVGSVGElement>) => {
-      e.currentTarget.setPointerCapture(e.pointerId)
       const i = indice(e)
       estado.current = { i, moveu: false, eraIgual: tocado === i }
+      tratado.current = true
       setTocado(i)
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        // sem captura o arraste segue enquanto o dedo estiver sobre o grafico
+      }
     },
     onPointerMove: (e: PointerEvent<SVGSVGElement>) => {
       if (!estado.current) return
@@ -89,6 +100,14 @@ export function useArrastarNoGrafico(opts: {
     },
     onPointerCancel: () => {
       estado.current = null
+    },
+    onClick: (e: MouseEvent<SVGSVGElement>) => {
+      if (tratado.current) {
+        tratado.current = false
+        return
+      }
+      const i = indice(e)
+      setTocado(tocado === i ? null : i)
     },
   }
 }
