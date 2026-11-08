@@ -119,7 +119,7 @@ export default function PainelDaNoite(p: {
         aria-valuenow={p.jogadas}
       >
         {/* o "em quadra" nasce do zero, por baixo das jogadas: as duas partes ficam coladas, sem o vao das pontas redondas */}
-        {pctJogando > 0 && <span className="noite-jogando" style={{ width: `${pctJogadas + pctJogando}%` }} />}
+        {pctJogando > 0 && <span className="noite-jogando" style={{ width: `${pctJogadas + pctJogando}%`, ['--s' as string]: `${(pctJogadas / (pctJogadas + pctJogando)) * 100}%` }} />}
         <span className={`noite-jogadas brilho-vivo${pctJogando > 0 ? ' colada' : ''}`} style={{ width: `${pctJogadas}%` }} />
         {marca != null && (
           <>
