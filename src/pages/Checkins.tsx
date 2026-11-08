@@ -990,6 +990,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                     {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
                   </div>
                 )}
+                {!aluguel && <div className="conta-aluguel vazio tiny">Digite o valor que a V3 cobrou para ver a conta.</div>}
                 {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
               </>
             )}
