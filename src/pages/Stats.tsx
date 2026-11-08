@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import DetalheDupla from '../components/DetalheDaDupla'
-import PainelDuplas, { duplasDoRecorte } from '../components/PainelDuplas'
+import PainelDuplas from '../components/PainelDuplas'
+import { duplasDoRecorte } from '../lib/duplasDoRecorte'
 import PainelForca from '../components/PainelForca'
 import PainelJogadora from '../components/PainelJogadora'
 import { FolhaDoPeriodo } from '../components/StatsPecas'
