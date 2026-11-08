@@ -223,7 +223,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       {secaoAtiva === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
       {secaoAtiva === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
 
-      {planoDe && <EditarPlanoDaAtleta jogadora={planoDe} onClose={() => setPlanoDe(null)} onToast={onToast} />}
+      {planoDe && <EditarPlanoDaAtleta jogadora={planoDe} onClose={() => setPlanoDe(null)} onToast={onToast} onAbrirFicha={setFichaDe} />}
       {fichaDe_ && <FichaDaMensalidade playerId={fichaDe_} onClose={() => setFichaDe(null)} onToast={onToast} />}
       {contasDe && (
         <ContasModal

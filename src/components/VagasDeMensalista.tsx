@@ -86,12 +86,12 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
               <button
                 className="btn ghost sm"
                 onClick={() => {
-                  if (!confirm(`${nameOf(p.id)} passa para avulsa e vai para o fim da lista de espera?`)) return
-                  savePlayer({ ...p, categoria: 'avulsa', espera_mensalista: new Date().toISOString(), pago_mes: null, pago_avulso: false })
-                  onToast(`${nameOf(p.id)} agora é avulsa, no fim da espera`)
+                  if (!confirm(`${nameOf(p.id)} passa para avulsa? Ela não entra na lista de espera; se quiser voltar, use o interesse em Financeiro › Atletas.`)) return
+                  savePlayer({ ...p, categoria: 'avulsa', espera_mensalista: null, pago_mes: null, pago_avulso: false })
+                  onToast(`${nameOf(p.id)} agora é avulsa`)
                 }}
               >
-                Passar para avulsa (fim da espera)
+                Passar para avulsa
               </button>
             </div>
           ))}

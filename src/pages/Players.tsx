@@ -22,7 +22,7 @@ import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
 import { plural, todayISO, uid, type Player } from '../lib/types'
 import { HistoricoFinanceiro } from '../components/HistoricoFinanceiro'
-import { vagasLivres } from '../lib/vagasDeMensalista'
+import { vagasParaNovas } from '../lib/vagasDeMensalista'
 
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const { data, savePlayer, deletePlayer, mergePlayers, canEdit, repo } = useStore()
@@ -129,7 +129,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
       forca_inicial: forcaDaNova === mediaHoje ? null : forcaDaNova,
     }
     // mensalistas lotadas (dono, 07/11): entra como avulsa e vai para a lista de espera
-    const lotado = LIGA.id === 'feminino' && novaCategoria === 'mensalista' && vagasLivres(data) === 0
+    const lotado = LIGA.id === 'feminino' && novaCategoria === 'mensalista' && vagasParaNovas(data) === 0
     if (lotado) Object.assign(p, { categoria: 'avulsa', espera_mensalista: new Date().toISOString() })
     await savePlayer(p)
     if (lotado) onToast(`Mensalistas lotadas: ${n} entrou como avulsa e está na lista de espera`)

@@ -2154,3 +2154,22 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 .plano-opcao.on { background: var(--pink); border-color: var(--pink); color: var(--sempre-escuro); }
 .plano-chip { margin-top: 4px; min-height: 32px; }
 @media (prefers-reduced-motion: reduce) { .plano-opcao { transition: none; } }
+
+/* Como ela paga: quadrado trancado e interruptor "interesse em ser mensalista" (alvo de toque >= 56px) */
+.plano-opcao small { display: block; font-size: 11px; font-weight: 600; opacity: .8; }
+.plano-opcao.travada { opacity: .55; cursor: not-allowed; }
+.plano-opcao.travada:active { transform: none; }
+.interruptor {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; margin-top: 10px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--card-2); text-align: left; cursor: pointer;
+  transition: transform 160ms ease-out, border-color 150ms ease;
+}
+.interruptor:active:not(:disabled) { transform: scale(.98); }
+.interruptor:disabled { opacity: .55; cursor: not-allowed; }
+.interruptor.on { border-color: var(--pink); }
+.interruptor .trilho { flex: none; width: 46px; height: 28px; border-radius: 999px; background: var(--line); padding: 3px; transition: background-color 150ms ease; }
+.interruptor.on .trilho { background: var(--pink); }
+.interruptor .bolinha { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform 160ms ease-out; }
+.interruptor.on .bolinha { transform: translateX(18px); }
+.interruptor-texto { display: grid; gap: 2px; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .interruptor, .interruptor .trilho, .interruptor .bolinha { transition: none; } }
