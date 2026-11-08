@@ -206,7 +206,7 @@ export default function App() {
         <div className="row spread" ref={linhaRef}>
           {/* o cabecalho e o antigo cartao do logo da tela inicial (dono, 08/11): um so, em todas as abas.
               Instalar, Trocar de play e o "tudo salvo" sairam (por enquanto); sem sinal, o aviso de baixo continua */}
-          <Logo size={64} />
+          <Logo size={40} />
           <div className="grow">
             <h1 className="hero-nome">Play de Todas</h1>
             <div className="sub">
