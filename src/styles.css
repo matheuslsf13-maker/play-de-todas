@@ -609,7 +609,10 @@ hr.sep { border: 0; border-top: 1px solid var(--sep); margin: 12px 0; }
   cursor: pointer;
   text-align: left;
 }
+.pick-team { transition: transform 140ms ease-out, background-color 140ms ease, border-color 140ms ease; }
 .pick-team:active { background: var(--pink-suave); border-color: var(--pink); }
+.pick-team:not(:disabled):active { transform: scale(.98); }
+.pick-team .forca-caixa { align-self: stretch; }
 /* placar so depois de "partida iniciada": sem isso da para lancar por engano
    a partida da quadra errada, e ela fica gravada sem quadra e sem horario */
 .pick-team:disabled { opacity: .5; cursor: not-allowed; }
@@ -1918,6 +1921,12 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 }
 /* "mata-mata" embaixo do tracinho; a barra ganha espaco embaixo para a linha de baixo nao encostar */
 .momento-barra.com-marca { margin-bottom: 13px; }
+.momento-barra > span { position: relative; z-index: 1; }
+.momento-barra > span.colada { border-radius: 999px 0 0 999px; }
+.momento-jogando {
+  position: absolute; top: 0; bottom: 0; left: 0; overflow: hidden; border-radius: 999px;
+  background: var(--m); opacity: .8; transition: width .8s ease;
+}
 .momento-marca-rotulo {
   position: absolute;
   top: calc(100% + 4px);
@@ -2370,8 +2379,9 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
    PLAY RODANDO (08/11/2026): o painel da noite e o grupo "Arrumar a noite".
    Numero grande + barra + hora do fim, como um placar: le em meio segundo na
    beira da quadra. A barra anda com o placar (420 ms, ease-out forte); a parte
-   "em quadra" e listrada e parada (nada pulsando numa tela que fica aberta a
-   noite toda). Sem transicao se o celular pede menos movimento.
+   "em quadra" e listrada e as listras andam (pedido do dono: "esta rolando").
+   AO VIVO = bolinha verde pulsando + cronometro; quadra sem inicio = bolinha
+   vermelha. Tudo parado se o celular pede menos movimento.
    ================================================================== */
 .noite-painel {
   margin-top: 12px;
@@ -2394,15 +2404,20 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .noite-fim small { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .noite-fim b { font-size: 19px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
 .noite-barra {
-  position: relative; height: 10px; margin-top: 12px; border-radius: 999px;
+  position: relative; height: 12px; margin-top: 12px; border-radius: 999px;
   background: var(--line); overflow: visible;
 }
 .noite-barra > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; transition: width 420ms cubic-bezier(.23, 1, .32, 1), left 420ms cubic-bezier(.23, 1, .32, 1); }
 .noite-jogadas { background: var(--por-do-sol); z-index: 1; }
-.noite-jogando {
-  background: repeating-linear-gradient(-45deg, var(--pink), var(--pink) 4px, color-mix(in srgb, var(--pink) 45%, transparent) 4px, color-mix(in srgb, var(--pink) 45%, transparent) 8px);
-  opacity: .7;
+.noite-jogadas.colada { border-radius: 999px 0 0 999px; }
+/* "carregando": rosa com faixas claras na diagonal que andam um periodo (10px a 45 graus = 14,142px) -- so transform */
+.noite-jogando { overflow: hidden; background: var(--pink); }
+.noite-jogando::before, .momento-jogando::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -14.142px; width: calc(100% + 14.142px);
+  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .38) 0 5px, transparent 5px 10px);
+  animation: listras-andando 700ms linear infinite;
 }
+@keyframes listras-andando { to { transform: translateX(14.142px); } }
 .noite-marca {
   position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; z-index: 2;
   border-radius: 2px; background: var(--text);
@@ -2421,8 +2436,52 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
   background: var(--card); border: 1px solid var(--line); font-size: 12px; white-space: nowrap;
 }
 .noite-chip-jogando i { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 0 3px color-mix(in srgb, var(--verde) 25%, transparent); }
-.noite-relogio { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
-.noite-relogio b { color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; }
+/* cartao da quadra de quem so olha: cada dupla na sua caixa (o mesmo desenho do "venceu" da admin), a forca dentro */
+.dupla-caixa {
+  display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px 8px 8px 12px;
+  border: 1.5px solid var(--line); border-radius: 14px; background: var(--card);
+}
+.dupla-caixa .names { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; }
+.forca-caixa {
+  flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 58px; align-self: stretch; padding: 2px 8px; border-radius: 10px;
+  background: var(--purple-suave); border: 1px solid var(--line);
+}
+.forca-caixa small { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.forca-caixa b { font-size: 17px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+/* o "X" numa bolinha por cima da emenda das duas caixas */
+.vs.vs-bolinha {
+  position: relative; z-index: 1; width: 24px; height: 24px; margin: -7px auto; display: grid; place-items: center;
+  border-radius: 50%; background: var(--card); border: 1.5px solid var(--line); letter-spacing: 0; font-size: 10px;
+}
+.noite-relogio { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.noite-relogio .ao-vivo { font-size: 12.5px; }
+/* AO VIVO / Aguardando inicio: no painel e no cabecalho de cada quadra (logada e visitante) */
+/* no cabecalho da quadra: quadra + etiquetas numa linha so; sem espaco, o status desce inteiro para a linha de baixo */
+.match-head:has(.ao-vivo, .aguardando-inicio) { flex-wrap: wrap; column-gap: 8px; row-gap: 4px; align-items: center; }
+.match-head:has(.ao-vivo, .aguardando-inicio) > span:first-child { white-space: nowrap; }
+.match-head .ao-vivo, .match-head .aguardando-inicio { margin-left: auto; }
+.ao-vivo, .aguardando-inicio {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+}
+.ao-vivo { color: var(--verde); }
+.aguardando-inicio { color: var(--muted); }
+.cronometro { color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; }
+.ponto-vivo { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); }
+.ponto-vivo.vermelho { background: #ef4444; }
+.ponto-vivo::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit;
+  animation: ponto-pulsando 1.6s cubic-bezier(.23, 1, .32, 1) infinite;
+}
+/* a parte pintada das barras do que esta acontecendo agora reluz no ritmo da bolinha do AO VIVO:
+   uma copia borrada por baixo que so muda de opacidade (o borrao e fixo; anima so opacity) */
+.brilho-vivo::after {
+  content: ''; position: absolute; inset: -1px 0; z-index: -1; border-radius: inherit; background: inherit;
+  filter: blur(6px); opacity: .25; animation: brilho-pulsando 1.6s ease-in-out infinite alternate;
+}
+@keyframes brilho-pulsando { to { opacity: .85; } }
+@keyframes ponto-pulsando { from { transform: scale(1); opacity: .7; } to { transform: scale(2.8); opacity: 0; } }
 .noite-rodape { margin-top: 6px; font-size: 12px; color: var(--muted); }
 .noite-rodape strong { color: var(--text); }
 .play-gestao {
@@ -2434,4 +2493,5 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 }
 @media (prefers-reduced-motion: reduce) {
   .noite-barra > span { transition: none; }
+  .noite-jogando::before, .momento-jogando::before, .ponto-vivo::after, .brilho-vivo::after { animation: none; }
 }

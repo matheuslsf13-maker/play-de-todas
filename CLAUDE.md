@@ -732,8 +732,12 @@ masculino e o misto descrevem esse código parado.
   placar (4 a 60 min) diz quanto levou; a previsão multiplica pela razão medido/calibrado com peso `n/(n+4)` (trava
   0,6–1,8). `restanteDaNoite(..., fator)` com fator 1 = a conta de antes (os testes de equivalência continuam valendo);
   Play e cartão da tela inicial usam o mesmo fator. `tests/ritmoDaNoite.test.ts`.
+- **Cartão AO VIVO da tela inicial e da aba Play**: a barra tem a parte "em quadra" listrada andando (`barra.jogando` no
+  `Quadro` de `CartaoDoMomento.tsx`, `.momento-jogando`). **A parte pintada reluz pulsando** (`.brilho-vivo`, cópia borrada
+  que só muda de opacidade, no ritmo da bolinha) **só no que está acontecendo agora**: painel do play, cartão ao vivo e
+  lista aberta (`barra.brilha`). Barras de dados (vagas de mensalista, ficha, Stats) ficam paradas de propósito.
 - **Painel da noite no play rodando** (`components/PainelDaNoite.tsx`): número grande, barra (jogadas, em quadra
-  listrada, tracinho do mata-mata), "termina ~HHhMM", "▶️ Rolando há 1h12 · 1ª partida às 20h10" (desde o 1º início; anda sozinho a cada 20 s) e o ritmo; o cartão da quadra mostra "Jogando há 6 min · desde 21h04" (`TempoEmQuadra`); a regra e o ritmo detalhado ficam no "📋 Como vai a
+  listrada, tracinho do mata-mata), "termina ~HHhMM", "● AO VIVO 1:00:02 · 1ª partida às 20h10" (bolinha verde pulsando + cronômetro desde o 1º início, segundo a segundo) e o ritmo; o cabeçalho de cada quadra mostra "● AO VIVO 06:02" (iniciada) ou "● Aguardando início" (vermelha), **logada e visitante** (`AoVivo`/`AguardandoInicio`); o "em quadra" é rosa com faixas claras andando, como barra carregando, e nasce do zero por baixo das jogadas (as duas partes coladas; parado com `prefers-reduced-motion`); **a admin e quem só olha** veem no cartão da quadra cada dupla na sua caixa (a admin **toca na caixa da dupla que venceu** para lançar o placar: o botão "venceu" saiu, 08/11; o "Corrigir o placar" ainda tem o "venceu") (`.dupla-caixa`, o desenho do "venceu" da admin, com o "X" numa bolinha na emenda) e, dentro dela, "FORÇA 1530" com a **força da dupla antes do play** (`forcaDeDuplas` sem este play; dupla sem histórico = média das duas no dia; "🔍" com alguém em avaliação); a regra e o ritmo detalhado ficam no "📋 Como vai a
   noite"; Entra/sai e Refazer num grupo "Arrumar a noite". **Numeração da noite** (`ListaDePartidas`, props `antes` e
   `porGrupo`): jogadas pela ordem em que terminaram (não o `round`), a fila continua depois das jogadas, das em quadra e
   das já separadas para as quadras; com chip de grupo, a sequência é a do grupo; no campeonato as jogadas contam por

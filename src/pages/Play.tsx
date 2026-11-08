@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useVoltar } from '../lib/voltar'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { cabeMensalista } from '../lib/vagasDeMensalista'
@@ -126,7 +126,7 @@ import {
   type Regra,
   type Tie,
 } from '../lib/desempate'
-import { ajusteDeEntrosamento, avaliacaoCurta, emAvaliacao, nivelDeForca, notaDeForca } from '../lib/forca'
+import { ajusteDeEntrosamento, avaliacaoCurta, emAvaliacao, forcaDaDupla, forcaDeDuplas, nivelDeForca, notaDeForca } from '../lib/forca'
 import { OPCOES_DE_FASE, resumoDaFase } from '../lib/desempate'
 import {
   CATEGORIAS,
@@ -166,7 +166,7 @@ import {
   type PlaySession,
 } from '../lib/types'
 import { RankTable } from './Ranking'
-import PainelDaNoite, { TempoEmQuadra } from '../components/PainelDaNoite'
+import PainelDaNoite, { AguardandoInicio, AoVivo } from '../components/PainelDaNoite'
 
 /** Os formatos, na ordem em que fazem sentido escolher. */
 /** O formato escolhido na tela: o campeonato e um `grupos-duplas` com categorias. */
@@ -2266,6 +2266,17 @@ function PlayDetail({
     () => emAvaliacao({ ...data, matches: data.matches.filter((m) => m.session_id !== session.id) }),
     [data, session.id],
   )
+  /** A forca de cada dupla ANTES deste play (a da aba Dupla), para o cartao da quadra de quem so olha. */
+  const duplasAntes = useMemo(
+    () => forcaDeDuplas({ ...data, matches: data.matches.filter((m) => m.session_id !== session.id) }),
+    [data, session.id],
+  )
+  // com alguem em avaliacao a forca da dupla entregaria a dela (parte da media das duas): so "🔍" para quem nao e admin
+  const forcaDoTime = (time: string[]): string => {
+    if (!canEdit && time.some((id) => avaliacaoNoPlay.has(id))) return '🔍'
+    const d = duplasAntes.get([...time].sort().join('|'))
+    return String(d?.nota ?? forcaDaDupla(notaDeForca(forcaDoDia.get(time[0]) ?? 2), notaDeForca(forcaDoDia.get(time[1]) ?? 2)))
+  }
   const grupoDe = useMemo(() => {
     const map = new Map<string, number>()
     grupos?.forEach((g, i) => g.forEach((id) => map.set(id, i + 1)))
@@ -3851,6 +3862,7 @@ function PlayDetail({
                 desempate={regraDe(m)}
                 rodada={rotuloDaQuadra(m)}
                 editable={editable}
+                forcaDoTime={forcaDoTime}
                 iniciada={!!atual}
                 inicio={inicioDe(m)}
                 ocupadas={ocupadasFora(m)}
@@ -4530,6 +4542,7 @@ function MatchCard({
   desempate,
   rodada,
   editable,
+  forcaDoTime,
   iniciada,
   inicio,
   ocupadas,
@@ -4554,6 +4567,8 @@ function MatchCard({
   /** Nome da rodada do mata-mata, quando ha. */
   rodada?: string
   editable: boolean
+  /** A forca da dupla ("1512" ou "🔍"), no lugar dos botoes de placar de quem so olha. */
+  forcaDoTime: (time: string[]) => string
   iniciada: boolean
   inicio: string | null
   /** Indisponiveis: jogando agora ou ja escaladas para outra quadra. */
@@ -4609,7 +4624,7 @@ function MatchCard({
           </span>
         )}
       </span>
-      <span>{iniciada ? '🟢 em quadra' : editable ? 'próxima' : 'sem placar'}</span>
+      {iniciada && inicio ? <AoVivo desde={inicio} /> : <AguardandoInicio />}
     </div>
   )
 
@@ -4618,9 +4633,18 @@ function MatchCard({
     return (
       <div className={`match ${corDoGrupo}${iniciada ? ' em-quadra' : ''}`}>
         {cabecalho}
-        <div className="team"><Duo ids={match.team_a} /></div>
-        <div className="vs">X</div>
-        <div className="team"><Duo ids={match.team_b} /></div>
+        {[match.team_a, match.team_b].map((time, i) => (
+          <Fragment key={i}>
+            {i === 1 && <div className="vs vs-bolinha" aria-label="contra">X</div>}
+            <div className="dupla-caixa">
+              <Duo ids={time} />
+              <span className="forca-caixa" title="força da dupla antes do play">
+                <small>força</small>
+                <b>{forcaDoTime(time)}</b>
+              </span>
+            </div>
+          </Fragment>
+        ))}
       </div>
     )
   }
@@ -4662,7 +4686,7 @@ function MatchCard({
       {iniciada ? (
         <div className="row spread" style={{ marginBottom: 8 }}>
           <span className="tiny" style={{ fontWeight: 800, color: 'var(--teal)' }}>
-            ⏱️ <TempoEmQuadra desde={inicio as string} />
+            ▶️ Começou às {horaLocal(inicio as string)}
           </span>
           <button className="linkish" onClick={onCancelarInicio}>desfazer</button>
         </div>
@@ -4678,20 +4702,34 @@ function MatchCard({
         esses dois dados que dizem quem esta em quadra e quem esta fora ha mais
         tempo. E tambem evita lancar sem querer o placar da quadra errada.
       */}
-      <button className="pick-team" disabled={!iniciada} onClick={() => setWinner('a')}>
-        <Duo ids={match.team_a} ocupadas={iniciada ? undefined : ocupadas} />
-        <span className="pick-tag">venceu</span>
-      </button>
-      <div className="vs">X</div>
-      <button className="pick-team" disabled={!iniciada} onClick={() => setWinner('b')}>
-        <Duo ids={match.team_b} ocupadas={iniciada ? undefined : ocupadas} />
-        <span className="pick-tag">venceu</span>
-      </button>
-      {!iniciada && (
-        <p className="tiny muted" style={{ margin: '8px 0 0', textAlign: 'center' }}>
-          Toque em <strong>Partida iniciada</strong> para poder lançar o placar.
-        </p>
-      )}
+      {/* a dupla inteira e o botao (dono, 08/11): no lugar do "venceu", a forca dela, como na tela de quem so olha */}
+      {(['a', 'b'] as const).map((lado) => {
+        const time = lado === 'a' ? match.team_a : match.team_b
+        return (
+          <Fragment key={lado}>
+            {lado === 'b' && <div className="vs vs-bolinha" aria-hidden="true">X</div>}
+            <button
+              className="pick-team"
+              disabled={!iniciada}
+              onClick={() => setWinner(lado)}
+              aria-label={`${time.map(nameOf).join(' + ')} venceu`}
+            >
+              <Duo ids={time} ocupadas={iniciada ? undefined : ocupadas} />
+              <span className="forca-caixa" title="força da dupla antes do play">
+                <small>força</small>
+                <b>{forcaDoTime(time)}</b>
+              </span>
+            </button>
+          </Fragment>
+        )
+      })}
+      <p className="tiny muted" style={{ margin: '8px 0 0', textAlign: 'center' }}>
+        {iniciada ? (
+          <>👆 Toque na <strong>dupla que venceu</strong> para lançar o placar.</>
+        ) : (
+          <>Toque em <strong>Partida iniciada</strong> para poder lançar o placar.</>
+        )}
+      </p>
 
       <div className="row" style={{ gap: 8, marginTop: 8 }}>
         <button className="btn ghost sm grow" onClick={() => setTrocando(true)}>🔄 Trocar jogadora</button>
