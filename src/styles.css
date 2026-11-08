@@ -269,9 +269,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--sempre-escuro);
   color: var(--sempre-claro);
   cursor: pointer;
-  transition: filter .15s, transform .05s;
+  transition: filter .15s, transform 160ms ease-out;
 }
-.btn:active { transform: translateY(1px); }
+.btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.pink { background: var(--pink); }
 .btn.purple { background: var(--purple); }
@@ -315,7 +315,9 @@ label.field { display: block; }
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 160ms ease-out;
 }
+.chip:active:not(.disponivel) { transform: scale(.97); }
 .chip.on { background: var(--pink); border-color: var(--pink); color: var(--sempre-escuro); }
 .chip.off { opacity: .75; }
 
@@ -2125,3 +2127,5 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 /* aluguel da V3: a conta na hora (D47) */
 .conta-aluguel { display: grid; gap: 3px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
 .conta-aluguel .pagar { color: var(--text); font-size: 14px; }
+/* o quadro ja ocupa o lugar antes do valor: nada pula sob o dedo ao digitar */
+.conta-aluguel.vazio { min-height: 62px; align-content: center; }
