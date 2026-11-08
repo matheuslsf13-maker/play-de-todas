@@ -38,7 +38,8 @@ export const mensalistasAtivas = (data: AppData, hoje = todayISO()) =>
 /** A espera, na ordem do pedido (quem ja virou mensalista sai da conta). */
 export function filaDeEspera(data: AppData): Player[] {
   return data.players
-    .filter((p) => p.espera_mensalista && categoriaDe(p) !== 'mensalista')
+    // inativa nao ocupa a vez: a vaga reservada ficaria presa a quem nao esta jogando
+    .filter((p) => p.active && p.espera_mensalista && categoriaDe(p) !== 'mensalista')
     .sort((a, b) => (a.espera_mensalista as string).localeCompare(b.espera_mensalista as string) || a.name.localeCompare(b.name, 'pt-BR'))
 }
 
@@ -55,6 +56,22 @@ export function cabeMensalista(data: AppData, p: Player, hoje = todayISO()): boo
   if (categoriaDe(p) === 'mensalista') return true
   const posicao = filaDeEspera(data).findIndex((x) => x.id === p.id)
   return posicao >= 0 ? posicao < vagasLivres(data, hoje) : vagasParaNovas(data, hoje) > 0
+}
+
+/**
+ * REGRA UNICA DE ENTRADA (cadastro novo, importar lista, Nova atleta no play): mensalista so se couber
+ * (a fila segura as vagas livres); lotado, entra como avulsa na lista de espera. `jaNaLeva` = quantas
+ * novas mensalistas a mesma leva ja pegou (importar varias de uma vez). So no Play de Todas.
+ */
+export function entradaComo(
+  data: AppData,
+  categoria: string,
+  { jaNaLeva = 0, feminino = true, agora = new Date() }: { jaNaLeva?: number; feminino?: boolean; agora?: Date } = {},
+): { categoria: string; espera_mensalista: string | null; lotado: boolean } {
+  const lotado = feminino && categoria === 'mensalista' && vagasParaNovas(data) <= jaNaLeva
+  if (!lotado) return { categoria, espera_mensalista: null, lotado: false }
+  // +jaNaLeva ms: a ordem da leva vira a ordem da fila
+  return { categoria: 'avulsa', espera_mensalista: new Date(agora.getTime() + jaNaLeva).toISOString(), lotado: true }
 }
 
 /** O que a organizadora precisa saber antes de tirar alguem das mensalistas (a divida e o credito ficam na ficha). */

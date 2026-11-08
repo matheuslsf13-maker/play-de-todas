@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LIGA } from '../liga'
 import ForcaInicial from './ForcaInicial'
 import EscolherGenero, { precisaDeGenero, type Genero } from './EscolherGenero'
 import { Modal } from './ui'
@@ -6,6 +7,7 @@ import { CATEGORIAS, type Categoria } from '../lib/mensalidade'
 import { normalizar, semInvisiveis } from '../lib/roster'
 import { mediaDaForca } from '../lib/stats'
 import { useStore } from '../lib/store'
+import { entradaComo } from '../lib/vagasDeMensalista'
 import { uid, type Player } from '../lib/types'
 
 /**
@@ -43,6 +45,8 @@ export default function NovaAtleta({
     // limpo aqui: quem chama (Cadastrar e vincular) grava o mesmo `p` direto no repo
     const n = semInvisiveis(nome).trim()
     if (!n || (precisaDeGenero && !genero)) return
+    // mesma regra do cadastro em Meninas: lotado (ou vaga da fila), entra como avulsa na lista de espera
+    const entrada = entradaComo(data, categoria, { feminino: LIGA.id === 'feminino' })
     const p: Player = {
       id: uid(),
       ...(genero ? { genero } : {}),
@@ -51,7 +55,8 @@ export default function NovaAtleta({
       photo_url: null,
       active: true,
       created_at: new Date().toISOString(),
-      categoria,
+      categoria: entrada.categoria,
+      ...(entrada.lotado ? { espera_mensalista: entrada.espera_mensalista } : {}),
       pago_mes: null,
       pago_avulso: false,
       // na media: grava nulo, e ela entra na media do dia em que estrear
@@ -94,6 +99,11 @@ export default function NovaAtleta({
             ))}
           </div>
         </div>
+        {entradaComo(data, categoria, { feminino: LIGA.id === 'feminino' }).lotado && (
+          <div className="banner warn" style={{ margin: 0 }}>
+            ⏳ O limite de mensalistas está cheio (ou as vagas livres são da lista de espera): ela entra como avulsa na lista de espera.
+          </div>
+        )}
         <ForcaInicial valor={forca} onChange={setForca} media={media} />
         <button className="btn pink block" disabled={!nome.trim() || (precisaDeGenero && !genero)} onClick={() => void criar()}>
           {acao}

@@ -50,7 +50,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
 
   function salvarLimite() {
     const n = Number(texto)
-    if (!Number.isInteger(n) || n < 0) return onToast('Digite um número inteiro.')
+    if (texto.trim() === '' || !Number.isInteger(n) || n < 0) return onToast('Digite um número inteiro.')
     try {
       saveAjuste({ id: CHAVE_DO_LIMITE, valor: n, updated_at: new Date().toISOString() })
       setEditando(false)

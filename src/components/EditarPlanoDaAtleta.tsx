@@ -55,7 +55,8 @@ export function EditarPlanoDaAtleta({
     savePlayer({
       ...jogadora,
       categoria,
-      espera_mensalista: feminino ? naEspera : jogadora.espera_mensalista ?? null,
+      // fora do feminino a coluna nem existe no banco: nao manda a chave
+      ...(feminino ? { espera_mensalista: naEspera } : {}),
       pago_mes: mudou ? null : jogadora.pago_mes,
       pago_avulso: mudou ? false : jogadora.pago_avulso,
     })
@@ -122,7 +123,7 @@ export function EditarPlanoDaAtleta({
       {saindo && c && (
         <div className="banner warn" style={{ marginTop: 10 }}>
           ⚠️ Ela deixa de ser mensalista e a vaga fica livre
-          {c.proxima ? ` (a próxima da lista de espera é ${nameOf(c.proxima.id)})` : ''}. Em listas de presença abertas, deixa de ser garantida.
+          {c.proxima ? ` (a próxima da lista de espera é ${nameOf(c.proxima.id)})` : ''}. Nas listas de presença abertas ela mantém o lugar, mas o 💰 passa a cobrar o play como avulsa.
           {c.divida > 0 && <><br />💸 Deve {formatarReais(c.divida)} da mensalidade: continua na ficha (Financeiro › Mensalistas).</>}
           {c.credito > 0 && <><br />🎟️ Tem {formatarReais(c.credito)} de crédito da mensalidade, que continua na ficha.</>}
         </div>

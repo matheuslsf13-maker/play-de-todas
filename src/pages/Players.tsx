@@ -22,7 +22,7 @@ import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
 import { plural, todayISO, uid, type Player } from '../lib/types'
 import { HistoricoFinanceiro } from '../components/HistoricoFinanceiro'
-import { vagasParaNovas } from '../lib/vagasDeMensalista'
+import { entradaComo } from '../lib/vagasDeMensalista'
 
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const { data, savePlayer, deletePlayer, mergePlayers, canEdit, repo } = useStore()
@@ -129,8 +129,8 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
       forca_inicial: forcaDaNova === mediaHoje ? null : forcaDaNova,
     }
     // mensalistas lotadas (dono, 07/11): entra como avulsa e vai para a lista de espera
-    const lotado = LIGA.id === 'feminino' && novaCategoria === 'mensalista' && vagasParaNovas(data) === 0
-    if (lotado) Object.assign(p, { categoria: 'avulsa', espera_mensalista: new Date().toISOString() })
+    const { lotado, ...entrada } = entradaComo(data, novaCategoria, { feminino: LIGA.id === 'feminino' })
+    if (lotado) Object.assign(p, entrada)
     await savePlayer(p)
     if (lotado) onToast(`Mensalistas lotadas: ${n} entrou como avulsa e está na lista de espera`)
     setName('')
@@ -675,7 +675,10 @@ function EditarPerfil({
       )}
 
       <p className="tiny muted" style={{ marginTop: 12 }}>
-        💳 Como ela paga ({CATEGORIAS.find((c) => c.valor === categoriaDe(jogadora))?.rotulo}): edite em <strong>Financeiro › Atletas</strong>.
+        💳 Como ela paga ({CATEGORIAS.find((c) => c.valor === categoriaDe(jogadora))?.rotulo}):{' '}
+        {LIGA.id === 'misto'
+          ? <>edite no <strong>Play de Todas</strong> ou no <strong>Play de Terça</strong>, de onde ela veio.</>
+          : <>edite em <strong>Financeiro › Atletas</strong>.</>}
       </p>
 
       <ForcaInicial

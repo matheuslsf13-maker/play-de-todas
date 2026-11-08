@@ -40,8 +40,10 @@ test('mensalista: em dia nao e cobrada; atrasada depois do dia 5 e cobrada como 
   const cedo = { ...lista, play_em: '2026-11-02T23:00:00Z' }
   assert.equal(tipoNaLista(emptyData(), m('2026-10'), cedo), 'mensalista')
   assert.equal(tipoNaLista(emptyData(), m('2026-09'), cedo), 'mensalista-atrasada')
-  // atrasada paga o play, nao o mes: o 💰 nao mexe no cadastro dela
-  assert.equal(pagoAvulsoDaLista(dados(), lista, m('2026-10'), true), null)
+  // atrasada paga o play, nao o mes: o 💰 marca so o "play pago" (libera o Novo Play), nunca o pago_mes
+  const atrasada = pagoAvulsoDaLista(dados(), lista, m('2026-10'), true)
+  assert.equal(atrasada?.pago_avulso, true)
+  assert.equal(atrasada?.pago_mes, '2026-10')
 })
 
 test('pago da avulsa em Meninas: marca ao lancar, desmarca ao desfazer; finalizar gasta o credito', () => {

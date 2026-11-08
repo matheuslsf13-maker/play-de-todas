@@ -88,7 +88,7 @@ export function valorDaFicha(f: Ficha, data?: string): number {
 
 export const faltaDaFicha = (f: Ficha, data?: string) => Math.max(0, centavos(f.valor_cheio - valorDaFicha(f, data)))
 /** Renovou: entrou dinheiro (o valor inicial). So check-in, sem pagar, nao inicia (e nao gera divida). */
-export const iniciada = (f: Ficha, data?: string) => dinheiroDaFicha(f, data) > 0
+export const iniciada = (f: Ficha, data?: string) => dinheiroDaFicha(f, data) > 0 || renovada(f, data)
 export const quitada = (f: Ficha, data?: string) => f.itens.length > 0 && faltaDaFicha(f, data) === 0
 /** A parte em dinheiro que renova (80 no padrao): o cheio menos o que os check-ins valem. */
 export const valorParaRenovar = (f: Ficha) => centavos(f.valor_cheio - f.max_checkins * f.valor_checkin)
@@ -241,7 +241,8 @@ export function mesSugeridoDoCheckin(data: AppData, playerId: string, date: stri
   for (const mes of mesesDaAtleta(data, playerId)) {
     if (mes > doMes) break
     const f = fichaDe(data, playerId, mes)
-    if (iniciada(f) && checkinsDaFicha(f) < f.max_checkins && faltaDaFicha(f) > 0) return mes
+    // so uma ficha RENOVADA recebe check-in: a que nao renovou virou credito e o check-in nela some
+    if (renovada(f, date) && iniciada(f) && checkinsDaFicha(f) < f.max_checkins && faltaDaFicha(f) > 0) return mes
   }
   let mes = doMes
   for (let f = fichaDe(data, playerId, mes); quitada(f) || checkinsDaFicha(f) >= f.max_checkins; f = fichaDe(data, playerId, mes)) mes = proximoMes(mes)
@@ -268,11 +269,11 @@ export type MarcaDaMensalista = 'quitada' | 'integral' | 'parcial' | 'falta' | '
 export function marcasDaMensalista(f: Ficha, devendoAntes: number): MarcaDaMensalista[] {
   const marcas: MarcaDaMensalista[] = []
   const dinheiro = dinheiroDaFicha(f)
-  if (quitada(f)) marcas.push('quitada')
+  if (quitada(f) && devendoAntes === 0) marcas.push('quitada')
   if (dinheiro >= f.valor_cheio) marcas.push('integral')
   else if (dinheiro > 0) marcas.push('parcial')
   if (iniciada(f) && !quitada(f)) marcas.push('falta')
   if (devendoAntes > 0) marcas.push('deve')
-  if (dinheiro === 0) marcas.push('sem-pagamento')
+  if (dinheiro === 0 && !renovada(f)) marcas.push('sem-pagamento')
   return marcas
 }
