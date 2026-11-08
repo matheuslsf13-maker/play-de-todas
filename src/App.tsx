@@ -1,4 +1,5 @@
 import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
+import { IconeDaAba } from './components/IconesDeAba'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { LIGA } from './liga'
 import { Logo, Modal, Toast, useToast } from './components/ui'
@@ -37,13 +38,13 @@ type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
  * dos check-ins tambem so se leem logada (script 23), porque esconder a aba
  * nao esconde o dado de quem tem a chave publica do site.
  */
-type Aba = { id: Tab; label: string; icon: string; soAdmin?: boolean }
+type Aba = { id: Tab; label: string; soAdmin?: boolean }
 const TABS: Aba[] = ([
-  { id: 'ranking', label: 'Ranking', icon: '🏆' },
-  { id: 'play', label: 'Play', icon: '🎾' },
-  { id: 'stats', label: 'Desempenho', icon: '📊' },
-  { id: 'players', label: 'Meninas', icon: '👯', soAdmin: true },
-  { id: 'checkins', label: 'Financeiro', icon: '💰', soAdmin: true },
+  { id: 'ranking', label: 'Ranking' },
+  { id: 'play', label: 'Play' },
+  { id: 'stats', label: 'Desempenho' },
+  { id: 'players', label: 'Meninas', soAdmin: true },
+  { id: 'checkins', label: 'Financeiro', soAdmin: true },
 ] as Aba[])
   // o misto nao tem check-ins: o dinheiro e de cada campeonato
   .filter((t) => !(LIGA.id === 'misto' && t.id === 'checkins'))
@@ -318,7 +319,7 @@ export default function App() {
       <nav className="tabbar">
         {abas.map((t) => (
           <button key={t.id} className={!lista && abaVisivel === t.id ? 'active' : ''} onClick={() => irParaAba(t.id)}>
-            <span className="ic">{t.icon}</span>
+            <span className="ic"><IconeDaAba id={t.id} /></span>
             {t.label}
           </button>
         ))}

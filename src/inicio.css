@@ -171,3 +171,42 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 .momento-rostos > .avatar { margin-left: -4px; }
 /* na tela inicial a secao seguinte ja tem o proprio respiro: o cartao nao soma margem em cima dela */
 .card.momento + .ini-sec { margin-top: 14px; }
+
+/* barra de abas: icones de traco no lugar dos emojis (dono, 09/11) */
+.tabbar button .ic { display: flex; height: 24px; align-items: center; justify-content: center; }
+.tabbar button .ic svg { display: block; }
+.tabbar button.active .ic svg { stroke-width: 2.1; }
+
+/* ---------- aba Play (modelo A + P, dono 09/11) ---------- */
+.pl-novo { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--pink); color: var(--sempre-escuro); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.pl-novo:active { transform: scale(.96); }
+.ini-cap { margin: 16px 4px 6px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ini-sec + .ini-cap, .aviso-do-banco + .ini-cap { margin-top: 4px; }
+/* linha que desliza: o "Apagar" fica por baixo, vermelho */
+.pl-desliza { position: relative; overflow: hidden; background: var(--danger); }
+.pl-desliza + .pl-desliza .pl-linha { border-top: .5px solid var(--sep); }
+.pl-apagar { position: absolute; right: 0; top: 0; bottom: 0; width: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; background: var(--danger); color: #fff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.pl-linha { position: relative; background: var(--card); touch-action: pan-y; cursor: pointer; transition: transform 240ms var(--ease-out), background-color 140ms var(--ease-out); outline-offset: -2px; }
+.pl-linha:active { background: var(--card-2); }
+.pl-linha .g > b { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .pl-linha { transition: background-color 140ms; } }
+
+/* play por dentro: cabecalho sem cartao, abas e atalhos */
+.pl-topo { margin: 2px 0 14px; }
+.pl-voltar { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding-right: 10px; color: var(--pink); font-size: 16px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.pl-voltar:active { opacity: .55; }
+.pl-mais { flex: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; padding: 0 0 5px; border: 1px solid var(--line); border-radius: 50%; background: var(--card); color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.pl-mais:active { transform: scale(.92); }
+.pl-titulo { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+.pl-qa { display: flex; gap: 8px; margin-top: 12px; }
+.pl-qa .btn { flex: 1; justify-content: center; min-height: 44px; border-radius: 14px; background: var(--card); }
+.pl-abas { position: sticky; top: var(--topo-alto, 60px); z-index: 12; display: flex; gap: 2px; padding: 2px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--fundo-2) 88%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.pl-abas button { flex: 1; min-width: 0; min-height: 40px; padding: 0 4px; border: 0; border-radius: 11px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: background-color 200ms var(--ease-out), color 200ms var(--ease-out), transform 140ms var(--ease-out); }
+.pl-abas button:active { transform: scale(.97); }
+.pl-abas button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+.folha-secao { margin: 12px 2px 6px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.folha-secao:first-child { margin-top: 0; }
+
+/* material translucido mais firme: onde o navegador nao desfoca o fundo (ou desfoca pouco), o que passa por baixo nao atrapalha o texto */
+.st-topo { background: color-mix(in srgb, var(--fundo) 92%, transparent); }
+.tabbar { background: color-mix(in srgb, var(--card) 90%, transparent); }
