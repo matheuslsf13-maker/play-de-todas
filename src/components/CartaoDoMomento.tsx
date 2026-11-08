@@ -204,7 +204,7 @@ function Quadro(p: {
           aria-valuenow={Math.min(barra.valor, barra.max)}
         >
           {/* em quadra: nasce do zero por baixo das jogadas, as duas partes coladas */}
-          {pctComJogando > pct && <em className="momento-jogando" style={{ width: `${montou ? pctComJogando : 0}%` }} />}
+          {pctComJogando > pct && <em className="momento-jogando" style={{ width: `${montou ? pctComJogando : 0}%`, ['--s' as string]: `${(pct / pctComJogando) * 100}%` }} />}
           <span className={[pctComJogando > pct && 'colada', barra.brilha && 'brilho-vivo'].filter(Boolean).join(' ') || undefined} style={{ width: `${montou ? pct : 0}%` }} />
           {marca != null && (
             <>

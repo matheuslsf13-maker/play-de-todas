@@ -2454,6 +2454,23 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
   animation: listras-andando 700ms linear infinite;
 }
 @keyframes listras-andando { to { transform: translateX(14.142px); } }
+/* O ENCONTRO da parte solida com as listras (modelo C, dono 08/11): a solida esmaece nas pontas (uns 18 px, nunca mais
+   que metade dela) e as listras nascem aos poucos a partir de onde a solida termina (`--s`, em % da parte que anda).
+   So muda o fundo: a largura, a previsao e o brilho continuam como eram. */
+.noite-jogadas.colada {
+  --f: min(18px, 55%);
+  background: linear-gradient(90deg, var(--purple) 0%, var(--pink) calc((100% - var(--f)) * .52), var(--orange) calc(100% - var(--f)), color-mix(in srgb, var(--orange) 0%, transparent) 100%);
+}
+.momento-barra > span.colada {
+  --f: min(18px, 55%);
+  background: linear-gradient(90deg, var(--m) calc(100% - var(--f)), color-mix(in srgb, var(--m) 0%, transparent) 100%);
+}
+.noite-jogando::after, .momento-jogando::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, var(--cor-base) var(--s, 0%), color-mix(in srgb, var(--cor-base) 0%, transparent) calc(var(--s, 0%) + 18px));
+}
+.noite-jogando { --cor-base: var(--pink); }
+.momento-jogando { --cor-base: var(--m); }
 .noite-marca {
   position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; z-index: 2;
   border-radius: 2px; background: var(--text);
