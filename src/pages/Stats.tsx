@@ -173,7 +173,10 @@ export default function Stats({
           period={period}
         />
       ) : (
-        <PainelDuplas matches={matches} />
+        // nas duplas o nome nao abre a ficha individual (dono, 08/11): tocar na dupla abre so o stats dela
+        <ProvedorDePerfil value={null}>
+          <PainelDuplas matches={matches} />
+        </ProvedorDePerfil>
       )}
     </ProvedorDePerfil>
   )
@@ -453,7 +456,12 @@ export function PerfilDaDupla({ a, b, onClose }: { a: string; b: string; onClose
     [data.sessions, matches, a, b],
   )
   if (!duo) return null
-  return <DetalheDupla duo={duo} matches={matches} onClose={onClose} />
+  // aberto da tela inicial: os nomes tambem nao levam a ficha individual (dono, 08/11)
+  return (
+    <ProvedorDePerfil value={null}>
+      <DetalheDupla duo={duo} matches={matches} onClose={onClose} />
+    </ProvedorDePerfil>
+  )
 }
 
 /* ---------------------------------------------------------- por dupla */
