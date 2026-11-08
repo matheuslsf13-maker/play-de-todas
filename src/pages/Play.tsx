@@ -1,4 +1,5 @@
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import CampoDeBusca from '../components/CampoDeBusca'
 import { useVoltar } from '../lib/voltar'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { cabeMensalista } from '../lib/vagasDeMensalista'
@@ -8,6 +9,7 @@ const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import CartaoDoMomento from '../components/CartaoDoMomento'
+import { estaAoVivo } from '../lib/momentoDaInicio'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista, type ListaCompleta } from '../lib/listaDePresenca'
 import { avisoDoFinanceiro, desfazerDoPlay, diaParaLigar } from '../lib/pagamentoNaLista'
@@ -355,7 +357,7 @@ function PlayList({
                     {/* o selo desce para a linha de baixo quando nao cabe: antes ele cortava o nome ("Play de 0...") */}
                     <div className="row wrap" style={{ gap: '2px 8px' }}>
                       <strong className="ellipsis" style={{ maxWidth: '100%' }}>{s.title}</strong>
-                      <span className={`badge ${s.status}`}>{s.status === 'open' ? 'em andamento' : 'finalizado'}</span>
+                      <BadgeDoPlay s={s} matches={ms} />
                     </div>
                     <div className="tiny muted">
                       {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {done === ms.length ? ms.length : `${done}/${ms.length}`} partidas
@@ -1188,15 +1190,7 @@ function NewPlay({
           </Empty>
         ) : (
           <>
-          <input
-            className="input"
-            type="search"
-            placeholder="Buscar pelo nome ou apelido"
-            value={buscaQuem}
-            onChange={(e) => setBuscaQuem(e.target.value)}
-            style={{ marginTop: 10 }}
-            aria-label="Buscar atleta"
-          />
+          <CampoDeBusca valor={buscaQuem} onMudar={setBuscaQuem} placeholder="Buscar pelo nome ou apelido" rotulo="Buscar atleta" style={{ marginTop: 10 }} />
           {visiveis.length === 0 && <p className="tiny muted" style={{ margin: '8px 0 0' }}>Ninguém com esse nome.</p>}
           <div className="grade-atletas">
             {naGrade.map((p) => {
@@ -3473,7 +3467,7 @@ function PlayDetail({
           <span className="row wrap" style={{ gap: 6, justifyContent: 'flex-end' }}>
             {session.ranked === false && <span className="badge avulso">avulso</span>}
             {!contaNoStatus(session) && <span className="badge avulso">sem 🔥</span>}
-            <span className={`badge ${session.status}`}>{finished ? 'finalizado' : 'em andamento'}</span>
+            <BadgeDoPlay s={session} matches={matches} />
           </span>
         </div>
         <div style={{ marginTop: 10 }}>
@@ -4742,6 +4736,19 @@ function MatchCard({
   )
 }
 
+/**
+ * O selo do play: AO VIVO (verde, bolinha pulsando) quando ha partida iniciada ou lancada agora; aberto sem nada
+ * acontecendo fica neutro. Antes era tudo amarelo, a mesma cor dos selos da lista (dono, 08/11).
+ */
+function BadgeDoPlay({ s, matches }: { s: PlaySession; matches: Match[] }) {
+  if (s.status !== 'open') return <span className="badge finished">finalizado</span>
+  return estaAoVivo(s, matches, new Date()) ? (
+    <span className="badge vivo"><i className="ponto-vivo" aria-hidden="true" />ao vivo</span>
+  ) : (
+    <span className="badge parado">em andamento</span>
+  )
+}
+
 /** Lista compacta de partidas (fila e já jogadas), colapsável. */
 function ListaDePartidas({
   titulo,
@@ -4904,13 +4911,7 @@ function ListaDePartidas({
               ))}
             </div>
           )}
-          <input
-            className="input"
-            type="search"
-            value={busca}
-            placeholder="🔎 Procurar pelo nome"
-            onChange={(e) => setBusca(e.target.value)}
-          />
+          <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Procurar pelo nome" />
           {termo && (
             <p className="tiny muted" style={{ margin: '6px 0 0' }}>
               {achadas.length === 0

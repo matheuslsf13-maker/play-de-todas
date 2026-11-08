@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import CampoDeBusca from '../components/CampoDeBusca'
 import { LIGA } from '../liga'
 import GraficoDeForca from '../components/GraficoDeForca'
 import GraficoDaDupla from '../components/GraficoDaDupla'
@@ -260,16 +261,10 @@ function PainelJogadora({
         )}
         {/* BUSCA: com 30+ meninas, rolar a lista no celular cansa. Ignora acento e
             maiuscula e acha pelo nome ou pelo apelido */}
-        <label className="field">
-          <span>🔎 Buscar menina</span>
-          <input
-            className="input"
-            type="search"
-            placeholder="Digite um pedaço do nome"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </label>
+        <div className="field">
+          <span>Buscar menina</span>
+          <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Digite um pedaço do nome" rotulo="Buscar menina" />
+        </div>
         {achadas.length > 0 && (
           // lista, uma por linha com a foto (os chips soltos ficavam baguncados; dono, 06/11)
           <div className="busca-lista" style={{ margin: '-4px 0 10px' }}>
@@ -524,12 +519,7 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
     <>
       <div className="card">
         <div className="section-title">🤝 Duplas que já jogaram juntas ({duplas.length})</div>
-        <input
-          className="input"
-          placeholder="Buscar por nome…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
+        <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar por nome" />
         <div className="chips-scroll" style={{ marginTop: 5 }}>
           {([['forca', '💪 Mais fortes'], ['entrosamento', '🤝 Mais entrosadas'], ['pontos', 'Mais pontos'], ['aproveitamento', 'Melhor %'], ['jogos', 'Mais jogos']] as [Ordem, string][]).map(
             ([id, txt]) => (

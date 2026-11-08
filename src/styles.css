@@ -333,6 +333,11 @@ label.field { display: block; }
 }
 .badge.open { background: var(--yellow-suave); color: var(--yellow); }
 .badge.finished { background: var(--teal-suave); color: var(--teal); }
+/* play acontecendo agora: verde cheio com a bolinha do AO VIVO; aberto e parado: neutro (o amarelo e dos selos) */
+/* cheio (o "finalizado" e o verde suave): de longe ja se ve qual esta rolando */
+.badge.vivo { display: inline-flex; align-items: center; gap: 6px; background: var(--verde); color: var(--sempre-escuro); }
+.badge.vivo .ponto-vivo { width: 7px; height: 7px; background: var(--sempre-claro); }
+.badge.parado { background: var(--card-2); color: var(--muted); }
 /* play avulso: acontece, conta no historico, mas nao vale para o campeonato */
 .badge.avulso { background: var(--purple-suave); color: var(--purple); }
 /* o selo do play na lista (selos.ts): um so, o mais raro que ele detem agora */
@@ -2279,6 +2284,8 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 
 /* B lista de plays: linha inteira tocavel, com a seta de abrir e a lixeira discreta */
 .play-linha { padding: 4px 0 10px; border-bottom: 1px solid var(--sep); }
+.play-linha:has(.badge.vivo) { margin: 0 -10px; padding: 8px 10px 10px; border-radius: 14px; border-bottom-color: transparent;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--verde) 12%, transparent), transparent 75%); }
 .play-linha:last-child { border-bottom: 0; padding-bottom: 0; }
 .play-linha .grow { -webkit-tap-highlight-color: transparent; transition: opacity 150ms ease; }
 .play-linha .grow:active { opacity: .6; }
@@ -2374,6 +2381,35 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .filtro-rotulo:first-child { margin-top: 0; }
 .chip .filtro-n { opacity: .7; font-variant-numeric: tabular-nums; margin-left: 4px; }
 .filtros-rodape .chip { min-height: 34px; }
+
+/* ==================================================================
+   CAMPO DE BUSCA (components/CampoDeBusca.tsx, 08/11/2026): lupa dentro, halo rosa no foco, ✕ que limpa e
+   "Cancelar" que desliza da direita enquanto o campo esta em uso. 16px no texto: menos que isso o iPhone da zoom.
+   ================================================================== */
+.campo-busca { display: flex; align-items: center; }
+.campo-busca-caixa {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 12px;
+  border-radius: 12px; border: 1px solid var(--line); background: var(--card-2); color: var(--muted); cursor: text;
+  transition: border-color 160ms ease, box-shadow 220ms cubic-bezier(.23, 1, .32, 1);
+}
+.campo-busca.com-foco .campo-busca-caixa { border-color: var(--pink); box-shadow: 0 0 0 4px var(--pink-suave); }
+.campo-busca.com-foco .campo-busca-caixa svg { color: var(--pink); }
+.campo-busca-caixa svg { flex: none; transition: color 160ms ease; }
+.campo-busca-caixa input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-size: 16px; color: var(--text); }
+.campo-busca-caixa input::placeholder { color: var(--muted); opacity: .85; }
+.campo-busca-caixa input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.campo-busca-limpar {
+  flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--muted); font-size: 12px; cursor: pointer;
+}
+.campo-busca-limpar:active { background: var(--line); }
+.campo-busca-cancelar {
+  flex: none; max-width: 0; margin-left: 0; padding: 0; overflow: hidden; white-space: nowrap; border: 0; background: transparent;
+  color: var(--pink); font-weight: 700; font-size: 14.5px; opacity: 0; cursor: pointer;
+  transition: max-width 260ms cubic-bezier(.23, 1, .32, 1), margin-left 260ms cubic-bezier(.23, 1, .32, 1), opacity 180ms ease;
+}
+.campo-busca.com-foco .campo-busca-cancelar { max-width: 90px; margin-left: 10px; padding: 8px 2px; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .campo-busca-caixa, .campo-busca-cancelar, .campo-busca-caixa svg { transition: none; } }
 
 /* ==================================================================
    PLAY RODANDO (08/11/2026): o painel da noite e o grupo "Arrumar a noite".

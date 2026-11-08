@@ -732,6 +732,9 @@ masculino e o misto descrevem esse código parado.
   placar (4 a 60 min) diz quanto levou; a previsão multiplica pela razão medido/calibrado com peso `n/(n+4)` (trava
   0,6–1,8). `restanteDaNoite(..., fator)` com fator 1 = a conta de antes (os testes de equivalência continuam valendo);
   Play e cartão da tela inicial usam o mesmo fator. `tests/ritmoDaNoite.test.ts`.
+- **Selo do play** (`BadgeDoPlay` em Play.tsx, lista de plays e cabeçalho do play): "● AO VIVO" verde cheio com a bolinha
+  pulsando quando `estaAoVivo` (a linha da lista ganha um fundo verde suave); aberto sem nada acontecendo = "em andamento"
+  neutro; "finalizado" verde suave. O amarelo ficou só para os selos da lista (dono, 08/11: confundia).
 - **Cartão AO VIVO da tela inicial e da aba Play**: a barra tem a parte "em quadra" listrada andando (`barra.jogando` no
   `Quadro` de `CartaoDoMomento.tsx`, `.momento-jogando`). **A parte pintada reluz pulsando** (`.brilho-vivo`, cópia borrada
   que só muda de opacidade, no ritmo da bolinha) **só no que está acontecendo agora**: painel do play, cartão ao vivo e
@@ -759,6 +762,9 @@ masculino e o misto descrevem esse código parado.
   carrega o `+` da frente, então a linha só parte entre os dois nomes da dupla.
 - **Separador entre links é desenhado (`::before`), não digitado**: como texto, o
   `·` conta como palavra e vai parar sozinho no fim da linha.
+- **Toda busca é o `CampoDeBusca`** (`components/CampoDeBusca.tsx`, 08/11/2026): lupa dentro, halo rosa no foco, "✕" que
+  limpa sem fechar o teclado e "Cancelar" que desliza da direita (limpa e fecha). Usado em Meninas, Financeiro (Atletas e
+  Mensalistas), montar o play, fila/já jogadas e Stats. Texto em 16px (menos que isso o iPhone dá zoom). Busca nova = ele.
 - **Nada de `(s)`**: use `plural()` de `src/lib/types.ts`.
 - **A aba aberta fica guardada** (`play-de-todas:aba`, e a seção dos Check-ins em
   `play-de-todas:checkins-secao`): o app recarrega ao voltar para a tela, e cair

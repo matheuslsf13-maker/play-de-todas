@@ -1,4 +1,5 @@
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
+import CampoDeBusca from '../components/CampoDeBusca'
 import EscolherGenero, { precisaDeGenero, type Genero } from '../components/EscolherGenero'
 import { LIGA } from '../liga'
 import { useMemo, useRef, useState } from 'react'
@@ -362,14 +363,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
             <button className="btn pink sm" style={{ flex: 'none', whiteSpace: 'nowrap' }} onClick={() => setNovaAberta(true)}>➕ Nova atleta</button>
           )}
         </div>
-        <input
-          className="input"
-          type="search"
-          placeholder="Buscar pelo nome, apelido ou outra grafia"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          style={{ marginBottom: 8 }}
-        />
+        <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Nome, apelido ou outra grafia" style={{ marginBottom: 8 }} />
         {/* filtros numa folha (dono, 08/11): eram 3 fileiras de chips rolando para o lado em cima da lista */}
         <div className="row spread filtros-rodape">
           <button className={`chip ${filtrando ? 'on' : 'off'}`} onClick={() => setFiltrosAbertos(true)}>
