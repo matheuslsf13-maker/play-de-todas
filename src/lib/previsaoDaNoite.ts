@@ -233,6 +233,47 @@ export function quadrasEmUso(matches: Match[], quadras: number[], agora: number 
   return pico > 0 ? pico : null
 }
 
+export type RitmoDaNoite = {
+  /** Quanto as partidas desta noite estao levando em relacao a calibragem (1 = igual; 1,2 = 20% mais longas). */
+  fator: number
+  /** Partidas com inicio e fim confiaveis que entraram na conta. */
+  medidas: number
+  /** Duracao media dessas partidas, em minutos (null sem nenhuma). */
+  minutosMedidos: number | null
+}
+
+/**
+ * O RITMO DE VERDADE DA NOITE. A calibragem (`minutosDaPartida`) e uma media de
+ * todas as noites; cada noite tem o seu ritmo (quadra mais lenta, grupo mais
+ * forte, tie atras de tie). Cada partida jogada com inicio ("Partida
+ * iniciada") e fim (o placar) diz quanto levou; a previsao passa a andar no
+ * ritmo delas. Peso `n/(n+4)`: com 1 partida a calibragem ainda manda, com 8
+ * o medido vale 2/3. Duracoes fora de 4 a 60 min sao toque esquecido (iniciou
+ * tarde, lancou o placar no dia seguinte) e ficam de fora; o fator fica entre
+ * 0,6 e 1,8 para um relogio maluco nao mandar a previsao para a madrugada.
+ * So depende das partidas: o Play e o cartao da tela inicial dao o mesmo numero.
+ */
+export function ritmoDaNoite(matches: Match[], regras: Pick<ReturnType<typeof regrasDoPlay>, 'alvoDe' | 'regraDe'>): RitmoDaNoite {
+  let medido = 0
+  let esperado = 0
+  let n = 0
+  for (const m of matches) {
+    if (!isPlayed(m)) continue
+    const de = Date.parse(m.started_at ?? '')
+    const ate = Date.parse(m.ended_at ?? '')
+    if (!Number.isFinite(de) || !Number.isFinite(ate)) continue
+    const min = (ate - de) / 60000
+    if (min < 4 || min > 60) continue
+    medido += min
+    esperado += minutosDaPartida(regras.alvoDe(m), regras.regraDe(m))
+    n++
+  }
+  if (n === 0 || esperado <= 0) return { fator: 1, medidas: 0, minutosMedidos: null }
+  const peso = n / (n + 4)
+  const fator = Math.min(1.8, Math.max(0.6, 1 + peso * (medido / esperado - 1)))
+  return { fator, medidas: n, minutosMedidos: medido / n }
+}
+
 /** A janela das quadras em uso: duas partidas (a que roda e o intervalo ate a proxima), no minimo 30 min. */
 function janelaDoPlay(session: PlaySession): number {
   return Math.max(30, 2 * minutosDaPartida(session.target, lerRegra(session.desempate)))
@@ -258,6 +299,8 @@ export function restanteDaNoite(
   quadrasDaCategoria: number[][] | null,
   /** Hora de agora (ms): com ela a conta usa as quadras em uso de verdade (D43). */
   agora?: number,
+  /** O ritmo medido da noite (`ritmoDaNoite().fator`); 1 = a calibragem pura, como antes. */
+  fator = 1,
 ): RestanteDaNoite | null {
   if (session.status === 'finished') return null
   const falta = matches.filter((m) => !isPlayed(m)).length
@@ -270,7 +313,7 @@ export function restanteDaNoite(
         ? Math.max(1, todasAsQuadras.length)
         : Math.min(emUso, quadrasSimultaneas(session.groups?.map((g) => g.length) ?? [session.player_ids.length]))
     return {
-      minutos: Math.ceil(falta / q) * regras.minutosMedios(matches.filter((m) => !isPlayed(m))),
+      minutos: Math.ceil(falta / q) * regras.minutosMedios(matches.filter((m) => !isPlayed(m))) * fator,
       falta,
       categorias: [],
     }
@@ -301,7 +344,7 @@ export function restanteDaNoite(
         minutos,
       })
     }
-    return { ci: c.ci, nome: c.cat.nome, minutos: c.terminou ? 0 : t }
+    return { ci: c.ci, nome: c.cat.nome, minutos: c.terminou ? 0 : t * fator }
   })
   return { minutos: Math.max(0, ...categorias.map((c) => c.minutos)), falta, categorias }
 }
@@ -335,6 +378,8 @@ export type ResumoAoVivo = {
   jogando: number
   /** Minutos que faltam, a mesma conta da tela do play. */
   minutos: number
+  /** O ritmo medido da noite (ver `ritmoDaNoite`). */
+  ritmo: RitmoDaNoite
   /** A primeira partida que entrou em quadra (ou a 1a lancada), se houver hora. */
   comecouEm: string | null
 }
@@ -354,7 +399,8 @@ export function resumoAoVivo(session: PlaySession, todas: Match[], agora?: numbe
   const emQuadra = new Map<number, Match>()
   for (const m of emJogo) if (!emQuadra.has(m.court)) emQuadra.set(m.court, m)
   const quadras = quadrasDaCategoriaAgora(session, chaves, emQuadra, regras.catDe)
-  const r = restanteDaNoite(session, matches, regras, chaves, quadras, agora)
+  const ritmo = ritmoDaNoite(matches, regras)
+  const r = restanteDaNoite(session, matches, regras, chaves, quadras, agora, ritmo.fator)
   const comFases = session.format === 'grupos-duplas'
   const total = matches.length + (comFases ? chaves.reduce((t, c) => t + partidasPorMontar(session, c), 0) : 0)
   const noMataMata = chaves.filter((c) => c.doMataMata.length > 0).length
@@ -376,6 +422,7 @@ export function resumoAoVivo(session: PlaySession, todas: Match[], agora?: numbe
     marca: comFases && total > 0 ? chaves.reduce((t, c) => t + c.daFase1.length, 0) / total : null,
     jogando: emJogo.length,
     minutos: r?.minutos ?? 0,
+    ritmo,
     comecouEm: inicios[0] ?? null,
   }
 }

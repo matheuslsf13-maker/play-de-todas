@@ -143,7 +143,7 @@ import { formatarReais, lerValor } from '../lib/checkins'
 import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
-import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante } from '../lib/previsaoDaNoite'
+import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante, resumoAoVivo, ritmoDaNoite } from '../lib/previsaoDaNoite'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { planoDoRefazer } from '../lib/fila'
@@ -166,6 +166,7 @@ import {
   type PlaySession,
 } from '../lib/types'
 import { RankTable } from './Ranking'
+import PainelDaNoite, { TempoEmQuadra } from '../components/PainelDaNoite'
 
 /** Os formatos, na ordem em que fazem sentido escolher. */
 /** O formato escolhido na tela: o campeonato e um `grupos-duplas` com categorias. */
@@ -2613,10 +2614,19 @@ function PlayDetail({
    * e o desempate de cada fase; no campeonato, por categoria (elas jogam ao
    * mesmo tempo, a noite acaba com a mais longa).
    */
+  /** O ritmo medido das partidas desta noite (inicio -> placar): a previsao anda nele. */
+  const ritmo = useMemo(() => ritmoDaNoite(matches, regras), [matches, regras])
   const restanteDaNoite = useMemo(() => {
-    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria, Date.now())
+    const r = contaDoRestante(session, matches, regras, porCategoria, quadrasDaCategoria, Date.now(), ritmo.fator)
     return r && { ...r, categorias: r.categorias.map((c) => ({ ...c, situacao: situacaoDaCategoria(porCategoria[c.ci]) })) }
-  }, [matches, session, regras, porCategoria, quadrasDaCategoria])
+  }, [matches, session, regras, porCategoria, quadrasDaCategoria, ritmo])
+  /** O total da noite (com o mata-mata ainda por montar) e onde ele comeca na barra: a mesma conta do cartao da tela inicial. */
+  const aoVivo = useMemo(() => resumoAoVivo(session, matches), [session, matches])
+  // a noite comeca no 1o "Partida iniciada" (placar antigo sem inicio: vale o fim dele)
+  const inicioDaNoite = useMemo(() => {
+    const ts = matches.map((m) => m.started_at ?? m.ended_at).filter((x): x is string => !!x)
+    return ts.length ? ts.reduce((a, b) => (new Date(a) < new Date(b) ? a : b)) : null
+  }, [matches])
 
   /** Quadra que mudou de dona: de qual categoria era e para qual foi. */
   const cessaoDa = (q: number): { de: number; para: number } | null => {
@@ -3447,9 +3457,9 @@ function PlayDetail({
   return (
     <NovatasDoPlay.Provider value={novatasDoPlay}>
       <div className="card">
-        <div className="row spread">
-          <button className="btn ghost sm" onClick={onBack}>← Plays</button>
-          <span className="row" style={{ gap: 6 }}>
+        <div className="row spread" style={{ alignItems: 'flex-start', gap: 8 }}>
+          <button className="btn ghost sm nowrap" style={{ flex: 'none' }} onClick={onBack}>← Plays</button>
+          <span className="row wrap" style={{ gap: 6, justifyContent: 'flex-end' }}>
             {session.ranked === false && <span className="badge avulso">avulso</span>}
             {!contaNoStatus(session) && <span className="badge avulso">sem 🔥</span>}
             <span className={`badge ${session.status}`}>{finished ? 'finalizado' : 'em andamento'}</span>
@@ -3479,25 +3489,32 @@ function PlayDetail({
             {/* no grupos+duplas cada fase tem o seu alvo; o "ate N" unico enganaria */}
             {!(soFase2 && session.alvos?.length) && ` · até ${session.target} games`}
           </div>
-          <div className="tiny muted" style={{ marginTop: 2 }}>
-            {explicarRegra(session.target, regraDoPlay)}
-          </div>
-          {matches.length > 0 && (
-            <div className="tiny" style={{ marginTop: 6, fontWeight: 700 }}>
-              🎾 Cada menina joga <strong>{jogosPorPessoa}</strong>
-              {soFase2 ? ' na fase de grupos' : ''}
-              {' · '}
-              {finished || !restanteDaNoite
-                ? `noite de ${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`
-                : doneCount === 0 && emJogo.length === 0
-                  ? // antes da primeira partida, "termina as" seria contado a partir de agora
-                    `noite de uns ${formatarMinutos(restanteDaNoite.minutos)}${soFase2 ? ', contando o mata-mata' : ''}`
-                  : `${restanteDaNoite.falta > 0 ? `faltam ${plural(restanteDaNoite.falta, 'partida')}` : 'falta montar a próxima fase'}${
-                      soFase2 ? ' e o que vem do mata-mata' : ''
-                    }, uns ${formatarMinutos(restanteDaNoite.minutos)} — termina por volta das ${horaLocal(
-                      new Date(Date.now() + restanteDaNoite.minutos * 60000).toISOString(),
-                    )}`}
+          {(finished || !restanteDaNoite) && (
+            <div className="tiny muted" style={{ marginTop: 2 }}>
+              {explicarRegra(session.target, regraDoPlay)}
             </div>
+          )}
+          {matches.length > 0 && (finished || !restanteDaNoite) && (
+            <div className="tiny" style={{ marginTop: 6, fontWeight: 700 }}>
+              🎾 Cada menina jogou <strong>{jogosPorPessoa}</strong>
+              {soFase2 ? ' na fase de grupos' : ''} · noite de {duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}
+            </div>
+          )}
+          {matches.length > 0 && !finished && restanteDaNoite && (
+            <PainelDaNoite
+              jogadas={doneCount}
+              total={Math.max(aoVivo.total, matches.length)}
+              jogando={emJogo.length}
+              marca={aoVivo.marca}
+              falta={restanteDaNoite.falta}
+              minutos={restanteDaNoite.minutos}
+              comecou={doneCount > 0 || emJogo.length > 0}
+              soFase2={soFase2}
+              ritmo={ritmo}
+              minutosCalibrados={minutosMedios(matches)}
+              jogosPorPessoa={jogosPorPessoa}
+              inicioDaNoite={inicioDaNoite}
+            />
           )}
           {/* COMO VAI A NOITE: o resumo da criacao, para consultar com o play rolando */}
           {!finished && restanteDaNoite && (
@@ -3511,9 +3528,12 @@ function PlayDetail({
                       {c.minutos > 0 ? ` · falta uns ${formatarMinutos(c.minutos)}` : ''}
                     </div>
                   ))}
+                <div>📐 {explicarRegra(session.target, regraDoPlay)}</div>
                 <div>
-                  ⏱️ Uns {Math.round(minutosMedios(matches))} min por partida, contando os games de quem perde e o desempate
-                  {soFase2 ? ' (cada fase tem o seu alvo e o seu desempate)' : ''}.
+                  ⏱️{' '}
+                  {ritmo.minutosMedidos !== null
+                    ? `As partidas de hoje estão levando uns ${Math.round(ritmo.minutosMedidos)} min (medido em ${plural(ritmo.medidas, 'partida')}); a calibragem dizia ${Math.round(minutosMedios(matches))}. A previsão do fim já anda nesse ritmo e fica mais certeira a cada placar.`
+                    : `Uns ${Math.round(minutosMedios(matches))} min por partida, contando os games de quem perde e o desempate${soFase2 ? ' (cada fase tem o seu alvo e o seu desempate)' : ''}. Com as primeiras partidas iniciadas e lançadas, a previsão passa a usar o ritmo de hoje.`}
                 </div>
                 <div>
                   🏆{' '}
@@ -3531,7 +3551,11 @@ function PlayDetail({
           )}
         </div>
         <div className="grid3" style={{ marginTop: 12 }}>
-          <StatBox k="Partidas" v={`${doneCount}/${matches.length}`} />
+          {finished || !restanteDaNoite ? (
+            <StatBox k="Partidas" v={`${doneCount}/${matches.length}`} />
+          ) : (
+            <StatBox k="Na fila" v={pendentes.length} />
+          )}
           <StatBox k="Em quadra" v={emJogo.length} />
           <StatBox k="Líder do dia" v={<span style={{ fontSize: 13 }}>{dayRows[0] ? nameOf(dayRows[0].player_id).split(' ')[0] : '—'}</span>} />
         </div>
@@ -3552,8 +3576,11 @@ function PlayDetail({
             onToast(ok ? 'Partidas copiadas 💬' : 'Não consegui copiar')
           }}>💬 Enviar partidas</button>
           <button className="btn ghost sm" onClick={() => setShowRank(true)}>🏆 Ranking do dia</button>
-          {editable && (
-            <>
+        </div>
+        {editable && (
+          <div className="play-gestao">
+            <span className="play-gestao-rotulo">Arrumar a noite</span>
+            <div className="row wrap" style={{ gap: 8 }}>
               {/* nas duplas fixas quem sai e substituido NA DUPLA: e o Trocar do cartao */}
               {!finished && !duplasFixas && (
                 <button className="btn ghost sm" onClick={() => setSubstituindo(true)}>
@@ -3564,9 +3591,9 @@ function PlayDetail({
                 🔄 Refazer a fila
               </button>
               <button className="btn ghost sm" onClick={() => void regenerate()}>♻️ Refazer tudo</button>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {session.ranked === false && (
@@ -3650,7 +3677,7 @@ function PlayDetail({
 
       <div className="card">
         <div className="row spread" style={{ alignItems: 'baseline' }}>
-          <div className="section-title">🏐 Quadras agora</div>
+          <div className="section-title" style={{ whiteSpace: 'nowrap' }}>🏐 Quadras</div>
           {editable && !finished && (
             <div className="row wrap" style={{ gap: 6, justifyContent: 'flex-end' }}>
               <button
@@ -3855,6 +3882,9 @@ function PlayDetail({
         vazio="Nada na fila."
         rodape="É a ordem em que elas vão entrar: cada quadra que vaga pega a primeira do grupo dela com as quatro livres. Igual em todos os celulares."
         partidas={filtroCat === null || !ehCampeonato ? filaPrevista : filaPrevista.filter((m) => catDe(m) === filtroCat)}
+        antes={[...jogadas, ...emJogo, ...[...proximas.values()].filter((m) => !emJogo.some((x) => x.id === m.id))].filter(
+          (m) => filtroCat === null || !ehCampeonato || catDe(m) === filtroCat,
+        )}
         ausentes={ausentes}
         numerar
         jogos={jogos}
@@ -3864,6 +3894,7 @@ function PlayDetail({
         repetidas={duplasRepetidas}
         desempateDe={regraDe}
         emQuadra={ocupadas}
+        filtravel
       />
 
       <ListaDePartidas
@@ -3897,6 +3928,7 @@ function PlayDetail({
         editable={editable}
         onCorrigir={(m) => setCorrigindo(m)}
         filtravel
+        porGrupo={ehCampeonato}
       />
 
       {intervencoes.length > 0 && (
@@ -4630,7 +4662,7 @@ function MatchCard({
       {iniciada ? (
         <div className="row spread" style={{ marginBottom: 8 }}>
           <span className="tiny" style={{ fontWeight: 800, color: 'var(--teal)' }}>
-            Jogando desde {horaCurta(inicio as string)} — lance o placar para encerrar
+            ⏱️ <TempoEmQuadra desde={inicio as string} />
           </span>
           <button className="linkish" onClick={onCancelarInicio}>desfazer</button>
         </div>
@@ -4692,6 +4724,8 @@ function ListaDePartidas({
   editable,
   onCorrigir,
   filtravel,
+  antes = [],
+  porGrupo,
 }: {
   titulo: string
   vazio: string
@@ -4719,6 +4753,15 @@ function ListaDePartidas({
   onCorrigir?: (m: Match) => void
   /** Chips por grupo e busca pelo nome ("e o grupo 2?", "quero ver as minhas"). */
   filtravel?: boolean
+  /**
+   * A SEQUENCIA DA NOITE: as partidas que vem antes desta lista (na fila: as
+   * jogadas, as em quadra e as ja separadas para as quadras). O numero de cada
+   * linha e a posicao dela na noite -- e, com um grupo escolhido, na noite do
+   * grupo. Sem isto (as ja jogadas) a conta e so a ordem em que terminaram.
+   */
+  antes?: Match[]
+  /** Numera dentro do proprio grupo/categoria mesmo sem filtro (as jogadas do campeonato ja vem separadas por categoria). */
+  porGrupo?: boolean
 }) {
   const { nameOf, playerById } = useStore()
   const [aberta, setAberta] = useState(false)
@@ -4742,10 +4785,41 @@ function ListaDePartidas({
     return ms
   }, [partidas, filtravel, grupoFiltro, grupoDe, termo, achadas])
   const filtrando = filtravel && (grupoFiltro !== null || termo !== '')
+  /*
+   * O numero de cada linha. Na fila a ordem e a da lista (a ordem em que vao
+   * entrar); nas jogadas, a ordem em que terminaram (o `round` e a posicao na
+   * fila de quando o play foi montado: 6, 5, 1 nao dizia nada). Com um grupo
+   * escolhido, conta so as do grupo: a 3a partida do grupo 2 e a 3a.
+   */
+  const numeroDe = useMemo(() => {
+    const doEscopo = (m: Match) => grupoFiltro === null || grupoDe.get(m.team_a[0]) === grupoFiltro
+    const quando = (m: Match) => Date.parse(m.ended_at ?? '') || Number.MAX_SAFE_INTEGER
+    const ordem = numerar ? partidas : [...partidas].sort((a, b) => quando(a) - quando(b) || a.round - b.round)
+    const mapa = new Map<string, number>()
+    if (porGrupo && grupoFiltro === null) {
+      const conta = new Map<number | undefined, number>()
+      for (const m of antes) conta.set(grupoDe.get(m.team_a[0]), (conta.get(grupoDe.get(m.team_a[0])) ?? 0) + 1)
+      for (const m of ordem) {
+        const g = grupoDe.get(m.team_a[0])
+        const k = (conta.get(g) ?? 0) + 1
+        conta.set(g, k)
+        mapa.set(m.id, k)
+      }
+      return mapa
+    }
+    let k = antes.filter(doEscopo).length
+    for (const m of ordem) if (doEscopo(m)) mapa.set(m.id, ++k)
+    return mapa
+  }, [partidas, antes, numerar, grupoFiltro, grupoDe, porGrupo])
   // com filtro a lista mostra tudo o que casa: quem procura quer ver todas
   const visiveis = aberta || filtrando ? filtradas : filtradas.slice(0, LIMITE)
-  /** V-D de quem foi procurada, nas partidas da lista. */
+  /** Quem foi procurada: na fila, quantas partidas e qual e a proxima; nas jogadas, o V-D. */
   const resumo = (id: string) => {
+    if (!filtradas.some(isPlayed)) {
+      const dela = partidas.filter((m) => jogadorasDaPartida(m).includes(id))
+      if (!dela.length) return 'nada na fila'
+      return `${plural(dela.length, 'partida')} na fila, a próxima é a ${numeroDe.get(dela[0].id) ?? partidas.indexOf(dela[0]) + 1}ª`
+    }
     let v = 0
     let d = 0
     for (const m of filtradas) {
@@ -4837,7 +4911,7 @@ function ListaDePartidas({
               {divisor && <div className="fase-divisor">{divisor}</div>}
               <div className="fila-linha">
                 <span className="fila-num">
-                  {numerar ? `${i + 1}ª` : m.round}
+                  {numeroDe.has(m.id) ? `${numeroDe.get(m.id)}ª` : m.round}
                   <GrupoTag
                     grupo={nomesDosGrupos || (m.fase ?? 1) < 2 ? grupoDe.get(m.team_a[0]) : undefined}
                     total={totalGrupos}
@@ -4970,12 +5044,6 @@ function CorrigirPlacar({
       </button>
     </Modal>
   )
-}
-
-function horaCurta(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
 /**

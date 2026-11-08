@@ -337,13 +337,15 @@ test('D43: 02/11 -- 5 quadras no app e so 4 de verdade: a previsao usa as 4', ()
   // na semente as quadras 1 a 4 levam a noite; a 5 so aparece no fim
   const { matches, agora } = aoVivo(DE_S2, 22)
   assert.equal(quadrasEmUso(matches, QUADRAS(5), agora, 30), 4)
-  // 23 partidas por fazer, 15 min cada: em 5 quadras 5 levas (75 min), em 4 sao 6 (90; faltaram 103 de verdade)
-  assert.equal(Math.round(resumoAoVivo(S2, matches).minutos), 75)
-  assert.equal(Math.round(resumoAoVivo(S2, matches, agora).minutos), 90)
+  // 23 partidas por fazer, 15 min cada: em 5 quadras 5 levas (75 min), em 4 sao 6 (90; faltaram 103 de verdade).
+  // Desde o ritmo medido, a conta ainda multiplica pelo ritmo da noite (o mesmo nos dois casos).
+  const f = (ms: Match[]) => resumoAoVivo(S2, ms).ritmo.fator
+  assert.equal(Math.round(resumoAoVivo(S2, matches).minutos), Math.round(75 * f(matches)))
+  assert.equal(Math.round(resumoAoVivo(S2, matches, agora).minutos), Math.round(90 * f(matches)))
   const k15 = aoVivo(DE_S2, 15)
-  assert.equal(Math.round(resumoAoVivo(S2, k15.matches, k15.agora).minutos), 120)
+  assert.equal(Math.round(resumoAoVivo(S2, k15.matches, k15.agora).minutos), Math.round(120 * f(k15.matches)))
   const k30 = aoVivo(DE_S2, 30)
-  assert.equal(Math.round(resumoAoVivo(S2, k30.matches, k30.agora).minutos), 60)
+  assert.equal(Math.round(resumoAoVivo(S2, k30.matches, k30.agora).minutos), Math.round(60 * f(k30.matches)))
 })
 
 test('D43: sem dados suficientes a previsao e IDENTICA a de hoje', () => {
@@ -389,7 +391,7 @@ test('D43: pausa e volta escalonada nao derrubam as quadras (o pico da noite)', 
   const umaVolta = parado.map((m, k) => (k === i ? { ...m, court: 1, started_at: new Date(volta - MIN).toISOString() } : m))
   assert.equal(quadrasEmUso(parado, QUADRAS(5), volta, 30), 4)
   assert.equal(quadrasEmUso(umaVolta, QUADRAS(5), volta, 30), 4)
-  assert.equal(Math.round(resumoAoVivo(S2, umaVolta, volta).minutos), 90)
+  assert.equal(Math.round(resumoAoVivo(S2, umaVolta, volta).minutos), Math.round(90 * resumoAoVivo(S2, umaVolta).ritmo.fator))
   // a hora de quem olha nao muda a conta (o Play recalcula so ao tocar, o cartao a cada 30 s)
   assert.equal(resumoAoVivo(S2, umaVolta, volta + 25 * MIN).minutos, resumoAoVivo(S2, umaVolta, volta).minutos)
 })
@@ -411,12 +413,12 @@ test('D43: quadra a mais conta quando a 1a partida comeca nela; quadra tirada sa
   const { matches, agora } = aoVivo(DE_S2, 22)
   const seis: PlaySession = { ...S2, courts: 6 }
   assert.equal(quadrasEmUso(matches, QUADRAS(6), agora, 30), 4)
-  assert.equal(Math.round(resumoAoVivo(seis, matches, agora).minutos), 90)
+  assert.equal(Math.round(resumoAoVivo(seis, matches, agora).minutos), Math.round(90 * resumoAoVivo(seis, matches).ritmo.fator))
   // uma pendente entra na quadra 6
   const i = matches.findIndex((m) => !isPlayed(m) && !m.started_at)
   const naSeis = matches.map((m, k) => (k === i ? { ...m, court: 6, started_at: new Date(agora - MIN).toISOString() } : m))
   assert.equal(quadrasEmUso(naSeis, QUADRAS(6), agora, 30), 5)
-  assert.equal(Math.round(resumoAoVivo(seis, naSeis, agora).minutos), 75)
+  assert.equal(Math.round(resumoAoVivo(seis, naSeis, agora).minutos), Math.round(75 * resumoAoVivo(seis, naSeis).ritmo.fator))
   // tirar quadras: 3 no app vale na hora, as partidas da 4 ficam de fora
   const tres: PlaySession = { ...S2, courts: 3 }
   assert.equal(quadrasEmUso(matches, QUADRAS(3), agora, 30), 3)
