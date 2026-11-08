@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatarMinutos, horaLocal, type RitmoDaNoite } from '../lib/previsaoDaNoite'
 import { plural } from '../lib/types'
 
-/** Re-desenha a cada 20 s: os "ha quanto tempo" andam sozinhos com a tela parada. */
+/** Re-desenha a cada 20 s: a hora prevista do fim anda sozinha com a tela parada. */
 function useAgora(): number {
   const [agora, setAgora] = useState(() => Date.now())
   useEffect(() => {
@@ -12,19 +12,42 @@ function useAgora(): number {
   return agora
 }
 
-/** "12 min", "1h05", "menos de 1 min": quanto passou desde `iso`. */
-export function decorrido(iso: string, agora: number): string {
-  const min = Math.floor((agora - new Date(iso).getTime()) / 60000)
-  return min < 1 ? 'menos de 1 min' : formatarMinutos(min)
+/** "12:34" ou "1:05:32": quanto passou desde `iso`, segundo a segundo. */
+export function cronometro(iso: string, agora: number): string {
+  const seg = Math.max(0, Math.floor((agora - new Date(iso).getTime()) / 1000))
+  const h = Math.floor(seg / 3600)
+  const mm = String(Math.floor((seg % 3600) / 60)).padStart(2, '0')
+  const ss = String(seg % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
 }
 
-/** O tempo de uma partida em quadra, andando sozinho. */
-export function TempoEmQuadra({ desde }: { desde: string }) {
-  const agora = useAgora()
+/** Cronometro que anda sozinho; so ele re-desenha a cada segundo, nao a tela toda. */
+function Cronometro({ desde }: { desde: string }) {
+  const [agora, setAgora] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setAgora(Date.now()), 1000)
+    return () => window.clearInterval(t)
+  }, [])
+  return <span className="cronometro">{cronometro(desde, agora)}</span>
+}
+
+/** "● AO VIVO 12:34": bolinha verde pulsando + o tempo desde `desde`. */
+export function AoVivo({ desde }: { desde: string }) {
   return (
-    <>
-      Jogando há <span style={{ fontVariantNumeric: 'tabular-nums' }}>{decorrido(desde, agora)}</span> · desde {horaLocal(desde)}
-    </>
+    <span className="ao-vivo">
+      <i className="ponto-vivo" aria-hidden="true" />
+      Ao vivo <Cronometro desde={desde} />
+    </span>
+  )
+}
+
+/** Quadra com partida separada, mas sem "Partida iniciada": bolinha vermelha pulsando. */
+export function AguardandoInicio() {
+  return (
+    <span className="aguardando-inicio">
+      <i className="ponto-vivo vermelho" aria-hidden="true" />
+      Aguardando início
+    </span>
   )
 }
 
@@ -83,7 +106,7 @@ export default function PainelDaNoite(p: {
       </div>
       {p.inicioDaNoite && (
         <div className="noite-relogio">
-          ▶️ Rolando há <b>{decorrido(p.inicioDaNoite, agora)}</b> · 1ª partida às {horaLocal(p.inicioDaNoite)}
+          <AoVivo desde={p.inicioDaNoite} /> <span>· 1ª partida às {horaLocal(p.inicioDaNoite)}</span>
         </div>
       )}
 
@@ -95,8 +118,9 @@ export default function PainelDaNoite(p: {
         aria-valuemax={p.total}
         aria-valuenow={p.jogadas}
       >
-        <span className="noite-jogadas" style={{ width: `${pctJogadas}%` }} />
-        {pctJogando > 0 && <span className="noite-jogando" style={{ left: `${pctJogadas}%`, width: `${pctJogando}%` }} />}
+        {/* o "em quadra" nasce do zero, por baixo das jogadas: as duas partes ficam coladas, sem o vao das pontas redondas */}
+        {pctJogando > 0 && <span className="noite-jogando" style={{ width: `${pctJogadas + pctJogando}%` }} />}
+        <span className={`noite-jogadas brilho-vivo${pctJogando > 0 ? ' colada' : ''}`} style={{ width: `${pctJogadas}%` }} />
         {marca != null && (
           <>
             <i className="noite-marca" style={{ left: `${marca * 100}%` }} />

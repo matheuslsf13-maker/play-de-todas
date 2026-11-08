@@ -89,7 +89,7 @@ function Cartao({
               ? `${ocupacao(lista, nomes)}${suplente && suplentes.length === 0 ? ' · entre como suplente' : ''}`
               : `${plural(titulares.length, 'confirmada')}${suplentes.length ? ` · ${plural(suplentes.length, 'suplente')}` : ''}`
           }
-          barra={{ valor: titulares.length, max: lista.vagas, rotulo: 'Vagas preenchidas' }}
+          barra={{ valor: titulares.length, max: lista.vagas, rotulo: 'Vagas preenchidas', brilha: aberta }}
           acao={aberta && !meu ? (suplente ? 'entrar como suplente' : 'ver a lista e colocar seu nome') : 'ver a lista'}
           onAbrir={() => onAbrirLista(lista.codigo)}
           faixa={momento.tipo === 'lista-aberta' && momento.play ? <PlayDeHoje {...momento.play} onAbrir={onAbrirPlay} /> : undefined}
@@ -110,7 +110,7 @@ function Cartao({
           tempo={r.comecouEm ? `começou ${horaLocal(r.comecouEm)} · ${decorrido(agora.getTime() - Date.parse(r.comecouEm))}` : 'começou'}
           titulo="Play em andamento"
           info={`${r.jogadas} de ${plural(r.total, 'partida')}${r.fase ? ` · ${r.fase}` : ''}`}
-          barra={{ valor: r.jogadas, max: r.total, rotulo: 'Partidas jogadas', marca: r.marca }}
+          barra={{ valor: r.jogadas, max: r.total, rotulo: 'Partidas jogadas', marca: r.marca, jogando: r.jogando, brilha: true }}
           linha={`${r.jogando > 0 ? `${plural(r.jogando, 'quadra')} jogando` : 'nenhuma quadra jogando agora'}${fim}`}
           acao="ver as quadras"
           onAbrir={() => onAbrirPlay(s.id)}
@@ -163,7 +163,9 @@ function Quadro(p: {
   tempo?: string
   titulo: string
   info?: string
-  barra?: { valor: number; max: number; rotulo: string; marca?: number | null }
+  /** `jogando`: partidas em quadra agora, a parte listrada que anda (como no painel do play). */
+  /** `brilha`: a parte pintada pulsa (so o que esta acontecendo agora: play ao vivo e lista aberta). */
+  barra?: { valor: number; max: number; rotulo: string; marca?: number | null; jogando?: number; brilha?: boolean }
   linha?: string
   acao: string
   onAbrir: () => void
@@ -174,6 +176,7 @@ function Quadro(p: {
   const { barra } = p
   const pct = barra && barra.max > 0 ? Math.min(100, (100 * barra.valor) / barra.max) : 0
   const marca = barra?.marca != null && barra.marca > 0 && barra.marca < 1 ? barra.marca : null
+  const pctComJogando = barra?.jogando && barra.max > 0 ? Math.min(100, (100 * (barra.valor + barra.jogando)) / barra.max) : 0
   // a barra nasce vazia e enche ao abrir a tela (com movimento reduzido, a transicao e 0s)
   const [montou, setMontou] = useState(false)
   useEffect(() => {
@@ -200,7 +203,9 @@ function Quadro(p: {
           aria-valuemax={barra.max}
           aria-valuenow={Math.min(barra.valor, barra.max)}
         >
-          <span style={{ width: `${montou ? pct : 0}%` }} />
+          {/* em quadra: nasce do zero por baixo das jogadas, as duas partes coladas */}
+          {pctComJogando > pct && <em className="momento-jogando" style={{ width: `${montou ? pctComJogando : 0}%` }} />}
+          <span className={[pctComJogando > pct && 'colada', barra.brilha && 'brilho-vivo'].filter(Boolean).join(' ') || undefined} style={{ width: `${montou ? pct : 0}%` }} />
           {marca != null && (
             <>
               <i className="momento-marca" style={{ left: `${marca * 100}%` }} title="começa o mata-mata" />
