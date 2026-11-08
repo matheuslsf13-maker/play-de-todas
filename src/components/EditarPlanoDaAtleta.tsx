@@ -37,8 +37,9 @@ export function EditarPlanoDaAtleta({
   const fila = filaDeEspera(data)
   const posicao = fila.findIndex((x) => x.id === jogadora.id)
   const travado = feminino && atual !== 'mensalista' && !cabeMensalista(data, jogadora, hoje)
-  const mostraInteresse = feminino && categoria !== 'mensalista'
-  const interesseLiberado = mostraInteresse && (travado || atual === 'mensalista')
+  // quem ja e mensalista nao tem "interesse" a declarar: o interruptor e so de quem quer entrar (dono, 08/11/2026)
+  const mostraInteresse = feminino && categoria !== 'mensalista' && atual !== 'mensalista'
+  const interesseLiberado = mostraInteresse && travado
   const saindo = feminino && atual === 'mensalista' && categoria !== 'mensalista'
   const virando = feminino && atual !== 'mensalista' && categoria === 'mensalista'
   const mudou = categoria !== atual
