@@ -38,7 +38,8 @@ test('exportações anteriores à regra preservam as abas do período', () => {
   const semFichas = { ...d, mensalidades: [], mensalidadeItens: [] }
   for (const periodo of ['2026-10', '2026-11']) {
     const anterior = planilhasCompletas(semFichas, nome, periodo, hoje)
-    assert.deepEqual(anterior.map(a => a.nome), ['Controle Play', 'Pagamentos', 'Resumo', 'Saldos'])
+    // a aba Mensalistas (limite, fila, deve/credito) e uma foto de hoje e nao depende do periodo
+    assert.deepEqual(anterior.map(a => a.nome).filter(n => n !== 'Mensalistas'), ['Controle Play', 'Pagamentos', 'Resumo', 'Saldos'])
     const semResumo = (abas: typeof anterior) => abas.filter((a) => a.nome !== 'Resumo')
     assert.deepEqual(semResumo(planilhasCompletas(d, nome, periodo, hoje)), semResumo(anterior))
   }
