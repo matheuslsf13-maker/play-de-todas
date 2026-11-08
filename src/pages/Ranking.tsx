@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
-import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
+import { Avatar, Empty, Modal, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
@@ -33,7 +33,7 @@ import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
 // o perfil da dupla vem do Stats, que carrega a parte: sem isto o Stats inteiro entrava no pacote da tela inicial
 const PerfilDaDupla = lazy(() => import('./Stats').then((m) => ({ default: m.PerfilDaDupla })))
 import CartaoDoMomento from '../components/CartaoDoMomento'
-import { monthLabel, monthOf, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
+import { monthLabel, monthOf, plural, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
 const HISTORICO = 'all'
@@ -169,157 +169,138 @@ export default function Ranking({
 
   return (
     <>
-      {/* a apresentacao (public/apresentacao) e do Play de Todas: no masculino ainda nao existe */}
-      {LIGA.id === 'feminino' && (
-      <a
-        className="card apresentacao"
-        href={`${import.meta.env.BASE_URL}apresentacao/`}
-        target="_blank"
-        rel="noopener"
-      >
-        <span className="prox-selo">📖</span>
-        <span className="grow" style={{ minWidth: 0 }}>
-          <span className="prox-titulo">Primeira vez aqui?</span>
-          <span className="prox-info">Como funciona o Play de Todas</span>
-          <span className="prox-acao">
-            participação, instalação, formatos e o mini-game dos status
-          </span>
-        </span>
-        {/* sem isto o card parece so um aviso: nada dizia que da para tocar */}
-        <span className="prox-abrir" aria-hidden="true">↗</span>
-      </a>
-      )}
-
       {/* lista aberta -> lista fechada e o proximo play -> ao vivo -> podio da noite (D42) */}
       <CartaoDoMomento onAbrirPlay={onAbrirPlay} onAbrirLista={onAbrirLista} />
 
-      <div className="card">
-        <div className="row spread">
-          <div className="section-title nowrap" style={{ margin: 0 }}>
-            {historico ? '🏆 Ranking geral' : '🏆 Ranking do mês'}
-          </div>
-          {/* seletor compacto: largo, ele quebrava o titulo em duas linhas */}
-          <select className="select select-compacta" value={periodo} onChange={(e) => setMonth(e.target.value)}>
-            {months.map((m) => (
-              // "Nov 2026": "Novembro de 2026" nao cabia ao lado do titulo no celular
-              <option key={m} value={m}>{`${monthLabel(m).slice(0, 3)} ${m.slice(0, 4)}`}</option>
-            ))}
-            <option value={HISTORICO}>🏅 Histórico</option>
-          </select>
-        </div>
-        {/* a palavra leva ao cartao que explica (dono, 06/11); embaixo, para nao apertar o titulo ao lado do mes */}
-        <div className="titulo-nota" style={{ marginTop: 4 }}>
-          somado por <IrPara alvo="como-pontua">pontos</IrPara>
-        </div>
+      <div className="ini-sec">
+        <h2>{historico ? 'Ranking geral' : 'Ranking do mês'}</h2>
+        {/* seletor compacto: largo, ele quebrava o titulo em duas linhas */}
+        <select className="select select-compacta" value={periodo} onChange={(e) => setMonth(e.target.value)}>
+          {months.map((m) => (
+            // "Nov 2026": "Novembro de 2026" nao cabia ao lado do titulo no celular
+            <option key={m} value={m}>{`${monthLabel(m).slice(0, 3)} ${m.slice(0, 4)}`}</option>
+          ))}
+          <option value={HISTORICO}>🏅 Histórico</option>
+        </select>
+      </div>
+      {/* a palavra leva ao cartao que explica (dono, 06/11) */}
+      <div className="ini-nota">
+        somado por <IrPara alvo="como-pontua">pontos</IrPara>
+        {historico && <> · todos os plays já registrados, avulsos inclusive</>}
+      </div>
 
-        {historico && (
-          <p className="tiny muted" style={{ marginTop: 8, marginBottom: 0 }}>
-            Todos os plays já registrados, avulsos inclusive.
-          </p>
-        )}
-
-        {rows.length === 0 ? (
+      {rows.length === 0 ? (
+        <div className="ini-grupo" style={{ padding: 14 }}>
           <Empty>Nenhuma partida registrada {historico ? 'ainda' : 'neste mês ainda'}.<br />Vá em <strong>Play</strong> e crie o play do dia.</Empty>
-        ) : (
-          <>
-            <div className="podium">
-              {order.map((idx) => {
-                const s = podium[idx]
-                if (!s) return <div key={idx} />
-                const pos = posicoes[idx] ?? idx + 1
-                return (
-                  <div className={`slot p${pos}`} key={s.player_id}>
-                    <Avatar player={playerById(s.player_id)} size={pos === 1 ? 66 : 52} />
-                    <NomeClicavel id={s.player_id} className="nm ellipsis">{nameOf(s.player_id)}</NomeClicavel>
-                    {/* o selinho ▲/▼ desde o ultimo play do mes (proposta aprovada, 08/11) */}
-                    {variacaoDoMes?.get(s.player_id) ? (
-                      <span className={`podio-seta ${(variacaoDoMes.get(s.player_id) as number) > 0 ? 'sobe' : 'desce'}`}>
-                        {(variacaoDoMes.get(s.player_id) as number) > 0 ? '▲' : '▼'}
-                        {Math.abs(variacaoDoMes.get(s.player_id) as number)}
-                      </span>
-                    ) : null}
-                    <div className="base">
-                      <div className="pos">{pos}º</div>
-                      <div className="pts">{s.points} pts</div>
-                    </div>
+        </div>
+      ) : (
+        <>
+          <div className="podium ini-podio">
+            {order.map((idx) => {
+              const s = podium[idx]
+              if (!s) return <div key={idx} />
+              const pos = posicoes[idx] ?? idx + 1
+              return (
+                <div className={`slot p${pos}`} key={s.player_id}>
+                  <Avatar player={playerById(s.player_id)} size={pos === 1 ? 66 : 52} />
+                  <NomeClicavel id={s.player_id} className="nm ellipsis">{nameOf(s.player_id)}</NomeClicavel>
+                  {/* o selinho ▲/▼ desde o ultimo play do mes (proposta aprovada, 08/11) */}
+                  {variacaoDoMes?.get(s.player_id) ? (
+                    <span className={`podio-seta ${(variacaoDoMes.get(s.player_id) as number) > 0 ? 'sobe' : 'desce'}`}>
+                      {(variacaoDoMes.get(s.player_id) as number) > 0 ? '▲' : '▼'}
+                      {Math.abs(variacaoDoMes.get(s.player_id) as number)}
+                    </span>
+                  ) : null}
+                  <div className="base">
+                    <div className="pos">{pos}º</div>
+                    <div className="pts">{s.points} pts</div>
                   </div>
-                )
-              })}
-            </div>
-
-            <div className="grid3" style={{ marginTop: 14 }}>
-              <StatBox k="Plays" v={totals.days} />
-              <StatBox k="Partidas" v={totals.games} />
-              <StatBox k="Jogadoras" v={totals.players} />
-            </div>
-
-            {/* a classificacao inteira fica recolhida aqui dentro (era um cartao a mais na tela inicial; dono, 06/11) */}
-            {qtd === 0 && (
-              <button className="btn ghost block sm" style={{ marginTop: 12 }} onClick={() => setQtd(10)} aria-expanded={false}>
-                📊 Ver a classificação ({rows.length}) ↓
-              </button>
-            )}
-            {qtd > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <RankTable rows={rows.slice(0, qtd)} fire={streaks.current} variacao={variacaoDoMes} />
-                <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                  {qtd < rows.length && (
-                    <button className="btn ghost sm grow" onClick={() => setQtd((n) => n + 10)}>
-                      Mostrar mais {Math.min(10, rows.length - qtd)} ↓
-                    </button>
-                  )}
-                  <button className="btn ghost sm grow" onClick={() => setQtd(0)} aria-expanded={true}>
-                    Recolher ↑
-                  </button>
                 </div>
-                <button
-                  className="btn pink block"
-                  style={{ marginTop: 12 }}
-                  onClick={async () => {
-                    const ok = await shareOrCopy(monthRankingText(activeMonth, rows, nameOf, streaks.current))
-                    onToast(ok ? 'Ranking pronto para colar no grupo 💬' : 'Não consegui copiar 😕')
-                  }}
-                >
-                  💬 Compartilhar no WhatsApp
-                </button>
-                <button className="btn purple block" style={{ marginTop: 8 }} disabled={gerando} onClick={() => void gerarImagem()}>
-                  {gerando ? 'Montando a arte…' : '👑 Gerar imagem do fechamento do mês'}
-                </button>
-                <BotoesDeFoto gerando={gerando} textoCamera="📷 Tirar foto" aoEscolher={(f) => void gerarImagem(f)} />
-              </div>
-            )}
-          </>
-        )}
+              )
+            })}
+          </div>
 
-        {!historico && canEdit && (
-          <div className="fechamento">
-            {fechado ? (
-              <div className="row spread" style={{ gap: 10 }}>
-                <span className="tiny grow">
-                  🏁 <strong>{monthLabel(activeMonth)} está fechado.</strong>{' '}
-                  {naMao
-                    ? 'O ranking dele não muda mais.'
-                    : 'Fechou sozinho porque o calendário já passou do mês.'}
-                </span>
-                {naMao && (
-                  <button
-                    className="btn ghost sm nowrap"
-                    onClick={() => {
-                      if (!confirm(`Reabrir ${monthLabel(activeMonth)}?\n\nServe para desfazer um fechamento feito por engano ou para teste.`)) return
-                      deleteClosure(activeMonth)
-                      onToast('Mês reaberto')
-                    }}
-                  >↩️ Reabrir</button>
-                )}
-              </div>
+          <div className="ini-grupo ini-met">
+            <div><strong>{totals.days}</strong><span>plays</span></div>
+            <div><strong>{totals.games}</strong><span>partidas</span></div>
+            <div><strong>{totals.players}</strong><span>jogadoras</span></div>
+          </div>
+
+          {/* a classificacao inteira fica recolhida aqui dentro (era um cartao a mais na tela inicial; dono, 06/11) */}
+          <div className="ini-grupo" style={{ marginTop: 10 }}>
+            {qtd === 0 ? (
+              <button className="ini-linha ini-chev" onClick={() => setQtd(10)} aria-expanded={false}>
+                <span className="g"><b>Ver a classificação</b></span>
+                <span className="sub">{rows.length}</span>
+              </button>
             ) : (
-              <button className="btn teal block sm" onClick={() => setFechando(true)}>
+              <>
+                <ClassificacaoEmLista rows={rows.slice(0, qtd)} fire={streaks.current} variacao={variacaoDoMes} />
+                {qtd < rows.length && (
+                  <button className="ini-linha ini-centro" onClick={() => setQtd((n) => n + 10)}>
+                    Mostrar mais {Math.min(10, rows.length - qtd)} ↓
+                  </button>
+                )}
+                <button className="ini-linha ini-centro" onClick={() => setQtd(0)} aria-expanded={true}>
+                  Recolher ↑
+                </button>
+              </>
+            )}
+          </div>
+
+          {qtd > 0 && (
+            <div className="ini-grupo" style={{ marginTop: 14 }}>
+              <button
+                className="ini-linha ini-chev"
+                onClick={async () => {
+                  const ok = await shareOrCopy(monthRankingText(activeMonth, rows, nameOf, streaks.current))
+                  onToast(ok ? 'Ranking pronto para colar no grupo 💬' : 'Não consegui copiar 😕')
+                }}
+              >
+                <span className="ini-ic verde" aria-hidden="true">💬</span>
+                <span className="g"><b>Compartilhar no WhatsApp</b></span>
+              </button>
+              <button className={`ini-linha ini-chev${gerando ? ' off' : ''}`} disabled={gerando} onClick={() => void gerarImagem()}>
+                <span className="ini-ic roxo" aria-hidden="true">👑</span>
+                <span className="g"><b>{gerando ? 'Montando a arte…' : 'Gerar imagem do fechamento do mês'}</b></span>
+              </button>
+              <BotoesDeFoto lista gerando={gerando} textoCamera="📷 Tirar foto" aoEscolher={(f) => void gerarImagem(f)} />
+            </div>
+          )}
+        </>
+      )}
+
+      {!historico && canEdit && (
+        <div className="fechamento">
+          {fechado ? (
+            <div className="row spread" style={{ gap: 10 }}>
+              <span className="tiny grow">
+                🏁 <strong>{monthLabel(activeMonth)} está fechado.</strong>{' '}
+                {naMao
+                  ? 'O ranking dele não muda mais.'
+                  : 'Fechou sozinho porque o calendário já passou do mês.'}
+              </span>
+              {naMao && (
+                <button
+                  className="btn ghost sm nowrap"
+                  onClick={() => {
+                    if (!confirm(`Reabrir ${monthLabel(activeMonth)}?\n\nServe para desfazer um fechamento feito por engano ou para teste.`)) return
+                    deleteClosure(activeMonth)
+                    onToast('Mês reaberto')
+                  }}
+                >↩️ Reabrir</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <button className="btn teal block" onClick={() => setFechando(true)}>
                 🏁 Finalizar {monthLabel(activeMonth)}
               </button>
-            )}
-          </div>
-        )}
-      </div>
+              <div className="ini-legenda" style={{ textAlign: 'center' }}>Trava o ranking do mês. Dá para reabrir depois.</div>
+            </>
+          )}
+        </div>
+      )}
 
       {fechando && (
         <ConfirmarFechamento
@@ -338,68 +319,64 @@ export default function Ranking({
         />
       )}
 
-      {/* UM cartao de status (dono, 08/11): quem esta em sequencia em cima e, um toque abaixo, como funciona.
-          Antes eram dois cartoes, um no meio e outro no fim da tela. */}
-      <div className="card" id="como-funciona-status">
-        <div className="section-title com-nota">
-          🔥 Status{' '}
-          <span className="titulo-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</span>
-        </div>
+      {/* UM bloco de status (dono, 08/11): quem esta em sequencia e, um toque abaixo, como funciona. */}
+      <div className="ini-sec" id="como-funciona-status"><h2>Status</h2></div>
+      <div className="ini-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</div>
+      <div className="ini-grupo">
         {fire.length > 0 ? (
-          <div className="stack">
-            {fire.map((f) => {
-              const lvl = streakLevel(f.streak)
-              const falta = MAX_STREAK - f.streak
-              return (
-                <div className={`row${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
-                  <Avatar player={playerById(f.player_id)} size={38} />
-                  <div className="grow">
-                    <div style={{ fontWeight: 800 }} className="ellipsis">
-                      <NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel> {lvl?.emoji}
-                    </div>
-                    <div className="tiny muted">
-                      {lvl?.title} · {f.streak} pódios seguidos ·{' '}
-                      {falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}
-                    </div>
+          fire.map((f) => {
+            const lvl = streakLevel(f.streak)
+            const falta = MAX_STREAK - f.streak
+            return (
+              <div className={`ini-linha${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
+                <Avatar player={playerById(f.player_id)} size={42} />
+                <div className="g">
+                  <b className="ellipsis"><NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel></b>
+                  <span className="ini-status">{lvl?.title} {lvl?.emoji}</span>
+                  <div className="ini-pips" aria-label={`${f.streak} de ${MAX_STREAK} pódios seguidos`}>
+                    {Array.from({ length: MAX_STREAK }, (_, i) => <i key={i} className={i < f.streak ? 'f' : undefined} />)}
+                    <span>{falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}</span>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })
         ) : (
-          <p className="tiny muted" style={{ margin: 0 }}>Ninguém em sequência agora: o próximo pódio começa uma.</p>
+          <div className="ini-linha"><span className="sub">Ninguém em sequência agora: o próximo pódio começa uma.</span></div>
         )}
-        <details className="regras status-como">
-          <summary>Como funciona o status</summary>
-          <p className="regra-texto" style={{ marginTop: 0 }}>
-            Cada play terminado no <strong>pódio</strong> sobe um degrau: o top 3 do play, o pódio do seu
-            grupo, ou as 3 duplas medalhistas nas duplas fixas e no campeonato.
-          </p>
-          <ol className="escada">
-            {STREAK_LADDER.map((x) => (
-              <li key={x.title} className={x.from === MAX_STREAK ? 'topo' : undefined}>
-                <span className="degrau">{x.from}</span>
-                <span className="degrau-nome">
-                  {x.emoji} {x.title}
-                </span>
-                <span className="degrau-conta">{x.from === MAX_STREAK ? 'o topo' : 'pódios seguidos'}</span>
-              </li>
-            ))}
-          </ol>
-          <ul className="regras-lista">
-            <li>❌ Zera fora do pódio ou faltando</li>
-            <li>🧊 Play sem status não sobe nem zera</li>
-            <li>⭐ Não vale pontos: o ranking é só o que foi jogado</li>
-          </ul>
-          <div className="premio">
-            👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
-            presente misterioso 🎁. O status recomeça.
+        <details className="ini-detalhe">
+          <summary className="ini-linha"><span className="g"><b>Como funciona o status</b></span></summary>
+          <div className="ini-corpo">
+            <p className="regra-texto" style={{ marginTop: 0 }}>
+              Cada play terminado no <strong>pódio</strong> sobe um degrau: o top 3 do play, o pódio do seu
+              grupo, ou as 3 duplas medalhistas nas duplas fixas e no campeonato.
+            </p>
+            <ol className="escada">
+              {STREAK_LADDER.map((x) => (
+                <li key={x.title} className={x.from === MAX_STREAK ? 'topo' : undefined}>
+                  <span className="degrau">{x.from}</span>
+                  <span className="degrau-nome">
+                    {x.emoji} {x.title}
+                  </span>
+                  <span className="degrau-conta">{x.from === MAX_STREAK ? 'o topo' : 'pódios seguidos'}</span>
+                </li>
+              ))}
+            </ol>
+            <ul className="regras-lista">
+              <li>❌ Zera fora do pódio ou faltando</li>
+              <li>🧊 Play sem status não sobe nem zera</li>
+              <li>⭐ Não vale pontos: o ranking é só o que foi jogado</li>
+            </ul>
+            <div className="premio">
+              👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
+              presente misterioso 🎁. O status recomeça.
+            </div>
           </div>
         </details>
       </div>
 
       {decisoes.length > 0 && (
-        <div className="card">
+        <div className="card" style={{ marginTop: 14 }}>
           <div className="section-title">🏁 Status em {monthLabel(activeMonth)}</div>
           <p className="tiny muted" style={{ marginTop: 0 }}>
             Na regra antiga o status virava pontos no fechamento do mês. Ficou registrado o que
@@ -438,53 +415,112 @@ export default function Ranking({
         </Modal>
       )}
 
-      {/* Como funciona: o que pontua e o que da status. Os numeros saem das
-          mesmas constantes que o app usa (POINTS_TABLE, PONTUACAO_PADRAO,
-          STREAK_LADDER), para o cartao nunca contar uma regra velha. */}
-      <div className="card dark regras" id="como-pontua">
-        <div className="section-title">⭐ Como pontua</div>
-
-        <div className="regra-bloco">
-          <div className="regra-titulo">🎾 Partida a partida</div>
-          <p className="regra-texto">
-            Quem vence leva a <strong>diferença de games</strong> (mínimo 1). A derrota não pontua.
-          </p>
-          <div className="placares">
-            {POINTS_TABLE.map((p) => (
-              <div
-                key={p.label}
-                className="placar-chip"
-                // o roxo e o unico tom escuro da tabela: texto claro nele
-                style={{ background: p.color, color: p.color === 'var(--purple)' ? 'var(--sempre-claro)' : undefined }}
-              >
-                <span className="placar-pts">+{p.points}</span>
-                <span className="placar-jogo">{p.label.replace(/\s/g, '')}</span>
+      {/* Como pontua: o que pontua e o que da status. Os numeros saem das mesmas constantes que o app usa
+          (POINTS_TABLE, PONTUACAO_PADRAO, STREAK_LADDER), para o cartao nunca contar uma regra velha. */}
+      <div className="ini-sec"><h2>Ajuda</h2></div>
+      <div className="ini-grupo">
+        <details className="ini-detalhe" id="como-pontua">
+          <summary className="ini-linha">
+            <span className="ini-ic ouro" aria-hidden="true">⭐</span>
+            <span className="g"><b>Como pontua</b></span>
+          </summary>
+          <div className="ini-corpo regras">
+            <div className="regra-bloco">
+              <div className="regra-titulo">🎾 Partida a partida</div>
+              <p className="regra-texto">
+                Quem vence leva a <strong>diferença de games</strong> (mínimo 1). A derrota não pontua.
+              </p>
+              <div className="placares">
+                {POINTS_TABLE.map((p) => (
+                  <div
+                    key={p.label}
+                    className="placar-chip"
+                    // o roxo e o unico tom escuro da tabela: texto claro nele
+                    style={{ background: p.color, color: p.color === 'var(--purple)' ? 'var(--sempre-claro)' : undefined }}
+                  >
+                    <span className="placar-pts">+{p.points}</span>
+                    <span className="placar-jogo">{p.label.replace(/\s/g, '')}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div className="regra-bloco">
-          <div className="regra-titulo">🤝 Duplas fixas e campeonato</div>
-          <p className="regra-texto">
-            A fase de grupos só forma as duplas. Os pontos do mês vêm de <strong>onde a dupla terminou</strong>:
-          </p>
-          <div className="colocacoes">
-            {PONTUACAO_PADRAO.map((pts, i) => (
-              <div key={i} className={`colocacao-chip${i < 3 ? ' podio' : ''}`}>
-                <span className="colocacao-nome">{ROTULOS_DA_COLOCACAO[i]}</span>
-                <span className="colocacao-pts">{pts}</span>
+            <div className="regra-bloco">
+              <div className="regra-titulo">🤝 Duplas fixas e campeonato</div>
+              <p className="regra-texto">
+                A fase de grupos só forma as duplas. Os pontos do mês vêm de <strong>onde a dupla terminou</strong>:
+              </p>
+              <div className="colocacoes">
+                {PONTUACAO_PADRAO.map((pts, i) => (
+                  <div key={i} className={`colocacao-chip${i < 3 ? ' podio' : ''}`}>
+                    <span className="colocacao-nome">{ROTULOS_DA_COLOCACAO[i]}</span>
+                    <span className="colocacao-pts">{pts}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <p className="regra-nota">Tabela padrão: cada play pode ajustar na hora de criar.</p>
-        </div>
+              <p className="regra-nota">Tabela padrão: cada play pode ajustar na hora de criar.</p>
+            </div>
 
-        <div className="regra-rodape">
-          📅 O <strong>dia</strong> é decidido por vitórias · o <strong>mês</strong> soma os pontos
-        </div>
+            <div className="regra-rodape">
+              📅 O <strong>dia</strong> é decidido por vitórias · o <strong>mês</strong> soma os pontos
+            </div>
+          </div>
+        </details>
+        {/* a apresentacao (public/apresentacao) e do Play de Todas: no masculino ainda nao existe */}
+        {LIGA.id === 'feminino' && (
+          <a className="ini-linha ini-chev" href={`${import.meta.env.BASE_URL}apresentacao/`} target="_blank" rel="noopener">
+            <span className="ini-ic rosa" aria-hidden="true">📖</span>
+            <span className="g">
+              <b>Primeira vez aqui?</b>
+              <span className="sub">Como funciona o Play de Todas: participação, instalação, formatos e o mini-game dos status</span>
+            </span>
+          </a>
+        )}
       </div>
+    </>
+  )
+}
 
+/**
+ * A classificacao em lista (tela inicial): posicao com ▲/▼, foto, nome (com o emoji do status), jogos, V, D e saldo
+ * no texto pequeno, e os pontos grandes. Os extras (🔥 bonus, 🎫 bye, 🏅 colocacao) entram so quando existem no recorte.
+ */
+function ClassificacaoEmLista({
+  rows: linhas,
+  fire,
+  variacao,
+}: {
+  rows: PlayerStat[]
+  fire?: Map<string, number>
+  variacao?: Map<string, number>
+}) {
+  const { lista: rows, posicao } = ordenarComDesempates(linhas)
+  const { nameOf, playerById } = useStore()
+  return (
+    <>
+      {rows.map((s) => {
+        const bal = balance(s)
+        const emoji = (fire?.get(s.player_id) ?? 0) >= 2 ? streakLevel(fire?.get(s.player_id) as number)?.emoji : undefined
+        return (
+          <div className="ini-linha" key={s.player_id}>
+            <Colocacao pos={posicao.get(s.player_id) ?? 0} v={variacao?.get(s.player_id)} />
+            <Avatar player={playerById(s.player_id)} size={36} />
+            <div className="g">
+              <b className="ellipsis">
+                <NomeClicavel id={s.player_id}>{nameOf(s.player_id)}</NomeClicavel>
+                {emoji && <> {emoji}</>}
+              </b>
+              <span className="sub">
+                {plural(s.matches, 'jogo')} · {s.wins}V {s.losses}D · saldo {bal > 0 ? `+${bal}` : bal < 0 ? `−${-bal}` : 0}
+                {s.bonus > 0 && <span className="ini-extra" style={{ color: 'var(--orange)' }} title="Pontos do status">🔥 +{s.bonus}</span>}
+                {s.bye > 0 && <span className="ini-extra" style={{ color: 'var(--teal)' }} title="Pontos pagos por bye no mata-mata">🎫 +{s.bye}</span>}
+                {(s.colocacao ?? 0) > 0 && <span className="ini-extra" style={{ color: 'var(--purple)' }} title="Pontos pela colocação no campeonato">🏅 +{s.colocacao}</span>}
+              </span>
+            </div>
+            <b className="ini-pts">{s.points}<small> pts</small></b>
+          </div>
+        )
+      })}
     </>
   )
 }
@@ -677,9 +713,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
   if (individuais.length === 0) return null
 
   return (
-    <div className="card">
-      <div className="section-title" style={{ marginBottom: 2 }}>💪 Força e entrosamento</div>
-      <div className="titulo-nota" style={{ marginBottom: 8 }}>não é ranking e nunca zera</div>
+    <>
+      <div className="ini-sec"><h2>Força e entrosamento</h2></div>
+      <div className="ini-nota">não é ranking e nunca zera</div>
 
       <div className="segmented" style={{ marginBottom: 8 }}>
         <button
@@ -710,21 +746,20 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
           Nenhuma dupla jogou junta ainda.
         </p>
       ) : (
-        <div className="stack" style={{ gap: 8 }}>
+        <div className="ini-grupo">
           {modo === 'individual'
             ? individuais.slice(0, 5).map((l, i) => (
                 // igual as duplas: a linha toda abre o perfil, com a seta mostrando que e tocavel (dono, 06/11)
                 <button
                   key={l.player_id}
                   type="button"
-                  className="row linha-dupla-forca"
-                  style={{ gap: 8 }}
+                  className="ini-linha ini-chev"
                   disabled={!abrirPerfil}
                   onClick={() => abrirPerfil?.(l.player_id)}
                   aria-label={`Ver o perfil de ${nameOf(l.player_id)}`}
                 >
                   <Colocacao pos={i + 1} v={variacao.individual.get(l.player_id)} />
-                  <Avatar player={playerById(l.player_id)} size={28} />
+                  <Avatar player={playerById(l.player_id)} size={34} />
                   {/* a forca colada no nome (dono, 06/11); o tracejado embaixo do nome diz que abre o perfil */}
                   <span className="row" style={{ flex: '0 1 13em', minWidth: 0, gap: 4 }}>
                     <span className="ellipsis nome-tocavel" style={{ fontWeight: 700 }}>
@@ -746,7 +781,6 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   </span>
                   {/* a nota fica numa coluna logo depois do nome; a seta vai para a ponta */}
                   <span className="grow" />
-                  <span className="seta-abrir" aria-hidden="true">›</span>
                 </button>
               ))
             : duplas.slice(0, 5).map((d, i) => (
@@ -754,14 +788,13 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                 <button
                   key={d.key}
                   type="button"
-                  className="row linha-dupla-forca"
-                  style={{ gap: 8 }}
+                  className="ini-linha ini-chev"
                   onClick={() => setDuplaAberta({ a: d.a, b: d.b })}
                   aria-label={`Ver o perfil da dupla ${nameOf(d.a)} e ${nameOf(d.b)}`}
                 >
                   <Colocacao pos={i + 1} v={variacao.duplas.get(d.key)} />
-                  <Avatar player={playerById(d.a)} size={24} />
-                  <Avatar player={playerById(d.b)} size={24} />
+                  <Avatar player={playerById(d.a)} size={28} />
+                  <Avatar player={playerById(d.b)} size={28} />
                   <span style={{ flex: '0 1 13em', minWidth: 0 }}>
                     {/* os dois nomes quebram em duas linhas em vez de cortar ("Brenda + Van…") */}
                     <span className="nome-tocavel" style={{ display: 'inline', fontWeight: 700, lineHeight: 1.25 }}>
@@ -783,7 +816,6 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
                   </span>
                   {/* a nota fica numa coluna logo depois do nome; a seta vai para a ponta */}
                   <span className="grow" />
-                  <span className="seta-abrir" aria-hidden="true">›</span>
                 </button>
               ))}
         </div>
@@ -796,11 +828,11 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
       )}
 
       {total > 5 && onVerTudo && (
-        <button className="btn ghost block sm" style={{ marginTop: 10 }} onClick={onVerTudo}>
-          {modo === 'individual'
-            ? `Ver todas as ${total} jogadoras →`
-            : `Ver as ${total} duplas →`}
-        </button>
+        <div className="ini-grupo" style={{ marginTop: 10 }}>
+          <button className="ini-linha ini-chev" onClick={onVerTudo}>
+            <span className="g"><b>{modo === 'individual' ? `Ver todas as ${total} jogadoras` : `Ver as ${total} duplas`}</b></span>
+          </button>
+        </div>
       )}
 
       {/* o texto longo saiu (dono, 06/11): o que importa esta na nota do titulo; o misto ainda explica de onde veio */}
@@ -810,7 +842,7 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
           daí em diante só os jogos do misto contam. A média hoje é {mediaDaForca(data)}.
         </p>
       )}
-    </div>
+    </>
   )
 }
 
@@ -835,7 +867,11 @@ function IrPara({ alvo, children }: { alvo: string; children: React.ReactNode })
     <button
       type="button"
       className="nota-link"
-      onClick={() => document.getElementById(alvo)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+      onClick={() => {
+        const el = document.getElementById(alvo)
+        if (el instanceof HTMLDetailsElement) el.open = true
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }}
     >
       {children}
     </button>

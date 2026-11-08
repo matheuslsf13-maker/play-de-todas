@@ -125,7 +125,11 @@ function Cartao({
           selo={`🏐 ${momento.parado ? 'Play em andamento' : 'Próximo play'}`}
           tempo={dateLabel(s.date)}
           titulo={s.title?.trim() || 'Play'}
-          info={`${s.player_ids.length} jogadoras · ${s.courts} quadras · ${s.rounds} partidas`}
+          metricas={[
+            { n: s.player_ids.length, rotulo: s.player_ids.length === 1 ? 'jogadora' : 'jogadoras' },
+            { n: s.courts, rotulo: s.courts === 1 ? 'quadra' : 'quadras' },
+            { n: s.rounds, rotulo: s.rounds === 1 ? 'partida' : 'partidas' },
+          ]}
           // play aberto de dias atras: o cartao fica para a organizacao lembrar de finalizar
           linha={momento.parado ? 'ainda aberto: falta finalizar' : undefined}
           acao="ver a fila de partidas"
@@ -156,6 +160,18 @@ function Cartao({
   }
 }
 
+/** "12 de 16 vagas": o numero da frente cresce, o resto fica pequeno. */
+function Info({ texto }: { texto: string }) {
+  const m = /^(\d+)(.*)$/.exec(texto)
+  if (!m) return <>{texto}</>
+  return (
+    <>
+      <span className="momento-num">{m[1]}</span>
+      {m[2]}
+    </>
+  )
+}
+
 /** O mesmo quadro nos quatro momentos: selo, tempo, titulo, barra, corpo e a acao. */
 function Quadro(p: {
   cor: 'lista' | 'fechada' | 'vivo' | 'podio'
@@ -163,6 +179,8 @@ function Quadro(p: {
   tempo?: string
   titulo: string
   info?: string
+  /** Tres numeros no lugar da linha de info (o play criado). */
+  metricas?: { n: number; rotulo: string }[]
   /** `jogando`: partidas em quadra agora, a parte listrada que anda (como no painel do play). */
   /** `brilha`: a parte pintada pulsa (so o que esta acontecendo agora: play ao vivo e lista aberta). */
   barra?: { valor: number; max: number; rotulo: string; marca?: number | null; jogando?: number; brilha?: boolean }
@@ -193,7 +211,14 @@ function Quadro(p: {
       <button className="momento-alvo" onClick={p.onAbrir} aria-label={`${p.titulo} — ${p.acao}`}>
         {p.titulo}
       </button>
-      {p.info && <div className="momento-info">{p.info}</div>}
+      {p.info && <div className="momento-info"><Info texto={p.info} /></div>}
+      {p.metricas && (
+        <div className="momento-met">
+          {p.metricas.map((m) => (
+            <div key={m.rotulo}><strong>{m.n}</strong><span>{m.rotulo}</span></div>
+          ))}
+        </div>
+      )}
       {barra && (
         <div
           className={`momento-barra${marca != null ? ' com-marca' : ''}`}
@@ -220,7 +245,7 @@ function Quadro(p: {
       {p.linha && <div className="momento-linha">{p.linha}</div>}
       {p.children}
       <div className="momento-rodape">
-        <span className="momento-acao">{p.acao} →</span>
+        <span className="momento-acao">{p.acao.charAt(0).toUpperCase() + p.acao.slice(1)}</span>
       </div>
       {p.faixa}
     </div>
@@ -320,7 +345,7 @@ function PlayDeHoje({ session, aoVivo, onAbrir }: { session: PlaySession; aoVivo
           `🏐 Play de hoje · ${plural(session.player_ids.length, 'jogadora')}`
         )}
       </span>
-      <span className="momento-faixa-acao">ver o play →</span>
+      <span className="momento-faixa-acao">Ver o play ›</span>
     </button>
   )
 }

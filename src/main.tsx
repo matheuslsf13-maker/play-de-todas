@@ -4,6 +4,7 @@ import App from './App'
 import { StoreProvider } from './lib/store'
 import { aplicarTemaSalvo } from './lib/tema'
 import './styles.css'
+import './inicio.css'
 
 // antes de montar a tela, para nao piscar claro e depois escurecer
 aplicarTemaSalvo()
