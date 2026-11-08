@@ -127,7 +127,7 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 
 /* ---------- cartao do momento ---------- */
 .card.momento {
-  gap: 0; padding: 16px 16px 0; margin-bottom: 0; overflow: hidden; border-radius: 22px;
+  gap: 0; padding: 16px 16px 0; margin-bottom: 14px; overflow: hidden; border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--m) 55%, transparent);
   background: linear-gradient(135deg, color-mix(in srgb, var(--m) 22%, var(--card)), color-mix(in srgb, var(--m) 5%, var(--card)));
 }
@@ -169,3 +169,5 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 /* rostinhos da lista: menos sobrepostos, para as iniciais nao ficarem cortadas */
 .momento-rostos { padding-left: 4px; }
 .momento-rostos > .avatar { margin-left: -4px; }
+/* na tela inicial a secao seguinte ja tem o proprio respiro: o cartao nao soma margem em cima dela */
+.card.momento + .ini-sec { margin-top: 14px; }
