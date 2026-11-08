@@ -8,7 +8,7 @@ import { monthOf } from './types'
 /*
  * 💰 NA LISTA: a organizadora lanca o pagamento da avulsa direto da lista de
  * presenca. Nao ha dinheiro novo aqui: grava o mesmo par checkin +
- * checkin_pagamentos da aba Check-ins (pelas mesmas acoes da store), e o
+ * checkin_pagamentos da aba Financeiro (pelas mesmas acoes da store), e o
  * saldo/credito sai das contas que ja existem em checkins.ts.
  */
 
@@ -52,7 +52,7 @@ export const idDoLancamento = (dia: string, atleta: string) => `checkin:${encode
 /**
  * O dia de check-in do play da lista: o ligado ao play; senao o unico dia
  * daquela data sem play. Nenhum: um dia novo (ainda nao gravado), ligado ao
- * play, com os valores do ultimo dia (como o "Novo dia" da aba Check-ins).
+ * play, com os valores do ultimo dia (como o "Novo dia" da aba Financeiro).
  */
 export function diaDaLista(data: AppData, lista: Lista): CheckinDia {
   return diaDoPlay(data, lista.session_id, dataDoPlay(lista), lista.id)
@@ -62,7 +62,7 @@ export function diaDaLista(data: AppData, lista: Lista): CheckinDia {
 export function diaDoPlay(data: AppData, sessionId: string | null, date: string, sufixo = 'play'): CheckinDia {
   const ligados = sessionId ? data.checkinDias.filter((d) => d.session_id === sessionId) : []
   const candidatos = ligados.length ? ligados : data.checkinDias.filter((d) => d.date === date && !d.session_id)
-  if (candidatos.length > 1) throw new Error('Há mais de um dia possível. Ligue o dia correto ao play na aba Check-ins.')
+  if (candidatos.length > 1) throw new Error('Há mais de um dia possível. Ligue o dia correto ao play na aba Financeiro.')
   if (candidatos[0]) return candidatos[0]
   const ultimo = [...data.checkinDias].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at))[0]
   return {
@@ -99,7 +99,7 @@ export type ContaDoCheckin = { contaId: string | null; localId: string | null }
 
 /**
  * A conta e a arena que a janela mostra marcadas: as do lancamento que ja
- * existe; senao o mesmo palpite do Lancar da aba Check-ins.
+ * existe; senao o mesmo palpite do Lancar da aba Financeiro.
  */
 export function contaInicial(data: AppData, dia: CheckinDia, playerId: string): ContaDoCheckin {
   const c = retrato(data, dia.id, playerId)?.checkin
@@ -125,7 +125,7 @@ export function prepararPagamento(
     ...antes?.checkin,
     modo, checkin_confirmado: modo === 'checkin',
   }
-  // integral nao tem arena nem check-in de credito (igual ao Lancar da aba Check-ins)
+  // integral nao tem arena nem check-in de credito (igual ao Lancar da aba Financeiro)
   if (modo === 'integral') Object.assign(checkin, { local_id: null, credito_de: null, credito_checkin: false })
   // check-in de credito leva a conta e a arena do credito; senao vale a escolhida
   else if (!checkin.credito_de) Object.assign(checkin, { conta_id: conta.contaId, local_id: conta.localId })
@@ -143,7 +143,7 @@ export function devidoNoModo(data: AppData, dia: CheckinDia, playerId: string, m
 
 /**
  * O valor que ja vem no campo: o pago, se ja havia lancamento; senao o devido
- * menos o credito que ela trouxe (a mesma conta do Lancar da aba Check-ins).
+ * menos o credito que ela trouxe (a mesma conta do Lancar da aba Financeiro).
  */
 export function valorInicial(data: AppData, dia: CheckinDia, playerId: string, modo: CheckinModo): number {
   const antes = retrato(data, dia.id, playerId)
@@ -153,7 +153,7 @@ export function valorInicial(data: AppData, dia: CheckinDia, playerId: string, m
 
 // ---------------------------------------------------------------- desfazer (apagar lista ou play)
 
-/** O que sai da aba Check-ins e do cadastro ao apagar a lista ou o play (nada disso e gravado aqui). */
+/** O que sai da aba Financeiro e do cadastro ao apagar a lista ou o play (nada disso e gravado aqui). */
 export type Desfazer = { checkins: string[]; dias: string[]; players: Player[] }
 
 const somar = (a: Desfazer, b: Desfazer): Desfazer => ({
@@ -164,7 +164,7 @@ const somar = (a: Desfazer, b: Desfazer): Desfazer => ({
 
 /**
  * O que o 💰 desta lista lancou: os lancamentos com o id do 💰 (`idDoLancamento`;
- * um lancamento da aba Check-ins que o 💰 so corrigiu guarda o id dele e fica), o
+ * um lancamento da aba Financeiro que o 💰 so corrigiu guarda o id dele e fica), o
  * dia que o 💰 criou se ele ficar vazio, e o "pago" da avulsa que o 💰 marcou
  * (so enquanto o play nao foi finalizado, como em `pagoAvulsoDaLista`).
  */
@@ -234,5 +234,5 @@ export function avisoDoFinanceiro(data: AppData, d: Desfazer, peloCofre: boolean
   const quais = peloCofre ? `${n === 1 ? 'O pagamento lançado' : `Os ${n} pagamentos lançados`} pelo 💰 desta lista` : `${n === 1 ? 'O lançamento' : `Os ${n} lançamentos`} do dia deste play`
   const valor = pago > 0 ? ` (${formatarReais(pago)} pagos)` : ''
   const dia = dias.length ? `, junto com o dia ${dias.join(', ')}` : ''
-  return n > 0 ? `${quais}${valor} ${n === 1 ? 'sai' : 'saem'} da aba Check-ins${dia}.` : `O dia ${dias.join(', ')} sai da aba Check-ins.`
+  return n > 0 ? `${quais}${valor} ${n === 1 ? 'sai' : 'saem'} da aba Financeiro${dia}.` : `O dia ${dias.join(', ')} sai da aba Financeiro.`
 }

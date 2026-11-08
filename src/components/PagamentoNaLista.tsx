@@ -95,7 +95,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
   const credito = player ? creditoDisponivel(data, player.id, existente?.checkin.id) : 0
   const divida = player ? Math.max(0, -saldoAntesDe(data, player.id, existente?.checkin.id)) : 0
   const vPago = edicao ? lerValor(edicao.valor) : null
-  // a mesma conta do Lançar da aba Check-ins: o crédito cobre o que faltar; o resto é sobra ou dívida
+  // a mesma conta do Lançar da aba Financeiro: o crédito cobre o que faltar; o resto é sobra ou dívida
   // as contas dela (principal, secundárias como a do marido) com os livres na arena escolhida
   const contas = edicao && player && edicao.modo === 'checkin' && !existente?.checkin.credito_de ? disponibilidade(data, player.id, monthOf(edicao.dia.date)).contas : []
   const arenas = data.checkinLocais.filter((l) => l.ativo || l.id === edicao?.conta.localId).sort((a, b) => a.ordem - b.ordem)
@@ -111,11 +111,11 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
       <p>Antes de lançar o pagamento, ligue “{nome.nome}” ao cadastro de uma atleta.</p>
       <button className="btn pink block" onClick={() => { setSemVinculo(false); onVincular() }}>Vincular atleta</button>
     </Modal>}
-    {edicao && player && <Modal title={edicao.confirmar ? 'Lançar na aba Check-ins?' : `💰 ${quem}`} onClose={fechar}>
+    {edicao && player && <Modal title={edicao.confirmar ? 'Lançar na aba Financeiro?' : `💰 ${quem}`} onClose={fechar}>
       <div className="stack">
         {edicao.confirmar ? <>
           <p style={{ margin: 0 }}>Isso vai preencher a aba <strong>Check-ins</strong>, no dia {diaCurto(edicao.dia.date)}: {quem}, {edicao.modo === 'checkin' ? `check-in${usoEscolhido ? ` pela conta ${nomeDoTitular(usoEscolhido.conta, quem)}` : ''}${naArena ? ` na ${naArena.local.nome}` : ''}` : 'integral'}, pagou {formatarReais(vPago ?? 0)}.</p>
-          <p className="banner info" style={{ margin: 0 }}>✅ Vai {confirmado}. Na aba Check-ins isso costuma ser um passo à parte; aqui já fica feito.</p>
+          <p className="banner info" style={{ margin: 0 }}>✅ Vai {confirmado}. Na aba Financeiro isso costuma ser um passo à parte; aqui já fica feito.</p>
           {!diaJaExiste(data, edicao.dia) && <p className="banner warn" style={{ margin: 0 }}>O dia {diaCurto(edicao.dia.date)} ainda não existe na parte 📅 Dias e vai ser criado, ligado a este play{lista.session_id ? '' : ' (a ligação é feita quando o play for montado)'}.</p>}
           <button className="btn pink block" onClick={lancar}>Confirmar lançamento</button>
           <button className="btn ghost block" onClick={() => setEdicao({ ...edicao, confirmar: false })}>Voltar</button>

@@ -675,7 +675,7 @@ function EditarPerfil({
       )}
 
       <p className="tiny muted" style={{ marginTop: 12 }}>
-        💳 Como ela paga ({CATEGORIAS.find((c) => c.valor === categoriaDe(jogadora))?.rotulo}): edite em <strong>Check-ins › Atletas</strong>.
+        💳 Como ela paga ({CATEGORIAS.find((c) => c.valor === categoriaDe(jogadora))?.rotulo}): edite em <strong>Financeiro › Atletas</strong>.
       </p>
 
       <ForcaInicial

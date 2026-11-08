@@ -176,7 +176,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
 
       <div className="card">
         <div className="row spread" style={{ marginBottom: 10 }}>
-          <div className="section-title" style={{ margin: 0 }}>✅ Check-ins</div>
+          <div className="section-title" style={{ margin: 0 }}>💰 Financeiro</div>
           <select className="select" style={{ width: 'auto' }} value={mes} onChange={(e) => setMes(e.target.value)}>
             {meses.map((m) => (
               <option key={m} value={m}>{monthLabel(m)}</option>
@@ -2205,7 +2205,7 @@ function LancarModal({
           return p && emDiaNaData(data, p, dia.date) ? (
             <div className="banner warn" style={{ margin: 0 }}>
               📅 {nameOf(playerId)} é mensalista em dia: este play não tem cobrança. Se ela fez check-in para a
-              mensalidade, registre na ficha dela (aba Atletas → 📅 Mensalidade).
+              mensalidade, registre na ficha dela (aba Mensalistas).
             </div>
           ) : null
         })()}

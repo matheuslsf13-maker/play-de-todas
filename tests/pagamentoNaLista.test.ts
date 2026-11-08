@@ -182,7 +182,7 @@ test('apagar a lista: sai o que o 💰 lancou, o dia que ele criou (se vazio) e 
   assert.deepEqual(r.checkins, [idDoLancamento(dia.id, atleta.id)])
   assert.deepEqual(r.dias, [dia.id])
   assert.equal(r.players[0].pago_avulso, false)
-  assert.match(avisoDoFinanceiro(d, r, true) ?? '', /O pagamento lançado pelo 💰 desta lista \(R\$\s50,00 pagos\) sai da aba Check-ins, junto com o dia 09\/11\./)
+  assert.match(avisoDoFinanceiro(d, r, true) ?? '', /O pagamento lançado pelo 💰 desta lista \(R\$\s50,00 pagos\) sai da aba Financeiro, junto com o dia 09\/11\./)
   // lancamento feito na aba Check-ins (outro id) no mesmo dia: fica, e o dia tambem
   const daAba = { ...d.checkins[0], id: 'aba-1', player_id: 'b' }
   const r2 = lancadosPelaLista({ ...d, checkins: [...d.checkins, daAba] }, lista, [atleta.id, 'b'])
