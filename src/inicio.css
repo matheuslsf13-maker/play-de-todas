@@ -206,3 +206,7 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 .pl-abas button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
 .folha-secao { margin: 12px 2px 6px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .folha-secao:first-child { margin-top: 0; }
+
+/* material translucido mais firme: onde o navegador nao desfoca o fundo (ou desfoca pouco), o que passa por baixo nao atrapalha o texto */
+.st-topo { background: color-mix(in srgb, var(--fundo) 92%, transparent); }
+.tabbar { background: color-mix(in srgb, var(--card) 90%, transparent); }
