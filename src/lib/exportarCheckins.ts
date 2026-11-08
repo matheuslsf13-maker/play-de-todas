@@ -14,6 +14,7 @@ import {
   appDaConta,
   centavos,
   contaDoCheckin,
+  economiaDoAluguel,
   extratoDaAtleta,
   formatarReais,
   nomeDoTitular,
@@ -28,9 +29,11 @@ import {
   valorDevido,
   type Relatorio,
 } from './checkins'
+import { categoriaDe, CATEGORIAS } from './mensalidade'
+import { filaDeEspera, limiteDeMensalistas, mensalistasAtivas, geridaNaAbaMensalistas } from './vagasDeMensalista'
 import {
-  MES_INICIAL, checkinsDaFicha, dinheiroDaFicha, faltaDaFicha, fichaDe, idDaFicha,
-  prazoDosCheckins, quitada, renovada, usosDoCreditoNaDivida, valorDaFicha, vencimento,
+  MES_INICIAL, checkinsDaFicha, creditoDaMensalidade, dividaDaMensalidade, dinheiroDaFicha, faltaDaFicha, fichaDe, idDaFicha,
+  mensalidadeDaData, prazoDosCheckins, quitada, renovada, usosDoCreditoNaDivida, valorDaFicha, vencimento,
 } from './fichaDaMensalidade'
 import type { Celula, Planilha } from './xlsx'
 
@@ -55,9 +58,8 @@ function planilhaMensalidades(data: AppData, nome: (id: string) => string, mes: 
   // O item pode chegar antes do cabeçalho. A chave é a atleta e o mês, mesmo nesse caso.
   const chaves = new Map<string, { player_id: string; mes: string }>()
   for (const registro of [...data.mensalidades, ...data.mensalidadeItens]) {
-    if (registro.mes >= MES_INICIAL && (!mes || registro.mes === mes)) {
-      chaves.set(idDaFicha(registro.player_id, registro.mes), registro)
-    }
+    if (registro.mes < MES_INICIAL) continue
+    if (!mes || registro.mes === mes) chaves.set(idDaFicha(registro.player_id, registro.mes), registro)
   }
   if (!chaves.size) return null
 
@@ -93,6 +95,33 @@ function planilhaMensalidades(data: AppData, nome: (id: string) => string, mes: 
   return { nome: 'Mensalidades', linhas: [...linhas, [], ...detalhes] }
 }
 
+/** Quem e mensalista, a fila de espera, o limite e o que cada uma deve ou tem de credito (a aba Mensalistas do app). */
+function planilhaMensalistas(data: AppData, nome: (id: string) => string, hoje: string): Planilha | null {
+  const fila = filaDeEspera(data)
+  const gente = data.players.filter((p) => geridaNaAbaMensalistas(data, p, hoje))
+  if (!gente.length && !fila.length) return null
+  const limite = limiteDeMensalistas(data)
+  const ocupadas = mensalistasAtivas(data, hoje).length
+  const mesAtual = mensalidadeDaData(hoje)
+  const rotuloDe = (p: (typeof data.players)[number]) => CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo ?? ''
+  const linhas: Celula[][] = [
+    ['Limite de mensalistas', limite, 'Ocupadas', ocupadas, 'Vagas livres', Math.max(0, limite - ocupadas), 'Na lista de espera', fila.length],
+    [],
+    ['Atleta', 'Categoria', `Mensalidade de ${monthLabel(mesAtual).toLowerCase()}`, 'Valor da ficha', 'Falta', 'Deve (mensalidades anteriores)', 'Crédito da mensalidade'],
+  ]
+  for (const p of [...gente].sort((a, b) => nome(a.id).localeCompare(nome(b.id), 'pt-BR'))) {
+    const f = fichaDe(data, p.id, mesAtual)
+    const situacao = quitada(f) ? 'Quitada' : renovada(f) ? 'Renovada' : hoje > vencimento(mesAtual) ? 'Não renovou' : f.itens.length ? 'Falta renovar' : 'Nada registrado'
+    linhas.push([nome(p.id), rotuloDe(p), situacao, { reais: valorDaFicha(f) }, { reais: faltaDaFicha(f) },
+      { reais: dividaDaMensalidade(data, p.id, hoje).total }, { reais: creditoDaMensalidade(data, p.id, hoje).total }])
+  }
+  if (fila.length) {
+    linhas.push([], ['Lista de espera', 'Posição', 'Pediu em'])
+    fila.forEach((p, i) => linhas.push([nome(p.id), `${i + 1}º`, dateLabel((p.espera_mensalista as string).slice(0, 10))]))
+  }
+  return { nome: 'Mensalistas', linhas }
+}
+
 /**
  * O controle completo. `mes` nulo exporta tudo; com mes, so os lancamentos e
  * o caixa daquele mes (o resumo sai inteiro de todo jeito, e o acumulado
@@ -115,7 +144,7 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
       [
         'Data', 'Dia', 'Atleta', 'Titular da conta', 'Plano', 'App', 'Arena', 'Modalidade', 'Compareceu',
         'Check-in confirmado', 'Valor devido', 'Valor pago', 'Crédito usado', 'Quitou de antes', 'Falta', 'Vira crédito',
-        'Pagamento confirmado', 'Status', 'Observação',
+        'Pagamento confirmado', 'Status', 'Substituta de', 'Check-in de crédito', 'Observação',
       ],
     ],
   }
@@ -162,6 +191,8 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
       { reais: movimentoDe(c)?.sobra ?? Math.max(0, saldoDoCheckin(c, dia, pag)) },
       SIM_NAO(Boolean(pag?.pagamento_confirmado)),
       statusDoCheckin(c, pag, true) === 'regularizado' ? 'Regularizado' : 'Verificar',
+      c.substitui ? nome(c.substitui) : '',
+      c.credito_checkin ? 'Sim (não veio, fez o check-in)' : c.credito_de ? 'Usou o de crédito' : '',
       pag?.observacao ?? '',
     ])
   }
@@ -242,6 +273,11 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
           CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria,
           l.tipo === 'entrada' ? 'Entrada' : 'Saída',
           { reais: l.tipo === 'entrada' ? l.valor : -l.valor },
+          // aluguel da V3: o que ela cobrou, se foi no plano mensal, os check-ins abatidos e a economia que foi para o caixa de eventos
+          l.valor_cobrado ? { reais: l.valor_cobrado } : '',
+          l.categoria === 'aluguel' && l.valor_cobrado ? (l.plano_mensal ? 'Sim' : 'Não') : '',
+          l.checkins_abatidos ?? '',
+          economiaDoAluguel(l) ? { reais: economiaDoAluguel(l) } : '',
         ] as Celula[],
       })),
     // os acertos com dinheiro: a divida paga depois entra, o credito devolvido sai
@@ -255,23 +291,25 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
           'Acerto de atleta',
           a.valor >= 0 ? 'Entrada' : 'Saída',
           { reais: a.valor },
+          '', '', '', '',
         ] as Celula[],
       })),
   ]
   const pagamentos: Planilha = {
     nome: 'Pagamentos',
     linhas: [
-      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor'],
+      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Aluguel: valor cobrado', 'Aluguel: plano mensal', 'Aluguel: check-ins abatidos', 'Para o caixa de eventos'],
       ...linhasDoCaixa.sort((a, b) => a.date.localeCompare(b.date)).map((x) => x.linha),
     ],
   }
 
   const abas = [controle, pagamentos, resumo, saldos]
+  const dados = { ...data, mensalidades: data.mensalidades ?? [], mensalidadeItens: data.mensalidadeItens ?? [] }
   if (!mes || mes >= MES_INICIAL) {
-    const mensalidades = planilhaMensalidades({
-      ...data, mensalidades: data.mensalidades ?? [], mensalidadeItens: data.mensalidadeItens ?? [],
-    }, nome, mes, hoje)
+    const mensalidades = planilhaMensalidades(dados, nome, mes, hoje)
     if (mensalidades) abas.push(mensalidades)
   }
+  const mensalistas = planilhaMensalistas(dados, nome, hoje)
+  if (mensalistas) abas.push(mensalistas)
   return abas
 }
