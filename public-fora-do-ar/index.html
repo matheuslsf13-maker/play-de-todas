@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play de Todas</title>
+<!-- O Play de Terca (/masculino/) e o Play Mista (/mista/) sairam do ar (dono, 08/11/2026): so existe o
+     Play de Todas, e quem abrir um endereco antigo vai para ele. O sw.js desta pasta desinstala o app antigo. -->
+<meta http-equiv="refresh" content="0; url=../">
+<script>
+  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => { if (r.scope !== new URL('../', location.href).href) r.unregister() }))
+  location.replace('../')
+</script>
+</head>
+<body style="font-family: system-ui; text-align: center; padding: 40px">
+<p><a href="../">Abrir o Play de Todas</a></p>
+</body>
+</html>

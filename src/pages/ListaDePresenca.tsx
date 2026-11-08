@@ -23,6 +23,7 @@ import {
   podeApagar,
   posicaoDe,
   quandoComData,
+  semSubstituta,
   soSuplente,
   sugestaoSegura,
   textoDaPosicao,
@@ -326,7 +327,7 @@ function LinhaDaLista({
         {detalhe && <span className="lista-forca">{detalhe}</span>}
         {gestao && !player && <span className="tiny muted" style={{ display: 'block' }}>sem cadastro vinculado</span>}
       </span>
-      {gestao && <PagamentoNaLista lista={lc.lista} nome={n} onVincular={onTocar} />}
+      {gestao && <PagamentoNaLista lista={lc.lista} nome={n} onVincular={onTocar} semSubstituta={pos <= lc.lista.vagas ? semSubstituta(lc.nomes) : []} />}
       {gestao && sugestao && (
         <button
           className="btn teal sm lista-sugestao"

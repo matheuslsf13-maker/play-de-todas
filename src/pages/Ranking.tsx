@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
-import { Avatar, Empty, Logo, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
-import { buildMonthPoster, buildPosterComFoto } from '../lib/poster'
+import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
@@ -31,7 +30,8 @@ import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { posicoesDaLista, semOPlay, ultimoPlayJogado, variacoes } from '../lib/variacao'
 import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
-import { PerfilDaDupla } from './Stats'
+// o perfil da dupla vem do Stats, que carrega a parte: sem isto o Stats inteiro entrava no pacote da tela inicial
+const PerfilDaDupla = lazy(() => import('./Stats').then((m) => ({ default: m.PerfilDaDupla })))
 import CartaoDoMomento from '../components/CartaoDoMomento'
 import { monthLabel, monthOf, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
@@ -139,6 +139,8 @@ export default function Ranking({
           statusPoints: usou?.bonus,
         }
       })
+      // a arte carrega so quando alguem pede (fica fora do pacote da tela inicial)
+      const { buildMonthPoster, buildPosterComFoto } = await import('../lib/poster')
       const blob = foto
         ? await buildPosterComFoto({ data: rotuloPeriodo, titulo: 'Pódio do mês', rows: linhas.slice(0, 6), foto, logoUrl: URL_DO_LOGO })
         : await buildMonthPoster(rotuloPeriodo, linhas, URL_DO_LOGO)
@@ -167,14 +169,6 @@ export default function Ranking({
 
   return (
     <>
-      <div className="card hero">
-        <Logo size={92} />
-        <div className="hero-txt">
-          <div className="hero-nome">Play de Todas</div>
-          <div className="tiny muted">Beach Tennis · V3 Arena · <em>mais que um play, uma experiência!</em></div>
-        </div>
-      </div>
-
       {/* a apresentacao (public/apresentacao) e do Play de Todas: no masculino ainda nao existe */}
       {LIGA.id === 'feminino' && (
       <a
@@ -192,7 +186,7 @@ export default function Ranking({
           </span>
         </span>
         {/* sem isto o card parece so um aviso: nada dizia que da para tocar */}
-        <span className="prox-abrir">Abrir ↗</span>
+        <span className="prox-abrir" aria-hidden="true">↗</span>
       </a>
       )}
 
@@ -201,14 +195,16 @@ export default function Ranking({
 
       <div className="card">
         <div className="row spread">
-          <div className="section-title" style={{ margin: 0 }}>
+          <div className="section-title nowrap" style={{ margin: 0 }}>
             {historico ? '🏆 Ranking geral' : '🏆 Ranking do mês'}
           </div>
-          <select className="select" style={{ width: 'auto' }} value={periodo} onChange={(e) => setMonth(e.target.value)}>
+          {/* seletor compacto: largo, ele quebrava o titulo em duas linhas */}
+          <select className="select select-compacta" value={periodo} onChange={(e) => setMonth(e.target.value)}>
             {months.map((m) => (
-              <option key={m} value={m}>{monthLabel(m)}</option>
+              // "Nov 2026": "Novembro de 2026" nao cabia ao lado do titulo no celular
+              <option key={m} value={m}>{`${monthLabel(m).slice(0, 3)} ${m.slice(0, 4)}`}</option>
             ))}
-            <option value={HISTORICO}>🏅 Histórico completo</option>
+            <option value={HISTORICO}>🏅 Histórico</option>
           </select>
         </div>
         {/* a palavra leva ao cartao que explica (dono, 06/11); embaixo, para nao apertar o titulo ao lado do mes */}
@@ -335,14 +331,14 @@ export default function Ranking({
         />
       )}
 
-      {fire.length > 0 && (
-        <div className="card">
-          <div className="section-title com-nota">
-            🔥 Status{' '}
-            <span className="titulo-nota">
-              <IrPara alvo="como-funciona-status">pódios seguidos</IrPara> sem faltar · o último tem um prêmio secreto
-            </span>
-          </div>
+      {/* UM cartao de status (dono, 08/11): quem esta em sequencia em cima e, um toque abaixo, como funciona.
+          Antes eram dois cartoes, um no meio e outro no fim da tela. */}
+      <div className="card" id="como-funciona-status">
+        <div className="section-title com-nota">
+          🔥 Status{' '}
+          <span className="titulo-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</span>
+        </div>
+        {fire.length > 0 ? (
           <div className="stack">
             {fire.map((f) => {
               const lvl = streakLevel(f.streak)
@@ -363,8 +359,37 @@ export default function Ranking({
               )
             })}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="tiny muted" style={{ margin: 0 }}>Ninguém em sequência agora: o próximo pódio começa uma.</p>
+        )}
+        <details className="regras status-como">
+          <summary>Como funciona o status</summary>
+          <p className="regra-texto" style={{ marginTop: 0 }}>
+            Cada play terminado no <strong>pódio</strong> sobe um degrau: o top 3 do play, o pódio do seu
+            grupo, ou as 3 duplas medalhistas nas duplas fixas e no campeonato.
+          </p>
+          <ol className="escada">
+            {STREAK_LADDER.map((x) => (
+              <li key={x.title} className={x.from === MAX_STREAK ? 'topo' : undefined}>
+                <span className="degrau">{x.from}</span>
+                <span className="degrau-nome">
+                  {x.emoji} {x.title}
+                </span>
+                <span className="degrau-conta">{x.from === MAX_STREAK ? 'o topo' : 'pódios seguidos'}</span>
+              </li>
+            ))}
+          </ol>
+          <ul className="regras-lista">
+            <li>❌ Zera fora do pódio ou faltando</li>
+            <li>🧊 Play sem status não sobe nem zera</li>
+            <li>⭐ Não vale pontos: o ranking é só o que foi jogado</li>
+          </ul>
+          <div className="premio">
+            👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
+            presente misterioso 🎁. O status recomeça.
+          </div>
+        </details>
+      </div>
 
       {decisoes.length > 0 && (
         <div className="card">
@@ -453,33 +478,6 @@ export default function Ranking({
         </div>
       </div>
 
-      <div className="card dark regras" id="como-funciona-status">
-        <div className="section-title">🔥 Status</div>
-        <p className="regra-texto" style={{ marginTop: 0 }}>
-          Cada play terminado no <strong>pódio</strong> sobe um degrau: o top 3 do play, o pódio do seu
-          grupo, ou as 3 duplas medalhistas nas duplas fixas e no campeonato.
-        </p>
-        <ol className="escada">
-          {STREAK_LADDER.map((x) => (
-            <li key={x.title} className={x.from === MAX_STREAK ? 'topo' : undefined}>
-              <span className="degrau">{x.from}</span>
-              <span className="degrau-nome">
-                {x.emoji} {x.title}
-              </span>
-              <span className="degrau-conta">{x.from === MAX_STREAK ? 'o topo' : 'pódios seguidos'}</span>
-            </li>
-          ))}
-        </ol>
-        <ul className="regras-lista">
-          <li>❌ Zera fora do pódio ou faltando</li>
-          <li>🧊 Play sem status não sobe nem zera</li>
-          <li>⭐ Não vale pontos: o ranking é só o que foi jogado</li>
-        </ul>
-        <div className="premio">
-          👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
-          presente misterioso 🎁. O status recomeça.
-        </div>
-      </div>
     </>
   )
 }
@@ -784,7 +782,11 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
         </div>
       )}
 
-      {duplaAberta && <PerfilDaDupla a={duplaAberta.a} b={duplaAberta.b} onClose={() => setDuplaAberta(null)} />}
+      {duplaAberta && (
+        <Suspense fallback={null}>
+          <PerfilDaDupla a={duplaAberta.a} b={duplaAberta.b} onClose={() => setDuplaAberta(null)} />
+        </Suspense>
+      )}
 
       {total > 5 && onVerTudo && (
         <button className="btn ghost block sm" style={{ marginTop: 10 }} onClick={onVerTudo}>

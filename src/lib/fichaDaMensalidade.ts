@@ -51,9 +51,10 @@ export type Ficha = {
 }
 
 /** A ficha com o credito usado na divida (automatico, no dia 6). E a que todo o app le. */
-export function fichaDe(data: AppData, playerId: string, mes: string): Ficha {
+export function fichaDe(data: AppData, playerId: string, mes: string, hoje?: string): Ficha {
   const f = fichaBruta(data, playerId, mes)
-  const uso = usosDoCreditoNaDivida(data, playerId).find((u) => u.mes === mes)
+  // `hoje` = a data consultada (play futuro): o credito que cobrira a divida no dia 6 ja conta
+  const uso = usosDoCreditoNaDivida(data, playerId, hoje).find((u) => u.mes === mes)
   return uso ? { ...f, itens: [...f.itens, itemDoUso(playerId, uso)] } : f
 }
 
@@ -115,7 +116,7 @@ export function dividaDaMensalidade(data: AppData, playerId: string, hoje: strin
   const porMes: { mes: string; falta: number }[] = []
   for (const mes of mesesDaAtleta(data, playerId)) {
     if (prazoDosCheckins(mes) >= hoje) continue
-    const f = fichaDe(data, playerId, mes)
+    const f = fichaDe(data, playerId, mes, hoje)
     if (!renovada(f, hoje)) continue
     const falta = faltaDaFicha(f, hoje)
     if (falta > 0) porMes.push({ mes, falta })
@@ -224,11 +225,23 @@ export function emDiaNaData(data: AppData, p: Player, date: string): boolean {
   const mes = monthOf(date)
   if (mes < MES_INICIAL) return mensalistaEmDiaNoPlay(p, date)
   if (dividaDaMensalidade(data, p.id, date).total > 0) return false
-  if (renovada(fichaDe(data, p.id, mes), date)) return true
+  if (renovada(fichaDe(data, p.id, mes, date), date)) return true
   if (dia(date) > 5) return false
   // ate o dia 5 vale a renovacao do mes anterior
   const ant = mesAnterior(mes)
-  return ant < MES_INICIAL ? quitadaAntiga(p, ant) : renovada(fichaDe(data, p.id, ant), date)
+  return ant < MES_INICIAL ? quitadaAntiga(p, ant) : renovada(fichaDe(data, p.id, ant, date), date)
+}
+
+/**
+ * PAGOU SO A MENSALIDADE DO MES SEGUINTE (ex.: virou mensalista depois do dia 5, quando a ficha ja nao aceita
+ * o Pix deste mes): segura a vaga (`perdeuAVaga`) e joga este mes como avulsa, sem divida (dono, 08/11). Serve
+ * para a tela dizer "mensalista a partir de janeiro" em vez de "atrasada".
+ */
+export function comecaNoMesSeguinte(data: AppData, p: Player, date: string): boolean {
+  const mes = monthOf(date)
+  if (categoriaDe(p) !== 'mensalista' || mes < MES_INICIAL || emDiaNaData(data, p, date)) return false
+  if (dividaDaMensalidade(data, p.id, date).total > 0) return false
+  return renovada(fichaDe(data, p.id, proximoMes(mes), date), date)
 }
 
 /**

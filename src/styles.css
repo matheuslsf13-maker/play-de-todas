@@ -405,7 +405,7 @@ label.field { display: block; }
   align-items: center;
   gap: 10px;
   padding: 9px 6px;
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid var(--sep);
 }
 .rank-row:last-child { border-bottom: 0; }
 .rank-pos {
@@ -465,7 +465,7 @@ label.field { display: block; }
   color: var(--muted);
   border-bottom: 1px solid var(--line);
 }
-.table tbody tr { border-bottom: 1px dashed var(--line); }
+.table tbody tr { border-bottom: 1px solid var(--sep); }
 .table tbody tr:last-child { border-bottom: 0; }
 /* overflow-y: hidden -- com so o overflow-x, o y vira "auto" e, sobrando 1px na altura, a faixa vira
    rolavel na vertical e prende o arraste do dedo: a pagina so descia puxando pelas bordas (06/11) */
@@ -555,7 +555,7 @@ html.janela-aberta { overflow: hidden; }
 }
 @media (min-width: 560px) { .modal-bg { align-items: center; } }
 
-hr.sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
+hr.sep { border: 0; border-top: 1px solid var(--sep); margin: 12px 0; }
 
 /* status maximo: 10 plays seguidos vencendo */
 .row.queen {
@@ -765,14 +765,6 @@ hr.sep { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
 .hint.aviso { color: var(--orange); font-weight: 700; }
 
 /* selo do campeonato na tela inicial */
-.card.hero {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: linear-gradient(135deg, var(--card) 60%, var(--pink-suave));
-  border-color: var(--pink-suave);
-}
-.hero-txt { min-width: 0; }
 .hero-nome {
   font-size: 19px;
   font-weight: 900;
@@ -913,7 +905,7 @@ textarea.input { line-height: 1.45; }
   font: inherit;
   color: inherit;
   cursor: pointer;
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid var(--sep);
 }
 .nome-troca.ocupada { color: var(--orange); border-bottom-color: var(--orange); }
 .travada {
@@ -977,7 +969,7 @@ textarea.input { line-height: 1.45; }
   align-items: center;
   gap: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid var(--sep);
 }
 .fila-linha:last-child { border-bottom: 0; padding-bottom: 0; }
 .fila-num {
@@ -1019,7 +1011,7 @@ textarea.input { line-height: 1.45; }
 .fechamento {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px dashed var(--line);
+  border-top: 1px solid var(--sep);
 }
 
 /* botao de trocar entre o modo diurno e o noturno, no cabecalho */
@@ -1244,7 +1236,7 @@ textarea.input { line-height: 1.45; }
 }
 
 /* a linha da jogadora: info em cima ocupando a largura toda, acoes embaixo */
-.atleta-linha { padding-bottom: 10px; border-bottom: 1px dashed var(--line); }
+.atleta-linha { padding-bottom: 10px; border-bottom: 1px solid var(--sep); }
 .atleta-linha:last-child { padding-bottom: 0; border-bottom: 0; }
 .atleta-acoes { margin-top: 8px; }
 
@@ -1485,7 +1477,7 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
   letter-spacing: .5px;
   text-transform: uppercase;
   color: var(--marca);
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid var(--sep);
 }
 
 /* dupla em lista: os dois nomes aparecem sempre (ver NomesDaDupla) */
@@ -1599,10 +1591,6 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 :root[data-liga="masculino"]:not([data-tema="escuro"]) { --g1: #1f6fe0; --g6: #0e7490; }
 :root[data-liga="masculino"][data-tema="escuro"] { --g1: #3fa2ff; --g6: #22d3ee; }
 
-/* o cabecalho terminava no roxo do logo feminino */
-:root[data-liga="masculino"] .topbar {
-  background: linear-gradient(135deg, var(--sempre-escuro) 0%, #17407f 100%);
-}
 
 /* ==================================================================
    PLAY MISTO -- verde-agua (o mar) com o laranja do por do sol: nem o rosa
@@ -1653,9 +1641,6 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 :root[data-liga="misto"]:not([data-tema="escuro"]) { --g1: #0f8f84; --g6: #b45309; }
 :root[data-liga="misto"][data-tema="escuro"] { --g1: #2ec4b0; --g6: #fbbf24; }
 
-:root[data-liga="misto"] .topbar {
-  background: linear-gradient(135deg, var(--sempre-escuro) 0%, #0f5a55 100%);
-}
 
 /* ---------- como pontua e status (Ranking) ----------
    Blocos curtos e numeros grandes: e lido no celular, de relance, por quem
@@ -1789,7 +1774,7 @@ p .nome-link { padding-block: 0; margin-block: 0; }
   gap: 10px;
   min-height: 52px;
   padding: 6px 4px;
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid var(--sep);
 }
 .lista-linha:last-child { border-bottom: 0; }
 .lista-linha.tocavel { cursor: pointer; }
@@ -1961,7 +1946,7 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
   text-align: left;
   background: none;
   border: 0;
-  border-top: 1px dashed var(--line);
+  border-top: 1px solid var(--sep);
   cursor: pointer;
 }
 .momento-faixa-texto { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
@@ -2242,3 +2227,141 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 @media (prefers-reduced-motion: reduce) { .plano-opcoes ~ .banner { animation: entra-linha-suave 160ms ease-out backwards; } }
 /* E11 opcao trancada legivel */
 .plano-opcao.travada { opacity: 1; background: transparent; border-style: dashed; color: var(--muted); }
+
+/* ===== ESTETICA DO APP (emil-design-eng + apple-design), 08/11/2026, 2a rodada =====
+   Antes/depois em prints/estetica-app/ (fora do git). */
+/* A0 separador fino e continuo: o tracejado lia como "rascunho" e pesava em listas longas */
+:root { --sep: color-mix(in srgb, var(--line) 70%, transparent); }
+
+/* A1 barra de abas como material translucido: o conteudo passa por baixo, sem faixa opaca */
+.tabbar {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--sep);
+  box-shadow: none;
+}
+.tabbar button {
+  -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+  transition: transform 140ms var(--ease-out), color 150ms ease, background-color 150ms ease;
+}
+.tabbar button:active { transform: scale(.94); }
+.tabbar button .ic { transition: transform 220ms var(--ease-out); }
+.tabbar button.active .ic { transform: translateY(-1px) scale(1.1); }
+@media (prefers-reduced-transparency: reduce) { .tabbar { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .tabbar button, .tabbar button .ic { transition: color 150ms, background-color 150ms; }
+  .tabbar button:active, .tabbar button.active .ic { transform: none; }
+}
+
+/* A2 numeros alinhados (tabelas, placares, caixas de numero) e numero grande com tracking negativo */
+.table td, .stat-box .v, .rank-pos { font-variant-numeric: tabular-nums; }
+.stat-box .v { letter-spacing: -0.02em; }
+
+/* A3 cartoes tocaveis afundam (escala), em vez de descer 1px; hover so com mouse */
+.card.momento, .card.apresentacao { transition: transform 160ms var(--ease-out), filter 150ms ease; -webkit-tap-highlight-color: transparent; }
+.card.momento:active, .card.apresentacao:active { transform: scale(.985); }
+.card.apresentacao:hover { filter: none; }
+@media (hover: hover) and (pointer: fine) { .card.apresentacao:hover { filter: brightness(1.06); } }
+@media (prefers-reduced-motion: reduce) { .card.momento:active, .card.apresentacao:active { transform: none; } }
+
+/* A4 o nome que "cresce" ocupa a linha: a nota da forca fica numa coluna so, na direita */
+.row > .nome-link.ellipsis.grow { flex: 1 1 0; }
+
+/* B lista de plays: linha inteira tocavel, com a seta de abrir e a lixeira discreta */
+.play-linha { padding: 4px 0 10px; border-bottom: 1px solid var(--sep); }
+.play-linha:last-child { border-bottom: 0; padding-bottom: 0; }
+.play-linha .grow { -webkit-tap-highlight-color: transparent; transition: opacity 150ms ease; }
+.play-linha .grow:active { opacity: .6; }
+.btn.seta { width: 44px; height: 44px; padding: 0; flex: none; font-size: 22px; line-height: 1; color: var(--muted); background: transparent; border: 0; }
+.btn.lixeira { width: 44px; height: 44px; padding: 0; flex: none; background: transparent; color: var(--muted); font-size: 16px; }
+.btn.lixeira:active:not(:disabled) { color: var(--danger); background: var(--danger-suave); }
+
+/* D Meninas: a linha inteira abre uma folha com as acoes (dono, 08/11); a lista fica so com quem e e como esta */
+.atleta-linha.tocavel {
+  cursor: pointer; margin: 0 -8px; padding: 8px 8px 12px; border-radius: 14px;
+  -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+  transition: background-color 150ms ease, transform 140ms var(--ease-out);
+}
+.atleta-linha.tocavel:active { background: var(--card-2); transform: scale(.985); }
+.atleta-linha.tocavel:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .atleta-linha.tocavel:hover { background: var(--card-2); } }
+.atleta-seta { flex: none; align-self: center; font-size: 24px; line-height: 1; color: var(--muted); }
+/* a folha: lista agrupada como no iOS, uma acao por linha, alvo de 52 px; remover fica num grupo a parte */
+.folha-acoes { display: grid; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card-2); }
+.folha-acoes button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 12px 14px;
+  border: 0; border-bottom: 1px solid var(--sep); background: transparent; color: var(--text);
+  font: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background-color 120ms ease;
+}
+.folha-acoes button:last-child { border-bottom: 0; }
+.folha-acoes button:active:not(:disabled) { background: var(--line); }
+.folha-acoes button:disabled { opacity: .5; cursor: default; }
+.folha-acoes button small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.folha-acoes.perigo { margin-top: 12px; }
+.folha-acoes.perigo button { align-items: center; color: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .atleta-linha.tocavel:active { transform: none; } }
+
+/* C cabecalho = o antigo cartao do logo da tela inicial (dono, 08/11): um so, nas cores do tema e da liga.
+   O fundo e opaco por baixo (o topo e sticky: o conteudo nao pode aparecer atras dele). */
+.topbar {
+  background: linear-gradient(135deg, transparent 55%, var(--pink-suave)), var(--card);
+  color: var(--text);
+  border: 1px solid var(--pink-suave);
+  border-top: 0;
+  box-shadow: var(--shadow);
+}
+.topbar h1.hero-nome { font-size: 22px; font-weight: 900; letter-spacing: -0.01em; text-transform: none; line-height: 1.15; }
+.topo-compacto .topbar h1.hero-nome { font-size: 17px; }
+.topbar .sub { color: var(--muted); }
+.topbar img, .topbar svg { filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .18)); }
+.bt-tema { border-color: var(--line); background: var(--card-2); transition: transform 140ms var(--ease-out); }
+.bt-tema:active { background: var(--card-2); transform: scale(.94); }
+
+/* F "Primeira vez aqui?" (dono, 08/11): a luz do por do sol no fundo, icone em degrade com brilho e uma seta
+   redonda no lugar da pilula "Abrir", que espremia o texto em 3 linhas. O cartao inteiro continua sendo o link. */
+.card.apresentacao {
+  position: relative; overflow: hidden; gap: 14px; padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--purple) 45%, transparent);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--pink) 20%, transparent), transparent 55%),
+    radial-gradient(120% 140% at 100% 100%, color-mix(in srgb, var(--yellow) 14%, transparent), transparent 60%),
+    var(--card);
+}
+.card.apresentacao .prox-selo {
+  width: 52px; height: 52px; border-radius: 16px; font-size: 26px; background: var(--por-do-sol);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--pink) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+.card.apresentacao .prox-titulo { color: var(--pink); letter-spacing: .08em; }
+.card.apresentacao .prox-info { margin-top: 2px; font-size: 16px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+.card.apresentacao .prox-acao { margin-top: 3px; line-height: 1.35; }
+.card.apresentacao .prox-abrir {
+  display: grid; place-items: center; width: 36px; height: 36px; padding: 0; font-size: 16px;
+  background: var(--card-2); color: var(--text); border: 1px solid var(--line);
+}
+
+/* G seletor compacto (mes do Ranking): o titulo "Ranking do mes" cabe numa linha */
+.select.select-compacta { width: auto; min-width: 0; flex: 0 1 auto; padding: 8px 10px; font-size: 14px; font-weight: 700; border-radius: 10px; }
+
+/* H status: "como funciona" recolhido dentro do cartao de quem esta em sequencia (um toque, nao outro cartao) */
+.status-como { margin-top: 12px; border-top: 1px solid var(--sep); }
+.status-como > summary {
+  display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-top: 10px;
+  list-style: none; cursor: pointer; font-size: 14px; font-weight: 800; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.status-como > summary::-webkit-details-marker { display: none; }
+.status-como > summary::after { content: '›'; font-size: 22px; line-height: 1; color: var(--muted); transform: rotate(90deg); transition: transform 200ms var(--ease-out); }
+.status-como[open] > summary::after { transform: rotate(-90deg); }
+.status-como > summary:active { opacity: .6; }
+.status-como[open] > summary { margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) { .status-como > summary::after { transition: none; } }
+
+/* I filtros de Meninas numa folha: grupos com rotulo e chips que quebram linha (nada escondido rolando para o lado) */
+.chips-folha { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-folha .chip { min-height: 40px; padding: 8px 12px; }
+.filtro-rotulo { margin: 10px 2px 2px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.filtro-rotulo:first-child { margin-top: 0; }
+.chip .filtro-n { opacity: .7; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.filtros-rodape .chip { min-height: 34px; }

@@ -346,10 +346,11 @@ function PlayList({
               const done = ms.filter(isPlayed).length
               const selo = selosDosPlays(data).get(s.id)
               return (
-                <div key={s.id} className="row" style={{ borderBottom: '1px dashed var(--line)', paddingBottom: 10 }}>
+                <div key={s.id} className="row play-linha">
                   <div className="grow" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer', minWidth: 0 }}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <strong className="ellipsis">{s.title}</strong>
+                    {/* o selo desce para a linha de baixo quando nao cabe: antes ele cortava o nome ("Play de 0...") */}
+                    <div className="row wrap" style={{ gap: '2px 8px' }}>
+                      <strong className="ellipsis" style={{ maxWidth: '100%' }}>{s.title}</strong>
                       <span className={`badge ${s.status}`}>{s.status === 'open' ? 'em andamento' : 'finalizado'}</span>
                     </div>
                     <div className="tiny muted">
@@ -365,10 +366,10 @@ function PlayList({
                       </div>
                     )}
                   </div>
-                  <button className="btn ghost sm" onClick={() => onOpen(s.id)}>Abrir</button>
                   {canEdit && (
-                    <button className="btn danger sm" onClick={() => setApagando(s)}>🗑</button>
+                    <button className="btn lixeira" aria-label={`Apagar ${s.title}`} onClick={() => setApagando(s)}>🗑</button>
                   )}
+                  <button className="btn seta" aria-label={`Abrir ${s.title}`} onClick={() => onOpen(s.id)}>›</button>
                 </div>
               )
             })}
@@ -4073,7 +4074,7 @@ function PlayDetail({
             const entraId = p.entra && 'id' in p.entra ? p.entra.id : null
             if (pagou !== null && avisou) {
               if (!entraId) {
-                onToast('Lance o 💰 da substituta na aba Check-ins (cadastro novo) e marque "Entrou no lugar de uma mensalista"')
+                onToast('Lance o 💰 da substituta na aba Financeiro (cadastro novo) e marque "Entrou no lugar de uma mensalista"')
                 return
               }
               const dia = diaDoPlay(data, session.id, session.date)
@@ -5740,7 +5741,7 @@ function FaltaDaMensalistaNoPlay({
               <input className="input" inputMode="decimal" value={texto} onChange={(e) => setTexto(e.target.value)} />
             </label>
             {valor !== null && valor >= 0 && <span className="hint">🎉 {formatarReais((valor + doCheckin) / 2)} para o caixa de eventos.</span>}
-            {!entraId && <span className="hint aviso">Cadastro novo: depois, lance o 💰 dela na aba Check-ins.</span>}
+            {!entraId && <span className="hint aviso">Cadastro novo: depois, lance o 💰 dela na aba Financeiro.</span>}
             <button className="btn teal block" disabled={valor === null || valor < 0 || (!comCheckin && valor === 0)} onClick={() => onConcluir({ avisou: true, compensacao, pagou: valor, comCheckin })}>
               Vai pagar {valor !== null ? formatarReais(valor) : ''}{comCheckin ? ' + check-in' : ''}
             </button>

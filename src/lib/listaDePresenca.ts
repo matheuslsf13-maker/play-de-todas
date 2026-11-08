@@ -550,3 +550,12 @@ export function juntarSemRepetir(trazidos: NomeTrazido[], mensalistas: NomeTrazi
   const depois = trazidos.map((n) => n.garantida).lastIndexOf(true) + 1
   return [...trazidos.slice(0, depois), ...novas, ...trazidos.slice(depois)]
 }
+
+/**
+ * MENSALISTAS QUE SAIRAM COM AVISO E FICARAM SEM SUBSTITUTA (revisao 08/11): a substituta so era ligada se ja
+ * houvesse suplente na hora da saida; quem entra depois (pelo link ou a mao) pode ser marcada no 💰.
+ */
+export function semSubstituta(nomes: NomeNaLista[]): string[] {
+  const ligadas = new Set(nomes.filter((n) => !n.saiu_em && n.substitui).map((n) => n.substitui))
+  return [...new Set(nomes.filter((n) => n.saiu_em && n.avisou_24h && n.player_id && !ligadas.has(n.player_id)).map((n) => n.player_id as string))]
+}

@@ -62,4 +62,13 @@ export default defineConfig({
     },
   ],
   define: { __VERSAO__: JSON.stringify(versao) },
+  build: {
+    rollupOptions: {
+      output: {
+        // React e Supabase num arquivo proprio: eles nao mudam a cada publicacao, entao o celular (e o service
+        // worker) reaproveitam o que ja baixou e so busca de novo o codigo do app (08/11)
+        manualChunks: (id) => (id.includes('node_modules') ? 'bibliotecas' : undefined),
+      },
+    },
+  },
 })

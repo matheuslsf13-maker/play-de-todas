@@ -332,6 +332,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .map((c) => (c.principal ? { ...c, id: `principal:${intoId}`, player_id: intoId } : { ...c, player_id: intoId }))
         const acertos = data.checkinAcertos.filter((a) => a.player_id === fromId).map((a) => ({ ...a, player_id: intoId }))
         push({ id: uid(), type: 'mergePlayers', fromId, intoId, matches, sessions, contas, checkins, acertos })
+        // a fila de espera nao se perde: quem fica herda a posicao mais antiga das duas
+        const de = data.players.find((p) => p.id === fromId)
+        const em = data.players.find((p) => p.id === intoId)
+        if (em && de?.espera_mensalista && (!em.espera_mensalista || de.espera_mensalista < em.espera_mensalista)) {
+          push({ id: uid(), type: 'savePlayer', player: { ...em, espera_mensalista: de.espera_mensalista } })
+        }
       },
       signIn: async (email, password) => {
         if (!supabase) return

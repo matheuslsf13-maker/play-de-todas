@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Build
@@ -29,26 +29,13 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
-      - name: Build masculino (Play de Todos, em /masculino/)
-        env:
-          VITE_LIGA: masculino
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npx vite build --outDir dist-m
-      - name: Build misto (Play Mista, em /mista/)
-        env:
-          VITE_LIGA: misto
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npx vite build --outDir dist-x
       - name: SPA fallback
         run: |
           cp dist/index.html dist/404.html
-          # o masculino mora numa subpasta do mesmo site; o CNAME e da raiz
-          rm -f dist-m/CNAME
-          cp -r dist-m dist/masculino
-          rm -f dist-x/CNAME
-          cp -r dist-x dist/mista
+          # so existe o Play de Todas (dono, 08/11/2026): o Play de Terca e o Play Mista sairam do ar. Os
+          # enderecos antigos levam para a raiz e o sw.js de saida desinstala o app antigo de quem o tinha.
+          cp -r public-fora-do-ar dist/masculino
+          cp -r public-fora-do-ar dist/mista
       - uses: actions/configure-pages@v5
         # liga o GitHub Pages automaticamente na primeira execucao
         with:

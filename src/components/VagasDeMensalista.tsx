@@ -1,10 +1,11 @@
 import { useState, type CSSProperties } from 'react'
 import { useStore } from '../lib/store'
 import { plural, todayISO, uid } from '../lib/types'
+import { categoriaDe } from '../lib/mensalidade'
 import { creditoDisponivel, formatarReais } from '../lib/checkins'
 import { mensalidadeDaData, MENSALIDADE_PADRAO } from '../lib/fichaDaMensalidade'
 import { useGravarNaFicha } from './FichaDaMensalidade'
-import { CHAVE_DO_LIMITE, filaDeEspera, limiteDeMensalistas, mensalistasAtivas, naoRenovaram, vagasLivres } from '../lib/vagasDeMensalista'
+import { CHAVE_DO_LIMITE, filaDeEspera, geridaNaAbaMensalistas, limiteDeMensalistas, mensalistasAtivas, naoRenovaram, vagasLivres } from '../lib/vagasDeMensalista'
 
 /*
  * 📅 VAGAS DE MENSALISTA (aba Meninas, so quem organiza; dono 07/11): quantas de quantas, o
@@ -20,6 +21,8 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
   const vagas = vagasLivres(data)
   const fila = filaDeEspera(data)
   const semRenovar = naoRenovaram(data)
+  const exComSaldo = data.players.filter((p) => categoriaDe(p) !== 'mensalista' && geridaNaAbaMensalistas(data, p)).length
+  const inativas = data.players.filter((p) => !p.active && categoriaDe(p) === 'mensalista').length
   const gravarNaFicha = useGravarNaFicha()
   /** A primeira da espera topou: qual valor ela pagou (80 renova com check-ins; 180 integral). */
   const [pagou, setPagou] = useState<number | null>(null)
@@ -86,6 +89,16 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
         {vagas > 0 ? `${plural(vagas, 'vaga livre', 'vagas livres')}.` : 'Lotado: quem pedir entra na lista de espera.'}
         {ocupadas > limite && ` ${ocupadas - limite} acima do limite (ninguém sai sozinha).`}
       </p>
+      {/* os numeros das telas nao batiam (revisao 08/11): diz o que conta na vaga e o que mais aparece na lista */}
+      {(semRenovar.length > 0 || exComSaldo > 0 || inativas > 0) && (
+        <p className="tiny muted" style={{ margin: '4px 0 0' }}>
+          Na vaga contam só as ativas que renovaram.
+          {semRenovar.length > 0 && ` A lista abaixo também tem ${plural(semRenovar.length, 'que não renovou', 'que não renovaram')}`}
+          {exComSaldo > 0 && `${semRenovar.length > 0 ? ' e' : ' A lista abaixo também tem'} ${plural(exComSaldo, 'ex-mensalista com saldo', 'ex-mensalistas com saldo')}`}
+          {(semRenovar.length > 0 || exComSaldo > 0) && '.'}
+          {inativas > 0 && ` ${plural(inativas, 'mensalista inativa fica', 'mensalistas inativas ficam')} de fora.`}
+        </p>
+      )}
       {semRenovar.length > 0 && (
         <div className="stack" style={{ gap: 6, marginTop: 10 }}>
           <strong className="small">🚪 Não renovaram até o dia 5 (a vaga já está livre)</strong>
@@ -104,7 +117,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
               </button>
             </div>
           ))}
-          <span className="hint">Passou do dia 5: não renova mais pela ficha. Passe para avulsa; quando chegar a vez dela na fila, o crédito que tiver completa o valor.</span>
+          <span className="hint">Passou do dia 5: não renova mais pela ficha. Passe para avulsa. Se ela quiser voltar, liga o interesse em Financeiro › Atletas; quando chegar a vez dela, o crédito que tiver completa o valor.</span>
         </div>
       )}
       {fila.length > 0 && (

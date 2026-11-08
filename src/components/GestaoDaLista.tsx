@@ -200,7 +200,16 @@ export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, 
 /** A compensacao da falta avisada pela lista: id fixo por lista e atleta. */
 function useCompensarFaltaNaLista(lc: ListaCompleta) {
   const compensar = useCompensarFalta()
-  return (playerId: string, tipo: 'credito' | 'checkin') => compensar(playerId, tipo, dataDoPlay(lc.lista), `falta:${lc.lista.id}:${playerId}`)
+  const { data, deleteItemDaMensalidade } = useStore()
+  // grava a compensacao e roda a escrita da lista; se o banco recusar, a compensacao sai de novo (sem credito fantasma)
+  return async (playerId: string, tipo: 'credito' | 'checkin' | null, escrita: () => Promise<boolean>) => {
+    const id = `falta:${lc.lista.id}:${playerId}`
+    const tinha = data.mensalidadeItens.some((i) => i.id === id)
+    if (tipo) compensar(playerId, tipo, dataDoPlay(lc.lista), id)
+    const ok = await escrita()
+    if (!ok && tipo && !tinha) deleteItemDaMensalidade(id)
+    return ok
+  }
 }
 
 /** Tocar num nome (organizadora): vincular, trocar de lugar, garantir a vaga, tirar. */
@@ -244,6 +253,7 @@ export function OpcoesDoNome({
       if (entra) await repo.mexerNoNome(entra.id, { substitui: n.player_id }).catch(() => {}) // sem o script 36: so nao liga
     }, `${player ? nameOf(player.id) : n.nome} saiu da lista`)
     if (ok) onClose()
+    return ok
   }
 
   if (avisoDeDuplicada) return avisoDeDuplicada
@@ -280,15 +290,11 @@ export function OpcoesDoNome({
   if (tela === 'compensar' && player) {
     // FALTA AVISADA (dono, 07/11): R$ 25 de credito na proxima mensalidade ou um check-in a menos na deste ciclo
     const compensar = async (tipo: 'credito' | 'checkin' | null) => {
-      if (tipo) {
-        try {
-          compensarFalta(player.id, tipo)
-        } catch (e) {
-          onToast(mensagemDeErro(e))
-          return
-        }
+      try {
+        await compensarFalta(player.id, tipo, () => tirar(true))
+      } catch (e) {
+        onToast(mensagemDeErro(e))
       }
-      await tirar(true)
     }
     return (
       <Modal title={`${nameOf(player.id)} avisou com 24h`} onClose={() => setTela('tirar')}>
@@ -410,7 +416,7 @@ export function ConfirmarTroca({
   onToast: (m: string) => void
   onClose: () => void
 }) {
-  const { data, repo, nameOf, deleteItemDaMensalidade } = useStore()
+  const { data, repo, nameOf, deleteItemDaMensalidade, saveCheckin } = useStore()
   const { ocupada, escrever } = useEscrita(recarregar, onToast)
   const compensarFalta = useCompensarFaltaNaLista(lc)
   const [passo, setPasso] = useState<'confirmar' | 'avisou' | 'compensar'>('confirmar')
@@ -438,9 +444,13 @@ export function ConfirmarTroca({
         const falta = `falta:${lc.lista.id}:${volta.player_id}`
         if (data.mensalidadeItens.some((i) => i.id === falta)) deleteItemDaMensalidade(falta)
         for (const x of lc.nomes.filter((x) => x.substitui === volta.player_id)) await repo.mexerNoNome(x.id, { substitui: null }).catch(() => {})
+        // o 💰 da substituta ja lancado deixa de ser "no lugar dela" (a metade para o caixa de eventos sai)
+        const dias = new Set(data.checkinDias.filter((d) => d.date === quando).map((d) => d.id))
+        for (const c of data.checkins.filter((c) => dias.has(c.dia_id) && c.substitui === volta.player_id)) saveCheckin({ ...c, substitui: null })
       }
     }, 'Trocadas ⇅')
     if (ok) onClose()
+    return ok
   }
 
   if (sai && passo === 'avisou') {
@@ -465,15 +475,7 @@ export function ConfirmarTroca({
             dataDoPlay={quando}
             ocupada={ocupada}
             onEscolher={(t) => {
-              if (t) {
-                try {
-                  compensarFalta(pid, t)
-                } catch (e) {
-                  onToast(mensagemDeErro(e))
-                  return
-                }
-              }
-              void trocar(true)
+              compensarFalta(pid, t, () => trocar(true)).catch((e) => onToast(mensagemDeErro(e)))
             }}
           />
           {entra && <span className="hint">{nome(entra)} fica marcada como substituta dela (no 💰).</span>}
@@ -511,7 +513,7 @@ export function Sairam({ lc }: { lc: ListaCompleta }) {
       <summary className="section-title lista-resumo">↩️ Saíram ({sairam.length})</summary>
       <div className="stack" style={{ gap: 8 }}>
         {sairam.map((n) => (
-          <div key={n.id} className="small" style={{ borderBottom: '1px dashed var(--line)', paddingBottom: 6 }}>
+          <div key={n.id} className="small" style={{ borderBottom: '1px solid var(--sep)', paddingBottom: 6 }}>
             <strong>{n.player_id ? nameOf(n.player_id) : n.nome}</strong>
             {n.origem === 'mensalista' && ' 📅'}
             <div className="tiny muted">

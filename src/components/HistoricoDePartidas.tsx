@@ -4,7 +4,8 @@ import { forcaNasPartidas } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { dateLabel, type Match } from '../lib/types'
 
-/** Quantos plays aparecem antes do "ver mais". */
+/** Quantos plays aparecem de cara (dono, 08/11: a ficha ficava longa demais) e quantos cada "ver mais" traz. */
+const PLAYS_DE_CARA = 2
 const PLAYS_POR_VEZ = 4
 
 /**
@@ -45,7 +46,7 @@ export default function HistoricoDePartidas({
   semForca?: boolean
 }) {
   const { data, nameOf } = useStore()
-  const [mostrar, setMostrar] = useState(PLAYS_POR_VEZ)
+  const [mostrar, setMostrar] = useState(PLAYS_DE_CARA)
   const sessao = useMemo(() => new Map(data.sessions.map((s) => [s.id, s])), [data.sessions])
   // quanto cada partida (e cada play) mexeu na forca: da jogadora, ou da dupla
   const chaveDaDupla = dupla ? [...dupla].sort().join('|') : null
@@ -136,10 +137,14 @@ export default function HistoricoDePartidas({
           </div>
         )
       })}
-      {porPlay.length > mostrar && (
+      {porPlay.length > mostrar ? (
         <button className="btn ghost sm block" onClick={() => setMostrar(mostrar + PLAYS_POR_VEZ)}>
           Ver mais ({porPlay.length - mostrar} {porPlay.length - mostrar === 1 ? 'play' : 'plays'})
         </button>
+      ) : (
+        mostrar > PLAYS_DE_CARA && (
+          <button className="btn ghost sm block" onClick={() => setMostrar(PLAYS_DE_CARA)}>Mostrar menos</button>
+        )
       )}
     </div>
   )

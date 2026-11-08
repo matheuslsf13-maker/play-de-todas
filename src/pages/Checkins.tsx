@@ -136,7 +136,9 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
   const [contasDe, setContasDe] = useState<{ jogadora: Player; visao: VisaoDasContas } | null>(null)
   const [lancando, setLancando] = useState<PedidoDeLancamento | null>(null)
   const [fichaDe_, setFichaDe] = useState<string | null>(null)
-  const [planoDe, setPlanoDe] = useState<Player | null>(null)
+  const [planoDeId, setPlanoDeId] = useState<string | null>(null)
+  // sempre o cadastro de agora: uma copia antiga desfaria o que outro aparelho mudou
+  const planoDe = data.players.find((x) => x.id === planoDeId) ?? null
   const [editandoDia, setEditandoDia] = useState<CheckinDia | 'novo' | null>(null)
 
   // so quem esta logada ve dinheiro (no modo local, todo mundo e a organizadora)
@@ -200,7 +202,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
           onContas={(jogadora, visao) => setContasDe({ jogadora, visao })}
           onLancar={(playerId) => setLancando({ playerId, diaId: diasDoMes(data, mes)[0]?.id })}
           onMensalidade={setFichaDe}
-          onPlano={setPlanoDe}
+          onPlano={(p) => setPlanoDeId(p.id)}
         />
       )}
       {secaoAtiva === 'mensalistas' && (
@@ -223,7 +225,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       {secaoAtiva === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
       {secaoAtiva === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
 
-      {planoDe && <EditarPlanoDaAtleta jogadora={planoDe} onClose={() => setPlanoDe(null)} onToast={onToast} onAbrirFicha={setFichaDe} />}
+      {planoDe && <EditarPlanoDaAtleta jogadora={planoDe} onClose={() => setPlanoDeId(null)} onToast={onToast} onAbrirFicha={setFichaDe} />}
       {fichaDe_ && <FichaDaMensalidade playerId={fichaDe_} onClose={() => setFichaDe(null)} onToast={onToast} />}
       {contasDe && (
         <ContasModal
@@ -359,7 +361,8 @@ function SecaoAtletas({
   const lista = [...data.players]
     .filter(
       (p) =>
-        (cat === null || categoriaDe(p) === cat) &&
+        // por categoria so as ativas, como conta a vaga de mensalista; as inativas ficam em "Todas"
+        (cat === null || (p.active && categoriaDe(p) === cat)) &&
         (!termo ||
         normalizar(p.name).includes(termo) ||
         normalizar(p.nickname ?? '').includes(termo) ||
@@ -394,7 +397,7 @@ function SecaoAtletas({
           <button className={`chip ${cat === null ? 'on' : ''}`} onClick={() => setCat(null)}>Todas <strong>{data.players.length}</strong></button>
           {CATEGORIAS.map((c) => (
             <button key={c.valor} className={`chip ${cat === c.valor ? 'on' : ''}`} onClick={() => setCat(cat === c.valor ? null : c.valor)}>
-              {c.rotulo} <strong>{data.players.filter((p) => categoriaDe(p) === c.valor).length}</strong>
+              {c.rotulo} <strong>{data.players.filter((p) => p.active && categoriaDe(p) === c.valor).length}</strong>
             </button>
           ))}
         </div>
@@ -1950,7 +1953,8 @@ function EditarDiaModal({
   function salvar() {
     if (!date || vCheio === null || vCom === null) return
     saveCheckinDia({
-      id: dia?.id ?? (jaExiste ? uid() : `dia:${date}`),
+      // `:manual`: o apagar da lista so leva o dia que o 💰 criou (`dia:<data>`), nunca este
+      id: dia?.id ?? (jaExiste ? uid() : `dia:${date}:manual`),
       date,
       session_id: sessionId || null,
       titulo: titulo.trim() || null,
