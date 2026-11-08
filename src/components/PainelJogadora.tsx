@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import CampoDeBusca from './CampoDeBusca'
+import { ComparadorDeAtletas } from './Comparador'
 import GraficoDeForca from './GraficoDeForca'
 import HistoricoDePartidas from './HistoricoDePartidas'
 import { NomeClicavel } from './NomeClicavel'
@@ -29,7 +30,7 @@ import { STREAK_LADDER, streakLevel, type computeStreaks } from '../lib/streaks'
 import { useStore } from '../lib/store'
 import { dateLabel, monthOf, plural } from '../lib/types'
 
-type Aba = 'resumo' | 'partidas' | 'parcerias'
+type Aba = 'resumo' | 'partidas' | 'parcerias' | 'comparar'
 type Lado = 'com' | 'contra'
 type OrdemDeParceria = 'jogos' | 'melhor'
 
@@ -250,9 +251,9 @@ export default function PainelJogadora({
       </div>
 
       <div className="st-seg interno" role="tablist">
-        {(['resumo', 'partidas', 'parcerias'] as Aba[]).map((id) => (
+        {(['resumo', 'partidas', 'parcerias', 'comparar'] as Aba[]).map((id) => (
           <button key={id} type="button" role="tab" aria-selected={aba === id} className={aba === id ? 'on' : ''} onClick={() => setAba(id)}>
-            {id === 'resumo' ? 'Resumo' : id === 'partidas' ? 'Partidas' : 'Parcerias'}
+            {id === 'resumo' ? 'Resumo' : id === 'partidas' ? 'Partidas' : id === 'parcerias' ? 'Parcerias' : 'Comparar'}
           </button>
         ))}
       </div>
@@ -304,6 +305,8 @@ export default function PainelJogadora({
       )}
 
       {aba === 'parcerias' && <Parcerias pares={meusPares} rivais={meusRivais} />}
+
+      {aba === 'comparar' && <ComparadorDeAtletas key={selected} inicial={selected} matches={matches} stats={stats} streaks={streaks} period={period} comJogo={comJogo} />}
     </>
   )
 }

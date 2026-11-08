@@ -5,11 +5,10 @@ import { Avatar, Empty } from './ui'
 import { ListaExpansivel, PosicaoComSeta, SetaPequena } from './StatsPecas'
 import { PLAYS_EM_AVALIACAO, emAvaliacao, forcaDeDuplas } from '../lib/forca'
 import { movimentoDasDuplas } from '../lib/movimentoDoStats'
-import { colocacaoPorDupla } from '../lib/campeonato'
-import { aplicarByeNasDuplas, duoStatsComPontos, pontosDeBye, type DuoStat, type playedMatches } from '../lib/stats'
+import { duplasDoRecorte } from '../lib/duplasDoRecorte'
+import type { DuoStat, playedMatches } from '../lib/stats'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
-import type { AppData } from '../lib/types'
 
 type Ordem = 'jogos' | 'aproveitamento' | 'pontos' | 'forca' | 'entrosamento'
 
@@ -29,19 +28,6 @@ const TITULO: Record<Ordem, string> = {
 }
 const MEDALHAS = ['🥇', '🥈', '🥉']
 const LINHAS_DE_CARA = 5
-
-/**
- * As duplas do recorte com os pontos certos: o bye conta (a dupla que passou direto nao pode aparecer com menos
- * pontos) e no campeonato vale a colocacao.
- */
-export function duplasDoRecorte(sessions: AppData['sessions'], matches: ReturnType<typeof playedMatches>): DuoStat[] {
-  return [
-    ...aplicarByeNasDuplas(
-      aplicarByeNasDuplas(duoStatsComPontos(sessions, matches), pontosDeBye(sessions, matches).porDupla),
-      colocacaoPorDupla(sessions, matches),
-    ).values(),
-  ]
-}
 
 const sinal = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0')
 

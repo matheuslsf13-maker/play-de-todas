@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
+import { ComparadorDeDuplas } from './Comparador'
 import GraficoDaDupla from './GraficoDaDupla'
 import HistoricoDePartidas from './HistoricoDePartidas'
 import { Avatar, Modal } from './ui'
 import { JOGOS_PARA_ENTROSAMENTO, PLAYS_EM_AVALIACAO, emAvaliacao, forcaDeDuplas, nivelDeForca } from '../lib/forca'
-import { duoMatches, mediaDaForca, type DuoStat, type playedMatches } from '../lib/stats'
+import { duoMatches, mediaDaForca, playedMatches, type DuoStat } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { plural } from '../lib/types'
 
-type Aba = 'resumo' | 'rivais' | 'partidas'
+type Aba = 'resumo' | 'rivais' | 'partidas' | 'comparar'
 type OrdemDeRival = 'jogos' | 'pct' | 'dificeis'
 type Rival = { key: string; a: string; b: string; v: number; d: number }
 
@@ -30,6 +31,8 @@ export default function DetalheDaDupla({
 }) {
   const { data, nameOf, playerById, canEdit } = useStore()
   const forca = useMemo(() => forcaDeDuplas(data).get(duo.key), [data, duo.key])
+  // quem ja jogou alguma partida: as atletas que o comparador oferece para montar a outra dupla
+  const comJogo = useMemo(() => [...new Set(playedMatches(data, {}).flatMap((m) => [...m.team_a, ...m.team_b]))], [data])
   const avaliacao = useMemo(() => emAvaliacao(data), [data])
   const oculta = !canEdit && (avaliacao.has(duo.a) || avaliacao.has(duo.b))
   const jogos = useMemo(() => duoMatches(matches, duo.a, duo.b), [matches, duo])
@@ -77,9 +80,9 @@ export default function DetalheDaDupla({
       </div>
 
       <div className="pd-abas" role="tablist">
-        {(['resumo', 'rivais', 'partidas'] as Aba[]).map((id) => (
+        {(['resumo', 'rivais', 'partidas', 'comparar'] as Aba[]).map((id) => (
           <button key={id} type="button" role="tab" aria-selected={aba === id} className={aba === id ? 'on' : ''} onClick={() => setAba(id)}>
-            {id === 'resumo' ? 'Resumo' : id === 'rivais' ? 'Rivais' : 'Partidas'}
+            {id === 'resumo' ? 'Resumo' : id === 'rivais' ? 'Rivais' : id === 'partidas' ? 'Partidas' : 'Comparar'}
           </button>
         ))}
       </div>
@@ -116,6 +119,8 @@ export default function DetalheDaDupla({
       {aba === 'rivais' && <AbaRivais rivais={rivais} />}
 
       {aba === 'partidas' && <HistoricoDePartidas partidas={jogos} dupla={[duo.a, duo.b]} semForca={oculta} />}
+
+      {aba === 'comparar' && <ComparadorDeDuplas key={duo.key} inicial={[duo.a, duo.b]} matches={matches} comJogo={comJogo} />}
     </Modal>
   )
 }
