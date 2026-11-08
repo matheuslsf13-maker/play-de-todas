@@ -1,53 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import CampoDeBusca from '../components/CampoDeBusca'
-import { LIGA } from '../liga'
-import GraficoDeForca from '../components/GraficoDeForca'
 import DetalheDupla from '../components/DetalheDaDupla'
-import HistoricoDePartidas from '../components/HistoricoDePartidas'
-import { normalizar } from '../lib/roster'
-import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
-import { NomesDaDupla } from '../components/NomeClicavel'
-import { Avatar, Empty, StatBox } from '../components/ui'
-import {
-  aplicarBye,
-  aplicarColocacao,
-  aplicarByeNasDuplas,
-  avgPoints,
-  balance,
-  computeStats,
-  computeStatsComPontos,
-  type DuoStat,
-  duoStatsComPontos,
-  emptyStat,
-  opponentStats,
-  type PairKeyStat,
-  partnerStats,
-  playedMatches,
-  pontosDeBye,
-  winRate,
-  mediaDaForca,
-} from '../lib/stats'
-import { colocacaoNoRecorte, colocacaoPorDupla } from '../lib/campeonato'
-import {
-  JOGOS_PARA_FIRMAR,
-  NIVEIS_DE_FORCA,
-  forcaDeDuplas,
-  nivelDeForca,
-  emAvaliacao,
-  avaliacaoCurta,
-  PLAYS_EM_AVALIACAO,
-  rankingDeForca,
-  textoDaAvaliacao,
-  textoDaQueda,
-  type ForcaDeDupla,
-  type LinhaDeForca,
-} from '../lib/forca'
-import { applyBonuses, computeStreaks, STREAK_LADDER, streakLevel } from '../lib/streaks'
+import PainelDuplas, { duplasDoRecorte } from '../components/PainelDuplas'
+import PainelForca from '../components/PainelForca'
+import PainelJogadora from '../components/PainelJogadora'
+import { FolhaDoPeriodo } from '../components/StatsPecas'
+import { ProvedorDePerfil } from '../components/NomeClicavel'
+import { Empty } from '../components/ui'
+import { aplicarBye, aplicarColocacao, computeStatsComPontos, playedMatches, pontosDeBye } from '../lib/stats'
+import { colocacaoNoRecorte } from '../lib/campeonato'
+import { rankingDeForca } from '../lib/forca'
+import { applyBonuses, computeStreaks } from '../lib/streaks'
 import { useStore } from '../lib/store'
-import { dateLabel, monthLabel, monthOf, plural, type AppData } from '../lib/types'
+import { monthLabel, monthOf } from '../lib/types'
 
 type Modo = 'jogadora' | 'duplas' | 'forca'
 
+const ROTULO_DO_MODO: Record<Modo, string> = { jogadora: 'Jogadora', duplas: 'Duplas', forca: 'Força' }
+
+/**
+ * A aba Desempenho (antes Stats), redesenhada em 08/11/2026: topo fixo e translucido com as tres vistas e o periodo
+ * num chip que abre uma folha; cada vista e um painel (Jogadora, Duplas, Forca).
+ */
 export default function Stats({
   abrir,
   onAbriu,
@@ -78,16 +51,14 @@ export default function Stats({
   }, [abrir, onAbriu])
 
   const matches = useMemo(
-    // o mes acompanha o ranking (so os plays que valem); o historico traz tudo,
-    // inclusive os plays avulsos
+    // o mes acompanha o ranking (so os plays que valem); o historico traz tudo, inclusive os plays avulsos
     () => playedMatches(data, period === 'all' ? {} : { month: period, ranked: true }),
     [data, period],
   )
   const streaks = useMemo(() => computeStreaks(data), [data])
   const stats = useMemo(() => {
     const awards = period === 'all' ? streaks.awards : streaks.awards.filter((a) => a.month === period)
-    // partidas, V/D e games de TUDO (quem so jogou a fase de grupos jogou);
-    // os pontos so das partidas que pontuam
+    // partidas, V/D e games de TUDO (quem so jogou a fase de grupos jogou); os pontos so das partidas que pontuam
     const stats = computeStatsComPontos(data.sessions, matches)
     const bye = pontosDeBye(data.sessions, matches).porJogadora
     // no campeonato os pontos saem da colocacao final, nao do placar
@@ -95,26 +66,25 @@ export default function Stats({
   }, [data.sessions, matches, streaks, period])
 
   const comJogo = useMemo(
-    () => [...data.players].filter((p) => (stats.get(p.id)?.matches ?? 0) > 0),
+    () => [...data.players].filter((p) => (stats.get(p.id)?.matches ?? 0) > 0).map((p) => p.id),
     [data.players, stats],
   )
-  // sem ninguem escolhida, abre na 1a da forca que nao esta pausada (antes era
-  // a primeira em ordem alfabetica, que nao diz nada)
+  // sem ninguem escolhida, abre na 1a da forca que nao esta pausada (antes era a primeira em ordem alfabetica)
   const topoDaForca = useMemo(
-    () => rankingDeForca(data, nameOf).find((l) => !l.pausada && l.emAvaliacao === undefined && comJogo.some((p) => p.id === l.player_id))?.player_id,
+    () => rankingDeForca(data, nameOf).find((l) => !l.pausada && l.emAvaliacao === undefined && comJogo.includes(l.player_id))?.player_id,
     [data, nameOf, comJogo],
   )
-  const selected = playerId || topoDaForca || comJogo[0]?.id || data.players[0]?.id || ''
+  const selected = playerId || topoDaForca || comJogo[0] || data.players[0]?.id || ''
 
   if (data.players.length === 0) {
     return (
       <div className="card">
-        <Empty icon="📊">Cadastre as jogadoras e registre um play para ver as estatísticas.</Empty>
+        <Empty icon="📊">Cadastre as jogadoras e registre um play para ver o desempenho.</Empty>
       </div>
     )
   }
 
-  /** Tocar num nome dentro do Stats abre a ficha dela, guardando a anterior para o "voltar". */
+  /** Tocar num nome dentro do Desempenho abre a ficha dela, guardando a anterior para o "voltar". */
   const abrirJogadora = (id: string) => {
     if (id === selected && modo === 'jogadora') return
     setAnteriores((a) => [...a, selected])
@@ -128,34 +98,31 @@ export default function Stats({
     if (anterior) setPlayerId(anterior)
   }
 
+  const rotuloDoPeriodo = period === 'all' ? '🏅 Histórico' : monthLabel(period)
+
   return (
     <ProvedorDePerfil value={abrirJogadora}>
-      <div className="card">
-        <div className="segmented">
-          <button className={modo === 'jogadora' ? 'on' : ''} onClick={() => setModo('jogadora')}>
-            👤 Jogadora
-          </button>
-          <button className={modo === 'duplas' ? 'on' : ''} onClick={() => setModo('duplas')}>
-            🤝 Dupla
-          </button>
-          <button className={modo === 'forca' ? 'on' : ''} onClick={() => setModo('forca')}>
-            💪 Força
-          </button>
+      <div className="st-topo">
+        <div className="st-topo-linha">
+          <h2>Desempenho</h2>
+          {modo === 'forca' ? (
+            <span className="st-periodo-fixo">Atravessa o ano</span>
+          ) : (
+            <FolhaDoPeriodo
+              periodo={period}
+              rotulo={rotuloDoPeriodo}
+              meses={months.map((m, i) => ({ id: m, rotulo: i === 0 ? `${monthLabel(m)} (mês atual)` : monthLabel(m) }))}
+              onEscolher={setPeriod}
+            />
+          )}
         </div>
-        {modo !== 'forca' && (
-        <label className="field" style={{ marginTop: 12 }}>
-          <span>Período</span>
-          <select className="select" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="all">🏅 Histórico completo</option>
-            {months.map((m, i) => (
-              <option key={m} value={m}>
-                {i === 0 ? `${monthLabel(m)} (mês atual)` : monthLabel(m)}
-              </option>
-            ))}
-          </select>
-          <em className="hint">Plays avulsos aparecem só no histórico.</em>
-        </label>
-        )}
+        <div className="st-seg" role="tablist">
+          {(Object.keys(ROTULO_DO_MODO) as Modo[]).map((id) => (
+            <button key={id} type="button" role="tab" aria-selected={modo === id} className={modo === id ? 'on' : ''} onClick={() => setModo(id)}>
+              {ROTULO_DO_MODO[id]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {modo === 'forca' ? (
@@ -170,6 +137,7 @@ export default function Stats({
           stats={stats}
           streaks={streaks}
           period={period}
+          comJogo={comJogo}
         />
       ) : (
         // nas duplas o nome nao abre a ficha individual (dono, 08/11): tocar na dupla abre so o stats dela
@@ -181,266 +149,7 @@ export default function Stats({
   )
 }
 
-/* ------------------------------------------------------- por jogadora */
-
-function PainelJogadora({
-  selected,
-  setPlayerId,
-  anterior,
-  onVoltar,
-  matches,
-  stats,
-  streaks,
-  period,
-}: {
-  selected: string
-  setPlayerId: (id: string) => void
-  /** A ficha aberta antes desta (tocando num nome), para voltar. */
-  anterior?: string
-  onVoltar?: () => void
-  matches: ReturnType<typeof playedMatches>
-  stats: ReturnType<typeof computeStats>
-  streaks: ReturnType<typeof computeStreaks>
-  period: string
-}) {
-  const { data, nameOf, playerById, canEdit } = useStore()
-
-  // a forca e sempre do historico inteiro, mesmo com o periodo filtrado: ela
-  // nao e desempenho do mes, e o que o app aprendeu sobre a jogadora ate hoje
-  const forcas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
-  // a posicao conta so quem esta no ranking; a pausada continua com a ficha. Para
-  // quem nao e admin, quem esta em avaliacao tambem nao conta (a nota e oculta)
-  const noRanking = useMemo(
-    () => forcas.filter((l) => !l.pausada && (canEdit || l.emAvaliacao === undefined)),
-    [forcas, canEdit],
-  )
-  const minhaForca = forcas.find((l) => l.player_id === selected) ?? null
-  const forcaOculta = !canEdit && minhaForca?.emAvaliacao !== undefined
-  const posicaoNaForca = noRanking.findIndex((l) => l.player_id === selected) + 1
-  const totalNaForca = noRanking.length
-
-  const partners = useMemo(() => partnerStats(matches), [matches])
-  const opponents = useMemo(() => opponentStats(matches), [matches])
-
-  const [busca, setBusca] = useState('')
-  const achadas = useMemo(() => {
-    const q = normalizar(busca.trim())
-    if (!q) return []
-    return data.players
-      .filter((p) => normalizar(p.name).includes(q) || normalizar(p.nickname ?? '').includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-      .slice(0, 8)
-  }, [busca, data.players])
-  const s = stats.get(selected) ?? emptyStat(selected)
-  const meusPares = sortPairs(partners.get(selected))
-  const meusRivais = sortPairs(opponents.get(selected))
-
-  const melhorPar = meusPares.filter((p) => p.wins > 0).sort((a, b) => b.wins - a.wins || b.points - a.points)[0]
-  const parDificil = meusPares.filter((p) => p.losses > 0).sort((a, b) => b.losses - a.losses || rate(a) - rate(b))[0]
-  const freguesa = meusRivais.filter((p) => p.wins > 0).sort((a, b) => b.wins - a.wins || rate(b) - rate(a))[0]
-  const pedra = meusRivais.filter((p) => p.losses > 0).sort((a, b) => b.losses - a.losses || rate(a) - rate(b))[0]
-
-  const seq = streaks.current.get(selected) ?? 0
-  const nivel = streakLevel(seq)
-  const conquistas = streaks.conquistas.get(selected)
-  const maiorNivel = conquistas ? streakLevel(conquistas.melhor) : null
-  const dataDaSessao = new Map(data.sessions.map((x) => [x.id, x.date]))
-  const noPeriodo = (sid: string) => period === 'all' || monthOf(dataDaSessao.get(sid) ?? '') === period
-  const diasVencidos = [...streaks.winnersOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
-  const podios = [...streaks.podiumOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
-
-  return (
-    <>
-      <div className="card">
-        {anterior && (
-          <button className="btn ghost sm" style={{ marginBottom: 8 }} onClick={onVoltar}>
-            ‹ voltar para {nameOf(anterior)}
-          </button>
-        )}
-        {/* BUSCA: com 30+ meninas, rolar a lista no celular cansa. Ignora acento e
-            maiuscula e acha pelo nome ou pelo apelido */}
-        <div className="field">
-          <span>Buscar menina</span>
-          <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Digite um pedaço do nome" rotulo="Buscar menina" />
-        </div>
-        {achadas.length > 0 && (
-          // lista, uma por linha com a foto (os chips soltos ficavam baguncados; dono, 06/11)
-          <div className="busca-lista" style={{ margin: '-4px 0 10px' }}>
-            {achadas.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className={`busca-item${p.id === selected ? ' on' : ''}`}
-                onClick={() => {
-                  setPlayerId(p.id)
-                  setBusca('')
-                }}
-              >
-                <Avatar player={p} size={28} />
-                <span className="grow ellipsis" style={{ fontWeight: 700 }}>{p.nickname?.trim() || p.name}</span>
-                {p.nickname?.trim() && p.nickname.trim() !== p.name && <span className="tiny muted ellipsis">{p.name}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-        {busca.trim() !== '' && achadas.length === 0 && (
-          <p className="tiny muted" style={{ margin: '-4px 0 10px' }}>Nenhuma menina com “{busca}”.</p>
-        )}
-        <label className="field">
-          <span>Jogadora</span>
-          <select className="select" value={selected} onChange={(e) => setPlayerId(e.target.value)}>
-            {[...data.players]
-              .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-              .map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-          </select>
-        </label>
-
-        <div className="row" style={{ margin: '14px 0 12px' }}>
-          <Avatar player={playerById(selected)} size={62} />
-          <div className="grow">
-            <div style={{ fontSize: 19, fontWeight: 800 }} className="ellipsis">
-              <NomeClicavel id={selected}>{nameOf(selected)}</NomeClicavel>
-            </div>
-            {(conquistas?.duquesas.length ?? 0) > 0 && (
-              <div className="tiny" style={{ color: 'var(--ouro)', fontWeight: 800 }}>
-                👑 Duquesa da V3{conquistas!.duquesas.length > 1 && ` ×${conquistas!.duquesas.length}`}
-              </div>
-            )}
-            <div className="small muted">
-              {plural(s.days, 'play')} · {avgPoints(s).toFixed(2)} pontos por partida
-            </div>
-            {nivel && (
-              <div className="tiny" style={{ color: 'var(--pink)', fontWeight: 800, marginTop: 2 }}>
-                {nivel.emoji} {nivel.title} · {seq} pódios seguidos
-              </div>
-            )}
-          </div>
-        </div>
-
-        <Barra titulo="Aproveitamento" pct={winRate(s)} legenda={`${s.wins}V · ${s.losses}D em ${s.matches} partidas`} />
-
-        <div className="grid3" style={{ marginTop: 12 }}>
-          <StatBox k="Pontos" v={s.points} />
-          <StatBox k="Saldo" v={balance(s) > 0 ? `+${balance(s)}` : balance(s)} />
-          <StatBox k="Games" v={`${s.gamesWon}/${s.gamesLost}`} />
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="section-title">💪 Força</div>
-        {minhaForca && forcaOculta ? (
-          <EmAvaliacao plays={minhaForca.emAvaliacao as number} />
-        ) : minhaForca ? (
-          <>
-            {minhaForca.emAvaliacao !== undefined && (
-              <div className="tiny" style={{ fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
-                {textoDaAvaliacao(minhaForca.emAvaliacao)} — só você (admin) vê o número
-              </div>
-            )}
-            <div className="row" style={{ gap: 10 }}>
-              <span style={{ fontSize: 26 }}>{minhaForca.nivel.emoji}</span>
-              <div className="grow" style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, color: minhaForca.nivel.cor }}>
-                  {minhaForca.nivel.titulo}
-                </div>
-                <div className="tiny muted">
-                  {minhaForca.pausada ? 'fora do ranking da força' : `${posicaoNaForca}ª mais forte de ${totalNaForca}`}
-                  {minhaForca.provisoria && ' · nota provisória'}
-                  {minhaForca.queda && ` · ${textoDaQueda(minhaForca.queda)}`}
-                </div>
-              </div>
-              <span style={{ fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-                {minhaForca.nota}
-              </span>
-            </div>
-            <GraficoDeForca data={data} playerId={selected} />
-            <PausaDaJogadora id={selected} pausada={minhaForca.pausada} />
-          </>
-        ) : (
-          <p className="tiny muted" style={{ margin: 0 }}>Ainda sem partidas para medir.</p>
-        )}
-      </div>
-
-      <div className="card">
-        <div className="section-title">🕑 Histórico</div>
-        <HistoricoDePartidas partidas={matches} jogadora={selected} semForca={forcaOculta} />
-      </div>
-
-      <div className="card">
-        <div className="section-title">🏅 Status e conquistas</div>
-        <div className="grid3">
-          <StatBox k="Seguidos agora" v={seq} />
-          <StatBox k="Pódios" v={podios} />
-          <StatBox k="Dias vencidos" v={diasVencidos} />
-        </div>
-        <div className="conquistas" style={{ marginTop: 10 }}>
-          <div className="tiny muted">
-            Maior status:{' '}
-            <strong style={{ color: 'var(--text)' }}>
-              {maiorNivel ? `${maiorNivel.emoji} ${maiorNivel.title}` : 'ainda nenhum'}
-            </strong>
-          </div>
-          <div className="row wrap" style={{ gap: 6, marginTop: 8 }}>
-            {STREAK_LADDER.map((x) => {
-              const n = conquistas?.vezes[x.from] ?? 0
-              return (
-                <span key={x.from} className={`chip ${n > 0 ? 'on' : 'off'}`} style={{ flex: 'none' }} title={x.title}>
-                  {x.emoji} {x.title} ×{n}
-                </span>
-              )
-            })}
-          </div>
-          {(conquistas?.duquesas.length ?? 0) > 0 && (
-            <div className="tiny" style={{ marginTop: 8, color: 'var(--ouro)', fontWeight: 700 }}>
-              👑 Duquesa em {conquistas!.duquesas.map(dateLabel).join(', ')}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="section-title">💫 Destaques</div>
-        {meusPares.length === 0 && meusRivais.length === 0 ? (
-          <Empty icon="🏐">Sem partidas neste período.</Empty>
-        ) : (
-          <div className="stack">
-            <Destaque icone="🤝" rotulo="Melhor parceria" par={melhorPar} tipo="parceira" />
-            <Destaque icone="😅" rotulo="Parceria mais difícil" par={parDificil} tipo="parceira" />
-            <Destaque icone="🎯" rotulo="Ganha mais de" par={freguesa} tipo="rival" />
-            <Destaque icone="🔥" rotulo="Perde mais para" par={pedra} tipo="rival" />
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <div className="section-title">🤝 Com quem já jogou</div>
-        <TabelaPares linhas={meusPares} primeira="Parceira" />
-      </div>
-
-      <div className="card">
-        <div className="section-title">⚔️ Contra quem já jogou</div>
-        <TabelaPares linhas={meusRivais} primeira="Adversária" />
-      </div>
-    </>
-  )
-}
-
-/**
- * As duplas do recorte com os pontos certos: o bye conta (a dupla que passou
- * direto nao pode aparecer com menos pontos) e no campeonato vale a colocacao.
- */
-function duplasDoRecorte(sessions: AppData['sessions'], matches: ReturnType<typeof playedMatches>): DuoStat[] {
-  return [
-    ...aplicarByeNasDuplas(
-      aplicarByeNasDuplas(duoStatsComPontos(sessions, matches), pontosDeBye(sessions, matches).porDupla),
-      colocacaoPorDupla(sessions, matches),
-    ).values(),
-  ]
-}
-
-/** O perfil da dupla pelo historico inteiro, para abrir de fora do Stats (a forca da tela inicial). */
+/** O perfil da dupla pelo historico inteiro, para abrir de fora do Desempenho (a forca da tela inicial). */
 export function PerfilDaDupla({ a, b, onClose }: { a: string; b: string; onClose: () => void }) {
   const { data } = useStore()
   const matches = useMemo(() => playedMatches(data, {}), [data])
@@ -454,447 +163,5 @@ export function PerfilDaDupla({ a, b, onClose }: { a: string; b: string; onClose
     <ProvedorDePerfil value={null}>
       <DetalheDupla duo={duo} matches={matches} onClose={onClose} />
     </ProvedorDePerfil>
-  )
-}
-
-/* ---------------------------------------------------------- por dupla */
-
-type Ordem = 'jogos' | 'aproveitamento' | 'pontos' | 'forca' | 'entrosamento'
-
-function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }) {
-  const { nameOf, playerById } = useStore()
-  const [busca, setBusca] = useState('')
-  const [ordem, setOrdem] = useState<Ordem>('forca')
-  const [aberta, setAberta] = useState<DuoStat | null>(null)
-
-  // o mesmo bye conta aqui: a dupla que passou direto tambem nao pode
-  // aparecer com menos pontos por causa da partida que nao teve
-  const { data: dadosDoBye } = useStore()
-  const duplas = useMemo(() => duplasDoRecorte(dadosDoBye.sessions, matches), [matches, dadosDoBye.sessions])
-
-  // a forca sai do historico INTEIRO da dupla, e nao do periodo filtrado:
-  // e o que as duas renderam juntas desde sempre
-  const { data, canEdit } = useStore()
-  const forcas = useMemo(() => forcaDeDuplas(data), [data])
-  // a forca da dupla parte da media das duas: com uma em avaliacao, entregaria a dela
-  const avaliacao = useMemo(() => emAvaliacao(data), [data])
-  const duplaOculta = (d: { a: string; b: string }) => !canEdit && (avaliacao.has(d.a) || avaliacao.has(d.b))
-  // quem da dupla ainda esta em avaliacao, com quantos plays ja jogou: "Bia 1/3"
-  const quemAvalia = (d: { a: string; b: string }) =>
-    [d.a, d.b].filter((id) => avaliacao.has(id)).map((id) => `${nameOf(id)} ${avaliacao.get(id)}/${PLAYS_EM_AVALIACAO}`).join(', ')
-  // a oculta vai para o fim no "mais fortes" (a posicao tambem diria a forca)
-  const forcaDe = (d: DuoStat) => (duplaOculta(d) ? 0 : forcas.get(d.key)?.nota ?? 1500)
-  // idem no entrosamento: a oculta e a que ainda nao tem forca vao para o fim
-  const entrosamentoDe = (d: DuoStat) => {
-    const f = forcas.get(d.key)
-    return duplaOculta(d) || !f ? -Infinity : f.entrosamento
-  }
-
-  const lista = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    const filtradas = termo
-      ? duplas.filter((d) => `${nameOf(d.a)} ${nameOf(d.b)}`.toLowerCase().includes(termo))
-      : duplas
-    const aprov = (d: DuoStat) => (d.matches === 0 ? 0 : d.wins / d.matches)
-    return [...filtradas].sort((a, b) => {
-      if (ordem === 'forca') return forcaDe(b) - forcaDe(a) || b.matches - a.matches
-      if (ordem === 'entrosamento') return entrosamentoDe(b) - entrosamentoDe(a) || b.matches - a.matches
-      if (ordem === 'pontos') return b.points - a.points || b.matches - a.matches
-      if (ordem === 'aproveitamento') return aprov(b) - aprov(a) || b.matches - a.matches
-      return b.matches - a.matches || b.wins - a.wins
-    })
-  }, [duplas, busca, ordem, nameOf, forcas, avaliacao, canEdit])
-
-  if (duplas.length === 0) {
-    return (
-      <div className="card">
-        <Empty icon="🤝">Nenhuma dupla se formou neste período ainda.</Empty>
-      </div>
-    )
-  }
-
-  return (
-    <>
-      <div className="card">
-        <div className="section-title">🤝 Duplas que já jogaram juntas ({duplas.length})</div>
-        <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar por nome" />
-        <div className="chips-scroll" style={{ marginTop: 5 }}>
-          {([['forca', '💪 Mais fortes'], ['entrosamento', '🤝 Mais entrosadas'], ['pontos', 'Mais pontos'], ['aproveitamento', 'Melhor %'], ['jogos', 'Mais jogos']] as [Ordem, string][]).map(
-            ([id, txt]) => (
-              <button
-                key={id}
-                className={`chip ${ordem === id ? 'on' : 'off'}`}
-                style={{ flex: 'none' }}
-                onClick={() => setOrdem(id)}
-              >
-                {txt}
-              </button>
-            ),
-          )}
-        </div>
-      </div>
-
-      <div className="card">
-        {lista.length === 0 ? (
-          <Empty icon="🔎">Nenhuma dupla com esse nome.</Empty>
-        ) : (
-          <div className="stack">
-            {lista.slice(0, 40).map((d) => {
-              const pct = d.matches === 0 ? 0 : d.wins / d.matches
-              return (
-                <button key={d.key} className="duo-row" onClick={() => setAberta(d)}>
-                  <span className="duo-fotos">
-                    <Avatar player={playerById(d.a)} size={30} />
-                    <Avatar player={playerById(d.b)} size={30} />
-                  </span>
-                  <span className="grow" style={{ minWidth: 0 }}>
-                    <span className="duo-nomes">
-                      <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
-                    </span>
-                    <span className="mini-barra"><i style={{ width: `${Math.round(pct * 100)}%` }} /></span>
-                    <span className="tiny muted">{plural(d.matches, 'jogo')} · {d.wins}V {d.losses}D · {d.points} pts</span>
-                    {duplaOculta(d) ? (
-                      <span className="tiny muted" style={{ display: 'block', marginTop: 2 }}>🔍 força em avaliação · {quemAvalia(d)}</span>
-                    ) : (
-                      <ForcaDaDupla f={forcas.get(d.key)} />
-                    )}
-                  </span>
-                  <span className="duo-pct">{Math.round(pct * 100)}%</span>
-                </button>
-              )
-            })}
-            {lista.length > 40 && (
-              <p className="tiny muted center" style={{ margin: 0 }}>
-                mostrando as 40 primeiras de {lista.length} — use a busca para achar uma dupla
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {aberta && <DetalheDupla duo={aberta} matches={matches} onClose={() => setAberta(null)} />}
-    </>
-  )
-}
-
-/* ------------------------------------------------------------- apoio */
-
-function Barra({ titulo, pct, legenda }: { titulo: string; pct: number; legenda: string }) {
-  return (
-    <div>
-      <div className="row spread tiny muted" style={{ marginBottom: 4 }}>
-        <span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' }}>{titulo}</span>
-        <span style={{ fontWeight: 800, color: 'var(--pink)' }}>{Math.round(pct * 100)}%</span>
-      </div>
-      <div className="barra"><i style={{ width: `${Math.round(pct * 100)}%` }} /></div>
-      <div className="tiny muted" style={{ marginTop: 4 }}>{legenda}</div>
-    </div>
-  )
-}
-
-function rate(p: PairKeyStat): number {
-  return p.matches === 0 ? 0 : p.wins / p.matches
-}
-
-function sortPairs(m: Map<string, PairKeyStat> | undefined): PairKeyStat[] {
-  return m ? [...m.values()].sort((a, b) => b.matches - a.matches || b.wins - a.wins) : []
-}
-
-function Destaque({
-  icone,
-  rotulo,
-  par,
-  tipo,
-}: {
-  icone: string
-  rotulo: string
-  par: PairKeyStat | undefined
-  tipo: 'parceira' | 'rival'
-}) {
-  const { nameOf, playerById } = useStore()
-  if (!par) return null
-  const detalhe =
-    tipo === 'parceira'
-      ? `${par.wins}V/${par.losses}D em ${plural(par.matches, 'jogo')} · ${par.points} pts juntas`
-      : `${par.wins}V/${par.losses}D em ${par.matches} confronto(s)`
-  return (
-    <div className="row">
-      <span style={{ fontSize: 20 }}>{icone}</span>
-      <Avatar player={playerById(par.other_id)} size={34} />
-      <div className="grow">
-        <div className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '.5px', fontWeight: 700 }}>{rotulo}</div>
-        <NomeClicavel id={par.other_id} className="ellipsis"><strong>{nameOf(par.other_id)}</strong></NomeClicavel>
-        <div className="tiny muted">{detalhe}</div>
-      </div>
-    </div>
-  )
-}
-
-/** Quantas linhas as tabelas de parceiras e adversarias mostram antes do "ver todas" (dono, 08/11). */
-const LINHAS_DE_CARA = 5
-
-function TabelaPares({ linhas, primeira }: { linhas: PairKeyStat[]; primeira: string }) {
-  const { nameOf, playerById } = useStore()
-  const [todas, setTodas] = useState(false)
-  if (linhas.length === 0) return <Empty icon="🏐">Nada por aqui ainda.</Empty>
-  const vistas = todas ? linhas : linhas.slice(0, LINHAS_DE_CARA)
-  return (
-    <>
-    <div className="scroll-x">
-      <table className="table">
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>{primeira}</th>
-            <th>J</th><th>V</th><th>D</th><th>%</th><th>Pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {vistas.map((p) => (
-            <tr key={p.other_id}>
-              <td>
-                <div className="row" style={{ gap: 8 }}>
-                  <Avatar player={playerById(p.other_id)} size={26} />
-                  <NomeClicavel id={p.other_id} className="ellipsis">{nameOf(p.other_id)}</NomeClicavel>
-                </div>
-              </td>
-              <td>{p.matches}</td>
-              <td>{p.wins}</td>
-              <td>{p.losses}</td>
-              <td>{Math.round(rate(p) * 100)}%</td>
-              <td style={{ fontWeight: 700 }}>{p.points}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    {linhas.length > LINHAS_DE_CARA && (
-      <button className="btn ghost sm block" style={{ marginTop: 8 }} onClick={() => setTodas(!todas)}>
-        {todas ? 'Mostrar menos' : `Ver todas (${linhas.length})`}
-      </button>
-    )}
-    </>
-  )
-}
-
-
-/** A forca da dupla na linha da lista: nivel, nota e o entrosamento. */
-function ForcaDaDupla({ f }: { f?: ForcaDeDupla }) {
-  const { data } = useStore()
-  if (!f) return null
-  const n = nivelDeForca(f.nota, mediaDaForca(data))
-  return (
-    <span className="tiny" style={{ display: 'block', marginTop: 2 }} title="Entrosamento ajusta a força da dupla em relação à média individual; não soma pontos ao ranking.">
-      <span style={{ color: n.cor, fontWeight: 800 }}>{n.emoji} força {f.nota}</span>
-      {(
-        <span className="muted">
-          {' '}
-          (Entrosamento {f.entrosamento > 0 ? '+' : ''}
-          {f.entrosamento}{f.provisoria ? ' · provisório' : ''})
-        </span>
-      )}
-    </span>
-  )
-}
-
-/**
- * O ranking de forca do grupo.
- *
- * De proposito sem seletor de periodo: forca nao e desempenho do mes, e o que
- * o app aprendeu sobre a jogadora desde sempre. Filtrar por mes daria um
- * numero que nao e usado para nada -- o equilibrio das duplas le o total.
- */
-function PainelForca() {
-  const { data, nameOf, playerById, canEdit } = useStore()
-  // quem esta pausada (na mao ou por faltas) fica fora do ranking da forca; quem
-  // esta em avaliacao so aparece com o numero para a admin
-  const todasAsLinhas = useMemo(() => rankingDeForca(data, nameOf), [data, nameOf])
-  const linhas = useMemo(
-    () => todasAsLinhas.filter((l) => !l.pausada && (canEdit || l.emAvaliacao === undefined)),
-    [todasAsLinhas, canEdit],
-  )
-  const emAvaliacaoOcultas = useMemo(
-    () => (canEdit ? [] : todasAsLinhas.filter((l) => !l.pausada && l.emAvaliacao !== undefined)),
-    [todasAsLinhas, canEdit],
-  )
-  const foraDoRanking = useMemo(() => todasAsLinhas.filter((l) => l.pausada), [todasAsLinhas])
-
-  if (linhas.length === 0) {
-    return (
-      <div className="card">
-        <Empty icon="💪">Registre um play para o app começar a medir a força de cada uma.</Empty>
-      </div>
-    )
-  }
-
-  const mediaHoje = mediaDaForca(data)
-  const maior = Math.max(...linhas.map((l) => Math.abs(l.nota - mediaHoje)), 60)
-
-  return (
-    <>
-      <div className="card">
-        <div className="section-title">💪 Força de cada jogadora</div>
-        <p className="tiny muted" style={{ marginTop: 0 }}>
-          A nota que monta os grupos e as duplas. Atravessa o ano (não zera com o mês) e mede{' '}
-          <strong>de quem</strong> você ganhou. A média do grupo hoje é <strong>{mediaHoje}</strong>.
-        </p>
-        {LIGA.id === 'misto' && (
-          <p className="tiny muted" style={{ marginTop: 0 }}>
-            👫 No misto, cada um começou com a força que tinha no <strong>seu campeonato</strong>; daí em diante só os
-            jogos do misto mexem, com as mesmas regras (faltas, pausa) dos outros plays. Nada daqui volta para o
-            Play de Todas nem para o Play de Terça, e nada de lá entra mais aqui.
-          </p>
-        )}
-
-        <div className="stack" style={{ gap: 10 }}>
-          {linhas.map((l, i) => (
-            <LinhaDaForca key={l.player_id} linha={l} pos={i + 1} maior={maior} media={mediaHoje} nome={nameOf(l.player_id)} foto={playerById(l.player_id)} />
-          ))}
-        </div>
-        {emAvaliacaoOcultas.length > 0 && (
-          <p className="tiny muted" style={{ marginBottom: 0 }}>
-            🔍 <strong>Em avaliação:</strong>{' '}
-            {emAvaliacaoOcultas.map((l, i) => (
-              <span key={l.player_id}>
-                {i > 0 && ', '}
-                <NomeClicavel id={l.player_id}>{nameOf(l.player_id)}</NomeClicavel> ({l.emAvaliacao} de {PLAYS_EM_AVALIACAO})
-              </span>
-            ))}
-            . A força aparece depois do {PLAYS_EM_AVALIACAO}º play; até lá o app já usa para montar grupos e duplas.
-          </p>
-        )}
-        {foraDoRanking.length > 0 && (
-          <p className="tiny muted" style={{ marginBottom: 0 }}>
-            ⏸️ <strong>Fora do ranking agora:</strong>{' '}
-            {foraDoRanking.map((l, i) => (
-              <span key={l.player_id}>
-                {i > 0 && ', '}
-                <NomeClicavel id={l.player_id}>{nameOf(l.player_id)}</NomeClicavel>
-                {l.pausada === 'manual' ? ' (pausada)' : ' (2+ faltas seguidas)'}
-              </span>
-            ))}
-            . O perfil continua aberto; volta quando jogar de novo ou ao despausar.
-          </p>
-        )}
-      </div>
-
-      <div className="card">
-        <div className="section-title">📏 O que cada nível quer dizer</div>
-        <div className="stack" style={{ gap: 6 }}>
-          {NIVEIS_DE_FORCA.map((n) => (
-            <div key={n.titulo} className="row" style={{ gap: 8 }}>
-              <span style={{ width: 28, textAlign: 'center' }}>{n.emoji}</span>
-              <strong style={{ color: n.cor, minWidth: 130 }}>{n.titulo}</strong>
-              <span className="tiny muted">
-                {n.de === -Infinity
-                  ? 'abaixo de 1425'
-                  : n.de >= 0
-                    ? `de ${1500 + n.de} para cima`
-                    : `a partir de ${1500 + n.de}`}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="tiny muted" style={{ marginBottom: 0 }}>
-          Provisória: menos de {JOGOS_PARA_FIRMAR} partidas. Quem nunca jogou não entra na lista.
-        </p>
-      </div>
-    </>
-  )
-}
-
-function LinhaDaForca({
-  linha,
-  pos,
-  maior,
-  media,
-  nome,
-  foto,
-}: {
-  linha: LinhaDeForca
-  pos: number
-  maior: number
-  /** A media do grupo hoje: a barra e o "+N" contam a partir dela. */
-  media: number
-  nome: string
-  foto: ReturnType<ReturnType<typeof useStore>['playerById']>
-}) {
-  const dif = linha.nota - media
-  // a barra sai do meio para os dois lados: forca e distancia da media, com sinal
-  const largura = (Math.abs(dif) / maior) * 50
-  return (
-    <div>
-      <div className="row" style={{ gap: 8 }}>
-        <span className={`rank-pos top${pos}`} style={{ fontWeight: 800, minWidth: 22 }}>{pos}</span>
-        <Avatar player={foto} size={28} />
-        <NomeClicavel id={linha.player_id} className="grow ellipsis">
-          {nome}
-        </NomeClicavel>
-        <span className="nowrap tiny" style={{ color: linha.nivel.cor, fontWeight: 800 }}>
-          {linha.nivel.emoji} {linha.nivel.titulo}
-        </span>
-        <span className="nowrap" style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-          {linha.nota}
-        </span>
-      </div>
-      <div className="forca-trilho">
-        <div className="forca-meio" />
-        <div
-          className="forca-barra"
-          style={{
-            background: linha.nivel.cor,
-            left: dif >= 0 ? '50%' : `${50 - largura}%`,
-            width: `${Math.max(largura, 1)}%`,
-          }}
-        />
-      </div>
-      <div className="tiny muted">
-        {/* na linha de baixo: na de cima o "n/3" tiraria espaco do nome */}
-        {linha.emAvaliacao !== undefined && `${avaliacaoCurta(linha.emAvaliacao)} · `}
-        {linha.jogosDeCasa === undefined
-          ? `${linha.jogos} ${linha.jogos === 1 ? 'partida' : 'partidas'}`
-          : `${linha.jogos} no misto · ${linha.jogosDeCasa} no campeonato`}
-        {linha.provisoria && ' · nota provisória'}
-        {linha.queda && ` · ${textoDaQueda(linha.queda)}`}
-        {' · '}
-        {dif === 0 ? 'exatamente na média' : dif > 0 ? `+${dif} sobre a média` : `${dif} da média`}
-      </div>
-    </div>
-  )
-}
-
-/**
- * A PAUSA, so para acompanhar: o Stats mostra, quem pausa e despausa e a aba
- * Meninas (la e onde o perfil se edita). Pausada na mao ou por 2 faltas
- * seguidas: fora do ranking da forca, e as faltas continuam baixando a nota.
- */
-function PausaDaJogadora({ id, pausada }: { id: string; pausada?: 'manual' | 'faltas' }) {
-  const { data } = useStore()
-  const p = data.players.find((x) => x.id === id)
-  if (!p || !pausada) return null
-  const sessoes = new Set(data.sessions.map((s) => s.id))
-  const aberta = (p.pausas ?? []).find((x) => !x.ate || (x.play && !sessoes.has(x.play)))
-  return (
-    <div className="banner warn" style={{ marginTop: 10, marginBottom: 0 }}>
-      ⏸️ <strong>Pausada</strong>
-      {pausada === 'manual'
-        ? `${aberta ? ` desde ${dateLabel(aberta.de)}` : ''} — fora do ranking da força. As faltas continuam baixando a força, como as de todo mundo. Volta sozinha quando jogar de novo.`
-        : ' por 2 ou mais faltas seguidas — fora do ranking da força. Volta sozinha quando jogar de novo.'}
-    </div>
-  )
-}
-
-/** A ficha de quem esta em avaliacao, para quem nao e admin: sem numero, sem nivel, sem grafico. */
-function EmAvaliacao({ plays }: { plays: number }) {
-  return (
-    <div className="row" style={{ gap: 10 }}>
-      <span style={{ fontSize: 26 }}>🔍</span>
-      <div className="grow" style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 800 }}>Em avaliação</div>
-        <div className="tiny muted">
-          {plays} de {PLAYS_EM_AVALIACAO} plays. Nos primeiros plays a força ainda muda muito; ela aparece depois do{' '}
-          {PLAYS_EM_AVALIACAO}º. Até lá o app já usa para montar grupos e duplas.
-        </div>
-      </div>
-    </div>
   )
 }

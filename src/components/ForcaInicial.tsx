@@ -110,10 +110,10 @@ export default function ForcaInicial({
       </div>
       <em className="hint" style={{ marginTop: 6 }}>
         {valor === media
-          ? `Na média do grupo hoje (${media}): o app aprende o nível com as partidas.`
+          ? `Na média das atletas hoje (${media}): o app aprende o nível com as partidas.`
           : valor > media
-            ? `Começa ${valor - media} acima da média do grupo (${media}).`
-            : `Começa ${media - valor} abaixo da média do grupo (${media}).`}
+            ? `Começa ${valor - media} acima da média das atletas (${media}).`
+            : `Começa ${media - valor} abaixo da média das atletas (${media}).`}
         {atual !== undefined && ` Hoje: ${atual} (mudar aqui recalcula tudo).`}
       </em>
     </div>
