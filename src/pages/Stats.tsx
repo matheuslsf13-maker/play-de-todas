@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import CampoDeBusca from '../components/CampoDeBusca'
 import { LIGA } from '../liga'
 import GraficoDeForca from '../components/GraficoDeForca'
-import GraficoDaDupla from '../components/GraficoDaDupla'
+import DetalheDupla from '../components/DetalheDaDupla'
 import HistoricoDePartidas from '../components/HistoricoDePartidas'
 import { normalizar } from '../lib/roster'
 import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
 import { NomesDaDupla } from '../components/NomeClicavel'
-import { Avatar, Empty, Modal, StatBox } from '../components/ui'
+import { Avatar, Empty, StatBox } from '../components/ui'
 import {
   aplicarBye,
   aplicarColocacao,
@@ -16,7 +16,6 @@ import {
   balance,
   computeStats,
   computeStatsComPontos,
-  duoMatches,
   type DuoStat,
   duoStatsComPontos,
   emptyStat,
@@ -30,7 +29,6 @@ import {
 } from '../lib/stats'
 import { colocacaoNoRecorte, colocacaoPorDupla } from '../lib/campeonato'
 import {
-  JOGOS_PARA_ENTROSAMENTO,
   JOGOS_PARA_FIRMAR,
   NIVEIS_DE_FORCA,
   forcaDeDuplas,
@@ -576,96 +574,6 @@ function PainelDuplas({ matches }: { matches: ReturnType<typeof playedMatches> }
 
       {aberta && <DetalheDupla duo={aberta} matches={matches} onClose={() => setAberta(null)} />}
     </>
-  )
-}
-
-function DetalheDupla({
-  duo,
-  matches,
-  onClose,
-}: {
-  duo: DuoStat
-  matches: ReturnType<typeof playedMatches>
-  onClose: () => void
-}) {
-  const { data, nameOf, playerById, canEdit } = useStore()
-  const forca = useMemo(() => forcaDeDuplas(data).get(duo.key), [data, duo.key])
-  const avaliacao = useMemo(() => emAvaliacao(data), [data])
-  const oculta = !canEdit && (avaliacao.has(duo.a) || avaliacao.has(duo.b))
-  const jogos = useMemo(() => duoMatches(matches, duo.a, duo.b), [matches, duo])
-  const pct = duo.matches === 0 ? 0 : duo.wins / duo.matches
-
-  // contra quem essa dupla mais jogou
-  const rivais = useMemo(() => {
-    const m = new Map<string, { key: string; a: string; b: string; v: number; d: number }>()
-    for (const j of jogos) {
-      const somosA = j.team_a.includes(duo.a) && j.team_a.includes(duo.b)
-      const outros = (somosA ? j.team_b : j.team_a) as [string, string]
-      const key = [...outros].sort().join('|')
-      const e = m.get(key) ?? { key, a: outros[0], b: outros[1], v: 0, d: 0 }
-      const venceu = somosA ? (j.score_a as number) > (j.score_b as number) : (j.score_b as number) > (j.score_a as number)
-      if (venceu) e.v++
-      else e.d++
-      m.set(key, e)
-    }
-    return [...m.values()].sort((x, y) => y.v + y.d - (x.v + x.d))
-  }, [jogos, duo])
-
-  return (
-    <Modal title={`${nameOf(duo.a)} + ${nameOf(duo.b)}`} onClose={onClose}>
-      <div className="row" style={{ gap: 12, marginBottom: 12 }}>
-        <span className="duo-fotos">
-          <Avatar player={playerById(duo.a)} size={46} />
-          <Avatar player={playerById(duo.b)} size={46} />
-        </span>
-        {forca && oculta && (
-          <div className="grow tiny muted" style={{ minWidth: 0 }}>
-            🔍 Força da dupla em avaliação:{' '}
-            {[duo.a, duo.b].filter((id) => avaliacao.has(id)).map((id) => `${nameOf(id)} jogou ${avaliacao.get(id)} de ${PLAYS_EM_AVALIACAO} plays`).join(', ')}.
-          </div>
-        )}
-        {forca && !oculta && (
-          <div className="grow" style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, color: nivelDeForca(forca.nota, mediaDaForca(data)).cor }}>
-              {nivelDeForca(forca.nota, mediaDaForca(data)).emoji} Força da dupla {forca.nota}
-            </div>
-            <div className="tiny muted">
-              média das duas {forca.base}
-              {` · Entrosamento ${forca.entrosamento > 0 ? '+' : ''}${forca.entrosamento}`}
-              {forca.provisoria && ` · provisória (menos de ${JOGOS_PARA_ENTROSAMENTO} jogos)`}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="grid2" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-        <StatBox k="Jogos" v={duo.matches} />
-        <StatBox k="V–D" v={`${duo.wins}–${duo.losses}`} />
-        <StatBox k="Aprov." v={`${Math.round(pct * 100)}%`} />
-        <StatBox k="Pontos" v={duo.points} />
-      </div>
-
-      {!oculta && <GraficoDaDupla data={data} a={duo.a} b={duo.b} />}
-
-      {rivais.length > 0 && (
-        <>
-          <div className="section-title" style={{ marginTop: 16 }}>⚔️ Contra quem jogaram</div>
-          <div className="stack" style={{ gap: 4 }}>
-            {rivais.map((r) => (
-              <div key={r.key} className="row small">
-                <span className="grow ellipsis">{nameOf(r.a)} + {nameOf(r.b)}</span>
-                <strong className="nowrap" style={{ color: r.v > r.d ? 'var(--verde)' : r.v < r.d ? 'var(--danger)' : 'var(--muted)' }}>
-                  {r.v}–{r.d}
-                </strong>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className="section-title" style={{ marginTop: 16 }}>🕑 Histórico</div>
-      <HistoricoDePartidas partidas={jogos} dupla={[duo.a, duo.b]} semForca={oculta} />
-    </Modal>
   )
 }
 
