@@ -167,7 +167,7 @@ import {
   type Player,
   type PlaySession,
 } from '../lib/types'
-import { RankTable } from './Ranking'
+import { ClassificacaoEmLista, PodioDoRecorte } from './Ranking'
 import PainelDaNoite, { AguardandoInicio, AoVivo } from '../components/PainelDaNoite'
 
 /** Os formatos, na ordem em que fazem sentido escolher. */
@@ -3720,6 +3720,15 @@ function PlayDetail({
         ))}
       </div>
 
+      {editable && faltaFase && abaAtiva !== 'quadras' && (
+        <div className="ini-grupo pl-aviso-fase" style={{ marginBottom: 14 }}>
+          <button className="ini-linha ini-chev" onClick={() => { setAba('quadras'); window.scrollTo({ top: 0 }) }}>
+            <span className="ini-ic rosa" aria-hidden="true">⏭️</span>
+            <span className="g"><b>Falta montar a próxima fase</b><span className="sub">toque para ir montar</span></span>
+          </button>
+        </div>
+      )}
+
       {abaAtiva === 'grupos' && (
       <>
       {grupos && grupos.length > 1 && arrumando && podeArrumarGrupos && (
@@ -3791,6 +3800,60 @@ function PlayDetail({
 
       </>
       )}
+
+      {abaAtiva === 'quadras' && editable &&
+        porCategoria
+          .filter((c) => c.podeGerarFase2 || c.podeGerarRodada)
+          .map((c) => (
+            <div key={c.ci} className="card" style={{ borderColor: 'var(--marca)' }}>
+              <div className="section-title" style={{ marginTop: 0 }}>
+                ⏭️ {ehCampeonato ? `Categoria ${c.cat.nome}: ainda tem fase pela frente` : 'O play ainda tem fase pela frente'}
+              </div>
+              <p className="tiny muted" style={{ marginTop: 0 }}>
+                {c.podeGerarFase2
+                  ? duplasFixas
+                    ? `Todas as duplas${ehCampeonato ? ' desta categoria' : ''} já se enfrentaram. O próximo passo é montar a chave do mata-mata pela classificação — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                    : `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
+                  : `A rodada terminou e ainda há ${c.vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
+              </p>
+              {c.podeGerarFase2 &&
+                c.desempates.map((d) => (
+                  <DesempateEmQuadra
+                    key={`${d.grupo}-${d.ids.join('|')}`}
+                    titulo={
+                      duplasFixas
+                        ? `${ehCampeonato ? `Categoria ${c.cat.nome} · ` : ''}duplas`
+                        : `${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`
+                    }
+                    ids={d.ids}
+                    nameOf={duplasFixas ? nomeDaDuplaFixa : nameOf}
+                    onSalvar={(ordem, como) => salvarDesempate(d.grupo, ordem, como)}
+                  />
+                ))}
+              <button
+                className="btn pink block"
+                disabled={montando || (c.podeGerarFase2 && c.desempates.length > 0)}
+                onClick={async () => {
+                  // um toque so: o segundo, antes de a tela atualizar, montaria a chave duas vezes
+                  if (montando) return
+                  setMontando(true)
+                  try {
+                    await (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))
+                  } finally {
+                    setMontando(false)
+                  }
+                }}
+              >
+                {c.podeGerarFase2
+                  ? duplasFixas
+                    ? `🥅 Montar a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                    : `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
+                  : c.vivas.length === 2
+                    ? '🥅 Montar final e 3º lugar'
+                    : `🥅 Montar ${c.rotuloDaProxima.toLowerCase()}`}
+              </button>
+            </div>
+          ))}
 
       {abaAtiva === 'quadras' && (
       <div className="card">
@@ -4086,60 +4149,6 @@ function PlayDetail({
       </>
       )}
 
-      {abaAtiva === 'quadras' && editable &&
-        porCategoria
-          .filter((c) => c.podeGerarFase2 || c.podeGerarRodada)
-          .map((c) => (
-            <div key={c.ci} className="card" style={{ borderColor: 'var(--marca)' }}>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                ⏭️ {ehCampeonato ? `Categoria ${c.cat.nome}: ainda tem fase pela frente` : 'O play ainda tem fase pela frente'}
-              </div>
-              <p className="tiny muted" style={{ marginTop: 0 }}>
-                {c.podeGerarFase2
-                  ? duplasFixas
-                    ? `Todas as duplas${ehCampeonato ? ' desta categoria' : ''} já se enfrentaram. O próximo passo é montar a chave do mata-mata pela classificação — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
-                    : `A fase de grupos${ehCampeonato ? ' desta categoria' : ''} acabou. O próximo passo é formar as duplas fixas (1ª com 1ª) e montar a chave do mata-mata — só depois disso ${ehCampeonato ? 'a categoria' : 'o play'} tem pódio.`
-                  : `A rodada terminou e ainda há ${c.vivas.length} duplas vivas. Monte a próxima antes de encerrar.`}
-              </p>
-              {c.podeGerarFase2 &&
-                c.desempates.map((d) => (
-                  <DesempateEmQuadra
-                    key={`${d.grupo}-${d.ids.join('|')}`}
-                    titulo={
-                      duplasFixas
-                        ? `${ehCampeonato ? `Categoria ${c.cat.nome} · ` : ''}duplas`
-                        : `${ehCampeonato ? `${c.cat.nome} · ` : ''}grupo ${c.cat.grupos.indexOf(d.grupo) + 1}`
-                    }
-                    ids={d.ids}
-                    nameOf={duplasFixas ? nomeDaDuplaFixa : nameOf}
-                    onSalvar={(ordem, como) => salvarDesempate(d.grupo, ordem, como)}
-                  />
-                ))}
-              <button
-                className="btn pink block"
-                disabled={montando || (c.podeGerarFase2 && c.desempates.length > 0)}
-                onClick={async () => {
-                  // um toque so: o segundo, antes de a tela atualizar, montaria a chave duas vezes
-                  if (montando) return
-                  setMontando(true)
-                  try {
-                    await (c.podeGerarFase2 ? gerarFase2(c.ci) : gerarProximaRodada(c.ci))
-                  } finally {
-                    setMontando(false)
-                  }
-                }}
-              >
-                {c.podeGerarFase2
-                  ? duplasFixas
-                    ? `🥅 Montar a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
-                    : `🤝 Montar as duplas e a chave${ehCampeonato ? ` da ${c.cat.nome}` : ''}`
-                  : c.vivas.length === 2
-                    ? '🥅 Montar final e 3º lugar'
-                    : `🥅 Montar ${c.rotuloDaProxima.toLowerCase()}`}
-              </button>
-            </div>
-          ))}
-
       {/* tambem no play ja finalizado: o empate do ultimo play ainda pode ser decidido */}
       {canEdit && empatesAbertos.length > 0 && (
         <div className="card" style={{ borderColor: 'var(--marca)' }}>
@@ -4405,17 +4414,14 @@ function PlayDetail({
               )}
               {podios.length > 1 && grupoArte === null && (
                 <>
-                  <div className="section-title" style={{ fontSize: 13 }}>
-                    📋 Geral{' '}
-                    <span className="tiny muted" style={{ fontWeight: 600 }}>
-                      · {dayRows.length} jogadoras
-                    </span>
+                  <div className="ini-sec rd-sec">
+                    <h2>Geral</h2>
+                    <span className="ini-nota">{dayRows.length} jogadoras</span>
                   </div>
-                  <p className="tiny muted" style={{ marginTop: 0 }}>
-                    Todas juntas, pelos pontos que vão para o ranking do mês. O pódio é por grupo —
-                    toque num grupo para vê-lo com as medalhas.
-                  </p>
-                  <RankTable rows={dayRows} fire={streaksDoDia} vagas={0} desempates={desempatesDoDia} partidas={partidasConfronto} />
+                  <div className="ini-grupo">
+                    <ClassificacaoEmLista rows={dayRows} fire={streaksDoDia} vagas={0} desempates={desempatesDoDia} partidas={partidasConfronto} />
+                  </div>
+                  <div className="ini-legenda">Todas juntas, pelos pontos que vão para o ranking do mês. O pódio é por grupo: toque num grupo para vê-lo com as medalhas.</div>
                 </>
               )}
               {podios.length > 1 &&
@@ -4426,39 +4432,53 @@ function PlayDetail({
                     const doGrupo = new Set(p.membros)
                     return (
                       <div key={p.grupo}>
-                        <div className="section-title" style={{ fontSize: 13 }}>
-                          👥 Grupo {p.grupo}{' '}
-                          <span className="tiny muted" style={{ fontWeight: 600 }}>
-                            · {p.membros.length} jogadoras · pódio: {p.rows.length}
-                          </span>
+                        <div className="ini-sec rd-sec">
+                          <h2>Grupo {p.grupo}</h2>
+                          <span className="ini-nota">{p.membros.length} jogadoras · pódio: {p.rows.length}</span>
                         </div>
-                        <RankTable
+                        <PodioDoRecorte
                           rows={dayRows.filter((s) => doGrupo.has(s.player_id))}
-                          fire={streaksDoDia}
-                          vagas={p.rows.length}
                           desempates={desempatesDoGrupo(desempatesDoDia, (p.grupo ?? 1) - 1)}
                           partidas={partidasConfronto}
                         />
+                        <div className="ini-grupo">
+                          <ClassificacaoEmLista
+                            rows={dayRows.filter((s) => doGrupo.has(s.player_id))}
+                            fire={streaksDoDia}
+                            vagas={p.rows.length}
+                            desempates={desempatesDoGrupo(desempatesDoDia, (p.grupo ?? 1) - 1)}
+                            partidas={partidasConfronto}
+                          />
+                        </div>
                       </div>
                     )
                   })}
               {podios.length <= 1 && (
-                <RankTable
-                  rows={ehCampeonato ? rowsSel : dayRows}
-                  fire={streaksDoDia}
-                  desempates={ehCampeonato ? undefined : desempatesDoGrupo(desempatesDoDia, 0)}
-                  partidas={ehCampeonato ? undefined : partidasConfronto}
-                />
+                <>
+                  <PodioDoRecorte
+                    rows={ehCampeonato ? rowsSel : dayRows}
+                    desempates={ehCampeonato ? undefined : desempatesDoGrupo(desempatesDoDia, 0)}
+                    partidas={ehCampeonato ? undefined : partidasConfronto}
+                  />
+                  <div className="ini-grupo">
+                    <ClassificacaoEmLista
+                      rows={ehCampeonato ? rowsSel : dayRows}
+                      fire={streaksDoDia}
+                      desempates={ehCampeonato ? undefined : desempatesDoGrupo(desempatesDoDia, 0)}
+                      partidas={ehCampeonato ? undefined : partidasConfronto}
+                    />
+                  </div>
+                </>
               )}
               {podios.length > 1 && (
-                <p className="tiny muted" style={{ marginTop: 10, marginBottom: 8 }}>
-                  📤 O texto e a imagem saem com {grupoArte === null ? 'todos os grupos' : `só o grupo ${grupoArte}`},
-                  já escrito de qual grupo se trata.
-                </p>
+                <div className="ini-legenda" style={{ marginBottom: 4 }}>
+                  O texto e a imagem saem com {grupoArte === null ? 'todos os grupos' : `só o grupo ${grupoArte}`}, já escrito de qual grupo se trata.
+                </div>
               )}
+              <div className="ini-sec rd-sec"><h2>Compartilhar</h2></div>
+              <div className="ini-grupo">
               <button
-                className="btn pink block"
-                style={{ marginTop: podios.length > 1 ? 0 : 12 }}
+                className="ini-linha ini-chev"
                 onClick={async () => {
                   // no campeonato sai um bloco por categoria, cada um carimbado
                   const texto = ehCampeonato
@@ -4494,34 +4514,33 @@ function PlayDetail({
                   onToast(ok ? 'Ranking do dia copiado 💬' : 'Não consegui copiar')
                 }}
               >
-                💬 Texto{' '}
-                {ehCampeonato
-                  ? catArte === null
-                    ? 'de todas as categorias'
-                    : `da categoria ${cats[catArte].nome}`
-                  : grupoArte === null
-                    ? 'do dia'
-                    : `do grupo ${grupoArte}`}{' '}
-                para o WhatsApp
+                <span className="ini-ic verde" aria-hidden="true">💬</span>
+                <span className="g">
+                  <b>Texto para o WhatsApp</b>
+                  <span className="sub">
+                    {ehCampeonato
+                      ? catArte === null
+                        ? 'de todas as categorias'
+                        : `da categoria ${cats[catArte].nome}`
+                      : grupoArte === null
+                        ? 'do dia'
+                        : `do grupo ${grupoArte}`}
+                  </span>
+                </span>
               </button>
-              <button
-                className="btn purple block"
-                style={{ marginTop: 8 }}
-                disabled={gerando}
-                onClick={() => void gerarArteDoDia()}
-              >
-                {gerando
-                  ? 'Montando a arte…'
-                  : `🏐 Imagem ${grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`}`}
+              <button className={`ini-linha ini-chev${gerando ? ' off' : ''}`} disabled={gerando} onClick={() => void gerarArteDoDia()}>
+                <span className="ini-ic roxo" aria-hidden="true">🏐</span>
+                <span className="g">
+                  <b>{gerando ? 'Montando a arte…' : 'Imagem do ranking'}</b>
+                  <span className="sub">{grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`}</span>
+                </span>
               </button>
-              {podeArteComFoto ? (
-                <BotoesDeFoto gerando={gerando} aoEscolher={(f) => void gerarArteComFoto(f)} />
-              ) : (
-                (!soFase2 || ehCampeonato) && (
-                  <p className="tiny muted" style={{ margin: '6px 0 0' }}>
-                    📷 Para a arte com a foto do pódio, escolha {soFase2 ? 'uma categoria' : 'um grupo'} acima.
-                  </p>
-                )
+              {podeArteComFoto && <BotoesDeFoto lista gerando={gerando} aoEscolher={(f) => void gerarArteComFoto(f)} />}
+              </div>
+              {!podeArteComFoto && (!soFase2 || ehCampeonato) && (
+                <div className="ini-legenda">
+                  📷 Para a arte com a foto do pódio, escolha {soFase2 ? 'uma categoria' : 'um grupo'} acima.
+                </div>
               )}
             </>
           )}
@@ -5570,18 +5589,18 @@ function DuplasDoDia({
         </div>
       ) : (
       <>
-      <div className="section-title" style={{ fontSize: 13 }}>🏆 Pódio do dia</div>
-      <div className="stack" style={{ gap: 8 }}>
+      <div className="ini-sec rd-sec"><h2>Pódio do dia</h2></div>
+      <div className="ini-grupo">
         {podio.map((d, i) => (
-          <div key={d.key} className={`podio-dupla p${i + 1}`}>
+          <div key={d.key} className={`ini-linha podio-dupla-linha p${i + 1}`}>
             <span style={{ fontSize: 22 }}>{medalhas[i]}</span>
-            <Avatar player={playerById(d.a)} size={30} />
-            <Avatar player={playerById(d.b)} size={30} />
-            <span className="grow" style={{ minWidth: 0 }}>
-              <strong>
+            <Avatar player={playerById(d.a)} size={32} />
+            <Avatar player={playerById(d.b)} size={32} />
+            <span className="g">
+              <b>
                 <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
-              </strong>
-              <span className="tiny muted">
+              </b>
+              <span className="sub">
                 {d.medalha === 3
                   ? 'dupla campeã do dia'
                   : d.medalha === 2
@@ -5592,53 +5611,33 @@ function DuplasDoDia({
                 · {d.wins}V {d.losses}D
               </span>
             </span>
-            <span className="nowrap" style={{ fontWeight: 800 }}>{pontosDa(d)} pts</span>
+            <b className="ini-pts">{pontosDa(d)}<small> pts</small></b>
           </div>
         ))}
       </div>
-      <p className="tiny muted" style={{ marginTop: 6 }}>
-        Quem está nestas três duplas segura a sequência 🔥 do dia.
-      </p>
+      <div className="ini-legenda">Quem está nestas três duplas segura a sequência 🔥 do dia.</div>
       </>
       )}
 
-      <div className="section-title" style={{ fontSize: 13, marginTop: 14 }}>
-        🤝 Todas as duplas do mata-mata
-      </div>
-      <div className="scroll-x">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th style={{ textAlign: 'left' }}>Dupla</th>
-              <th>V</th>
-              <th>D</th>
-              <th>Pts</th>
-              <th>Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((d, i) => (
-              <tr key={d.key}>
-                <td className={`rank-pos${temCampea ? ` top${i + 1}` : ''}`} style={{ fontWeight: 800 }}>{i + 1}</td>
-                <td>
-                  <div className="row" style={{ gap: 6 }}>
-                    <Avatar player={playerById(d.a)} size={24} />
-                    <Avatar player={playerById(d.b)} size={24} />
-                    <span className="grow" style={{ minWidth: 0 }}>
-                      <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
-                      {!temCampea && <span className="tiny muted">{situacao(d)}</span>}
-                    </span>
-                  </div>
-                </td>
-                <td>{d.wins}</td>
-                <td>{d.losses}</td>
-                <td style={{ fontWeight: 800, color: 'var(--marca)' }}>{pontosDa(d)}</td>
-                <td>{d.saldo > 0 ? `+${d.saldo}` : d.saldo}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="ini-sec rd-sec"><h2>Todas as duplas do mata-mata</h2></div>
+      <div className="ini-grupo">
+        {linhas.map((d, i) => (
+          <div key={d.key} className="ini-linha" style={{ minHeight: 56 }}>
+            <span className={`rd-pos${temCampea && i < 3 ? ` top${i + 1}` : ''}`}>{i + 1}</span>
+            <Avatar player={playerById(d.a)} size={28} />
+            <Avatar player={playerById(d.b)} size={28} />
+            <span className="g">
+              <b>
+                <NomesDaDupla a={d.a} b={d.b} nomeDe={nameOf} />
+              </b>
+              <span className="sub">
+                {d.wins}V {d.losses}D · saldo {d.saldo > 0 ? `+${d.saldo}` : d.saldo < 0 ? `−${-d.saldo}` : 0}
+                {!temCampea && ` · ${situacao(d)}`}
+              </span>
+            </span>
+            <b className="ini-pts">{pontosDa(d)}<small> pts</small></b>
+          </div>
+        ))}
       </div>
       <p className="tiny muted" style={{ marginTop: 6 }}>
         A ordem é até onde a dupla chegou; vitórias e saldo desempatam dentro da mesma fase.

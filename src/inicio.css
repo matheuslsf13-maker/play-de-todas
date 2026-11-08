@@ -210,3 +210,24 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 /* material translucido mais firme: onde o navegador nao desfoca o fundo (ou desfoca pouco), o que passa por baixo nao atrapalha o texto */
 .st-topo { background: color-mix(in srgb, var(--fundo) 92%, transparent); }
 .tabbar { background: color-mix(in srgb, var(--card) 90%, transparent); }
+
+/* ranking do dia dentro do play (janela): mesmos blocos do ranking do mes */
+.rd-sec { margin: 18px 2px 8px; }
+.rd-sec h2 { font-size: 18px; }
+.rd-sec .ini-nota { margin: 0; }
+.modal .podium.ini-podio { margin-top: 10px; }
+.modal .ini-grupo { margin-bottom: 0; }
+.modal .ini-grupo + .ini-legenda { padding-bottom: 4px; }
+.podium.ini-podio .slot { display: flex; flex-direction: column; align-items: center; }
+.podium.ini-podio .slot .base { width: 100%; box-sizing: border-box; }
+.modal .podium.ini-podio { margin-bottom: 12px; }
+.rd-pos { flex: none; width: 30px; text-align: center; font-size: 15px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rd-pos.top1 { color: var(--yellow); }
+.rd-pos.top2 { background: linear-gradient(180deg, var(--prata-a), var(--prata-b)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rd-pos.top3 { color: var(--orange); }
+.rd-dupla { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.rd-aberta > summary { list-style: none; cursor: pointer; }
+.rd-aberta > summary::-webkit-details-marker { display: none; }
+.rd-aberta > summary:active { opacity: .6; }
+.podio-dupla-linha .g > b { display: block; }
+.pl-aviso-fase { border-color: color-mix(in srgb, var(--pink) 55%, transparent); }
