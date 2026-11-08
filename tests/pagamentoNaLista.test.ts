@@ -40,8 +40,10 @@ test('mensalista: em dia nao e cobrada; atrasada depois do dia 5 e cobrada como 
   const cedo = { ...lista, play_em: '2026-11-02T23:00:00Z' }
   assert.equal(tipoNaLista(emptyData(), m('2026-10'), cedo), 'mensalista')
   assert.equal(tipoNaLista(emptyData(), m('2026-09'), cedo), 'mensalista-atrasada')
-  // atrasada paga o play, nao o mes: o 💰 nao mexe no cadastro dela
-  assert.equal(pagoAvulsoDaLista(dados(), lista, m('2026-10'), true), null)
+  // atrasada paga o play, nao o mes: o 💰 marca so o "play pago" (libera o Novo Play), nunca o pago_mes
+  const atrasada = pagoAvulsoDaLista(dados(), lista, m('2026-10'), true)
+  assert.equal(atrasada?.pago_avulso, true)
+  assert.equal(atrasada?.pago_mes, '2026-10')
 })
 
 test('pago da avulsa em Meninas: marca ao lancar, desmarca ao desfazer; finalizar gasta o credito', () => {
@@ -182,7 +184,7 @@ test('apagar a lista: sai o que o 💰 lancou, o dia que ele criou (se vazio) e 
   assert.deepEqual(r.checkins, [idDoLancamento(dia.id, atleta.id)])
   assert.deepEqual(r.dias, [dia.id])
   assert.equal(r.players[0].pago_avulso, false)
-  assert.match(avisoDoFinanceiro(d, r, true) ?? '', /O pagamento lançado pelo 💰 desta lista \(R\$\s50,00 pagos\) sai da aba Check-ins, junto com o dia 09\/11\./)
+  assert.match(avisoDoFinanceiro(d, r, true) ?? '', /O pagamento lançado pelo 💰 desta lista \(R\$\s50,00 pagos\) sai da aba Financeiro, junto com o dia 09\/11\./)
   // lancamento feito na aba Check-ins (outro id) no mesmo dia: fica, e o dia tambem
   const daAba = { ...d.checkins[0], id: 'aba-1', player_id: 'b' }
   const r2 = lancadosPelaLista({ ...d, checkins: [...d.checkins, daAba] }, lista, [atleta.id, 'b'])

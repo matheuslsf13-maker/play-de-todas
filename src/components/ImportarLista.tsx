@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import EscolherGenero, { precisaDeGenero, type Genero } from './EscolherGenero'
 import { CATEGORIAS, type Categoria } from '../lib/mensalidade'
 import { conciliar, parseRoster, precisaConferir, type ItemDaLista } from '../lib/roster'
+import { LIGA } from '../liga'
 import { useStore } from '../lib/store'
+import { entradaComo } from '../lib/vagasDeMensalista'
 import { uid, type Player } from '../lib/types'
 import { Avatar, Modal } from './ui'
 
@@ -60,6 +62,7 @@ export default function ImportarLista({
     const escolhidas: string[] = []
     const criados: string[] = []
     const apelidos: { playerId: string; alias: string }[] = []
+    let mensalistasNaLeva = 0
 
     for (const it of itens) {
       if (it.vincularA) {
@@ -71,13 +74,17 @@ export default function ImportarLista({
           apelidos.push({ playerId: p.id, alias: it.texto })
         }
       } else {
+        // regra unica: lotado (ou vagas da fila), a nova entra como avulsa na lista de espera
+        const entrada = entradaComo(data, categoriaNovas, { jaNaLeva: mensalistasNaLeva, feminino: LIGA.id === 'feminino' })
+        if (categoriaNovas === 'mensalista' && !entrada.lotado) mensalistasNaLeva++
         const nova: Player = {
           id: uid(),
           name: it.texto,
           photo_url: null,
           active: true,
           created_at: new Date().toISOString(),
-          categoria: categoriaNovas,
+          categoria: entrada.categoria,
+          ...(entrada.lotado ? { espera_mensalista: entrada.espera_mensalista } : {}),
           pago_mes: null,
           pago_avulso: false,
           aliases: [],
@@ -228,6 +235,7 @@ export default function ImportarLista({
             <p className="tiny muted" style={{ marginTop: 6, marginBottom: 0 }}>
               {CATEGORIAS.find((c) => c.valor === categoriaNovas)?.explica}. Vale só para quem for
               criada agora — quem já está cadastrada mantém a categoria dela.
+              {categoriaNovas === 'mensalista' && ' Se o limite de mensalistas encher, as que sobrarem entram como avulsa na lista de espera.'}
             </p>
           </div>
         )}

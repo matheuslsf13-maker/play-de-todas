@@ -45,7 +45,11 @@ const prazos = (mes: string) => `renovar até ${dm(vencimento(mes))} · check-in
 function situacaoDaFicha(f: ReturnType<typeof fichaDe>, hoje: string, devendoAntes = 0): { t: string; c: string } {
   const falta = faltaDaFicha(f, hoje)
   // para renovar tem de quitar a anterior (dono, 07/11): com divida vencida, os 80 deste mes nao bastam
-  if (devendoAntes > 0 && !quitada(f, hoje)) return { t: `não renovou: deve ${formatarReais(devendoAntes)} da anterior (joga como avulsa)`, c: 'var(--danger)' }
+  if (devendoAntes > 0) {
+    return quitada(f, hoje)
+      ? { t: `quitada, mas deve ${formatarReais(devendoAntes)} da anterior (joga como avulsa)`, c: 'var(--danger)' }
+      : { t: `não renovou: deve ${formatarReais(devendoAntes)} da anterior (joga como avulsa)`, c: 'var(--danger)' }
+  }
   if (quitada(f, hoje)) return { t: '✅ quitada', c: 'var(--verde)' }
   if (!renovada(f, hoje)) {
     if (vencimento(f.mes) < hoje) return { t: 'não renovou (joga como avulsa)', c: 'var(--danger)' }
@@ -65,6 +69,8 @@ export function resumoDaMensalidade(f: ReturnType<typeof fichaDe>, hoje: string,
   const partes = [] as string[]
   const dinheiro = f.itens.filter((i) => i.tipo === 'dinheiro').reduce((s, i) => s + (i.valor ?? 0), 0)
   if (dinheiro > 0) partes.push(formatarReais(dinheiro))
+  const abat = f.itens.filter((i) => i.tipo === 'abatimento').reduce((s, i) => s + (i.valor ?? 0), 0)
+  if (abat > 0) partes.push(`crédito ${formatarReais(abat)}`)
   const ck = checkinsDaFicha(f)
   if (ck > 0 || (dinheiro > 0 && dinheiro < f.valor_cheio)) partes.push(`${Math.min(ck, f.max_checkins)}/${f.max_checkins} check-ins`)
   const s = situacaoDaFicha(f, hoje)
@@ -121,7 +127,7 @@ export function EscolherCompensacao({ playerId, dataDoPlay, ocupada, onEscolher 
 }
 
 export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: { playerId: string; mesInicial?: string; onClose: () => void; onToast: (m: string) => void }) {
-  const { data, nameOf, deleteItemDaMensalidade, saveAcerto } = useStore()
+  const { data, nameOf, deleteItemDaMensalidade, saveAcerto, deleteAcerto } = useStore()
   const gravarNaFicha = useGravarNaFicha()
   const hoje = todayISO()
   const [mes, setMes] = useState(mesInicial ?? mensalidadeDeHoje(hoje))
@@ -131,7 +137,8 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
   const falta = faltaDaFicha(f)
   const divida = dividaDaMensalidade(data, playerId, hoje)
   // passou do dia 5 sem renovar a do mes: perde a vaga e so volta pela fila (dono, 07/11) -- o Pix desta ficha some
-  const perdeuEsteMes = mes === mensalidadeDaData(hoje) && vencimento(mes) < hoje && !renovada(f, hoje)
+  // vale para qualquer mes vencido sem renovar: Pix tardio num mes passado renovaria de tras para frente e criaria divida na hora
+  const perdeuEsteMes = vencimento(mes) < hoje && !renovada(f, hoje)
   const credito = creditoDisponivel(data, playerId)
   const novoItem = (i: Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'observacao'>, date = hoje): ItemDaMensalidade => ({
     ...i, id: uid(), player_id: playerId, date, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString(),
@@ -182,7 +189,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
       </p>
       {perdeuEsteMes && (
         <div className="banner warn" style={{ margin: '0 0 10px' }}>
-          Passou do dia {Number(vencimento(mes).slice(8))} sem renovar: ela perde a vaga e vai para o fim da fila (Meninas). Não renova mais por aqui.
+          Passou do dia {Number(vencimento(mes).slice(8))} sem renovar: ela perde a vaga e joga como avulsa; só volta se entrar na lista de espera (Financeiro › Atletas). Não renova mais por aqui.
           {credito > 0 && <> Os avulsos descontam do crédito dela (hoje {formatarReais(credito)}); quando chegar a vez, o que sobrar completa o valor — se acabar, ela paga completo.</>}
         </div>
       )}
@@ -206,7 +213,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
               style={{ marginTop: 8 }}
               onClick={() => {
                 try {
-                  saveAcerto({ id: uid(), player_id: playerId, date: hoje, valor: -usa, dinheiro: false, descricao: `usado na mensalidade de ${monthLabel(mes).toLowerCase()}`, created_at: new Date().toISOString() })
+                  saveAcerto({ id: `renovacao-credito:${playerId}:${mes}`, player_id: playerId, date: hoje, valor: -usa, dinheiro: false, descricao: `usado na mensalidade de ${monthLabel(mes).toLowerCase()}`, created_at: new Date().toISOString() })
                 } catch (e) {
                   return onToast(e instanceof Error ? e.message : 'Não deu para usar o crédito.')
                 }
@@ -238,13 +245,15 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
                   ? <>check-in {data.checkinLocais.find((l) => l.id === i.local_id)?.nome ?? 'sem arena'} · <span className="muted">{tituloDaConta(i)}</span></>
                   : <>{i.tipo === 'dinheiro' ? 'Pix' : 'abatimento'} {formatarReais(i.valor ?? 0)}{i.observacao ? <span className="muted"> · {i.observacao}</span> : null}</>}
               </span>
-              <button
+              {i.id.startsWith('credito-na-divida:') ? null : <button
                 className="btn ghost sm"
                 aria-label="Apagar"
                 onClick={() => {
                   if (!confirm('Apagar este registro da mensalidade?')) return
                   try {
                     deleteItemDaMensalidade(i.id)
+                    // apagar o abatimento da renovacao devolve o credito que ela gastou (o acerto negativo nasceu junto)
+                    if (i.tipo === 'abatimento' && i.observacao === 'crédito usado na renovação') deleteAcerto(`renovacao-credito:${playerId}:${i.mes}`)
                     onToast('Registro apagado')
                   } catch (e) {
                     onToast(e instanceof Error ? e.message : 'Não deu para apagar.')
@@ -252,7 +261,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
                 }}
               >
                 ✕
-              </button>
+              </button>}
             </div>
           ))}
         </div>

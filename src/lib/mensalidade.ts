@@ -132,6 +132,7 @@ export function situacaoDoAtleta(p: Player, data: AppData, hoje = todayISO()): S
       comoResolver: 'Registre a mensalidade dela (ou cobre este play como avulsa).',
     }
   }
+  if (p.pago_mes !== mes && p.pago_avulso) return { liberado: true, cor: 'ok', rotulo: 'Play pago como avulsa (mensalidade não paga)' }
   return p.pago_mes === mes
     ? { liberado: true, cor: 'ok', rotulo: 'Mensalidade em dia' }
     : {

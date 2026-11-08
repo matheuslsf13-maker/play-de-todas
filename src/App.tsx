@@ -29,7 +29,7 @@ const TABS: Aba[] = ([
   { id: 'play', label: 'Play', icon: '🎾' },
   { id: 'stats', label: 'Stats', icon: '📊' },
   { id: 'players', label: 'Meninas', icon: '👯', soAdmin: true },
-  { id: 'checkins', label: 'Check-ins', icon: '✅', soAdmin: true },
+  { id: 'checkins', label: 'Financeiro', icon: '💰', soAdmin: true },
 ] as Aba[])
   // o misto nao tem check-ins: o dinheiro e de cada campeonato
   .filter((t) => !(LIGA.id === 'misto' && t.id === 'checkins'))
