@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
+import { cabeMensalista } from '../lib/vagasDeMensalista'
 
 /** O app do Play Mista (homens e mulheres dos dois campeonatos). */
 const EH_MISTO = LIGA.id === 'misto'
@@ -5193,7 +5194,8 @@ function ResolverCadastro({
 
   async function mudarPara(c: Categoria) {
     // trocar de categoria zera o pagamento; virando convidada ja fica liberada
-    const p: Player = { ...jogadora, categoria: c, pago_mes: null, pago_avulso: false }
+    // virando mensalista, o resto da fila (espera_mensalista) sai: ela nao esta mais esperando
+    const p: Player = { ...jogadora, categoria: c, pago_mes: null, pago_avulso: false, ...(c === 'mensalista' ? { espera_mensalista: null } : {}) }
     await savePlayer(p)
     if (situacaoDoAtleta(p, data).liberado) onLiberada(p)
     else onClose()
@@ -5218,11 +5220,20 @@ function ResolverCadastro({
         Ou corrija a categoria
       </div>
       <div className="stack" style={{ gap: 8 }}>
-        {CATEGORIAS.filter((c) => c.valor !== atual).map((c) => (
-          <button key={c.valor} className="btn ghost block sm" onClick={() => void mudarPara(c.valor)}>
-            {c.rotulo} — {c.explica}
-          </button>
-        ))}
+        {CATEGORIAS.filter((c) => c.valor !== atual).map((c) => {
+          // mesma regra do Financeiro: mensalista so se couber no limite e na vez da fila
+          const trancada = c.valor === 'mensalista' && LIGA.id === 'feminino' && !cabeMensalista(data, jogadora)
+          return (
+            <button
+              key={c.valor}
+              className="btn ghost block sm"
+              disabled={trancada}
+              onClick={() => void mudarPara(c.valor)}
+            >
+              {c.rotulo} — {trancada ? '🔒 sem vaga: limite cheio ou vaga da lista de espera (veja Financeiro › Mensalistas)' : c.explica}
+            </button>
+          )
+        })}
       </div>
 
       <button className="btn ghost block sm" style={{ marginTop: 12 }} onClick={onClose}>

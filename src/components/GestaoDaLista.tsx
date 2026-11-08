@@ -20,6 +20,8 @@ import {
 } from '../lib/listaDePresenca'
 import { normalizar, semelhanca } from '../lib/roster'
 import { useStore } from '../lib/store'
+import { categoriaDe } from '../lib/mensalidade'
+import { emDiaNaData } from '../lib/fichaDaMensalidade'
 import { esquecerCopiaDaApagada, guardarCopiaDaApagada } from '../lib/useLista'
 import { plural, type Player } from '../lib/types'
 import { EscolherCompensacao, useCompensarFalta } from './FichaDaMensalidade'
@@ -536,13 +538,18 @@ export function AdicionarNaLista({
   onToast: (m: string) => void
   onClose: () => void
 }) {
-  const { repo } = useStore()
+  const { repo, data } = useStore()
   const { escrever } = useEscrita(recarregar, onToast)
   const ocupadas = new Set(ativosEmOrdem(lc.nomes).flatMap((x) => (x.player_id ? [x.player_id] : [])))
   async function incluir(nome: string, player_id: string | null) {
+    // mensalista que ficou em dia DEPOIS de a lista ser criada entra garantida, na vez das mensalistas (nao no fim como suplente)
+    const p = player_id ? data.players.find((x) => x.id === player_id) : undefined
+    const emDia = !!p && categoriaDe(p) === 'mensalista' && emDiaNaData(data, p, dataDoPlay(lc.lista))
     const ok = await escrever(
-      () => repo.incluirNaLista([{ lista_id: lc.lista.id, nome, player_id, origem: 'organizadora', garantida: false, ordem: null }]),
-      'Adicionada no fim da lista',
+      () => repo.incluirNaLista([emDia
+        ? { lista_id: lc.lista.id, nome, player_id, origem: 'mensalista', garantida: true, ordem: ordemParaGarantir(lc.nomes) }
+        : { lista_id: lc.lista.id, nome, player_id, origem: 'organizadora', garantida: false, ordem: null }]),
+      emDia ? 'Mensalista em dia: entrou com a vaga garantida' : 'Adicionada no fim da lista',
     )
     if (ok) onClose()
   }
@@ -568,6 +575,7 @@ export function aplicarDesfazer(store: ReturnType<typeof useStore>, d: Desfazer)
   for (const id of d.checkins) if (!dosDias.has(id)) store.deleteCheckin(id)
   // o dia leva junto os lancamentos e pagamentos dele (cascata no banco e na store)
   for (const id of d.dias) store.deleteCheckinDia(id)
+  for (const id of d.itens ?? []) store.deleteItemDaMensalidade(id)
 }
 
 /**

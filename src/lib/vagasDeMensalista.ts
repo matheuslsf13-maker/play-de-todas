@@ -1,5 +1,5 @@
 import { categoriaDe } from './mensalidade'
-import { dividaDaMensalidade, fichaDe, MES_INICIAL, proximoMes, renovada } from './fichaDaMensalidade'
+import { creditoDaMensalidade, dividaDaMensalidade, fichaDe, MES_INICIAL, proximoMes, renovada } from './fichaDaMensalidade'
 import { monthOf, todayISO, type AppData, type Player } from './types'
 
 /*
@@ -19,7 +19,7 @@ export function limiteDeMensalistas(data: AppData): number {
 /**
  * NAO RENOVOU (dono, 07/11): passou o dia 5 sem pagar a parte que renova (80, ou os 180) da mensalidade
  * do mes, OU ainda devendo check-ins da anterior -> perde a vaga na hora (a vaga conta como livre). A
- * organizadora passa ela para avulsa no fim da espera.
+ * organizadora passa ela para avulsa (sem entrar na espera: so entra se tiver interesse).
  */
 export function perdeuAVaga(data: AppData, p: Player, hoje = todayISO()): boolean {
   const mes = monthOf(hoje)
@@ -38,11 +38,55 @@ export const mensalistasAtivas = (data: AppData, hoje = todayISO()) =>
 /** A espera, na ordem do pedido (quem ja virou mensalista sai da conta). */
 export function filaDeEspera(data: AppData): Player[] {
   return data.players
-    .filter((p) => p.espera_mensalista && categoriaDe(p) !== 'mensalista')
+    // inativa nao ocupa a vez: a vaga reservada ficaria presa a quem nao esta jogando
+    .filter((p) => p.active && p.espera_mensalista && categoriaDe(p) !== 'mensalista')
     .sort((a, b) => (a.espera_mensalista as string).localeCompare(b.espera_mensalista as string) || a.name.localeCompare(b.name, 'pt-BR'))
 }
 
 export const vagasLivres = (data: AppData, hoje = todayISO()) => Math.max(0, limiteDeMensalistas(data) - mensalistasAtivas(data, hoje).length)
 
-/** Pode virar mensalista agora? Quem ja e mensalista sempre pode (nao ocupa vaga nova). */
-export const cabeMensalista = (data: AppData, p: Player, hoje = todayISO()) => categoriaDe(p) === 'mensalista' || vagasLivres(data, hoje) > 0
+/** Vagas que sobram para quem chega agora: a fila segura as livres (cada vaga e da proxima da espera). */
+export const vagasParaNovas = (data: AppData, hoje = todayISO()) => Math.max(0, vagasLivres(data, hoje) - filaDeEspera(data).length)
+
+/**
+ * Pode virar mensalista agora? Quem ja e mensalista sempre pode (nao ocupa vaga nova). Quem esta na espera
+ * entra pela vez (as N primeiras para N vagas livres); quem chega agora so se sobrar vaga depois da fila.
+ */
+export function cabeMensalista(data: AppData, p: Player, hoje = todayISO()): boolean {
+  if (categoriaDe(p) === 'mensalista') return true
+  const posicao = filaDeEspera(data).findIndex((x) => x.id === p.id)
+  return posicao >= 0 ? posicao < vagasLivres(data, hoje) : vagasParaNovas(data, hoje) > 0
+}
+
+/**
+ * REGRA UNICA DE ENTRADA (cadastro novo, importar lista, Nova atleta no play): mensalista so se couber
+ * (a fila segura as vagas livres); lotado, entra como avulsa na lista de espera. `jaNaLeva` = quantas
+ * novas mensalistas a mesma leva ja pegou (importar varias de uma vez). So no Play de Todas.
+ */
+export function entradaComo(
+  data: AppData,
+  categoria: string,
+  { jaNaLeva = 0, feminino = true, agora = new Date() }: { jaNaLeva?: number; feminino?: boolean; agora?: Date } = {},
+): { categoria: string; espera_mensalista: string | null; lotado: boolean } {
+  const lotado = feminino && categoria === 'mensalista' && vagasParaNovas(data) <= jaNaLeva
+  if (!lotado) return { categoria, espera_mensalista: null, lotado: false }
+  // +jaNaLeva ms: a ordem da leva vira a ordem da fila
+  return { categoria: 'avulsa', espera_mensalista: new Date(agora.getTime() + jaNaLeva).toISOString(), lotado: true }
+}
+
+/** O que a organizadora precisa saber antes de tirar alguem das mensalistas (a divida e o credito ficam na ficha). */
+export function consequenciasDeSair(data: AppData, p: Player, hoje = todayISO()) {
+  return {
+    divida: dividaDaMensalidade(data, p.id, hoje).total,
+    credito: creditoDaMensalidade(data, p.id, hoje).total,
+    proxima: filaDeEspera(data).find((x) => x.id !== p.id) ?? null,
+  }
+}
+
+/** Entra na aba Mensalistas: as mensalistas e as ex-mensalistas que ainda tem divida ou credito na ficha. */
+export function geridaNaAbaMensalistas(data: AppData, p: Player, hoje = todayISO()): boolean {
+  if (!p.active) return false
+  if (categoriaDe(p) === 'mensalista') return true
+  const c = consequenciasDeSair(data, p, hoje)
+  return c.divida > 0 || c.credito > 0
+}

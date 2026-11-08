@@ -205,3 +205,13 @@ test('dia 6: o credito cobre a divida dos check-ins sozinho (inteira se der, sen
   // sem credito: deve os 50, como antes
   assert.equal(dividaDaMensalidade(dados(base), 'bia', '2027-01-07').total, 50)
 })
+
+test('marcasDaMensalista: filtros da aba Mensalistas', async () => {
+  const { marcasDaMensalista } = await import('../src/lib/fichaDaMensalidade')
+  const base = { player_id: 'bia', mes: '2026-12', valor_cheio: 180, valor_checkin: 25, max_checkins: 4 }
+  const pix = (v: number) => item('2026-12', 'dinheiro', '2026-12-03', v)
+  assert.deepEqual(marcasDaMensalista({ ...base, itens: [] }, 0), ['sem-pagamento'])
+  assert.deepEqual(marcasDaMensalista({ ...base, itens: [pix(180)] }, 0), ['quitada', 'integral'])
+  assert.deepEqual(marcasDaMensalista({ ...base, itens: [pix(80)] }, 0), ['parcial', 'falta'])
+  assert.deepEqual(marcasDaMensalista({ ...base, itens: [pix(80)] }, 50), ['parcial', 'falta', 'deve'])
+})

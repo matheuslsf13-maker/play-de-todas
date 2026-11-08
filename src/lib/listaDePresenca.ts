@@ -1,4 +1,5 @@
 import { emDiaNaData } from './fichaDaMensalidade'
+import { categoriaDe } from './mensalidade'
 import { normalizar, semInvisiveis, semelhanca, type Sugestao } from './roster'
 import { notaDeForca } from './forca'
 import { pausaAberta, ratings } from './stats'
@@ -450,8 +451,9 @@ export function preIncluidas(data: AppData, dataDoPlay: string): string[] {
  * ou mensalista em dia para este play. A que nao renovou entrou como avulsa.
  */
 export function ehMensalista(n: NomeNaLista, data: AppData, dataDoPlay: string): boolean {
-  if (n.origem === 'mensalista') return true
   const p = n.player_id ? data.players.find((x) => x.id === n.player_id) : undefined
+  // entrou como mensalista, mas deixou de ser (Financeiro): nao ha mais "avisou com 24h" nem compensacao para ela
+  if (n.origem === 'mensalista') return !p || categoriaDe(p) === 'mensalista'
   return !!p && emDiaNaData(data, p, dataDoPlay)
 }
 
