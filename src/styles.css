@@ -2563,7 +2563,7 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
   cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out), background 200ms ease-out, color 200ms ease-out;
 }
 .pd-abas button:active { transform: scale(.97); }
-.pd-abas button.on { background: var(--card-2); color: var(--text); box-shadow: 0 1px 0 var(--line-2) inset; }
+.pd-abas button.on { background: var(--card-2); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--pink); }
 
 .pd-cartao { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 10px; }
 .pd-rotulo { font-size: 10.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
@@ -2641,7 +2641,7 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
   cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out), background 200ms ease-out, color 200ms ease-out;
 }
 .st-seg button:active { transform: scale(.97); }
-.st-seg button.on { background: var(--card-2); color: var(--text); box-shadow: 0 1px 0 var(--line-2) inset, 0 4px 12px rgba(0, 0, 0, .18); }
+.st-seg button.on { background: var(--card-2); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--pink); }
 
 .st-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 12px; }
 .st-rotulo { font-size: 11px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); margin: 0 2px 8px; }
@@ -2903,7 +2903,7 @@ button.st-linha:active { background: var(--pink-suave); }
 .cp-escolha small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 400; }
 .cp-abas-folha { display: grid; grid-template-columns: repeat(2, 1fr); padding: 3px; border-radius: 10px; background: var(--card-2); margin-bottom: 10px; }
 .cp-abas-folha button { border: 0; background: none; min-height: 36px; border-radius: 8px; font-size: 12.5px; font-weight: 700; color: var(--muted); cursor: pointer; touch-action: manipulation; }
-.cp-abas-folha button.on { background: var(--card); color: var(--text); }
+.cp-abas-folha button.on { background: var(--card); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--pink); }
 .cp-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
 .cp-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 84px; justify-content: center; padding: 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--card-2); color: inherit; font-size: 12.5px; cursor: pointer; touch-action: manipulation; }
 .cp-slot.cheio { border-color: var(--pink); }
