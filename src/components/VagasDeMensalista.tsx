@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useStore } from '../lib/store'
 import { plural, todayISO, uid } from '../lib/types'
 import { creditoDisponivel, formatarReais } from '../lib/checkins'
@@ -73,6 +73,15 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
           <button className="btn ghost sm" onClick={() => setEditando(false)}>Cancelar</button>
         </div>
       )}
+      <div
+        className={`vagas-barra${vagas <= 0 ? ' lotada' : ''}`}
+        style={{ '--p': `${Math.min(100, (ocupadas / Math.max(1, limite)) * 100)}%` } as CSSProperties}
+        role="progressbar"
+        aria-valuenow={ocupadas}
+        aria-valuemax={limite}
+      >
+        <span />
+      </div>
       <p className="tiny muted" style={{ margin: '6px 0 0' }}>
         {vagas > 0 ? `${plural(vagas, 'vaga livre', 'vagas livres')}.` : 'Lotado: quem pedir entra na lista de espera.'}
         {ocupadas > limite && ` ${ocupadas - limite} acima do limite (ninguém sai sozinha).`}
@@ -102,8 +111,8 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
         <div className="stack" style={{ gap: 6, marginTop: 10 }}>
           <strong className="small">⏳ Lista de espera</strong>
           {fila.map((p, i) => (
-            <div key={p.id} className="row ficha-item" style={{ gap: 8 }}>
-              <span className="muted" style={{ fontWeight: 800 }}>{i + 1}º</span>
+            <div key={p.id} className={`row ficha-item${i === 0 && vagas > 0 ? ' chamada' : ''}`} style={{ gap: 8 }}>
+              <span className="fila-pos" aria-label={`${i + 1}º`}>{i + 1}</span>
               <span className="grow">{nameOf(p.id)}</span>
               {i === 0 && vagas > 0 && pagou === null && (
                 <button className="btn teal sm" onClick={() => setPagou(MENSALIDADE_PADRAO.valor_cheio - MENSALIDADE_PADRAO.max_checkins * MENSALIDADE_PADRAO.valor_checkin)}>

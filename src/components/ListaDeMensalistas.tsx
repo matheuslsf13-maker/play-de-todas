@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Avatar, Empty } from './ui'
 import { mensalidadeDeHoje, resumoDaMensalidade } from './FichaDaMensalidade'
 import { categoriaDe } from '../lib/mensalidade'
@@ -91,7 +91,7 @@ export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) =>
               <Avatar player={p} size={40} />
               <span className="mensalista-texto">
                 <strong>{nameOf(p.id)}</strong>
-                <span className="tiny" style={{ color: resumo.cor, fontWeight: 700 }}>{resumo.texto}</span>
+                <span className="mensalista-estado" style={{ '--cor': resumo.cor } as CSSProperties}>{resumo.texto}</span>
               </span>
               <span className="seta" aria-hidden>›</span>
             </button>

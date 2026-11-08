@@ -2173,3 +2173,68 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 .interruptor.on .bolinha { transform: translateX(18px); }
 .interruptor-texto { display: grid; gap: 2px; min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .interruptor, .interruptor .trilho, .interruptor .bolinha { transition: none; } }
+
+/* ===== ESTETICA (emil-design-eng + apple-design), proposta 08/11/2026 ===== */
+:root { --ease-out: cubic-bezier(.23, 1, .32, 1); --ease-folha: cubic-bezier(.32, .72, 0, 1); }
+/* E1 folha que sobe */
+.modal-bg { transition: background-color 220ms ease-out; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.modal { transition: transform 340ms var(--ease-folha), opacity 200ms ease-out; }
+@starting-style {
+  .modal-bg { background-color: rgba(20, 26, 60, 0); }
+  .modal { transform: translateY(28px) scale(.98); opacity: 0; }
+}
+@media (min-width: 560px) { @starting-style { .modal { transform: scale(.96); opacity: 0; } } }
+@media (prefers-reduced-motion: reduce) {
+  .modal { transition: opacity 160ms ease-out; }
+  @starting-style { .modal { transform: none; opacity: 0; } }
+}
+/* E2 texto legivel nos botoes rosa e verde-agua */
+.btn.pink, .btn.teal { color: var(--sempre-escuro); }
+/* E3 situacao do pagamento: texto no tema, cor na bolinha */
+.mensalista-estado { font-size: 12px; font-weight: 700; line-height: 1.3; color: var(--text); }
+.mensalista-estado::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--cor); vertical-align: 1px; }
+/* E4 abas em grade */
+.segmented.quebra { display: grid; grid-template-columns: repeat(var(--cols, 3), 1fr); }
+.segmented.quebra button { min-height: 44px; }
+/* E5 retorno ao toque unificado */
+.btn { transition: transform 140ms var(--ease-out), filter 150ms, background-color 150ms; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.chip, .segmented button { transition: transform 140ms var(--ease-out), background-color 150ms, border-color 150ms, color 150ms; }
+button.chip:active, .segmented button:active { transform: scale(.96); }
+@media (prefers-reduced-motion: reduce) {
+  .btn, .chip, .segmented button { transition: background-color 150ms, color 150ms; }
+  .btn:active:not(:disabled), button.chip:active, .segmented button:active { transform: none; }
+}
+/* E6 interruptor com mola */
+.interruptor .trilho { background: var(--line-2); transition: background-color 200ms ease-out; }
+.interruptor.on .trilho { background: var(--pink); }
+.interruptor .bolinha { box-shadow: 0 1px 3px rgba(0, 0, 0, .28); transition: transform 320ms cubic-bezier(.3, 1.35, .5, 1); }
+@media (prefers-reduced-motion: reduce) { .interruptor .bolinha { transition: none; } }
+/* E7 barra de ocupacao e fila numerada */
+.vagas-barra { height: 8px; margin-top: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.vagas-barra > span { display: block; width: var(--p, 0%); height: 100%; border-radius: inherit; background: var(--pink); transition: width 420ms var(--ease-out), background-color 200ms ease-out; }
+.vagas-barra.lotada > span { background: var(--yellow); }
+.fila-pos { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--card-2); color: var(--muted); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ficha-item.chamada { border-color: var(--pink); background: var(--pink-suave); }
+.ficha-item.chamada .fila-pos { background: var(--pink); color: var(--sempre-escuro); }
+@media (prefers-reduced-motion: reduce) { .vagas-barra > span { transition: none; } }
+/* E8 entrada escalonada da lista */
+@keyframes entra-linha { from { opacity: 0; transform: translateY(8px); } }
+@keyframes entra-linha-suave { from { opacity: 0; } }
+.mensalista-linha { animation: entra-linha 260ms var(--ease-out) backwards; }
+.mensalista-linha:nth-child(2) { animation-delay: 30ms; }
+.mensalista-linha:nth-child(3) { animation-delay: 60ms; }
+.mensalista-linha:nth-child(4) { animation-delay: 90ms; }
+.mensalista-linha:nth-child(5) { animation-delay: 120ms; }
+.mensalista-linha:nth-child(6) { animation-delay: 150ms; }
+.mensalista-linha:nth-child(7) { animation-delay: 180ms; }
+.mensalista-linha:nth-child(n+8) { animation-delay: 210ms; }
+@media (prefers-reduced-motion: reduce) { .mensalista-linha { animation: entra-linha-suave 160ms ease-out backwards; animation-delay: 0ms !important; } }
+/* E9 sem selecao no toque longo */
+.mensalista-linha, .plano-opcao, .interruptor, .chip, .segmented button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* E10 banner de consequencia */
+@keyframes surge { from { opacity: 0; transform: translateY(-6px); } }
+.plano-opcoes ~ .banner { animation: surge 200ms var(--ease-out) backwards; }
+@media (prefers-reduced-motion: reduce) { .plano-opcoes ~ .banner { animation: entra-linha-suave 160ms ease-out backwards; } }
+/* E11 opcao trancada legivel */
+.plano-opcao.travada { opacity: 1; background: transparent; border-style: dashed; color: var(--muted); }

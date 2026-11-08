@@ -1,5 +1,5 @@
 import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '../lib/pagamentoNaLista'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
 import { dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
@@ -183,7 +183,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
             ))}
           </select>
         </div>
-        <div className="segmented quebra">
+        <div className="segmented quebra" style={{ '--cols': secoes.length === 4 ? 2 : Math.min(3, secoes.length) } as CSSProperties}>
           {secoes.map((s) => (
             <button key={s.id} className={secaoAtiva === s.id ? 'on' : ''} onClick={() => setSecao(s.id)}>
               {s.rotulo}
