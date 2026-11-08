@@ -1,4 +1,5 @@
 import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '../lib/pagamentoNaLista'
+import CampoDeBusca from '../components/CampoDeBusca'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
@@ -384,14 +385,7 @@ function SecaoAtletas({
         <StatBox k="check-ins" v={comCheckin} />
         <StatBox k="integrais" v={integrais} />
       </div>
-      <input
-        className="input"
-        type="search"
-        placeholder="Buscar pelo nome ou apelido"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        style={{ marginBottom: 10 }}
-      />
+      <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar pelo nome ou apelido" style={{ marginBottom: 10 }} />
       {podeEditar && (
         <div className="chips-scroll" style={{ paddingInline: 0, marginBottom: 10 }}>
           <button className={`chip ${cat === null ? 'on' : ''}`} onClick={() => setCat(null)}>Todas <strong>{data.players.length}</strong></button>

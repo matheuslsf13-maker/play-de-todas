@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react'
+import CampoDeBusca from './CampoDeBusca'
 import { Avatar, Empty } from './ui'
 import { mensalidadeDeHoje, resumoDaMensalidade } from './FichaDaMensalidade'
 import { categoriaDe } from '../lib/mensalidade'
@@ -72,14 +73,7 @@ export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) =>
       <div className="tiny muted" style={{ marginBottom: 10 }}>
         {linhas.length === 0 ? 'Nenhuma mensalista ativa.' : 'Toque numa mensalista para abrir a ficha: Pix, check-ins e histórico.'}
       </div>
-      <input
-        className="input"
-        type="search"
-        placeholder="Buscar pelo nome ou apelido"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        style={{ marginBottom: 10 }}
-      />
+      <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar pelo nome ou apelido" style={{ marginBottom: 10 }} />
       <div className="chips-scroll" style={{ paddingInline: 0, marginBottom: 12 }}>
         {FILTROS.map((f) => (
           <button key={f.id} className={`chip ${filtro === f.id ? 'on' : ''}`} onClick={() => setFiltro(f.id)}>
