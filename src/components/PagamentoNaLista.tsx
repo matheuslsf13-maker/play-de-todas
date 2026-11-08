@@ -5,7 +5,8 @@ import { useStore } from '../lib/store'
 import { LIGA } from '../liga'
 import { contaInicial, devidoNoModo, pagoAvulsoDaLista, diaDaLista, diaJaExiste, palpiteDaLista, prepararPagamento, retrato, tipoNaLista, valorInicial, type ContaDoCheckin, type RetratoPagamento } from '../lib/pagamentoNaLista'
 import { creditoDisponivel, disponibilidade, formatarReais, lerValor, livresNoLocal, nomeDoTitular, rotuloDoTipo, saldoAntesDe } from '../lib/checkins'
-import { monthOf } from '../lib/types'
+import { monthLabel, monthOf } from '../lib/types'
+import { comecaNoMesSeguinte, proximoMes } from '../lib/fichaDaMensalidade'
 import type { Lista, NomeNaLista } from '../lib/listaDePresenca'
 import type { CheckinDia, CheckinModo } from '../lib/types'
 
@@ -17,10 +18,18 @@ const textoValor = (n: number) => n.toFixed(2).replace('.', ',')
  * 💰 da avulsa na lista (só a organização). Grava pelas mesmas ações da aba
  * Check-ins (fila otimista): dia (se for novo), lançamento e pagamento.
  */
-export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: Lista; nome: NomeNaLista; onVincular: () => void }) {
-  const { data, canEdit, nameOf, savePlayer, saveCheckinDia, saveCheckin, saveCheckinPagamento, deleteCheckin, deleteCheckinPagamento } = useStore()
+export default function PagamentoNaLista({ lista, nome, onVincular, semSubstituta = [] }: {
+  lista: Lista
+  nome: NomeNaLista
+  onVincular: () => void
+  /** Mensalistas que sairam com aviso sem ninguem no lugar (so para quem esta nas confirmadas). */
+  semSubstituta?: string[]
+}) {
+  const { data, repo, canEdit, nameOf, savePlayer, saveCheckinDia, saveCheckin, saveCheckinPagamento, deleteCheckin, deleteCheckinPagamento } = useStore()
   const [edicao, setEdicao] = useState<Edicao | null>(null)
   const [erro, setErro] = useState('')
+  /** "Entrou no lugar de": a mensalista escolhida no 💰 (quem entrou depois da saida dela). */
+  const [substituta, setSubstituta] = useState<string | null>(null)
   const [semVinculo, setSemVinculo] = useState(false)
   const [aviso, setAviso] = useState<{ texto: string; diaId: string; playerId: string; antes: RetratoPagamento | null; marcou: boolean } | null>(null)
   // o desfazer fica uns segundos, como os outros avisos; senão cobriria a janela da próxima atleta
@@ -41,7 +50,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
   try { pago = !!(player && retrato(data, diaDaLista(data, lista).id, player.id)?.pagamento?.pagamento_confirmado) } catch { /* explica ao abrir */ }
 
   function abrir() {
-    setErro(''); setAviso(null)
+    setErro(''); setAviso(null); setSubstituta(null)
     if (!player) { setSemVinculo(true); return }
     try {
       const dia = diaDaLista(data, lista)
@@ -79,6 +88,11 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
       const depois = prepararPagamento(data, edicao.dia, player.id, edicao.modo, valor, edicao.conta)
       // entrou no lugar de uma mensalista (troca ou tirada com aviso de 24h): o lancamento ja sai como substituta
       if (nome.substitui && !depois.checkin.substitui) depois.checkin.substitui = nome.substitui
+      // marcada agora no 💰: o lancamento sai como substituta e a lista guarda a ligacao (sem o script 36: so nao liga)
+      if (substituta && !depois.checkin.substitui) {
+        depois.checkin.substitui = substituta
+        void repo.mexerNoNome(nome.id, { substitui: substituta }).catch(() => {})
+      }
       if (novo) saveCheckinDia(edicao.dia)
       saveCheckin(depois.checkin)
       saveCheckinPagamento(depois.pagamento)
@@ -114,7 +128,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
     {edicao && player && <Modal title={edicao.confirmar ? 'Lançar na aba Financeiro?' : `💰 ${quem}`} onClose={fechar}>
       <div className="stack">
         {edicao.confirmar ? <>
-          <p style={{ margin: 0 }}>Isso vai preencher a aba <strong>Check-ins</strong>, no dia {diaCurto(edicao.dia.date)}: {quem}, {edicao.modo === 'checkin' ? `check-in${usoEscolhido ? ` pela conta ${nomeDoTitular(usoEscolhido.conta, quem)}` : ''}${naArena ? ` na ${naArena.local.nome}` : ''}` : 'integral'}, pagou {formatarReais(vPago ?? 0)}.</p>
+          <p style={{ margin: 0 }}>Isso vai preencher a aba <strong>Financeiro</strong>, no dia {diaCurto(edicao.dia.date)}: {quem}, {edicao.modo === 'checkin' ? `check-in${usoEscolhido ? ` pela conta ${nomeDoTitular(usoEscolhido.conta, quem)}` : ''}${naArena ? ` na ${naArena.local.nome}` : ''}` : 'integral'}, pagou {formatarReais(vPago ?? 0)}.</p>
           <p className="banner info" style={{ margin: 0 }}>✅ Vai {confirmado}. Na aba Financeiro isso costuma ser um passo à parte; aqui já fica feito.</p>
           {!diaJaExiste(data, edicao.dia) && <p className="banner warn" style={{ margin: 0 }}>O dia {diaCurto(edicao.dia.date)} ainda não existe na parte 📅 Dias e vai ser criado, ligado a este play{lista.session_id ? '' : ' (a ligação é feita quando o play for montado)'}.</p>}
           <button className="btn pink block" onClick={lancar}>Confirmar lançamento</button>
@@ -153,7 +167,27 @@ export default function PagamentoNaLista({ lista, nome, onVincular }: { lista: L
               {naArena && !naArena.aceita && <span className="hint aviso">O plano desta conta não aceita {naArena.local.nome}. Confira a arena ou a conta.</span>}
             </div>
           </>}
-          {categoria === 'mensalista-atrasada' && <p className="banner warn" style={{ margin: 0 }}>📅 Mensalidade atrasada: neste play ela paga como avulsa.</p>}
+          {categoria === 'mensalista-atrasada' && (comecaNoMesSeguinte(data, player, edicao.dia.date)
+            ? <p className="banner info" style={{ margin: 0 }}>📅 Mensalista a partir de {monthLabel(proximoMes(monthOf(edicao.dia.date))).split(' ')[0].toLowerCase()}: neste mês ela paga cada play como avulsa.</p>
+            : <p className="banner warn" style={{ margin: 0 }}>📅 Mensalidade atrasada: neste play ela paga como avulsa.</p>)}
+          {!nome.substitui && !existente?.checkin.substitui && semSubstituta.length > 0 && (
+            <div>
+              <label className="toggle-card row">
+                <input type="checkbox" checked={substituta !== null} onChange={(e) => setSubstituta(e.target.checked ? semSubstituta[0] : null)} />
+                <span className="grow">
+                  <strong>🔁 Entrou no lugar de {semSubstituta.length === 1 ? nameOf(semSubstituta[0]) : 'uma mensalista'}</strong>
+                  <span className="tiny muted" style={{ display: 'block' }}>saiu com aviso de 24h e ficou sem substituta: metade do que ela pagar vai para o 🎉 caixa de eventos</span>
+                </span>
+              </label>
+              {substituta !== null && semSubstituta.length > 1 && (
+                <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                  {semSubstituta.map((id) => (
+                    <button key={id} className={`chip ${substituta === id ? 'on' : ''}`} aria-pressed={substituta === id} onClick={() => setSubstituta(id)}>{nameOf(id)}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <label className="field"><span>Valor pago (R$)</span><input className="input valor" inputMode="decimal" value={edicao.valor} onChange={(e) => setEdicao({ ...edicao, valor: e.target.value })} /></label>
           <p className="small muted" style={{ margin: 0 }}>
             Dia {diaCurto(edicao.dia.date)} · deve {formatarReais(devido)}

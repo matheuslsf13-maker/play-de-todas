@@ -1,4 +1,5 @@
 import { categoriaDe } from './mensalidade'
+import { creditoDisponivel } from './checkins'
 import { creditoDaMensalidade, dividaDaMensalidade, fichaDe, MES_INICIAL, proximoMes, renovada } from './fichaDaMensalidade'
 import { monthOf, todayISO, type AppData, type Player } from './types'
 
@@ -78,7 +79,8 @@ export function entradaComo(
 export function consequenciasDeSair(data: AppData, p: Player, hoje = todayISO()) {
   return {
     divida: dividaDaMensalidade(data, p.id, hoje).total,
-    credito: creditoDaMensalidade(data, p.id, hoje).total,
+    // o que sobrou de verdade no saldo (os avulsos ja descontaram), nao o Pix bruto
+    credito: Math.min(creditoDaMensalidade(data, p.id, hoje).total, creditoDisponivel(data, p.id)),
     proxima: filaDeEspera(data).find((x) => x.id !== p.id) ?? null,
   }
 }

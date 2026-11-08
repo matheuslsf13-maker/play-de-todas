@@ -1,19 +1,26 @@
 import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { LIGA } from './liga'
-import { BotaoInstalar } from './components/InstalarApp'
-import { BotaoTrocarDePlay } from './components/TrocarDePlay'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
 import { aplicarTema, temaSalvo, type Tema } from './lib/tema'
-import Checkins from './pages/Checkins'
 import Play from './pages/Play'
-import Players from './pages/Players'
 import Ranking from './pages/Ranking'
 import Stats from './pages/Stats'
 import { ProvedorDePerfil } from './components/NomeClicavel'
 import ListaDePresenca, { type Montagem } from './pages/ListaDePresenca'
 import { codigoDaUrl } from './lib/useLista'
+
+// FINANCEIRO E MENINAS SO CARREGAM PARA QUEM ABRE (08/11): so a organizadora usa. Logada, os dois sao
+// baixados em segundo plano logo ao abrir (o service worker guarda) para abrir sem sinal na quadra; se
+// mesmo assim faltar, aparece um aviso em vez de o app inteiro cair.
+const carregarCheckins = () => import('./pages/Checkins')
+const carregarPlayers = () => import('./pages/Players')
+const semSinal = (aba: string) => ({
+  default: () => <div className="card"><div className="empty">Sem sinal para abrir {aba} agora. Tente de novo com internet.</div></div>,
+})
+const Checkins = lazy(() => carregarCheckins().catch(() => semSinal('o Financeiro')))
+const Players = lazy(() => carregarPlayers().catch(() => semSinal('a aba Meninas')))
 
 type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
@@ -51,9 +58,14 @@ function abaSalva(): Tab {
 }
 
 export default function App() {
-  const { loading, error, online, canEdit, userEmail, signIn, signOut, sync, pendingCount } = useStore()
+  const { loading, error, online, canEdit, userEmail, signIn, signOut, pendingCount } = useStore()
   const [tab, setTab] = useState<Tab>(abaSalva)
   const abas = TABS.filter((t) => !t.soAdmin || canEdit)
+  useEffect(() => {
+    if (!canEdit) return
+    void carregarCheckins().catch(() => {})
+    void carregarPlayers().catch(() => {})
+  }, [canEdit])
   // saiu da conta (ou a aba guardada e de administradora): volta para o Ranking
   const abaVisivel: Tab = abas.some((t) => t.id === tab) ? tab : 'ranking'
   useEffect(() => {
@@ -148,24 +160,13 @@ export default function App() {
     <div className={compacto ? 'app topo-compacto' : 'app'} ref={appRef}>
       <header className="topbar">
         <div className="row spread" ref={linhaRef}>
-          <Logo size={46} />
+          {/* o cabecalho e o antigo cartao do logo da tela inicial (dono, 08/11): um so, em todas as abas.
+              Instalar, Trocar de play e o "tudo salvo" sairam (por enquanto); sem sinal, o aviso de baixo continua */}
+          <Logo size={64} />
           <div className="grow">
-            <h1>Play <span>de Todas</span></h1>
+            <h1 className="hero-nome">Play de Todas</h1>
             <div className="sub">
-              <span>Beach Tennis · V3 Arena</span>
-              {online && canEdit ? (
-                <span className={`sync ${sync}`}>
-                  <span className="dot" />
-                  {sync === 'saved' ? 'tudo salvo' : sync === 'saving' ? 'salvando…' : `${pendingCount} para enviar`}
-                </span>
-              ) : (
-                <>
-                  <span className={`dot ${online ? 'on' : 'off'}`} />
-                  <span>{online ? 'só leitura' : 'modo local'}</span>
-                </>
-              )}
-              <BotaoInstalar />
-              <BotaoTrocarDePlay />
+              <span>Beach Tennis · V3 Arena · <em>mais que um play, uma experiência!</em></span>
             </div>
           </div>
           <button
@@ -231,8 +232,16 @@ export default function App() {
             />
           )}
           {!lista && abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
-          {!lista && abaVisivel === 'players' && <Players onToast={show} />}
-          {!lista && abaVisivel === 'checkins' && <Checkins onToast={show} />}
+          {!lista && abaVisivel === 'players' && (
+            <Suspense fallback={<div className="card"><div className="empty">Carregando…</div></div>}>
+              <Players onToast={show} />
+            </Suspense>
+          )}
+          {!lista && abaVisivel === 'checkins' && (
+            <Suspense fallback={<div className="card"><div className="empty">Carregando…</div></div>}>
+              <Checkins onToast={show} />
+            </Suspense>
+          )}
         </main>
       )}
 

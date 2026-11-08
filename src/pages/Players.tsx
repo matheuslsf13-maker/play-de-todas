@@ -54,7 +54,9 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
       /* sem armazenamento: o filtro so nao fica guardado */
     }
   }
-  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  /** A atleta com a folha de acoes aberta (tocou na linha). */
+  const [aberta, setAberta] = useState<string | null>(null)
+  const fotoRef = useRef<HTMLInputElement>(null)
 
   /** Forca de cada jogadora, para o nivel aparecer na linha dela. */
   const forcaPorId = useMemo(() => {
@@ -89,6 +91,13 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
 
   const termo = normalizar(busca)
   const filtrando = filtro.situacao !== 'todas' || filtro.categoria !== null || filtro.nivel !== null
+  /** O nome de cada filtro ligado, para a linha embaixo do botao "Filtros". */
+  const ativos = [
+    filtro.situacao !== 'todas' ? SITUACOES.find((x) => x.valor === filtro.situacao)?.rotulo : null,
+    filtro.categoria ? CATEGORIAS.find((c) => c.valor === filtro.categoria)?.rotulo : null,
+    filtro.nivel,
+  ].filter((x): x is string => !!x)
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   const notaDe = (p: Player) => forcaPorId.get(p.id)?.nota ?? -Infinity
   const sorted = [...data.players]
     .filter(
@@ -269,6 +278,83 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
         />
       )}
 
+      {aberta && (() => {
+        const p = data.players.find((x) => x.id === aberta)
+        if (!p) return null
+        const nome = p.nickname?.trim() || p.name
+        const pausa = pausas.get(p.id)
+        const hoje = todayISO()
+        const fechar = () => setAberta(null)
+        return (
+          <Modal title={nome} onClose={fechar}>
+            <div className="row" style={{ marginBottom: 14 }}>
+              <Avatar player={p} size={56} />
+              <div className="grow" style={{ minWidth: 0 }}>
+                {p.nickname?.trim() && p.nickname.trim() !== p.name && <div className="small muted ellipsis">{p.name}</div>}
+                <SinalDePagamento jogadora={p} />
+                {!p.active && <div className="tiny"><span className="pausada">inativa</span></div>}
+              </div>
+            </div>
+            <input
+              ref={fotoRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                void pickPhoto(p, e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            <div className="folha-acoes">
+              <button onClick={() => { fechar(); setEditando(p) }}>✏️ Editar perfil</button>
+              <button disabled={busy === p.id} onClick={() => fotoRef.current?.click()}>
+                📷 {busy === p.id ? 'Salvando a foto…' : p.photo_url ? 'Trocar foto' : 'Pôr foto'}
+              </button>
+              {p.photo_url && <button disabled={busy === p.id} onClick={() => void removePhoto(p)}>🖼️ Remover foto</button>}
+              {/* no misto, inativar e pausar sao do misto (misto.atletas): o campeonato nao muda */}
+              {pausa === 'manual' ? (
+                <button onClick={() => void savePlayer(fecharPausa(data, p, hoje))}>▶️ Despausar<small>Volta ao ranking da força</small></button>
+              ) : pausa === 'faltas' ? (
+                <button onClick={() => void savePlayer({ ...p, reativada_em: hoje })}>
+                  ▶️ Despausar<small>Pausada por 2 faltas seguidas: volta ao ranking agora (ou sozinha ao jogar)</small>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (!confirm(`Pausar ${nome}? Sai do ranking da força até despausar ou jogar de novo (as faltas continuam baixando a força).`)) return
+                    void savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
+                  }}
+                >
+                  ⏸️ Pausar<small>Só sai do ranking da força</small>
+                </button>
+              )}
+              <button onClick={() => void savePlayer({ ...p, active: !p.active })}>
+                {p.active ? '🚫 Inativar' : '✅ Ativar'}
+                <small>{p.active ? 'Some da hora de montar o play; o histórico fica' : 'Volta para a hora de montar o play'}</small>
+              </button>
+              {/* juntar e apagar sao do campeonato da pessoa: o misto so le */}
+              {!precisaDeGenero && (
+                <button onClick={() => { fechar(); setJuntando(p) }}>🔗 Juntar com outra atleta<small>Quando a mesma pessoa foi cadastrada duas vezes</small></button>
+              )}
+            </div>
+            {!precisaDeGenero && (
+              <div className="folha-acoes perigo">
+                <button
+                  onClick={() => {
+                    if (confirm(`Remover ${p.name}? O histórico de partidas dela continua salvo.`)) {
+                      void deletePlayer(p.id)
+                      fechar()
+                    }
+                  }}
+                >
+                  🗑 Remover atleta
+                </button>
+              </div>
+            )}
+          </Modal>
+        )
+      })()}
+
       <div className="card">
         <div className="row spread">
           <div className="section-title">👯 Jogadoras ({data.players.filter((p) => p.active).length} ativas)</div>
@@ -284,8 +370,40 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
           onChange={(e) => setBusca(e.target.value)}
           style={{ marginBottom: 8 }}
         />
-        <div className="filtros-meninas">
-          <div className="chips-scroll">
+        {/* filtros numa folha (dono, 08/11): eram 3 fileiras de chips rolando para o lado em cima da lista */}
+        <div className="row spread filtros-rodape">
+          <button className={`chip ${filtrando ? 'on' : 'off'}`} onClick={() => setFiltrosAbertos(true)}>
+            ⚙️ Filtros{filtrando && <span className="filtro-n">{ativos.length}</span>}
+          </button>
+          <div className="row" style={{ gap: 4 }} role="group" aria-label="Ordenar">
+            {ORDENS.map((o) => (
+              <button
+                key={o.valor}
+                className={`chip ${filtro.ordem === o.valor ? 'on' : 'off'}`}
+                onClick={() => mudarFiltro({ ordem: o.valor })}
+              >
+                {o.rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="tiny muted" style={{ margin: '6px 2px 0' }}>
+          {filtrando || termo ? `${sorted.length} de ${data.players.length}` : plural(data.players.length, 'jogadora')}
+          {ativos.length > 0 && ` · ${ativos.join(' · ')}`}
+          {filtrando && (
+            <>
+              {' · '}
+              <button className="linkish" onClick={() => mudarFiltro({ situacao: 'todas', categoria: null, nivel: null })}>
+                limpar
+              </button>
+            </>
+          )}
+        </p>
+        {filtrosAbertos && (
+          <Modal title="Filtros" onClose={() => setFiltrosAbertos(false)}>
+            <div className="filtros-meninas">
+          <div className="filtro-rotulo">Situação</div>
+          <div className="chips-folha">
             {SITUACOES.map((x) => {
               const n = contagem(x.valor)
               // filtro vazio nao aparece (menos o escolhido, para dar para sair dele)
@@ -303,9 +421,11 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
             })}
           </div>
           {categoriasEmUso.length > 1 && (
-            <div className="chips-scroll">
+            <>
+            <div className="filtro-rotulo">Como paga</div>
+            <div className="chips-folha">
               <button className={`chip ${filtro.categoria === null ? 'on' : 'off'}`} onClick={() => mudarFiltro({ categoria: null })}>
-                Qualquer cadastro
+                Todos
               </button>
               {categoriasEmUso.map((c) => (
                 <button
@@ -317,11 +437,14 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                 </button>
               ))}
             </div>
+            </>
           )}
           {niveisEmUso.length > 1 && (
-            <div className="chips-scroll">
+            <>
+            <div className="filtro-rotulo">Nível de força</div>
+            <div className="chips-folha">
               <button className={`chip ${filtro.nivel === null ? 'on' : 'off'}`} onClick={() => mudarFiltro({ nivel: null })}>
-                Qualquer nível
+                Todos
               </button>
               {niveisEmUso.map((n) => (
                 <button
@@ -333,32 +456,21 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                 </button>
               ))}
             </div>
+            </>
           )}
-          <div className="row spread filtros-rodape">
-            <span className="tiny muted">
-              {filtrando || termo ? `${sorted.length} de ${data.players.length}` : plural(data.players.length, 'jogadora')}
-              {filtrando && (
-                <>
-                  {' · '}
-                  <button className="linkish" onClick={() => mudarFiltro({ situacao: 'todas', categoria: null, nivel: null })}>
-                    limpar filtros
-                  </button>
-                </>
-              )}
-            </span>
-            <div className="row" style={{ gap: 4 }} role="group" aria-label="Ordenar">
-              {ORDENS.map((o) => (
-                <button
-                  key={o.valor}
-                  className={`chip ${filtro.ordem === o.valor ? 'on' : 'off'}`}
-                  onClick={() => mudarFiltro({ ordem: o.valor })}
-                >
-                  {o.rotulo}
-                </button>
-              ))}
             </div>
-          </div>
-        </div>
+            <div className="row" style={{ gap: 8, marginTop: 16 }}>
+              {filtrando && (
+                <button className="btn ghost" onClick={() => mudarFiltro({ situacao: 'todas', categoria: null, nivel: null })}>
+                  Limpar
+                </button>
+              )}
+              <button className="btn pink grow" onClick={() => setFiltrosAbertos(false)}>
+                Ver {plural(sorted.length, 'jogadora')}
+              </button>
+            </div>
+          </Modal>
+        )}
         {sorted.length === 0 ? (
           termo || filtrando ? (
             <Empty icon="🔎">
@@ -370,154 +482,74 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
           )
         ) : (
           <div className="stack">
-            {sorted.map((p) => (
-              <div key={p.id} className="atleta-linha" style={{ opacity: p.active ? 1 : 0.5 }}>
-                <div className="row">
-                <button
-                  className="avatar"
-                  title="Trocar foto"
-                  style={{ width: 44, height: 44, border: 0, padding: 0, cursor: canEdit ? 'pointer' : 'default' }}
-                  onClick={() => canEdit && fileRefs.current[p.id]?.click()}
+            {sorted.map((p) => {
+              const f = forcaPorId.get(p.id)
+              return (
+                // a linha inteira abre a folha com as acoes (dono, 08/11): antes eram 4 botoes e 3 links em cada linha
+                <div
+                  key={p.id}
+                  className={canEdit ? 'atleta-linha tocavel' : 'atleta-linha'}
+                  style={{ opacity: p.active ? 1 : 0.5 }}
+                  {...(canEdit && {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': `Opções de ${p.nickname?.trim() || p.name}`,
+                    onClick: () => setAberta(p.id),
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setAberta(p.id)
+                      }
+                    },
+                  })}
                 >
-                  <Avatar player={p} size={44} />
-                </button>
-                <input
-                  ref={(el) => { fileRefs.current[p.id] = el }}
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(e) => void pickPhoto(p, e.target.files?.[0])}
-                />
-                <div className="grow">
-                  <div style={{ fontWeight: 700 }} className="ellipsis">
-                    <NomeClicavel id={p.id}>{p.nickname?.trim() || p.name}</NomeClicavel>
-                    {/* so no misto: de qual campeonato a pessoa e */}
-                    {p.genero && <span className="tiny muted"> {p.genero === 'F' ? '♀' : '♂'}</span>}
-                  </div>
-                  {p.nickname?.trim() && p.nickname.trim() !== p.name && (
-                    <div className="tiny muted ellipsis">{p.name}</div>
-                  )}
-                  <SinalDePagamento jogadora={p} />
-                  {(() => {
-                    const f = forcaPorId.get(p.id)
-                    // sem jogos nao ha linha de forca, mas a pausa aparece igual
-                    if (!f) return pausas.get(p.id) === 'manual' ? <div className="tiny muted">⏸️ pausada</div> : null
-                    return (
-                      // quebra a linha: com "provisória" e "pausada (2+ faltas)" ela passava da tela e a pagina inteira andava de lado
-                      <div className="tiny" style={{ marginTop: 2 }}>
-                        <span className="nowrap" style={{ color: f.nivel.cor, fontWeight: 800 }}>
-                          {f.nivel.emoji} {f.nivel.titulo}
-                        </span>
-                        <span className="muted"> · força {f.nota}</span>
-                        {f.provisoria && <span className="muted"> (provisória)</span>}
-                        {f.pausada && <span className="muted"> · ⏸️ {f.pausada === 'manual' ? 'pausada' : 'pausada (2+ faltas)'}</span>}
-                        {/* em linha propria: junto do nivel passava da tela no celular */}
-                        {f.queda && (
-                          <span className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>
-                            📉 {textoDaQueda(f.queda)}
-                          </span>
-                        )}
+                  <div className="row">
+                    <Avatar player={p} size={44} />
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700 }} className="ellipsis">
+                        <NomeClicavel id={p.id}>{p.nickname?.trim() || p.name}</NomeClicavel>
+                        {/* so no misto: de qual campeonato a pessoa e */}
+                        {p.genero && <span className="tiny muted"> {p.genero === 'F' ? '♀' : '♂'}</span>}
                       </div>
-                    )
-                  })()}
-                  <div className="tiny muted acoes-atleta">
-                    {busy === p.id ? (
-                      'salvando foto…'
-                    ) : (
-                      <>
-                        {!p.active && <span className="pausada">inativa</span>}
-                        {canEdit && (
-                          <>
-                            <button className="linkish" onClick={() => setEditando(p)}>
-                              editar perfil
-                            </button>
-                            <button className="linkish" onClick={() => fileRefs.current[p.id]?.click()}>
-                              {p.photo_url ? 'trocar foto' : 'pôr foto'}
-                            </button>
-                            {p.photo_url && (
-                              <>
-                                <button className="linkish" onClick={() => void removePhoto(p)}>
-                                  remover foto
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-                </div>
-
-                {canEdit && (
-                  <div className="row spread atleta-acoes">
-                    <div className="row" style={{ gap: 6 }}>
-                    {/* no misto, inativar e pausar sao do misto (misto.atletas): o campeonato nao muda */}
-                    <button className="btn ghost sm" onClick={() => void savePlayer({ ...p, active: !p.active })}>
-                      {p.active ? 'Inativar' : 'Ativar'}
-                    </button>
-                    {(() => {
-                      // a pausa da forca: quem ja esta fora (na mao ou pelas faltas) so volta
-                      const pausa = pausas.get(p.id)
-                      const hoje = todayISO()
-                      if (pausa === 'manual') {
-                        return (
-                          <button className="btn ghost sm" onClick={() => void savePlayer(fecharPausa(data, p, hoje))}>
-                            ▶️ Despausar
-                          </button>
-                        )
-                      }
-                      if (pausa === 'faltas') {
-                        return (
-                          <button
-                            className="btn ghost sm"
-                            title="pausada por 2 faltas seguidas: volta ao ranking agora (ou sozinha ao jogar)"
-                            onClick={() => void savePlayer({ ...p, reativada_em: hoje })}
-                          >
-                            ▶️ Despausar
-                          </button>
-                        )
-                      }
-                      return (
-                        <button
-                          className="btn ghost sm"
-                          onClick={() => {
-                            if (!confirm(`Pausar ${p.nickname?.trim() || p.name}? Sai do ranking da força até despausar ou jogar de novo (as faltas continuam baixando a força).`)) return
-                            void savePlayer({ ...p, pausas: [...(p.pausas ?? []), { de: hoje, ate: null }] })
-                          }}
-                        >
-                          ⏸️ Pausar
-                        </button>
-                      )
-                    })()}
-                    {/* juntar e apagar sao do campeonato da pessoa: o misto so le */}
-                    {!precisaDeGenero && (
-                    <>
-                    <button className="btn ghost sm" title="juntar com outra jogadora" onClick={() => setJuntando(p)}>
-                      🔗
-                    </button>
-                    <button
-                      className="btn danger sm"
-                      onClick={() => {
-                        if (confirm(`Remover ${p.name}? O histórico de partidas dela continua salvo.`)) {
-                          void deletePlayer(p.id)
-                        }
-                      }}
-                    >
-                      🗑
-                    </button>
-                    </>
-                    )}
+                      {p.nickname?.trim() && p.nickname.trim() !== p.name && (
+                        <div className="tiny muted ellipsis">{p.name}</div>
+                      )}
+                      <SinalDePagamento jogadora={p} semAcao />
+                      {f ? (
+                        // quebra a linha: com "provisória" e "pausada (2+ faltas)" ela passava da tela e a pagina inteira andava de lado
+                        <div className="tiny" style={{ marginTop: 2 }}>
+                          <span className="nowrap" style={{ color: f.nivel.cor, fontWeight: 800 }}>
+                            {f.nivel.emoji} {f.nivel.titulo}
+                          </span>
+                          <span className="muted"> · força {f.nota}</span>
+                          {f.provisoria && <span className="muted"> (provisória)</span>}
+                          {f.pausada && <span className="muted"> · ⏸️ {f.pausada === 'manual' ? 'pausada' : 'pausada (2+ faltas)'}</span>}
+                          {/* em linha propria: junto do nivel passava da tela no celular */}
+                          {f.queda && (
+                            <span className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>
+                              📉 {textoDaQueda(f.queda)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        // sem jogos nao ha linha de forca, mas a pausa aparece igual
+                        pausas.get(p.id) === 'manual' && <div className="tiny muted">⏸️ pausada</div>
+                      )}
+                      {busy === p.id ? (
+                        <div className="tiny muted">salvando foto…</div>
+                      ) : (
+                        !p.active && <div className="tiny"><span className="pausada">inativa</span></div>
+                      )}
                     </div>
+                    {canEdit && <span className="atleta-seta" aria-hidden="true">›</span>}
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         )}
         <p className="tiny muted" style={{ marginBottom: 0 }}>
-          🔗 junta duas atletas repetidas. <strong>Inativa</strong> some da hora de montar o play;{' '}
-          <strong>⏸️ pausada</strong> só sai do ranking da força.
+          Toque numa atleta para editar, trocar a foto, pausar, inativar, juntar ou remover.
         </p>
       </div>
     </>
@@ -568,6 +600,9 @@ function JuntarJogadoras({
             confirm(
               `Juntar "${origem.name}" em "${alvo.name}"?\n\n` +
                 `As partidas de ${origem.name} passam para ${alvo.name} e o nome "${origem.name}" some da lista.\n\n` +
+                (categoriaDe(origem) !== categoriaDe(alvo)
+                  ? `⚠️ ${origem.name} é ${categoriaDe(origem)} e ${alvo.name} é ${categoriaDe(alvo)}: fica a de ${alvo.name}.\n\n`
+                  : '') +
                 `Essa ação não tem volta.`,
             )
           ) {
@@ -740,7 +775,7 @@ function EditarPerfil({
  * avulsa volta ao vermelho depois de jogar -- a regra e derivada, ninguem
  * precisa lembrar de zerar nada.
  */
-function SinalDePagamento({ jogadora }: { jogadora: Player }) {
+function SinalDePagamento({ jogadora, semAcao }: { jogadora: Player; /** na linha da lista: a acao fica na folha */ semAcao?: boolean }) {
   const { data, savePlayer, canEdit } = useStore()
   const categoria = categoriaDe(jogadora)
   const sit = situacaoDoAtleta(jogadora, data)
@@ -756,7 +791,7 @@ function SinalDePagamento({ jogadora }: { jogadora: Player }) {
       <span className="nowrap" style={{ color: cor, fontWeight: 800 }}>
         ● {sit.rotulo}
       </span>
-      {canEdit && categoria !== 'convidada' && (
+      {canEdit && !semAcao && categoria !== 'convidada' && (
         <>
           {' · '}
           <button

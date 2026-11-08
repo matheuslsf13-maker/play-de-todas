@@ -96,3 +96,48 @@ test('novembro: a mensalista atrasada que pagou o play pelo 💰 fica liberada p
   assert.equal(situacaoDoAtleta(marcada, d, '2026-11-09').liberado, true)
   assert.equal(situacaoDoAtleta(d.players[0], d, '2026-11-09').liberado, false)
 })
+
+/* Achados menores (08/11/2026) */
+
+test('apagar a lista nao leva o dia que tem titulo (feito ou editado na aba Financeiro)', () => {
+  const d = emptyData()
+  d.checkinDias = [{ id: 'dia:2026-12-14', date: '2026-12-14', session_id: null, titulo: 'Play especial', valor_cheio: 70, valor_com_checkin: 35, created_at: '' }]
+  d.checkins = [{ id: 'checkin:dia%3A2026-12-14:ana', dia_id: 'dia:2026-12-14', player_id: 'ana', conta_id: null, local_id: null, modo: 'integral', compareceu: true, checkin_confirmado: false, created_at: '' }]
+  const lista = { id: 'l1', play_em: '2026-12-14T23:00:00Z', session_id: null } as Lista
+  assert.deepEqual(lancadosPelaLista(d, lista, ['ana']).dias, [])
+  d.checkinDias[0].titulo = null
+  assert.deepEqual(lancadosPelaLista(d, lista, ['ana']).dias, ['dia:2026-12-14'], 'o dia sem titulo que o 💰 criou sai')
+})
+
+
+/* Os 3 achados de regra (dono, 08/11) */
+
+test('pagou so a mensalidade seguinte: segura a vaga, joga o mes como avulsa e a tela diz "a partir de janeiro"', async () => {
+  const { comecaNoMesSeguinte } = await import('../src/lib/fichaDaMensalidade')
+  const { perdeuAVaga } = await import('../src/lib/vagasDeMensalista')
+  const d = emptyData()
+  const nova = p('nova', { categoria: 'mensalista' })
+  d.players = [nova]
+  d.mensalidadeItens = [item('nova', '2027-01', 'dinheiro', '2026-12-10', 80)]
+  assert.equal(perdeuAVaga(d, nova, '2026-12-14'), false, 'a vaga e dela')
+  assert.equal(comecaNoMesSeguinte(d, nova, '2026-12-14'), true)
+  const sit = situacaoDoAtleta(nova, d, '2026-12-14')
+  assert.equal(sit.liberado, false, 'o play de dezembro e cobrado como avulsa')
+  assert.match(sit.rotulo, /a partir de janeiro/)
+  assert.equal(situacaoDoAtleta({ ...nova, pago_avulso: true }, d, '2026-12-14').liberado, true)
+  // quem nao pagou nada nao e "a partir de janeiro"
+  d.mensalidadeItens = []
+  assert.equal(comecaNoMesSeguinte(d, nova, '2026-12-14'), false)
+})
+
+test('substituta: so a mensalista que saiu com aviso e ficou sem ninguem no lugar', async () => {
+  const { semSubstituta } = await import('../src/lib/listaDePresenca')
+  const nomes = [
+    { id: 'a', player_id: 'ana', saiu_em: '2026-12-12T10:00:00Z', avisou_24h: true },
+    { id: 'b', player_id: 'bia', saiu_em: '2026-12-12T10:00:00Z', avisou_24h: true },
+    { id: 'c', player_id: 'cris', saiu_em: '2026-12-12T10:00:00Z', avisou_24h: false },
+    { id: 'd', player_id: 'duda', saiu_em: null, substitui: 'bia' },
+    { id: 'e', player_id: 'eva', saiu_em: null },
+  ] as unknown as NomeNaLista[]
+  assert.deepEqual(semSubstituta(nomes), ['ana'])
+})

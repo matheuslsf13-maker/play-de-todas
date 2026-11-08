@@ -1,11 +1,8 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
-import { EscolhaDeEntrada, guardarEscolha, playEscolhido, raizDoSite } from './components/TrocarDePlay'
-import { LIGA } from './liga'
 import { StoreProvider } from './lib/store'
 import { aplicarTemaSalvo } from './lib/tema'
-import { codigoDaUrl } from './lib/useLista'
 import './styles.css'
 
 // antes de montar a tela, para nao piscar claro e depois escurecer
@@ -24,24 +21,11 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 }
 
 /*
- * QUAL PLAY ABRIR. A raiz do site e o Play de Todas; quem ja escolheu outro
- * play neste aparelho (no "Trocar de play" ou na tela da primeira visita) vai
- * direto para ele. Abrir o masculino ou o misto pelo link tambem conta como
- * escolha -- senao a raiz puxaria a pessoa de volta para um play antigo.
+ * QUAL PLAY ABRIR: a raiz do site e sempre o Play de Todas (dono, 08/11). A tela
+ * "Qual play voce quer abrir?" e o redirecionamento pela escolha guardada sairam;
+ * o masculino e o misto so abrem pelo endereco deles (/masculino/, /mista/).
  */
-const escolhido = playEscolhido()
-// O LINK DA LISTA DE PRESENCA (?lista=) sempre abre o Play de Todas: passa por
-// cima da escolha guardada, sem apagar a de quem ja usa outro play; quem ainda
-// nao tinha escolhido fica com o Play de Todas (dono, 06/11)
-const temLista = codigoDaUrl() !== null
-const redirecionar = LIGA.id === 'feminino' && !temLista && escolhido !== null && escolhido.id !== LIGA.id
-if (redirecionar) window.location.replace(raizDoSite() + escolhido.pasta)
-else if (LIGA.id !== 'feminino' || (temLista && escolhido === null)) guardarEscolha(LIGA)
-
-/** Na primeira visita a raiz, a escolha vem antes do app. */
 function Entrada() {
-  const [escolheu, setEscolheu] = useState(LIGA.id !== 'feminino' || temLista || escolhido !== null)
-  if (!escolheu) return <EscolhaDeEntrada onFicar={() => setEscolheu(true)} />
   return (
     <StoreProvider>
       <App />
@@ -49,14 +33,12 @@ function Entrada() {
   )
 }
 
-if (!redirecionar) {
-  // o app assumiu: a tela de resgate do index.html sai de cena
-  clearTimeout((window as unknown as { __bootTimer?: number }).__bootTimer)
-  document.getElementById('boot')?.remove()
+// o app assumiu: a tela de resgate do index.html sai de cena
+clearTimeout((window as unknown as { __bootTimer?: number }).__bootTimer)
+document.getElementById('boot')?.remove()
 
-  createRoot(document.getElementById('root') as HTMLElement).render(
-    <React.StrictMode>
-      <Entrada />
-    </React.StrictMode>,
-  )
-}
+createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <Entrada />
+  </React.StrictMode>,
+)

@@ -201,7 +201,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
         // so renova quem ainda e mensalista e tem vaga (dono, 07/11): quem ja foi para a fila volta pelo "Topou e pagou"
         const atleta = data.players.find((x) => x.id === playerId)
         if (!atleta || categoriaDe(atleta) !== 'mensalista') {
-          return <div className="banner" style={{ margin: '0 0 10px' }}>💰 Ela tem {formatarReais(credito)} de crédito. Não é mais mensalista: volta pela fila de espera (Meninas → “Topou e pagou”), e o crédito entra sozinho.</div>
+          return <div className="banner" style={{ margin: '0 0 10px' }}>💰 Ela tem {formatarReais(credito)} de crédito. Não é mais mensalista: volta pela lista de espera (ligue o interesse em Financeiro › Atletas; depois, Financeiro › Mensalistas → “Topou e pagou”), e o crédito entra sozinho.</div>
         }
         return (
           <div className="banner" style={{ margin: '0 0 10px' }}>
@@ -354,6 +354,9 @@ function NovoPix({ playerId, mes, sugestao, novoItem, onCancelar, onGravar }: {
   // quem deve: o Pix quita a divida primeiro (dono, 07/11)
   const partes = valor && valor > 0 && date ? dividirPix(data, playerId, mes, valor, date) : []
   const dividido = partes.some((p) => p.mes !== mes)
+  // Pix acima do que falta nao vira credito: avisa antes de gravar
+  const doMes = partes.filter((p) => p.mes === mes).reduce((t, p) => t + (p.valor ?? 0), 0)
+  const excesso = valor && valor > 0 ? Math.max(0, Math.round((doMes - sugestao) * 100) / 100) : 0
   return (
     <div className="stack" style={{ gap: 10 }}>
       <div className="row wrap" style={{ gap: 6 }}>
@@ -371,6 +374,7 @@ function NovoPix({ playerId, mes, sugestao, novoItem, onCancelar, onGravar }: {
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
       </div>
+      {excesso > 0 && <p className="hint aviso" style={{ margin: 0 }}>⚠️ Passa {formatarReais(excesso)} do que falta neste mês: esse excedente não vira crédito. Registre só o que falta (e o resto no mês seguinte).</p>}
       {dividido ? (
         <span className="hint aviso">
           Ela deve: {partes.map((p) => `${formatarReais(p.valor ?? 0)} ${p.mes === mes ? `vão para ${monthLabel(mes).toLowerCase()}` : `quitam ${monthLabel(p.mes).toLowerCase()}`}`).join(' · ')}.

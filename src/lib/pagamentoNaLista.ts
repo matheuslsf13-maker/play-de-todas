@@ -184,7 +184,8 @@ export function lancadosPelaLista(data: AppData, lista: Lista, playerIds: string
     itens: data.mensalidadeItens.filter((i) => i.id.startsWith(`falta:${lista.id}:`)).map((i) => i.id),
     checkins: checkins.map((c) => c.id),
     dias: dias
-      .filter((d) => checkins.some((c) => c.dia_id === d.id) && criadosPeloCofre.includes(d.id))
+      // o 💰 cria sem titulo: dia com titulo foi feito (ou editado) na aba Financeiro e fica
+      .filter((d) => checkins.some((c) => c.dia_id === d.id) && criadosPeloCofre.includes(d.id) && !d.titulo)
       .filter((d) => data.checkins.every((c) => c.dia_id !== d.id || sai.has(c.id)))
       .map((d) => d.id),
     players: [...new Set(checkins.map((c) => c.player_id))].flatMap((id) => {

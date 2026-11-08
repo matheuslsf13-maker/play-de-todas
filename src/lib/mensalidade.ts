@@ -1,7 +1,7 @@
 import type { AppData, Player } from './types'
-import { monthOf, todayISO } from './types'
+import { monthLabel, monthOf, todayISO } from './types'
 import { formatarReais } from './checkins'
-import { dividaDaMensalidade, emDiaNaData, MES_INICIAL } from './fichaDaMensalidade'
+import { comecaNoMesSeguinte, dividaDaMensalidade, emDiaNaData, MES_INICIAL, proximoMes } from './fichaDaMensalidade'
 
 /**
  * QUEM PODE ENTRAR NO PLAY
@@ -122,6 +122,13 @@ export function situacaoDoAtleta(p: Player, data: AppData, hoje = todayISO()): S
   // mensalista: desde a mensalidade de dezembro/2026, a ficha (fichaDaMensalidade.ts)
   if (mes >= MES_INICIAL) {
     if (emDiaNaData(data, p, hoje)) return { liberado: true, cor: 'ok', rotulo: 'Mensalidade em dia' }
+    // pagou so o mes seguinte: a vaga e dela, este mes e como avulsa (sem divida, sem "atrasada")
+    if (comecaNoMesSeguinte(data, p, hoje)) {
+      const a_partir = `Mensalista a partir de ${monthLabel(proximoMes(mes)).split(' ')[0].toLowerCase()}`
+      return p.pago_avulso
+        ? { liberado: true, cor: 'ok', rotulo: `${a_partir} · play pago como avulsa` }
+        : { liberado: false, cor: 'atencao', rotulo: `${a_partir} · este play é avulso`, comoResolver: 'Cobre este play como avulsa.' }
+    }
     // sem a mensalidade em dia ela joga como avulsa: o play pago libera
     if (p.pago_avulso) return { liberado: true, cor: 'ok', rotulo: 'Play pago como avulsa (mensalidade não renovada)' }
     const divida = dividaDaMensalidade(data, p.id, hoje).total

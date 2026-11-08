@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react'
 import { Avatar, Empty } from './ui'
 import { mensalidadeDeHoje, resumoDaMensalidade } from './FichaDaMensalidade'
 import { categoriaDe } from '../lib/mensalidade'
-import { dividaDaMensalidade, fichaDe, marcasDaMensalista, type MarcaDaMensalista } from '../lib/fichaDaMensalidade'
+import { comecaNoMesSeguinte, dividaDaMensalidade, fichaDe, marcasDaMensalista, proximoMes, type MarcaDaMensalista } from '../lib/fichaDaMensalidade'
 import { geridaNaAbaMensalistas } from '../lib/vagasDeMensalista'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
@@ -45,10 +45,15 @@ export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) =>
         .filter((p) => geridaNaAbaMensalistas(data, p, hoje))
         .map((p) => {
           const devendoAntes = dividaDaMensalidade(data, p.id, hoje).porMes.filter((x) => x.mes < mes).reduce((t, x) => t + x.falta, 0)
-          const ficha = fichaDe(data, p.id, mes)
           const ex = categoriaDe(p) !== 'mensalista'
-          const resumo = resumoDaMensalidade(ficha, hoje, devendoAntes)
-          return { p, marcas: [...marcasDaMensalista(ficha, devendoAntes), ...(ex ? (['ex'] as const) : [])] as Marca[], resumo: ex ? { ...resumo, texto: `ex-mensalista · ${resumo.texto}` } : resumo }
+          // pagou so o mes seguinte (virou mensalista depois do dia 5): a linha mostra a ficha dele, nao "sem pagamento"
+          const seguinte = !ex && comecaNoMesSeguinte(data, p, hoje) ? proximoMes(mes) : null
+          const ficha = fichaDe(data, p.id, seguinte ?? mes)
+          const base = resumoDaMensalidade(ficha, hoje, devendoAntes)
+          const resumo = ex
+            ? { ...base, texto: `ex-mensalista · ${base.texto}` }
+            : seguinte ? { ...base, texto: `a partir de ${monthLabel(seguinte).split(' ')[0].toLowerCase()} · ${base.texto}` } : base
+          return { p, marcas: (ex ? [...(devendoAntes > 0 ? ['deve'] : []), 'ex'] : marcasDaMensalista(ficha, devendoAntes)) as Marca[], resumo }
         })
         .sort((a, b) => prioridadeDe(a.marcas) - prioridadeDe(b.marcas) || nameOf(a.p.id).localeCompare(nameOf(b.p.id), 'pt-BR')),
     [data, hoje, mes, nameOf],

@@ -724,10 +724,16 @@ function Destaque({
   )
 }
 
+/** Quantas linhas as tabelas de parceiras e adversarias mostram antes do "ver todas" (dono, 08/11). */
+const LINHAS_DE_CARA = 5
+
 function TabelaPares({ linhas, primeira }: { linhas: PairKeyStat[]; primeira: string }) {
   const { nameOf, playerById } = useStore()
+  const [todas, setTodas] = useState(false)
   if (linhas.length === 0) return <Empty icon="🏐">Nada por aqui ainda.</Empty>
+  const vistas = todas ? linhas : linhas.slice(0, LINHAS_DE_CARA)
   return (
+    <>
     <div className="scroll-x">
       <table className="table">
         <thead>
@@ -737,7 +743,7 @@ function TabelaPares({ linhas, primeira }: { linhas: PairKeyStat[]; primeira: st
           </tr>
         </thead>
         <tbody>
-          {linhas.map((p) => (
+          {vistas.map((p) => (
             <tr key={p.other_id}>
               <td>
                 <div className="row" style={{ gap: 8 }}>
@@ -755,6 +761,12 @@ function TabelaPares({ linhas, primeira }: { linhas: PairKeyStat[]; primeira: st
         </tbody>
       </table>
     </div>
+    {linhas.length > LINHAS_DE_CARA && (
+      <button className="btn ghost sm block" style={{ marginTop: 8 }} onClick={() => setTodas(!todas)}>
+        {todas ? 'Mostrar menos' : `Ver todas (${linhas.length})`}
+      </button>
+    )}
+    </>
   )
 }
 

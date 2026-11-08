@@ -92,13 +92,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   passava da janela para a tela de trás (perfil da dupla, 06/11/2026). Travar só o `html`:
   travar o `body` (altura 100%) jogava a página para o topo; `position: fixed` mexeria no
   scrollY e o topo que encolhe piscaria. Teste fora do repo: `pdt-teste/modal-rolagem.mjs`.
-- **🔁 Trocar de play** (`components/TrocarDePlay.tsx`, nos três apps, no cabeçalho): leva
-  de um app ao outro pelo `liga.pasta` (`''`, `masculino/`, `mista/`) e mostra o `rotulo`
-  ("Play de Todas (feminino)"…, em `liga.config.ts`, fora de `src/` para o tradutor não
-  mexer). A escolha fica em `localStorage['play:app']` (do domínio, vale para os três):
-  na **1ª visita à raiz** aparece "Qual play você quer abrir?" (`EscolhaDeEntrada`, em
-  `main.tsx`); depois a raiz abre direto no play escolhido. Abrir o masculino ou o misto
-  pelo link também grava a escolha.
+- **A raiz sempre abre o Play de Todas** (dono, 08/11/2026): o "🔁 Trocar de play", a tela "Qual play
+  você quer abrir?" e o redirecionamento pela escolha guardada (`play:app`) saíram de `main.tsx` e do
+  cabeçalho, junto com o botão Instalar e o "tudo salvo" (`components/TrocarDePlay.tsx` e
+  `InstalarApp.tsx` ficaram no repo, sem uso, para voltar se o dono quiser). O masculino e o misto só
+  abrem pelo endereço (`/masculino/`, `/mista/`). O **cabeçalho é o antigo cartão do logo** da tela
+  inicial (logo 64 px, `hero-nome`, "mais que um play"), nas cores do tema e da liga; o cartão saiu do Ranking.
 - Textos: `liga/masculino.json` (plural neutro) + `liga/misto.json` por cima. Logo:
   `node scripts/liga/gerar-logo.mjs misto` (de `liga/misto/logo.svg` para `public-misto/`).
 
@@ -257,8 +256,10 @@ liga/            textos do masculino: o código fica no feminino e o build
   Despausar ao montar o play só vale **quando o play é criado** (`pausas[].play` guarda o
   id dele): desistir de montar ou **apagar o play** devolve a pausa sozinha (`pausaAberta`).
   Não confundir com **inativa** (o "Inativar" da aba Meninas, `players.active`): essa some
-  da hora de montar o play. A aba Meninas tem o ⏸️ Pausar / ▶️ Despausar
-  em cada linha (quem já está pausada pelas faltas não tem Pausar) e filtros (ativas, inativas, ⏸️ pausadas — na mão ou pelas faltas,
+  da hora de montar o play. Na aba Meninas, **tocar na linha abre uma folha**
+  (08/11/2026) com Editar perfil, foto, ⏸️ Pausar / ▶️ Despausar (quem já está pausada pelas faltas
+  não tem Pausar), Inativar, Juntar e, num grupo à parte, Remover; o "confirmar pagamento" também
+  fica na folha. A aba tem filtros, numa folha própria aberta pelo "⚙️ Filtros" (08/11/2026) (ativas, inativas, ⏸️ pausadas — na mão ou pelas faltas,
   📉 faltando, 💸 devendo, sem jogos, sem foto, cadastro, nível) e ordena por nome, força
   ou faltas; os filtros ficam guardados no aparelho (`play-de-todas:meninas-filtro`).
 - **A dupla tem força própria** (`forcaDeDuplas`, aba “🤝 Dupla”). Não é a média
@@ -348,7 +349,8 @@ liga/            textos do masculino: o código fica no feminino e o build
   iniciada" o botão some (o caminho é o Entra / sai); nas duplas fixas não aparece.
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
   as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
-  cabeçalho, "avulso" marcado), 4 plays por vez com "ver mais". Segue o período do Stats.
+  cabeçalho, "avulso" marcado), 2 plays de cara e mais 4 a cada "ver mais" (08/11/2026; as tabelas "Com quem/Contra quem já
+  jogou" mostram 5 linhas e "Ver todas"). Segue o período do Stats.
   Cada partida mostra **quanto mexeu na força** (verde/vermelho; da jogadora, ou da
   **dupla** na ficha da dupla) e o cabeçalho do play o total da noite
   (`forcaNasPartidas` em `stats.ts`, `forcaDasDuplasNasPartidas` em `forca.ts`). O
@@ -652,7 +654,9 @@ liga/            textos do masculino: o código fica no feminino e o build
   "⇅ Trocar de lugar" tira das confirmadas recebe a mesma pergunta das 24h e a compensação (`useCompensarFalta`,
   `EscolherCompensacao`); voltando às confirmadas, o aviso, a compensação e a substituta são desfeitos. A suplente que
   entra (pela troca ou pelo tirar com aviso) fica com `lista_nomes.substitui` = a mensalista, e o 💰 da lista já lança
-  o play dela como substituta.
+  o play dela como substituta. **Sem suplente na hora** (dono, 08/11): o 💰 de quem está nas confirmadas pergunta
+  "🔁 Entrou no lugar de X?" para a mensalista que saiu com aviso e ficou sem ninguém (`semSubstituta` em
+  `listaDePresenca.ts`); marcado, grava o `substitui` no lançamento e na lista.
 - **No play, o 🔁 Entra / sai também** (`FaltaDaMensalistaNoPlay` em Play.tsx): quem sai é mensalista em dia → avisou
   com 24h? → compensação → "a substituta vai pagar? quanto?" (com "Vai fazer check-in": modo check-in sem confirmar,
   a Ingryd confirma e acerta a conta em Check-ins). Grava o lançamento da substituta (`diaDoPlay`, `substitui`).
@@ -671,7 +675,12 @@ liga/            textos do masculino: o código fica no feminino e o build
   tem check-in no dia) e ➕ Pix (vem com o que falta).
 - **Quem lê**: lista (pré-incluídas, `ehMensalista`), 💰 (`tipoNaLista`), Novo Play e `situacaoDoAtleta`.
   A mensalista que não está em dia **paga o play como avulsa** (`pago_avulso`: `confirmarPagamento`,
-  `pagoAvulsoDaLista`, `consumirAvulsos`), sem gravar `pago_mes`.
+  `pagoAvulsoDaLista`, `consumirAvulsos`), sem gravar `pago_mes`. **Pagou só a mensalidade seguinte** (virou mensalista
+  depois do dia 5, quando a ficha já não aceita o Pix do mês): segura a vaga e joga o mês como avulsa, e a tela diz
+  "Mensalista a partir de janeiro" em vez de "atrasada" (`comecaNoMesSeguinte`; dono, 08/11).
+- **As contagens batem** (08/11): os chips de categoria de Financeiro › Atletas contam e filtram só as ativas (inativas
+  ficam em "Todas"); a aba Mensalistas explica embaixo do "N de L" quem mais aparece na lista (não renovaram, ex com
+  saldo) e quantas inativas ficam de fora.
 - **Check-in da ficha gasta a cota do mês da DATA** e entra no relatório da arena ("mensalidade de …")
   (`disponibilidade`, `relatorioDasArenas` em `checkins.ts`). No dia do play, as mensalistas em dia aparecem
   "📅 … sem cobrança" (derivado) e o Lançar avisa para não cobrar (dívida falsa).
@@ -732,6 +741,11 @@ liga/            textos do masculino: o código fica no feminino e o build
 - **A aba aberta fica guardada** (`play-de-todas:aba`, e a seção dos Check-ins em
   `play-de-todas:checkins-secao`): o app recarrega ao voltar para a tela, e cair
   sempre no Ranking obrigava a navegar de novo.
+
+- **Financeiro e Meninas carregam à parte** (`lazy` em `App.tsx`, 08/11/2026): só a organizadora usa. Logada,
+  os dois são baixados em segundo plano ao abrir o app (o service worker guarda, para abrir sem sinal);
+  se faltarem, aparece um aviso no lugar da aba. O **status** da tela inicial é um cartão só: quem está
+  em sequência e, recolhido, "Como funciona o status" (`details.status-como`).
 
 ## Convenções
 
