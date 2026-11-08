@@ -49,7 +49,7 @@ import {
 import ImportarLista from '../components/ImportarLista'
 import NovaAtleta from '../components/NovaAtleta'
 import NivelDaNovata from '../components/NivelDaNovata'
-import { Avatar, Empty, Modal, StatBox, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
+import { Avatar, Empty, Modal, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
   duplasDaFase2,
   aplicarAjustesDeGrupo,
@@ -333,57 +333,161 @@ function PlayList({
 }) {
   const { data, canEdit } = useStore()
   const [apagando, setApagando] = useState<PlaySession | null>(null)
+  const selos = selosDosPlays(data)
+  // por mes, do mais novo ao mais antigo (a lista ja vem ordenada)
+  const porMes: [string, PlaySession[]][] = []
+  for (const s of sessions) {
+    const mes = s.date.slice(0, 7)
+    const ultimo = porMes[porMes.length - 1]
+    if (ultimo && ultimo[0] === mes) ultimo[1].push(s)
+    else porMes.push([mes, [s]])
+  }
   return (
     <>
-      {canEdit && (
-        <button className="btn pink block" style={{ marginBottom: 14 }} onClick={onNew}>
-          🎾 Novo Play
-        </button>
-      )}
-      <div className="card">
-        <div className="section-title">📅 Plays</div>
-        <AvisoDoBanco />
-        {sessions.length === 0 ? (
-          <Empty>Nenhum play ainda. Crie o primeiro e o app monta as duplas pra você.</Empty>
-        ) : (
-          <div className="stack">
-            {sessions.map((s) => {
-              const ms = data.matches.filter((m) => m.session_id === s.id)
-              const done = ms.filter(isPlayed).length
-              const selo = selosDosPlays(data).get(s.id)
-              return (
-                <div key={s.id} className="row play-linha">
-                  <div className="grow" onClick={() => onOpen(s.id)} style={{ cursor: 'pointer', minWidth: 0 }}>
-                    {/* o selo desce para a linha de baixo quando nao cabe: antes ele cortava o nome ("Play de 0...") */}
-                    <div className="row wrap" style={{ gap: '2px 8px' }}>
-                      <strong className="ellipsis" style={{ maxWidth: '100%' }}>{s.title}</strong>
-                      <BadgeDoPlay s={s} matches={ms} />
-                    </div>
-                    <div className="tiny muted">
-                      {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {done === ms.length ? ms.length : `${done}/${ms.length}`} partidas
-                    </div>
-                    {(selo || s.ranked === false || !contaNoStatus(s)) && (
-                      // avulso e sem 🔥 descem para ca: no titulo espremiam o nome do play ate sumir
-                      <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
-                        {selo && <span className="tiny nowrap" style={{ fontWeight: 800 }} title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span>}
-                        {selo?.selo && <span className="selo-do-play" style={{ marginTop: 0 }}>{selo.selo.emoji} {selo.selo.nome}</span>}
-                        {s.ranked === false && <span className="badge avulso">avulso</span>}
-                        {!contaNoStatus(s) && <span className="badge avulso">sem 🔥</span>}
-                      </div>
-                    )}
-                  </div>
-                  {canEdit && (
-                    <button className="btn lixeira" aria-label={`Apagar ${s.title}`} onClick={() => setApagando(s)}>🗑</button>
-                  )}
-                  <button className="btn seta" aria-label={`Abrir ${s.title}`} onClick={() => onOpen(s.id)}>›</button>
-                </div>
-              )
-            })}
-          </div>
+      <div className="ini-sec">
+        <h2>Plays</h2>
+        {canEdit && (
+          <button className="pl-novo" onClick={onNew}>
+            <span aria-hidden="true">＋</span> Novo play
+          </button>
         )}
       </div>
+      <AvisoDoBanco />
+      {sessions.length === 0 ? (
+        <div className="ini-grupo" style={{ padding: 14 }}>
+          <Empty>Nenhum play ainda. Crie o primeiro e o app monta as duplas pra você.</Empty>
+        </div>
+      ) : (
+        porMes.map(([mes, lista]) => (
+          <Fragment key={mes}>
+            <div className="ini-cap">{monthLabel(mes)}</div>
+            <div className="ini-grupo">
+              {lista.map((s) => (
+                <LinhaDoPlay
+                  key={s.id}
+                  s={s}
+                  ms={data.matches.filter((m) => m.session_id === s.id)}
+                  selo={selos.get(s.id)}
+                  podeApagar={canEdit}
+                  onOpen={() => onOpen(s.id)}
+                  onApagar={() => setApagando(s)}
+                />
+              ))}
+            </div>
+          </Fragment>
+        ))
+      )}
+      {canEdit && sessions.length > 0 && <div className="ini-legenda">Deslize um play para a esquerda para apagar.</div>}
       {apagando && <ConfirmarExclusao session={apagando} onClose={() => setApagando(null)} />}
     </>
+  )
+}
+
+const LARGURA_DO_APAGAR = 88
+
+/**
+ * Uma linha da lista de plays. A organizadora desliza para a esquerda e aparece o "Apagar" (como no iPhone):
+ * a lixeira de cada linha saiu da tela. A atleta so abre. Interrompivel: o dedo segura a linha 1:1 e, ao soltar,
+ * ela assenta aberta ou fechada.
+ */
+function LinhaDoPlay({
+  s,
+  ms,
+  selo,
+  podeApagar,
+  onOpen,
+  onApagar,
+}: {
+  s: PlaySession
+  ms: Match[]
+  selo: ReturnType<typeof selosDosPlays> extends Map<string, infer V> ? V | undefined : never
+  podeApagar: boolean
+  onOpen: () => void
+  onApagar: () => void
+}) {
+  const done = ms.filter(isPlayed).length
+  const [x, setX] = useState(0)
+  const [arrastando, setArrastando] = useState(false)
+  const gesto = useRef<{ sx: number; sy: number; base: number; horizontal: boolean | null } | null>(null)
+  const moveu = useRef(false)
+  const aberta = x < 0
+
+  const aoSoltar = () => {
+    const g = gesto.current
+    gesto.current = null
+    if (!g?.horizontal) return
+    setArrastando(false)
+    setX((atual) => (atual < -LARGURA_DO_APAGAR / 2 ? -LARGURA_DO_APAGAR : 0))
+  }
+  const porDesliza = podeApagar
+    ? {
+        onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+          gesto.current = { sx: e.clientX, sy: e.clientY, base: x, horizontal: null }
+          moveu.current = false
+        },
+        onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+          const g = gesto.current
+          if (!g) return
+          const dx = e.clientX - g.sx
+          const dy = e.clientY - g.sy
+          if (g.horizontal === null) {
+            if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+            g.horizontal = Math.abs(dx) > Math.abs(dy)
+            if (g.horizontal) {
+              setArrastando(true)
+              try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* segue sem captura */ }
+            }
+          }
+          if (!g.horizontal) return
+          moveu.current = true
+          setX(Math.max(-LARGURA_DO_APAGAR, Math.min(0, g.base + dx)))
+        },
+        onPointerUp: aoSoltar,
+        onPointerCancel: aoSoltar,
+      }
+    : {}
+
+  return (
+    <div className={`pl-desliza${aberta ? ' aberta' : ''}`}>
+      {podeApagar && (
+        <button className="pl-apagar" aria-label={`Apagar ${s.title}`} tabIndex={aberta ? 0 : -1} onClick={onApagar}>
+          <span aria-hidden="true">🗑</span>Apagar
+        </button>
+      )}
+      <div
+        className="ini-linha ini-chev pl-linha"
+        role="button"
+        tabIndex={0}
+        style={{ transform: x ? `translateX(${x}px)` : undefined, transition: arrastando ? 'none' : undefined }}
+        onClick={() => {
+          // o toque que fecha a linha aberta ou que veio depois de arrastar nao abre o play
+          if (moveu.current) { moveu.current = false; return }
+          if (aberta) { setX(0); return }
+          onOpen()
+        }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+        {...porDesliza}
+      >
+        <div className="g">
+          <b>
+            <span className="ellipsis" style={{ maxWidth: '100%' }}>{s.title}</span>
+            <BadgeDoPlay s={s} matches={ms} />
+          </b>
+          <span className="sub">
+            {dateLabel(s.date)} · {s.player_ids.length} jogadoras · {done === ms.length ? ms.length : `${done}/${ms.length}`} partidas
+          </span>
+          {(selo || s.ranked === false || !contaNoStatus(s)) && (
+            // avulso e sem 🔥 descem para ca: no titulo espremiam o nome do play ate sumir
+            <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
+              {selo && <span className="tiny nowrap" style={{ fontWeight: 800 }} title="Força média de quem jogou, com a força do dia">💪 {selo.forca}</span>}
+              {selo?.selo && <span className="selo-do-play" style={{ marginTop: 0 }}>{selo.selo.emoji} {selo.selo.nome}</span>}
+              {s.ranked === false && <span className="badge avulso">avulso</span>}
+              {!contaNoStatus(s) && <span className="badge avulso">sem 🔥</span>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1854,6 +1958,9 @@ function PlayDetail({
     useStore()
   const compensarFalta = useCompensarFalta()
   const [showRank, setShowRank] = useState(false)
+  /** Aba aberta dentro do play (nula = a primeira que existe) e a folha "Gerenciar" da organizadora. */
+  const [aba, setAba] = useState<'quadras' | 'fila' | 'jogadas' | 'grupos' | null>(null)
+  const [gerenciando, setGerenciando] = useState(false)
   const [substituindo, setSubstituindo] = useState(false)
   /** Entra / sai em que quem sai e mensalista em dia: antes, as 24h, a compensacao e o pagamento da substituta. */
   const [faltaNoPlay, setFaltaNoPlay] = useState<Parameters<typeof substituir>[0] | null>(null)
@@ -3459,19 +3566,30 @@ function PlayDetail({
 
   const editable = canEdit && !finished
 
+  // as abas do play (dono, 09/11): so o que existe neste play. Jogando: Quadras e Fila; finalizado: so Jogadas
+  const abasDoPlay: { id: 'quadras' | 'fila' | 'jogadas' | 'grupos'; rotulo: string }[] = [
+    ...(!finished ? ([{ id: 'quadras', rotulo: 'Quadras' }, { id: 'fila', rotulo: `Fila · ${filaPrevista.length}` }] as const) : []),
+    { id: 'jogadas', rotulo: `Jogadas · ${jogadas.length}` },
+    ...(grupos && grupos.length > 1 ? ([{ id: 'grupos', rotulo: ehCampeonato ? 'Categorias' : 'Grupos' }] as const) : []),
+  ]
+  const abaAtiva = abasDoPlay.some((a) => a.id === aba) ? aba : abasDoPlay[0].id
+
   return (
     <NovatasDoPlay.Provider value={novatasDoPlay}>
-      <div className="card">
-        <div className="row spread" style={{ alignItems: 'flex-start', gap: 8 }}>
-          <button className="btn ghost sm nowrap" style={{ flex: 'none' }} onClick={onBack}>← Plays</button>
-          <span className="row wrap" style={{ gap: 6, justifyContent: 'flex-end' }}>
+      <div className="pl-topo">
+        <div className="row spread" style={{ alignItems: 'center', gap: 8 }}>
+          <button className="pl-voltar" onClick={onBack}>‹ Plays</button>
+          <span className="row wrap" style={{ gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
             {session.ranked === false && <span className="badge avulso">avulso</span>}
             {!contaNoStatus(session) && <span className="badge avulso">sem 🔥</span>}
             <BadgeDoPlay s={session} matches={matches} />
+            {editable && (
+              <button className="pl-mais" aria-label="Gerenciar o play" onClick={() => setGerenciando(true)}>⋯</button>
+            )}
           </span>
         </div>
         <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 19, fontWeight: 800 }}>{session.title}</div>
+          <h1 className="pl-titulo">{session.title}</h1>
           <div className="small" style={{ fontWeight: 700, marginTop: 2 }}>
             {session.ranked === false ? '🎈 Play avulso' : '🏆 Vale para o ranking'}
             {contaNoStatus(session) ? '' : ' · 🧊 sem status'}
@@ -3555,16 +3673,16 @@ function PlayDetail({
             </details>
           )}
         </div>
-        <div className="grid3" style={{ marginTop: 12 }}>
+        <div className="ini-grupo ini-met">
           {finished || !restanteDaNoite ? (
-            <StatBox k="Partidas" v={`${doneCount}/${matches.length}`} />
+            <div><strong>{`${doneCount}/${matches.length}`}</strong><span>Partidas</span></div>
           ) : (
-            <StatBox k="Na fila" v={pendentes.length} />
+            <div><strong>{pendentes.length}</strong><span>Na fila</span></div>
           )}
-          <StatBox k="Em quadra" v={emJogo.length} />
-          <StatBox k="Líder do dia" v={<span style={{ fontSize: 13 }}>{dayRows[0] ? nameOf(dayRows[0].player_id).split(' ')[0] : '—'}</span>} />
+          <div><strong>{emJogo.length}</strong><span>Em quadra</span></div>
+          <div><strong style={{ fontSize: 18, lineHeight: '29px' }}>{dayRows[0] ? nameOf(dayRows[0].player_id).split(' ')[0] : '—'}</strong><span>Líder do dia</span></div>
         </div>
-        <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
+        <div className="pl-qa">
           <button className="btn ghost sm" onClick={async () => {
             const ok = await shareOrCopy(
               // na ORDEM DA FILA: em quadra, as proximas das quadras e o resto da fila
@@ -3582,23 +3700,6 @@ function PlayDetail({
           }}>💬 Enviar partidas</button>
           <button className="btn ghost sm" onClick={() => setShowRank(true)}>🏆 Ranking do dia</button>
         </div>
-        {editable && (
-          <div className="play-gestao">
-            <span className="play-gestao-rotulo">Arrumar a noite</span>
-            <div className="row wrap" style={{ gap: 8 }}>
-              {/* nas duplas fixas quem sai e substituido NA DUPLA: e o Trocar do cartao */}
-              {!finished && !duplasFixas && (
-                <button className="btn ghost sm" onClick={() => setSubstituindo(true)}>
-                  🔁 Entra / sai
-                </button>
-              )}
-              <button className="btn ghost sm" onClick={() => void regenerarPendentes()}>
-                🔄 Refazer a fila
-              </button>
-              <button className="btn ghost sm" onClick={() => void regenerate()}>♻️ Refazer tudo</button>
-            </div>
-          </div>
-        )}
       </div>
 
       {session.ranked === false && (
@@ -3611,8 +3712,16 @@ function PlayDetail({
           🧊 <strong>Play sem status:</strong> o 🔥 de todas fica como está, e faltar não conta.
         </div>
       )}
-      {editable && <OpcoesDoPlay session={session} />}
+      <div className="pl-abas" role="tablist">
+        {abasDoPlay.map((a) => (
+          <button key={a.id} role="tab" aria-selected={a.id === abaAtiva} className={a.id === abaAtiva ? 'on' : ''} onClick={() => setAba(a.id)}>
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
 
+      {abaAtiva === 'grupos' && (
+      <>
       {grupos && grupos.length > 1 && arrumando && podeArrumarGrupos && (
         <ArrumarGrupos
           grupos={arrumando}
@@ -3680,6 +3789,10 @@ function PlayDetail({
         </div>
       )}
 
+      </>
+      )}
+
+      {abaAtiva === 'quadras' && (
       <div className="card">
         <div className="row spread" style={{ alignItems: 'baseline' }}>
           <div className="section-title" style={{ whiteSpace: 'nowrap' }}>🏐 Quadras</div>
@@ -3883,6 +3996,9 @@ function PlayDetail({
         )}
       </div>
 
+      )}
+
+      {abaAtiva === 'fila' && (
       <ListaDePartidas
         titulo="⏭️ Próximas na fila"
         vazio="Nada na fila."
@@ -3903,6 +4019,10 @@ function PlayDetail({
         filtravel
       />
 
+      )}
+
+      {abaAtiva === 'jogadas' && (
+      <>
       <ListaDePartidas
         titulo={`✅ Já jogadas (${jogadas.length})`}
         vazio="Nenhum placar lançado ainda."
@@ -3963,7 +4083,10 @@ function PlayDetail({
         </div>
       )}
 
-      {editable &&
+      </>
+      )}
+
+      {abaAtiva === 'quadras' && editable &&
         porCategoria
           .filter((c) => c.podeGerarFase2 || c.podeGerarRodada)
           .map((c) => (
@@ -4047,6 +4170,31 @@ function PlayDetail({
         <button className="btn ghost block" onClick={() => void reabrir()}>
           🔓 Reabrir o play para corrigir placar
         </button>
+      )}
+
+      {gerenciando && (
+        <Modal title="Gerenciar o play" onClose={() => setGerenciando(false)}>
+          <div className="folha-secao">Arrumar a noite</div>
+          <div className="ini-grupo">
+            {/* nas duplas fixas quem sai e substituido NA DUPLA: e o Trocar do cartao */}
+            {!finished && !duplasFixas && (
+              <button className="ini-linha ini-chev" onClick={() => { setGerenciando(false); setSubstituindo(true) }}>
+                <span className="ini-ic" aria-hidden="true">🔁</span>
+                <span className="g"><b>Entra / sai</b><span className="sub">trocar quem joga</span></span>
+              </button>
+            )}
+            <button className="ini-linha ini-chev" onClick={() => { setGerenciando(false); void regenerarPendentes() }}>
+              <span className="ini-ic" aria-hidden="true">🔄</span>
+              <span className="g"><b>Refazer a fila</b><span className="sub">só o que falta jogar</span></span>
+            </button>
+            <button className="ini-linha ini-chev" onClick={() => { setGerenciando(false); void regenerate() }}>
+              <span className="ini-ic" aria-hidden="true">♻️</span>
+              <span className="g"><b>Refazer tudo</b><span className="sub">monta a noite de novo</span></span>
+            </button>
+          </div>
+          <div className="folha-secao">Regras do play</div>
+          <OpcoesDoPlay session={session} />
+        </Modal>
       )}
 
       {marcandoAusentes && (
