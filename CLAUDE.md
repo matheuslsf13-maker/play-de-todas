@@ -728,6 +728,16 @@ masculino e o misto descrevem esse código parado.
   noite, partidas antigas) a conta é a de antes. Não depende da hora de quem olha (Play e cartão
   dão os mesmos minutos). ➕ quadra conta quando a 1ª partida começa nela; tirar quadra vale na
   hora. Em 02/11 (5 no app, 4 de verdade): 75 → 90 min (real 103).
+- **Ritmo medido da noite** (`ritmoDaNoite` em `previsaoDaNoite.ts`, 08/11/2026): cada partida jogada com início e
+  placar (4 a 60 min) diz quanto levou; a previsão multiplica pela razão medido/calibrado com peso `n/(n+4)` (trava
+  0,6–1,8). `restanteDaNoite(..., fator)` com fator 1 = a conta de antes (os testes de equivalência continuam valendo);
+  Play e cartão da tela inicial usam o mesmo fator. `tests/ritmoDaNoite.test.ts`.
+- **Painel da noite no play rodando** (`components/PainelDaNoite.tsx`): número grande, barra (jogadas, em quadra
+  listrada, tracinho do mata-mata), "termina ~HHhMM", "▶️ Rolando há 1h12 · 1ª partida às 20h10" (desde o 1º início; anda sozinho a cada 20 s) e o ritmo; o cartão da quadra mostra "Jogando há 6 min · desde 21h04" (`TempoEmQuadra`); a regra e o ritmo detalhado ficam no "📋 Como vai a
+  noite"; Entra/sai e Refazer num grupo "Arrumar a noite". **Numeração da noite** (`ListaDePartidas`, props `antes` e
+  `porGrupo`): jogadas pela ordem em que terminaram (não o `round`), a fila continua depois das jogadas, das em quadra e
+  das já separadas para as quadras; com chip de grupo, a sequência é a do grupo; no campeonato as jogadas contam por
+  categoria. A fila também tem busca pelo nome ("N partidas na fila, a próxima é a Xª").
 - A cor do momento só pinta borda, selo, barra e fotos; texto em `--text`/`--muted` (≥ 4,5:1).
   Prints e roteiros fora do repo: `pdt-teste/momento-prints.mjs`, `pdt-teste/momento-toque.mjs`,
   `pdt-teste/momento-ajustes.mjs` e `momento-ajustes-toque.mjs` (prints em `prints/inicio/ajustes/`).

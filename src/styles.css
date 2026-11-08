@@ -2365,3 +2365,73 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .filtro-rotulo:first-child { margin-top: 0; }
 .chip .filtro-n { opacity: .7; font-variant-numeric: tabular-nums; margin-left: 4px; }
 .filtros-rodape .chip { min-height: 34px; }
+
+/* ==================================================================
+   PLAY RODANDO (08/11/2026): o painel da noite e o grupo "Arrumar a noite".
+   Numero grande + barra + hora do fim, como um placar: le em meio segundo na
+   beira da quadra. A barra anda com o placar (420 ms, ease-out forte); a parte
+   "em quadra" e listrada e parada (nada pulsando numa tela que fica aberta a
+   noite toda). Sem transicao se o celular pede menos movimento.
+   ================================================================== */
+.noite-painel {
+  margin-top: 12px;
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, var(--pink-suave), var(--purple-suave));
+  border: 1px solid var(--line);
+}
+.noite-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.noite-contagem { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.noite-contagem b {
+  font-size: 34px; line-height: 1; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.noite-contagem span { font-size: 14px; font-weight: 700; color: var(--muted); }
+.noite-fim {
+  flex: none; display: flex; flex-direction: column; align-items: flex-end;
+  padding: 6px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+}
+.noite-fim small { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.noite-fim b { font-size: 19px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+.noite-barra {
+  position: relative; height: 10px; margin-top: 12px; border-radius: 999px;
+  background: var(--line); overflow: visible;
+}
+.noite-barra > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; transition: width 420ms cubic-bezier(.23, 1, .32, 1), left 420ms cubic-bezier(.23, 1, .32, 1); }
+.noite-jogadas { background: var(--por-do-sol); z-index: 1; }
+.noite-jogando {
+  background: repeating-linear-gradient(-45deg, var(--pink), var(--pink) 4px, color-mix(in srgb, var(--pink) 45%, transparent) 4px, color-mix(in srgb, var(--pink) 45%, transparent) 8px);
+  opacity: .7;
+}
+.noite-marca {
+  position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; z-index: 2;
+  border-radius: 2px; background: var(--text);
+}
+.noite-barra.com-marca { margin-bottom: 20px; }
+.noite-marca-rotulo {
+  position: absolute; top: calc(100% + 5px); transform: translateX(-50%);
+  font-size: 10px; font-weight: 700; white-space: nowrap; color: var(--muted);
+}
+.noite-legenda {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--text);
+}
+.noite-chip-jogando {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--line); font-size: 12px; white-space: nowrap;
+}
+.noite-chip-jogando i { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 0 3px color-mix(in srgb, var(--verde) 25%, transparent); }
+.noite-relogio { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.noite-relogio b { color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; }
+.noite-rodape { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.noite-rodape strong { color: var(--text); }
+.play-gestao {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--sep, var(--line));
+}
+.play-gestao-rotulo {
+  display: block; margin-bottom: 6px; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .noite-barra > span { transition: none; }
+}
