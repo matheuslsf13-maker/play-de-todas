@@ -755,6 +755,12 @@ masculino e o misto descrevem esse código parado.
   se faltarem, aparece um aviso no lugar da aba. O **status** da tela inicial é um cartão só: quem está
   em sequência e, recolhido, "Como funciona o status" (`details.status-como`).
 
+- **O voltar do celular fica dentro do app** (`src/lib/voltar.ts`, 08/11/2026): cada troca de aba (e a lista aberta)
+  é um passo no histórico e o voltar devolve a aba anterior; janelas (`Modal`) e o play aberto ficam numa pilha
+  com um passo só, e o voltar fecha a de cima (`useVoltar`). Só sai do app na primeira tela.
+- **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
+  nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
+
 ## Convenções
 
 - Comentários e nomes em português, sem acento em identificadores.

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useVoltar } from '../lib/voltar'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { cabeMensalista } from '../lib/vagasDeMensalista'
 
@@ -246,6 +247,8 @@ export default function Play({
   )
 
   const open = sessions.find((s) => s.id === openId) ?? null
+  // o voltar do celular, com um play aberto, volta para a lista de plays (08/11)
+  useVoltar(open !== null, () => setOpenId(null))
 
   if (criandoLista) {
     return (

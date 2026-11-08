@@ -8,6 +8,7 @@ import Ranking from './pages/Ranking'
 import { ProvedorDePerfil } from './components/NomeClicavel'
 import type { Montagem } from './pages/ListaDePresenca'
 import { codigoDaUrl } from './lib/useLista'
+import { ouvirVoltarDeAba } from './lib/voltar'
 
 // SO A TELA INICIAL VEM NO PACOTE PRINCIPAL (08/11): Play, Stats e a lista de presenca carregam a parte e
 // sao baixados em segundo plano logo depois que o app abre (o service worker guarda: abrem sem sinal na
@@ -100,7 +101,7 @@ export default function App() {
   const [montar, setMontar] = useState<Montagem | null>(null)
   /** Sai da lista para uma aba (por padrao a tela inicial) e tira o ?lista= do endereco. */
   const irParaAba = useCallback((t: Tab) => {
-    if (window.location.search) window.history.replaceState(null, '', window.location.pathname)
+    // o ?lista= sai do endereco no passo novo do historico (efeito abaixo); voltar devolve a lista
     setLista(null)
     setTab(t)
     window.scrollTo(0, 0)
@@ -110,6 +111,39 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [])
   const primeiraRenderizacao = useRef(true)
+
+  // O VOLTAR DO CELULAR (08/11): cada troca de aba (ou a lista aberta) e um passo no historico, e o voltar
+  // devolve a aba anterior em vez de sair do app. Janelas e o play aberto ficam em src/lib/voltar.ts.
+  const veioDoVoltar = useRef(false)
+  const primeiroPasso = useRef(true)
+  const agora = useRef({ tab, lista })
+  agora.current = { tab, lista }
+  useEffect(() => {
+    const estado = { aba: tab, lista }
+    if (primeiroPasso.current) {
+      primeiroPasso.current = false
+      window.history.replaceState(estado, '', window.location.pathname + window.location.search)
+      return
+    }
+    if (veioDoVoltar.current) {
+      veioDoVoltar.current = false
+      return
+    }
+    window.history.pushState(estado, '', lista ? `${window.location.pathname}?lista=${encodeURIComponent(lista)}` : window.location.pathname)
+  }, [tab, lista])
+  useEffect(
+    () =>
+      ouvirVoltarDeAba((e) => {
+        const est = (e ?? {}) as { aba?: Tab; lista?: string | null }
+        const aba = est.aba ?? 'ranking'
+        const l = est.lista ?? null
+        if (aba === agora.current.tab && l === agora.current.lista) return
+        veioDoVoltar.current = true
+        setTab(aba)
+        setLista(l)
+      }),
+    [],
+  )
 
   // trocar de aba comeca a leitura do topo; sem isso a pagina "pula" quando a
   // aba nova e mais curta que a anterior

@@ -2,6 +2,7 @@ import React from 'react'
 import { createPortal } from 'react-dom'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import type { Player } from '../lib/types'
+import { useVoltar } from '../lib/voltar'
 
 export function initials(name: string): string {
   // sem os caracteres invisiveis que vem colados do WhatsApp: "\u2060Karine De Pra"
@@ -204,6 +205,8 @@ function useTravarFundo() {
 
 export function Modal({ title, onClose, children, semFechar }: { title: string; onClose: () => void; children: React.ReactNode; /** sem o "Fechar" do canto: a janela tem o proprio botao de saida */ semFechar?: boolean }) {
   useTravarFundo()
+  // o voltar do celular fecha a janela, em vez de sair do app (08/11)
+  useVoltar(true, onClose)
   // direto no <body>: aberto de dentro do cabecalho (sticky, z-index proprio),
   // o modal ficava preso na camada dele e a barra de abas o cobria -- o
   // "Trocar de play" escondia o Play Mista atras dela
