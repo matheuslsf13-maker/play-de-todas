@@ -21,9 +21,8 @@ import { normalizar, semInvisiveis } from '../lib/roster'
 import { useStore } from '../lib/store'
 import { jogadorasDaPartida } from '../lib/pairing'
 import { plural, todayISO, uid, type Player } from '../lib/types'
-import { VagasDeMensalista } from '../components/VagasDeMensalista'
 import { HistoricoFinanceiro } from '../components/HistoricoFinanceiro'
-import { filaDeEspera, vagasLivres } from '../lib/vagasDeMensalista'
+import { vagasLivres } from '../lib/vagasDeMensalista'
 
 export default function Players({ onToast }: { onToast: (m: string) => void }) {
   const { data, savePlayer, deletePlayer, mergePlayers, canEdit, repo } = useStore()
@@ -179,7 +178,6 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
 
   return (
     <>
-      {canEdit && LIGA.id === 'feminino' && <VagasDeMensalista onToast={onToast} />}
       {canEdit && novaAberta && (
         <div className="card">
           <div className="row spread">
@@ -607,7 +605,6 @@ function EditarPerfil({
   const { data } = useStore()
   const [nome, setNome] = useState(jogadora.name)
   const [apelido, setApelido] = useState(jogadora.nickname ?? '')
-  const [categoria, setCategoria] = useState<Categoria>(categoriaDe(jogadora))
   const [apelidos, setApelidos] = useState((jogadora.aliases ?? []).join('\n'))
   const mediaHoje = useMemo(() => mediaDaForca(data), [data])
   const [forcaInicial, setForcaInicial] = useState(jogadora.forca_inicial ?? mediaHoje)
@@ -621,8 +618,6 @@ function EditarPerfil({
   }, [data, jogadora.id])
 
   const limpo = semInvisiveis(nome).trim()
-  const paraEspera = LIGA.id === 'feminino' && categoria === 'mensalista' && categoriaDe(jogadora) !== 'mensalista' && vagasLivres(data) === 0
-  const posicaoNaEspera = filaDeEspera(data).findIndex((x) => x.id === jogadora.id)
   const repetido = data.players.some(
     (p) => p.id !== jogadora.id && semInvisiveis(p.name).trim().toLowerCase() === limpo.toLowerCase(),
   )
@@ -632,22 +627,11 @@ function EditarPerfil({
       .split('\n')
       .map((x) => x.trim())
       .filter(Boolean)
-    // trocar de categoria zera o pagamento: uma mensalista que virou avulsa nao
-    // herda o mes pago, e vice-versa -- senao alguem ficaria verde sem ter pago
-    // mensalistas lotadas: nao troca a categoria, entra na lista de espera (dono, 07/11)
-    const vaiParaEspera = paraEspera
-    const mudou = !vaiParaEspera && categoria !== categoriaDe(jogadora)
     onSalvar({
       ...jogadora,
       name: limpo,
       nickname: apelido.trim() || null,
       aliases: [...new Set(lista)],
-      categoria: vaiParaEspera ? categoriaDe(jogadora) : categoria,
-      ...(vaiParaEspera ? { espera_mensalista: jogadora.espera_mensalista ?? new Date().toISOString() } : {}),
-      // virou mensalista (havia vaga): sai da espera
-      ...(categoria === 'mensalista' && !vaiParaEspera ? { espera_mensalista: null } : {}),
-      pago_mes: mudou ? null : jogadora.pago_mes,
-      pago_avulso: mudou ? false : jogadora.pago_avulso,
       // no misto, a forca inicial e a do misto (misto.atletas): mudar aqui nao
       // mexe no campeonato
       forca_inicial: forcaInicial === mediaHoje && jogadora.forca_inicial == null ? null : forcaInicial,
@@ -690,31 +674,9 @@ function EditarPerfil({
         </div>
       )}
 
-      <div className="field" style={{ marginTop: 12 }}>
-        <span>Como ela paga</span>
-        <div className="chips-scroll">
-          {CATEGORIAS.map((c) => (
-            <button
-              key={c.valor}
-              className={`chip ${categoria === c.valor ? 'on' : 'off'}`}
-              style={{ flex: 'none' }}
-              onClick={() => setCategoria(c.valor)}
-            >
-              {c.rotulo}
-            </button>
-          ))}
-        </div>
-        <em className="hint" style={{ marginTop: 6 }}>
-          {CATEGORIAS.find((c) => c.valor === categoria)?.explica}
-          {categoria !== categoriaDe(jogadora) && !paraEspera && ' — trocar de categoria zera o pagamento atual.'}
-        </em>
-        {paraEspera && (
-          <span className="hint aviso">
-            ⏳ Mensalistas lotadas: ao salvar ela continua {categoriaDe(jogadora)} e entra na lista de espera
-            {posicaoNaEspera >= 0 ? ` (já é a ${posicaoNaEspera + 1}ª)` : ` (${filaDeEspera(data).length + 1}ª)`}.
-          </span>
-        )}
-      </div>
+      <p className="tiny muted" style={{ marginTop: 12 }}>
+        💳 Como ela paga ({CATEGORIAS.find((c) => c.valor === categoriaDe(jogadora))?.rotulo}): edite em <strong>Check-ins › Atletas</strong>.
+      </p>
 
       <ForcaInicial
         valor={forcaInicial}

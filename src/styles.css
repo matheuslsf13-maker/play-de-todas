@@ -2125,3 +2125,32 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 /* aluguel da V3: a conta na hora (D47) */
 .conta-aluguel { display: grid; gap: 3px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
 .conta-aluguel .pagar { color: var(--text); font-size: 14px; }
+
+/* ---------- aba Mensalistas: linha inteira tocavel, retorno ao toque (celular) ---------- */
+.lista-mensalistas { display: grid; gap: 8px; }
+.mensalista-linha {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--card-2); text-align: left; cursor: pointer;
+  transition: transform 160ms ease-out, background-color 150ms ease, border-color 150ms ease;
+}
+.mensalista-linha:active { transform: scale(.98); background: var(--pink-suave); }
+.mensalista-texto { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.mensalista-texto strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mensalista-linha .seta { color: var(--muted); font-size: 22px; line-height: 1; }
+@media (hover: hover) and (pointer: fine) { .mensalista-linha:hover { border-color: var(--pink); } }
+@media (prefers-reduced-motion: reduce) { .mensalista-linha { transition: none; } }
+
+/* abas do Check-ins: com 6 no celular estouravam a largura -- quebram em linhas de 3, alvo de toque de 44px */
+.segmented.quebra { flex-wrap: wrap; }
+.segmented.quebra button { flex: 1 1 30%; min-height: 44px; }
+
+/* Como ela paga (Check-ins > Atletas): opcoes grandes para o toque no celular */
+.plano-opcoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.plano-opcao {
+  min-height: 52px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-2);
+  font-weight: 700; cursor: pointer; transition: transform 160ms ease-out, background-color 150ms ease, border-color 150ms ease;
+}
+.plano-opcao:active { transform: scale(.97); }
+.plano-opcao.on { background: var(--pink); border-color: var(--pink); color: var(--sempre-escuro); }
+.plano-chip { margin-top: 4px; min-height: 32px; }
+@media (prefers-reduced-motion: reduce) { .plano-opcao { transition: none; } }

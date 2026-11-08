@@ -261,3 +261,18 @@ export function mesDaCompensacao(data: AppData, playerId: string, dataDoPlay: st
   while (quitada(fichaDe(data, playerId, mes))) mes = proximoMes(mes)
   return mes
 }
+
+/** Em que pe a mensalista esta no mes (uma pode ter varias marcas): o que a administradora filtra na aba Mensalistas. */
+export type MarcaDaMensalista = 'quitada' | 'integral' | 'parcial' | 'falta' | 'deve' | 'sem-pagamento'
+
+export function marcasDaMensalista(f: Ficha, devendoAntes: number): MarcaDaMensalista[] {
+  const marcas: MarcaDaMensalista[] = []
+  const dinheiro = dinheiroDaFicha(f)
+  if (quitada(f)) marcas.push('quitada')
+  if (dinheiro >= f.valor_cheio) marcas.push('integral')
+  else if (dinheiro > 0) marcas.push('parcial')
+  if (iniciada(f) && !quitada(f)) marcas.push('falta')
+  if (devendoAntes > 0) marcas.push('deve')
+  if (dinheiro === 0) marcas.push('sem-pagamento')
+  return marcas
+}

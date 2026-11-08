@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
 import { dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
+import { ListaDeMensalistas } from '../components/ListaDeMensalistas'
+import { EditarPlanoDaAtleta } from '../components/EditarPlanoDaAtleta'
+import { VagasDeMensalista } from '../components/VagasDeMensalista'
 import { checkinsNaArena, contaDoAluguel } from '../lib/aluguel'
-import { categoriaDe } from '../lib/mensalidade'
+import { CATEGORIAS, categoriaDe, type Categoria } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -87,7 +90,7 @@ import { gerarXlsx } from '../lib/xlsx'
  * parte do app que nao e publica, porque a chave anon e publica.
  */
 
-type Secao = 'atletas' | 'dias' | 'arenas' | 'caixa' | 'padroes'
+type Secao = 'atletas' | 'mensalistas' | 'dias' | 'arenas' | 'caixa' | 'padroes'
 
 /** O modal da atleta abre nas contas, no extrato do saldo ou direto no acerto. */
 type VisaoDasContas = 'contas' | 'extrato' | 'acerto'
@@ -96,7 +99,7 @@ type VisaoDasContas = 'contas' | 'extrato' | 'acerto'
 type PedidoDeLancamento = { checkin?: Checkin; playerId?: string; diaId?: string }
 
 const CHAVE_DA_SECAO = `${LIGA.prefixo}:checkins-secao`
-const SECOES: Secao[] = ['atletas', 'dias', 'arenas', 'caixa', 'padroes']
+const SECOES: Secao[] = ['atletas', 'mensalistas', 'dias', 'arenas', 'caixa', 'padroes']
 
 function secaoSalva(): Secao {
   try {
@@ -133,6 +136,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
   const [contasDe, setContasDe] = useState<{ jogadora: Player; visao: VisaoDasContas } | null>(null)
   const [lancando, setLancando] = useState<PedidoDeLancamento | null>(null)
   const [fichaDe_, setFichaDe] = useState<string | null>(null)
+  const [planoDe, setPlanoDe] = useState<Player | null>(null)
   const [editandoDia, setEditandoDia] = useState<CheckinDia | 'novo' | null>(null)
 
   // so quem esta logada ve dinheiro (no modo local, todo mundo e a organizadora)
@@ -143,10 +147,13 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
 
   const meses = useMemo(() => mesesComCheckins(data), [data])
   // a secao guardada pode ser o Caixa de quando estava logada: deslogada, cai em Atletas
-  const secaoAtiva: Secao = secao === 'caixa' && !veDinheiro ? 'atletas' : secao
+  // a mensalidade so existe no Play de Todas e so a organizadora logada mexe nela
+  const temMensalistas = LIGA.id === 'feminino' && veDinheiro
+  const secaoAtiva: Secao = (secao === 'caixa' && !veDinheiro) || (secao === 'mensalistas' && !temMensalistas) ? 'atletas' : secao
 
   const secoes: { id: Secao; rotulo: string }[] = [
     { id: 'atletas', rotulo: '👯 Atletas' },
+    ...(temMensalistas ? [{ id: 'mensalistas' as const, rotulo: '📅 Mensalistas' }] : []),
     { id: 'dias', rotulo: '📅 Dias' },
     { id: 'arenas', rotulo: '📤 Arenas' },
     ...(veDinheiro ? [{ id: 'caixa' as const, rotulo: '💰 Caixa' }] : []),
@@ -176,7 +183,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
             ))}
           </select>
         </div>
-        <div className="segmented">
+        <div className="segmented quebra">
           {secoes.map((s) => (
             <button key={s.id} className={secaoAtiva === s.id ? 'on' : ''} onClick={() => setSecao(s.id)}>
               {s.rotulo}
@@ -193,7 +200,14 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
           onContas={(jogadora, visao) => setContasDe({ jogadora, visao })}
           onLancar={(playerId) => setLancando({ playerId, diaId: diasDoMes(data, mes)[0]?.id })}
           onMensalidade={setFichaDe}
+          onPlano={setPlanoDe}
         />
+      )}
+      {secaoAtiva === 'mensalistas' && (
+        <>
+          <VagasDeMensalista onToast={onToast} />
+          <ListaDeMensalistas onAbrir={setFichaDe} />
+        </>
       )}
       {secaoAtiva === 'dias' && (
         <SecaoDias
@@ -209,6 +223,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       {secaoAtiva === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
       {secaoAtiva === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
 
+      {planoDe && <EditarPlanoDaAtleta jogadora={planoDe} onClose={() => setPlanoDe(null)} onToast={onToast} />}
       {fichaDe_ && <FichaDaMensalidade playerId={fichaDe_} onClose={() => setFichaDe(null)} onToast={onToast} />}
       {contasDe && (
         <ContasModal
@@ -321,6 +336,7 @@ function SecaoAtletas({
   onContas,
   onLancar,
   onMensalidade,
+  onPlano,
 }: {
   mes: string
   veDinheiro: boolean
@@ -329,21 +345,25 @@ function SecaoAtletas({
   onLancar: (playerId: string) => void
   /** 📅 a ficha da mensalidade (so mensalista, so o Play de Todas). */
   onMensalidade: (playerId: string) => void
+  /** 💳 muda como ela paga (mensalista, avulsa...). */
+  onPlano: (p: Player) => void
 }) {
   const { data, nameOf } = useStore()
   const hoje = todayISO()
   const mesDaMensalidade = mensalidadeDeHoje(hoje)
   const temMensalidade = (p: Player) => LIGA.id === 'feminino' && veDinheiro && categoriaDe(p) === 'mensalista'
   const [busca, setBusca] = useState('')
+  const [cat, setCat] = useState<Categoria | null>(null)
   const termo = normalizar(busca)
 
   const lista = [...data.players]
     .filter(
       (p) =>
-        !termo ||
+        (cat === null || categoriaDe(p) === cat) &&
+        (!termo ||
         normalizar(p.name).includes(termo) ||
         normalizar(p.nickname ?? '').includes(termo) ||
-        (p.aliases ?? []).some((a) => normalizar(a).includes(termo)),
+        (p.aliases ?? []).some((a) => normalizar(a).includes(termo))),
     )
     .sort((a, b) => Number(b.active) - Number(a.active) || nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR'))
 
@@ -369,6 +389,16 @@ function SecaoAtletas({
         onChange={(e) => setBusca(e.target.value)}
         style={{ marginBottom: 10 }}
       />
+      {podeEditar && (
+        <div className="chips-scroll" style={{ paddingInline: 0, marginBottom: 10 }}>
+          <button className={`chip ${cat === null ? 'on' : ''}`} onClick={() => setCat(null)}>Todas <strong>{data.players.length}</strong></button>
+          {CATEGORIAS.map((c) => (
+            <button key={c.valor} className={`chip ${cat === c.valor ? 'on' : ''}`} onClick={() => setCat(cat === c.valor ? null : c.valor)}>
+              {c.rotulo} <strong>{data.players.filter((p) => categoriaDe(p) === c.valor).length}</strong>
+            </button>
+          ))}
+        </div>
+      )}
       {lista.length === 0 ? (
         termo ? (
           <Empty icon="🔎">Nenhuma jogadora com “{busca.trim()}”.</Empty>
@@ -403,6 +433,11 @@ function SecaoAtletas({
                         </button>
                       )}
                     </div>
+                    {podeEditar && (
+                      <button className="chip plano-chip" onClick={() => onPlano(p)}>
+                        {CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo} <span aria-hidden>✏️</span>
+                      </button>
+                    )}
                     <div className="chips-scroll" style={{ marginTop: 1, paddingInline: 0 }}>
                       {arenas.length === 0 ? (
                         <span className="tiny muted">sem check-in disponível em {nomeDoMes(mes)}</span>
