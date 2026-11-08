@@ -75,12 +75,8 @@ export default function ClassificacaoDosGrupos({
         const chave = (ds: readonly (readonly string[])[]) => ds.map((d) => [...d].sort().join('+')).sort().join('|')
         const diferente = formadas.length > 0 && pelaRegra.length > 0 && chave(formadas) !== chave(pelaRegra)
 
-        const titulo = (
-          <>
-            {varias ? `🏆 Categoria ${c.nome} · ` : '👥 '}fase de grupos{' '}
-            <span className="tiny muted" style={{ fontWeight: 600 }}>· classificação, não pontua</span>
-          </>
-        )
+        const titulo = varias ? `Categoria ${c.nome} · fase de grupos` : 'Fase de grupos'
+        const nota = 'classificação, não pontua'
 
         const corpo = !jogou ? (
           <p className="tiny muted" style={{ marginTop: 0 }}>A classificação começa com o primeiro placar.</p>
@@ -92,80 +88,52 @@ export default function ClassificacaoDosGrupos({
                   Grupo {k + 1}: ainda não começou.
                 </p>
               ) : (
-                <div key={g.gi} className="scroll-x" style={{ marginBottom: 8 }}>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th style={{ textAlign: 'left' }}>Grupo {k + 1}</th>
-                        <th title="vitórias">V</th>
-                        <th title="pontos">Pts</th>
-                        <th title="saldo de games">Saldo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.linhas.map((l) => (
-                        <tr key={l.id}>
-                          <td>{l.posicao}º</td>
-                          <td style={{ textAlign: 'left' }}>
-                            {nameOf(l.id)}
-                            {l.empatadas.length > 0 && <span className="tiny muted"> · empatadas</span>}
-                          </td>
-                          <td>{l.vitorias}</td>
-                          <td>{l.pontos}</td>
-                          <td>{l.saldo > 0 ? `+${l.saldo}` : l.saldo}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div key={g.gi}>
+                  <div className="ini-cap">Grupo {k + 1}</div>
+                  <div className="ini-grupo">
+                    {g.linhas.map((l) => (
+                      <div className="ini-linha" key={l.id} style={{ minHeight: 52 }}>
+                        <span className="rd-pos">{l.posicao}º</span>
+                        <div className="g">
+                          <b>{nameOf(l.id)}</b>
+                          <span className="sub">
+                            {l.vitorias}V · saldo {l.saldo > 0 ? `+${l.saldo}` : l.saldo < 0 ? `−${-l.saldo}` : 0}
+                            {l.empatadas.length > 0 && ' · empatadas'}
+                          </span>
+                        </div>
+                        <b className="ini-pts">{l.pontos}<small> pts</small></b>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ),
             )}
 
             {grupos.length > 1 && todosAndando && (
               <>
-                <div className="section-title" style={{ fontSize: 12, marginTop: 10 }}>
-                  📋 Ordem {varias ? 'na categoria' : 'geral'}{' '}
-                  <span className="tiny muted" style={{ fontWeight: 600 }}>· é ela que forma as duplas</span>
-                </div>
-                <p className="tiny muted" style={{ marginTop: 0 }}>
+                <div className="ini-cap">Ordem {varias ? 'na categoria' : 'geral'} · é ela que forma as duplas</div>
+                <div className="ini-legenda" style={{ paddingTop: 0, paddingBottom: 8 }}>
                   Primeiro as 1ª de cada grupo, depois as 2ª, e assim por diante. Na mesma colocação vale
                   quem tem mais vitórias, depois pontos, depois saldo. Cada uma faz dupla com a vizinha de
                   baixo que seja de outro grupo.
-                </p>
-                <div className="scroll-x" style={{ marginBottom: 8 }}>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th style={{ textAlign: 'left' }}>Nome</th>
-                        <th title="grupo e colocação no grupo">Grupo</th>
-                        <th title="vitórias">V</th>
-                        <th title="pontos">Pts</th>
-                        <th title="saldo de games">Saldo</th>
-                        <th title="em que dupla da fase 2">Dupla</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ordem.map((o, i) => {
-                        const fora = i >= alvo * 2
-                        const d = duplaDe.get(o.id)
-                        return (
-                          <tr key={o.id} style={fora && !d ? { opacity: 0.5 } : undefined}>
-                            <td>{i + 1}</td>
-                            <td style={{ textAlign: 'left' }}>{nameOf(o.id)}</td>
-                            <td>
-                              G{o.grupo + 1} · {o.posicao}º
-                            </td>
-                            <td>{o.vitorias}</td>
-                            <td>{o.pontos}</td>
-                            <td>{o.saldo > 0 ? `+${o.saldo}` : o.saldo}</td>
-                            <td>{d ? `${d}ª` : fora ? 'fora' : '—'}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                </div>
+                <div className="ini-grupo">
+                  {ordem.map((o, i) => {
+                    const fora = i >= alvo * 2
+                    const d = duplaDe.get(o.id)
+                    return (
+                      <div className="ini-linha" key={o.id} style={{ minHeight: 52, opacity: fora && !d ? 0.5 : undefined }}>
+                        <span className="rd-pos">{i + 1}</span>
+                        <div className="g">
+                          <b>{nameOf(o.id)}</b>
+                          <span className="sub">
+                            G{o.grupo + 1} · {o.posicao}º · {o.vitorias}V · {o.pontos} pts · saldo {o.saldo > 0 ? `+${o.saldo}` : o.saldo < 0 ? `−${-o.saldo}` : 0}
+                          </span>
+                        </div>
+                        <span className="rd-dupla">{d ? `${d}ª dupla` : fora ? 'fora' : '—'}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </>
             )}
@@ -209,15 +177,19 @@ export default function ClassificacaoDosGrupos({
         // com as duplas ja formadas a chave e o que importa: a fase de grupos
         // fica recolhida, a um toque, para conferir
         return formadas.length ? (
-          <details key={ci} style={{ marginBottom: 14 }}>
-            <summary className="section-title" style={{ fontSize: 13, cursor: 'pointer' }}>
-              {titulo} <span className="tiny muted">· toque para conferir</span>
+          <details key={ci} className="rd-aberta">
+            <summary className="ini-sec rd-sec">
+              <h2>{titulo}</h2>
+              <span className="ini-nota">{nota} · toque para conferir</span>
             </summary>
             {corpo}
           </details>
         ) : (
-          <div key={ci} style={{ marginBottom: 14 }}>
-            <div className="section-title" style={{ fontSize: 13 }}>{titulo}</div>
+          <div key={ci}>
+            <div className="ini-sec rd-sec">
+              <h2>{titulo}</h2>
+              <span className="ini-nota">{nota}</span>
+            </div>
             {corpo}
           </div>
         )
@@ -253,37 +225,23 @@ function DuplasFixasDaCategoria({
     <p className="tiny muted" style={{ marginTop: 0 }}>A classificação começa com o primeiro placar.</p>
   ) : (
     <>
-      <div className="scroll-x" style={{ marginBottom: 6 }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th style={{ textAlign: 'left' }}>Dupla</th>
-              <th title="jogos">J</th>
-              <th title="vitórias">V</th>
-              <th title="pontos">Pts</th>
-              <th title="saldo de games">Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((l, i) => (
-              <tr key={l.dupla.join('+')} style={i >= alvo ? { opacity: 0.5 } : undefined}>
-                <td>{l.posicao}º</td>
-                <td style={{ textAlign: 'left' }}>
-                  {nameOf(l.dupla[0])} + {nameOf(l.dupla[1])}
-                  {l.empatadas.length > 0 && <span className="tiny muted"> · empatadas</span>}
-                  {i >= alvo && <span className="tiny muted"> · fora da chave</span>}
-                </td>
-                <td>{l.jogos}</td>
-                <td>{l.vitorias}</td>
-                <td>{l.pontos}</td>
-                <td>{l.saldo > 0 ? `+${l.saldo}` : l.saldo}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="ini-grupo">
+        {linhas.map((l, i) => (
+          <div className="ini-linha" key={l.dupla.join('+')} style={{ minHeight: 52, opacity: i >= alvo ? 0.5 : undefined }}>
+            <span className="rd-pos">{l.posicao}º</span>
+            <div className="g">
+              <b>{nameOf(l.dupla[0])} + {nameOf(l.dupla[1])}</b>
+              <span className="sub">
+                {l.jogos} {l.jogos === 1 ? 'jogo' : 'jogos'} · {l.vitorias}V · saldo {l.saldo > 0 ? `+${l.saldo}` : l.saldo < 0 ? `−${-l.saldo}` : 0}
+                {l.empatadas.length > 0 && ' · empatadas'}
+                {i >= alvo && ' · fora da chave'}
+              </span>
+            </div>
+            <b className="ini-pts">{l.pontos}<small> pts</small></b>
+          </div>
+        ))}
       </div>
-      <p className="tiny muted" style={{ marginTop: 0 }}>
+      <p className="tiny muted" style={{ marginTop: 6 }}>
         {faltam > 0
           ? `Parcial: faltam ${faltam} partida${faltam === 1 ? '' : 's'}. `
           : ''}
@@ -292,22 +250,21 @@ function DuplasFixasDaCategoria({
       </p>
     </>
   )
-  const cabecalho = (
-    <>
-      {titulo} · fase de classificação{' '}
-      <span className="tiny muted" style={{ fontWeight: 600 }}>· não pontua</span>
-    </>
-  )
+  const cabecalho = `${titulo.replace(/^\S+\s/, '')} · fase de classificação`
   return chaveMontada ? (
-    <details style={{ marginBottom: 14 }}>
-      <summary className="section-title" style={{ fontSize: 13, cursor: 'pointer' }}>
-        {cabecalho} <span className="tiny muted">· toque para conferir</span>
+    <details className="rd-aberta">
+      <summary className="ini-sec rd-sec">
+        <h2>{cabecalho}</h2>
+        <span className="ini-nota">não pontua · toque para conferir</span>
       </summary>
       {corpo}
     </details>
   ) : (
-    <div style={{ marginBottom: 14 }}>
-      <div className="section-title" style={{ fontSize: 13 }}>{cabecalho}</div>
+    <div>
+      <div className="ini-sec rd-sec">
+        <h2>{cabecalho}</h2>
+        <span className="ini-nota">não pontua</span>
+      </div>
       {corpo}
     </div>
   )

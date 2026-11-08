@@ -482,19 +482,57 @@ export default function Ranking({
 }
 
 /**
+ * O podio (2o, 1o, 3o) de um recorte: o mesmo desenho do ranking do mes, para o ranking do dia dentro do play.
+ * Empatadas dividem a colocacao (`ordenarComDesempates`); com menos de 3 sobe so quem tem.
+ */
+export function PodioDoRecorte({ rows: linhas, desempates, partidas }: { rows: PlayerStat[]; desempates?: DesempateDeGrupo[]; partidas?: Match[] }) {
+  const { lista, posicao } = ordenarComDesempates(linhas, desempates, partidas)
+  const { nameOf, playerById } = useStore()
+  const podio = lista.slice(0, 3)
+  if (podio.length === 0) return null
+  return (
+    <div className="podium ini-podio">
+      {[1, 0, 2].map((idx) => {
+        const s = podio[idx]
+        if (!s) return <div key={idx} />
+        const pos = posicao.get(s.player_id) ?? idx + 1
+        return (
+          <div className={`slot p${Math.min(3, pos)}`} key={s.player_id}>
+            <Avatar player={playerById(s.player_id)} size={pos === 1 ? 66 : 52} />
+            <NomeClicavel id={s.player_id} className="nm ellipsis">{nameOf(s.player_id)}</NomeClicavel>
+            <div className="base">
+              <div className="pos">{pos}º</div>
+              <div className="pts">{s.points} pts</div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
  * A classificacao em lista (tela inicial): posicao com ▲/▼, foto, nome (com o emoji do status), jogos, V, D e saldo
  * no texto pequeno, e os pontos grandes. Os extras (🔥 bonus, 🎫 bye, 🏅 colocacao) entram so quando existem no recorte.
  */
-function ClassificacaoEmLista({
+export function ClassificacaoEmLista({
   rows: linhas,
   fire,
   variacao,
+  vagas = 3,
+  desempates,
+  partidas,
 }: {
   rows: PlayerStat[]
   fire?: Map<string, number>
   variacao?: Map<string, number>
+  /** Quantas posicoes ganham cor de podio (0 = nenhuma: a lista geral dos grupos). */
+  vagas?: number
+  /** Desempates em quadra e confronto direto que valem para estas linhas (o ranking do dia). */
+  desempates?: DesempateDeGrupo[]
+  partidas?: Match[]
 }) {
-  const { lista: rows, posicao } = ordenarComDesempates(linhas)
+  const { lista: rows, posicao } = ordenarComDesempates(linhas, desempates, partidas)
   const { nameOf, playerById } = useStore()
   return (
     <>
@@ -503,7 +541,7 @@ function ClassificacaoEmLista({
         const emoji = (fire?.get(s.player_id) ?? 0) >= 2 ? streakLevel(fire?.get(s.player_id) as number)?.emoji : undefined
         return (
           <div className="ini-linha" key={s.player_id}>
-            <Colocacao pos={posicao.get(s.player_id) ?? 0} v={variacao?.get(s.player_id)} />
+            <Colocacao pos={posicao.get(s.player_id) ?? 0} v={variacao?.get(s.player_id)} vagas={vagas} />
             <Avatar player={playerById(s.player_id)} size={36} />
             <div className="g">
               <b className="ellipsis">
