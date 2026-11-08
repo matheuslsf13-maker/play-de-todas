@@ -4,23 +4,29 @@ import { LIGA } from './liga'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
 import { aplicarTema, temaSalvo, type Tema } from './lib/tema'
-import Play from './pages/Play'
 import Ranking from './pages/Ranking'
-import Stats from './pages/Stats'
 import { ProvedorDePerfil } from './components/NomeClicavel'
-import ListaDePresenca, { type Montagem } from './pages/ListaDePresenca'
+import type { Montagem } from './pages/ListaDePresenca'
 import { codigoDaUrl } from './lib/useLista'
 
-// FINANCEIRO E MENINAS SO CARREGAM PARA QUEM ABRE (08/11): so a organizadora usa. Logada, os dois sao
-// baixados em segundo plano logo ao abrir (o service worker guarda) para abrir sem sinal na quadra; se
-// mesmo assim faltar, aparece um aviso em vez de o app inteiro cair.
+// SO A TELA INICIAL VEM NO PACOTE PRINCIPAL (08/11): Play, Stats e a lista de presenca carregam a parte e
+// sao baixados em segundo plano logo depois que o app abre (o service worker guarda: abrem sem sinal na
+// quadra); Financeiro e Meninas, so para quem esta logada. Se mesmo assim faltar, aparece um aviso no lugar
+// da aba em vez de o app inteiro cair.
+const carregarPlay = () => import('./pages/Play')
+const carregarStats = () => import('./pages/Stats')
+const carregarLista = () => import('./pages/ListaDePresenca')
 const carregarCheckins = () => import('./pages/Checkins')
 const carregarPlayers = () => import('./pages/Players')
 const semSinal = (aba: string) => ({
   default: () => <div className="card"><div className="empty">Sem sinal para abrir {aba} agora. Tente de novo com internet.</div></div>,
 })
+const Play = lazy(() => carregarPlay().catch(() => semSinal('o Play')))
+const Stats = lazy(() => carregarStats().catch(() => semSinal('o Stats')))
+const ListaDePresenca = lazy(() => carregarLista().catch(() => semSinal('a lista')))
 const Checkins = lazy(() => carregarCheckins().catch(() => semSinal('o Financeiro')))
 const Players = lazy(() => carregarPlayers().catch(() => semSinal('a aba Meninas')))
+const carregando = <div className="card"><div className="empty">Carregando…</div></div>
 
 type Tab = 'ranking' | 'play' | 'players' | 'stats' | 'checkins'
 
@@ -61,10 +67,14 @@ export default function App() {
   const { loading, error, online, canEdit, userEmail, signIn, signOut, pendingCount } = useStore()
   const [tab, setTab] = useState<Tab>(abaSalva)
   const abas = TABS.filter((t) => !t.soAdmin || canEdit)
+  // depois que a tela inicial apareceu (sem disputar a rede com ela), baixa o resto
   useEffect(() => {
-    if (!canEdit) return
-    void carregarCheckins().catch(() => {})
-    void carregarPlayers().catch(() => {})
+    const t = window.setTimeout(() => {
+      for (const carregar of [carregarPlay, carregarStats, carregarLista, ...(canEdit ? [carregarCheckins, carregarPlayers] : [])]) {
+        void carregar().catch(() => {})
+      }
+    }, 1200)
+    return () => window.clearTimeout(t)
   }, [canEdit])
   // saiu da conta (ou a aba guardada e de administradora): volta para o Ranking
   const abaVisivel: Tab = abas.some((t) => t.id === tab) ? tab : 'ranking'
@@ -199,6 +209,7 @@ export default function App() {
         <div className="card"><div className="empty">Carregando…</div></div>
       ) : (
         <main>
+          <Suspense fallback={carregando}>
           {lista && (
             // tocar no nome de alguem da lista abre o perfil dela (dono, 06/11)
             <ProvedorDePerfil value={(id) => { setAbrirStats({ jogadora: id }); irParaAba('stats') }}>
@@ -233,15 +244,12 @@ export default function App() {
           )}
           {!lista && abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
           {!lista && abaVisivel === 'players' && (
-            <Suspense fallback={<div className="card"><div className="empty">Carregando…</div></div>}>
-              <Players onToast={show} />
-            </Suspense>
+            <Players onToast={show} />
           )}
           {!lista && abaVisivel === 'checkins' && (
-            <Suspense fallback={<div className="card"><div className="empty">Carregando…</div></div>}>
-              <Checkins onToast={show} />
-            </Suspense>
+            <Checkins onToast={show} />
           )}
+          </Suspense>
         </main>
       )}
 

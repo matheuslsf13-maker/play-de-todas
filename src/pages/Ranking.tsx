@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
-import { buildMonthPoster, buildPosterComFoto } from '../lib/poster'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
@@ -31,7 +30,8 @@ import { useStore } from '../lib/store'
 import { ordenarComDesempates } from '../lib/desempateDoDia'
 import { posicoesDaLista, semOPlay, ultimoPlayJogado, variacoes } from '../lib/variacao'
 import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
-import { PerfilDaDupla } from './Stats'
+// o perfil da dupla vem do Stats, que carrega a parte: sem isto o Stats inteiro entrava no pacote da tela inicial
+const PerfilDaDupla = lazy(() => import('./Stats').then((m) => ({ default: m.PerfilDaDupla })))
 import CartaoDoMomento from '../components/CartaoDoMomento'
 import { monthLabel, monthOf, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
@@ -139,6 +139,8 @@ export default function Ranking({
           statusPoints: usou?.bonus,
         }
       })
+      // a arte carrega so quando alguem pede (fica fora do pacote da tela inicial)
+      const { buildMonthPoster, buildPosterComFoto } = await import('../lib/poster')
       const blob = foto
         ? await buildPosterComFoto({ data: rotuloPeriodo, titulo: 'Pódio do mês', rows: linhas.slice(0, 6), foto, logoUrl: URL_DO_LOGO })
         : await buildMonthPoster(rotuloPeriodo, linhas, URL_DO_LOGO)
@@ -780,7 +782,11 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
         </div>
       )}
 
-      {duplaAberta && <PerfilDaDupla a={duplaAberta.a} b={duplaAberta.b} onClose={() => setDuplaAberta(null)} />}
+      {duplaAberta && (
+        <Suspense fallback={null}>
+          <PerfilDaDupla a={duplaAberta.a} b={duplaAberta.b} onClose={() => setDuplaAberta(null)} />
+        </Suspense>
+      )}
 
       {total > 5 && onVerTudo && (
         <button className="btn ghost block sm" style={{ marginTop: 10 }} onClick={onVerTudo}>

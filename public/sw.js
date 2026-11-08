@@ -22,9 +22,26 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE).catch(() => {})))
 })
 
+// as bibliotecas (React, Supabase: assets/bibliotecas-<hash>.js) tem hash no nome e quase nunca mudam:
+// passam do cache velho para o novo, em vez de o celular baixar de novo a cada publicacao (08/11).
+// shortcut: uma versao velha das bibliotecas vai junto quando o hash muda (atualizar React/Supabase);
+// sao poucos arquivos por ano -- se crescer, levar so a que o index.html novo pede.
+async function levarBibliotecas() {
+  const novo = await caches.open(CACHE)
+  for (const k of await caches.keys()) {
+    if (k === CACHE || !k.startsWith(DO_ESCOPO)) continue
+    const velho = await caches.open(k)
+    for (const req of await velho.keys()) {
+      if (!new URL(req.url).pathname.includes('/assets/bibliotecas-')) continue
+      const res = await velho.match(req)
+      if (res) await novo.put(req, res)
+    }
+  }
+}
+
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && (k.startsWith(DO_ESCOPO) || !k.startsWith('play@'))).map((k) => caches.delete(k))))
+    levarBibliotecas().catch(() => {}).then(() => caches.keys()).then((keys) => Promise.all(keys.filter((k) => k !== CACHE && (k.startsWith(DO_ESCOPO) || !k.startsWith('play@'))).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   )
 })

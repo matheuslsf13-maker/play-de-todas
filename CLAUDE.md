@@ -58,6 +58,14 @@ liga/            textos do masculino: o código fica no feminino e o build
 
 `hasSupabase` decide qual driver é usado. Escrita exige login; leitura é pública.
 
+## ⛔ Só o Play de Todas está no ar (dono, 08/11/2026)
+
+O deploy (`.github/workflows/deploy.yml`) publica só o feminino. O Play de Terça (`/masculino/`) e o Play Mista
+(`/mista/`) saíram do ar: nesses endereços fica `public-fora-do-ar/` (página que leva para a raiz e um `sw.js` de
+saída que apaga o app antigo do celular). O código das três ligas e os schemas `masculino`/`misto` no banco
+continuam (nada foi apagado); para voltar, recolocar os dois builds no workflow. As seções abaixo sobre o
+masculino e o misto descrevem esse código parado.
+
 ## 👫 Play Mista (`/mista/`, `VITE_LIGA=misto`, schema `misto`, script 29)
 
 - **Não tem jogadores próprios**: lê os `players` do `public` (♀) e do `masculino` (♂)
