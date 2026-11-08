@@ -74,7 +74,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   return (
     <div style={{ marginTop: 12 }}>
       <div className="row spread" style={{ alignItems: 'baseline' }}>
-        <strong className="small">📈 Desempenho</strong>
+        <strong className="small">📈 Força ao longo dos plays</strong>
         <span
           className="tiny"
           style={{

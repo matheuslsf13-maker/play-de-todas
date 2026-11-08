@@ -231,6 +231,13 @@ export default function Ranking({
                   <div className={`slot p${pos}`} key={s.player_id}>
                     <Avatar player={playerById(s.player_id)} size={pos === 1 ? 66 : 52} />
                     <NomeClicavel id={s.player_id} className="nm ellipsis">{nameOf(s.player_id)}</NomeClicavel>
+                    {/* o selinho ▲/▼ desde o ultimo play do mes (proposta aprovada, 08/11) */}
+                    {variacaoDoMes?.get(s.player_id) ? (
+                      <span className={`podio-seta ${(variacaoDoMes.get(s.player_id) as number) > 0 ? 'sobe' : 'desce'}`}>
+                        {(variacaoDoMes.get(s.player_id) as number) > 0 ? '▲' : '▼'}
+                        {Math.abs(variacaoDoMes.get(s.player_id) as number)}
+                      </span>
+                    ) : null}
                     <div className="base">
                       <div className="pos">{pos}º</div>
                       <div className="pts">{s.points} pts</div>

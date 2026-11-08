@@ -2612,3 +2612,198 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 }
 .pd-ver-mais:active { transform: scale(.97); }
 .pd-ver-mais i { font-style: normal; color: var(--muted); }
+
+/* ======================================================================
+   STATS NOVO (08/11/2026): topo fixo, jogadora em abas, pódios, setas, "ver todas".
+   Tokens do tema, numeros tabulares, toque com scale(.97), parado com reduced-motion.
+   ====================================================================== */
+.st-topo {
+  position: sticky; top: var(--topo-alto); z-index: 15; margin: 0 -14px 12px; padding: 10px 14px;
+  background: color-mix(in srgb, var(--fundo) 80%, transparent);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-bottom: 1px solid var(--line);
+}
+.st-topo-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.st-topo h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+.st-periodo, .st-periodo-fixo {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px;
+  background: var(--card-2); border: 1px solid var(--line); color: var(--text); font-size: 13px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out);
+}
+.st-periodo-fixo { cursor: default; color: var(--muted); }
+.st-periodo:active { transform: scale(.97); }
+.st-periodo i { font-style: normal; color: var(--muted); font-size: 11px; }
+.st-opcao { display: flex; justify-content: space-between; align-items: center; }
+
+.st-seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.st-seg.interno { margin-bottom: 12px; }
+.st-seg button {
+  border: 0; background: none; min-height: 40px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: var(--muted);
+  cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out), background 200ms ease-out, color 200ms ease-out;
+}
+.st-seg button:active { transform: scale(.97); }
+.st-seg button.on { background: var(--card-2); color: var(--text); box-shadow: 0 1px 0 var(--line-2) inset, 0 4px 12px rgba(0, 0, 0, .18); }
+
+.st-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 12px; }
+.st-rotulo { font-size: 11px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); margin: 0 2px 8px; }
+
+/* trilha de fotos para trocar de atleta */
+.st-trilha { display: flex; gap: 10px; overflow-x: auto; margin: 0 -14px 12px; padding: 4px 14px 6px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.st-trilha::-webkit-scrollbar { display: none; }
+.st-trilha button {
+  flex: none; width: 58px; display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none;
+  font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; padding: 2px 0; touch-action: manipulation;
+  transition: transform 140ms var(--ease-out);
+}
+.st-trilha button:active { transform: scale(.95); }
+.st-trilha button span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-trilha .on { color: var(--text); font-weight: 800; }
+.st-trilha .on .avatar { box-shadow: 0 0 0 2px var(--fundo), 0 0 0 4px var(--pink); }
+.st-lupa-foto { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--card-2); border: 1px dashed var(--line-2); color: var(--text); }
+
+/* cartao da jogadora */
+.st-heroi { padding: 16px; background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--cor-nivel, var(--pink)) 22%, transparent), transparent 60%), var(--card); }
+.st-heroi-topo { display: flex; gap: 14px; align-items: center; }
+.st-heroi-topo .avatar { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--cor-nivel, var(--pink)); flex: none; }
+.st-heroi h3 { margin: 0; font-size: 24px; letter-spacing: -.02em; line-height: 1.15; overflow-wrap: anywhere; }
+.st-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.st-pilulas { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.st-pilula { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; background: var(--pink-suave); color: var(--pink); }
+.st-pilula.fogo { background: var(--orange-suave); color: var(--orange); }
+.st-forca-heroi { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.st-forca-heroi small { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.st-forca-heroi b { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.st-delta { font-size: 13px; font-weight: 800; margin-left: 6px; }
+.st-delta.pos { color: var(--teal); } .st-delta.neg { color: var(--pink); } .st-delta.zero { color: var(--muted); }
+.st-mini-grafico { width: 110px; height: 34px; flex: none; }
+
+.st-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.st-kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 8px; text-align: center; min-height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.st-kpi b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.st-kpi small { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.st-kpi .st-anel { width: 46px; height: 46px; margin-bottom: 2px; }
+
+.st-destaques { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.st-dest { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.st-dest small { font-size: 10px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); }
+.st-dest .linha { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.st-dest strong { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-dest em { font-style: normal; font-size: 11.5px; color: var(--muted); }
+
+/* status como escada */
+.st-escada { display: flex; align-items: flex-start; }
+.st-degrau { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--muted); position: relative; min-width: 0; }
+.st-bola { width: 36px; height: 36px; margin: 0 auto 4px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; background: var(--card-2); border: 1px solid var(--line); position: relative; z-index: 1; }
+.st-degrau.feito .st-bola { background: var(--orange-suave); border-color: var(--orange); }
+.st-degrau.agora .st-bola { background: var(--orange-suave); border-color: var(--orange); box-shadow: 0 0 0 4px var(--orange-suave); }
+.st-degrau.agora { color: var(--text); font-weight: 800; }
+.st-degrau::before { content: ''; position: absolute; top: 18px; left: -50%; width: 100%; height: 2px; background: var(--line); }
+.st-degrau:first-child::before { display: none; }
+.st-degrau.feito::before, .st-degrau.agora::before { background: var(--orange); }
+.st-degrau small { display: block; font-size: 9.5px; opacity: .8; }
+
+/* listas compactas */
+.st-lista { display: flex; flex-direction: column; }
+.st-linha { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 9px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; width: 100%; text-align: left; color: inherit; }
+button.st-linha { cursor: pointer; touch-action: manipulation; transition: background 140ms ease-out; }
+button.st-linha:active { background: var(--pink-suave); }
+.st-expansivel > .st-lista:last-child > .st-linha:last-child { border-bottom: 0; }
+.st-linha .st-nome { flex: 1; min-width: 0; }
+.st-linha .st-nome b { display: block; font-size: 14.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-linha .st-nome span { font-size: 12px; color: var(--muted); }
+.st-barrinha { height: 5px; border-radius: 99px; background: var(--line); margin-top: 5px; overflow: hidden; }
+.st-barrinha i { display: block; height: 100%; border-radius: 99px; background: var(--por-do-sol); }
+.st-valor { text-align: right; flex: none; }
+.st-valor b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.st-faixa { width: 3px; align-self: stretch; margin: 6px 0; border-radius: 3px; flex: none; }
+.st-par { display: flex; flex: none; }
+.st-par .avatar { box-shadow: 0 0 0 2px var(--card); }
+.st-par .avatar + .avatar { margin-left: -6px; }
+.st-chip-ent { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--teal-suave); color: var(--teal); margin-top: 2px; }
+.st-chip-ent.neg { background: var(--pink-suave); color: var(--pink); }
+.st-chip-ent.zero { background: var(--card-2); color: var(--muted); }
+
+/* posicao com seta */
+.st-pos { width: 28px; display: flex; flex-direction: column; align-items: center; line-height: 1.15; flex: none; }
+.st-pos b { font-size: 14px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.st-pos i { font-style: normal; font-size: 9.5px; font-weight: 800; white-space: nowrap; }
+.podio-seta { display: inline-block; margin: 2px 0 4px; padding: 1px 8px; border-radius: 99px; font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.podio-seta.sobe { color: var(--teal); background: var(--teal-suave); }
+.podio-seta.desce { color: var(--pink); background: var(--pink-suave); }
+.st-sobe { color: var(--teal); } .st-desce { color: var(--pink); } .st-igual { color: var(--muted); opacity: .7; } .st-nova { color: var(--yellow); }
+.st-mov { display: inline-block; margin-left: 4px; font-size: 10.5px; font-weight: 800; vertical-align: 1px; }
+
+/* chips + lupa fixa */
+.st-chips-linha { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.st-chips-linha .chips-scroll { flex: 1; min-width: 0; margin: 0;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+.st-lupa-redonda {
+  flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--card);
+  border: 1px solid var(--line-2); color: var(--text); cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out);
+}
+.st-lupa-redonda:active { transform: scale(.95); }
+.st-busca-linha { margin-bottom: 12px; animation: st-entra 220ms var(--ease-out); }
+@keyframes st-entra { from { opacity: 0; transform: translateY(-4px); } }
+
+/* pódio */
+.st-podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 8px; align-items: end; margin-bottom: 12px; }
+.st-lugar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; border-radius: 16px; padding: 12px 6px 10px; text-align: center; background: var(--card); border: 1px solid var(--line); min-width: 0; width: 100%; color: inherit; cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out); }
+.st-lugar:active { transform: scale(.97); }
+.st-lugar.l1 { min-height: 208px; padding-top: 18px; background: linear-gradient(180deg, rgba(255, 201, 64, .20), var(--card) 70%); border-color: rgba(255, 201, 64, .45); }
+.st-lugar.l2 { min-height: 178px; background: linear-gradient(180deg, rgba(220, 220, 240, .14), var(--card) 70%); }
+.st-lugar.l3 { min-height: 160px; background: linear-gradient(180deg, rgba(240, 168, 110, .16), var(--card) 70%); }
+.st-lugar .med { font-size: 20px; margin-bottom: auto; }
+.st-lugar b.nome { display: block; font-size: 13.5px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-lugar b.nome small { display: block; font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.st-lugar .n { font-size: 20px; font-weight: 800; letter-spacing: -.03em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.st-lugar .avatar { margin: 0 auto 6px; }
+.st-lugar .st-par { justify-content: center; margin-bottom: 6px; }
+
+.st-legenda { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 1px dashed var(--line); font-size: 11.5px; color: var(--muted); margin-bottom: 12px; }
+.st-legenda > div { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* "ver todas": abre por grid-template-rows e as linhas entram em cascata */
+/* fechado, as linhas escondidas saem da ordem do Tab (visibility so muda depois da animacao de fechar) */
+.st-mais { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows 320ms var(--ease-out), visibility 0s 320ms; }
+.st-mais-dentro { overflow: hidden; min-height: 0; }
+.st-expansivel.aberta .st-mais { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+.st-mais .st-linha { opacity: 0; transform: translateY(-6px); transition: opacity 200ms ease, transform 260ms var(--ease-out); }
+.st-expansivel.aberta .st-mais .st-linha { opacity: 1; transform: none; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(1) { transition-delay: 30ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(2) { transition-delay: 60ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(3) { transition-delay: 90ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(4) { transition-delay: 120ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(5) { transition-delay: 150ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(6) { transition-delay: 180ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(7) { transition-delay: 210ms; }
+.st-expansivel.aberta .st-mais .st-linha:nth-child(8) { transition-delay: 240ms; }
+.st-ver-mais {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 8px; border-radius: 12px;
+  background: var(--card-2); border: 1px solid var(--line); color: var(--text); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  touch-action: manipulation; transition: transform 140ms var(--ease-out);
+}
+.st-ver-mais:active { transform: scale(.97); }
+.st-ver-mais i { font-style: normal; color: var(--muted); transition: transform 320ms var(--ease-out); }
+.st-expansivel.aberta .st-ver-mais i { transform: rotate(180deg); }
+
+/* força: média das atletas e distribuição por nível */
+.st-distrib { display: flex; height: 12px; border-radius: 99px; overflow: hidden; gap: 2px; margin-top: 10px; }
+.st-distrib i { display: block; height: 100%; min-width: 4px; }
+.st-legenda-d { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; font-size: 11px; color: var(--muted); font-weight: 700; }
+.st-legenda-d b { color: var(--text); }
+.st-secao { display: flex; align-items: center; justify-content: space-between; margin: 12px 2px 0; }
+.st-secao:first-child { margin-top: 0; }
+.st-secao b { font-size: 13px; font-weight: 800; }
+.st-secao span { font-size: 11px; color: var(--muted); font-weight: 700; }
+.st-dist { display: inline-block; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 99px; margin-top: 2px; }
+.st-dist.pos { color: var(--teal); background: var(--teal-suave); }
+.st-dist.neg { color: var(--pink); background: var(--pink-suave); }
+.st-dist.zero { color: var(--muted); background: var(--card-2); }
+
+@media (hover: hover) and (pointer: fine) {
+  .st-periodo:hover, .st-ver-mais:hover, .st-seg button:not(.on):hover { background: var(--card-2); }
+  button.st-linha:hover { background: var(--pink-suave); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-mais, .st-mais .st-linha, .st-ver-mais i, .st-busca-linha { transition: none; animation: none; }
+  .st-mais .st-linha { transition-delay: 0ms !important; }
+}

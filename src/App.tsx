@@ -23,7 +23,7 @@ const semSinal = (aba: string) => ({
   default: () => <div className="card"><div className="empty">Sem sinal para abrir {aba} agora. Tente de novo com internet.</div></div>,
 })
 const Play = lazy(() => carregarPlay().catch(() => semSinal('o Play')))
-const Stats = lazy(() => carregarStats().catch(() => semSinal('o Stats')))
+const Stats = lazy(() => carregarStats().catch(() => semSinal('o Desempenho')))
 const ListaDePresenca = lazy(() => carregarLista().catch(() => semSinal('a lista')))
 const Checkins = lazy(() => carregarCheckins().catch(() => semSinal('o Financeiro')))
 const Players = lazy(() => carregarPlayers().catch(() => semSinal('a aba Meninas')))
@@ -41,7 +41,7 @@ type Aba = { id: Tab; label: string; icon: string; soAdmin?: boolean }
 const TABS: Aba[] = ([
   { id: 'ranking', label: 'Ranking', icon: '🏆' },
   { id: 'play', label: 'Play', icon: '🎾' },
-  { id: 'stats', label: 'Stats', icon: '📊' },
+  { id: 'stats', label: 'Desempenho', icon: '📊' },
   { id: 'players', label: 'Meninas', icon: '👯', soAdmin: true },
   { id: 'checkins', label: 'Financeiro', icon: '💰', soAdmin: true },
 ] as Aba[])
