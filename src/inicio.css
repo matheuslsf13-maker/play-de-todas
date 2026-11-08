@@ -154,7 +154,7 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
   border: 0; border-radius: 0; background: none; color: var(--text); font-size: 15px; font-weight: 700;
 }
 .momento-acao::after { content: '›'; font-size: 24px; line-height: 1; color: var(--m); }
-.momento-faixa { margin: 0 -16px; padding: 0 16px; width: calc(100% + 32px); box-sizing: border-box; min-height: 44px; background: color-mix(in srgb, #000 22%, transparent); border-top: .5px solid color-mix(in srgb, var(--text) 14%, transparent); }
+.momento-faixa { margin: 0 -16px; padding: 0 16px; width: calc(100% + 32px); box-sizing: border-box; min-height: 44px; background: color-mix(in srgb, var(--text) 9%, transparent); border-top: .5px solid color-mix(in srgb, var(--text) 14%, transparent); }
 .momento-faixa-acao { border: 0; padding: 0; color: var(--pink); font-weight: 700; }
 .momento-lugar.l1 > .avatar { box-shadow: 0 0 0 3px var(--yellow); }
 .momento-lugar.l2 > .avatar { box-shadow: 0 0 0 2.5px var(--prata-a); }
@@ -166,3 +166,6 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 .momento-campeas { margin: 12px 0 6px; gap: 8px; font-size: 15px; font-weight: 600; }
 .momento-rotulo { display: inline-block; min-width: 78px; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .ini-linha.ini-centro { justify-content: center; min-height: 48px; color: var(--pink); font-weight: 700; font-size: 15px; }
+/* rostinhos da lista: menos sobrepostos, para as iniciais nao ficarem cortadas */
+.momento-rostos { padding-left: 4px; }
+.momento-rostos > .avatar { margin-left: -4px; }
