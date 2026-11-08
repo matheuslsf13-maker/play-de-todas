@@ -52,6 +52,10 @@ export default function Extremos({
 
   return (
     <g aria-hidden="true">
+      {/* a faixa entre o vale e o pico: onde a forca andou (modelo C, dono 08/11) */}
+      {max !== min && (
+        <rect x={esq} y={y(max)} width={fim - esq} height={y(min) - y(max)} fill="var(--verde)" fillOpacity={0.1} />
+      )}
       {ordem.map((l, i) => (
         <g key={l.rotulo}>
           <line

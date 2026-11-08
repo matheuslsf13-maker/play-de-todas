@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { historicoDaDupla } from '../lib/forca'
 import { dateLabel, type AppData } from '../lib/types'
 import Extremos from './Extremos'
-import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
+import { LARGURA_DA_REGUA, ReguaDeForca, useArrastarNoGrafico } from './ReguaDeForca'
+import { BalaoDoGrafico, LegendaDoGrafico } from './BalaoDoGrafico'
+import { diaMes, rotuloEmbaixo } from './grafico'
 
 /**
  * O DESEMPENHO DA DUPLA: a forca dela depois de cada play juntas (linha cheia)
@@ -13,6 +15,7 @@ import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
 export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: string; b: string }) {
   const { base, pontos } = useMemo(() => historicoDaDupla(data, a, b), [data, a, b])
   const [tocado, setTocado] = useState<number | null>(null)
+  const arrastar = useArrastarNoGrafico({ n: pontos.length, larguraDoDesenho: 320, esq: 34, dir: 14, larguraTotal: 320 + LARGURA_DA_REGUA, tocado, setTocado })
 
   if (pontos.length < 2) {
     return <p className="tiny muted" style={{ margin: '10px 0 0' }}>O gráfico aparece a partir do 2º play juntas.</p>
@@ -23,7 +26,7 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
   const esq = 34
   const dir = 14
   const topo = 22
-  const pe = 30
+  const pe = 14
   const notas = [...pontos.map((p) => p.nota), base]
   const min = Math.min(...notas) - 8
   const max = Math.max(...notas) + 8
@@ -34,8 +37,9 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
   const entrosamento = ultimo.nota - base
   const faixa = `M ${x(0)} ${y(base)} ${pontos.map((p, i) => `L ${x(i)} ${y(p.nota)}`).join(' ')} L ${x(iu)} ${y(base)} Z`
   const valores = pontos.map((p) => p.nota)
-  const comRotulo = pontosComRotulo(valores, W - esq - dir)
   const sel = tocado !== null ? pontos[tocado] : null
+  // quanto a dupla mexeu em relacao ao play anterior dela (o primeiro ponto nao tem anterior)
+  const mudou = tocado !== null && tocado > 0 ? pontos[tocado].nota - pontos[tocado - 1].nota : null
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -45,7 +49,7 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
           {entrosamento > 0 ? `+${entrosamento}` : entrosamento} sobre a média das duas
         </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Força da dupla: de ${pontos[0].nota} para ${ultimo.nota}`} style={{ display: 'block', marginTop: 6, overflow: 'visible' }}>
+      <svg viewBox={`0 0 ${W + LARGURA_DA_REGUA} ${H}`} width="100%" role="img" aria-label={`Força da dupla: de ${pontos[0].nota} para ${ultimo.nota}`} style={{ display: 'block', marginTop: 6, overflow: 'visible', touchAction: 'pan-y' }} {...arrastar}>
         <defs>
           <linearGradient id="grad-dupla" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={entrosamento >= 0 ? 'var(--verde)' : 'var(--danger)'} stopOpacity="0.30" />
@@ -64,14 +68,13 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
           const destaque = i === iu || i === tocado
           const embaixo = rotuloEmbaixo(valores, i)
           return (
-            <g key={p.sessionId + 'c'} style={{ cursor: 'pointer' }} onClick={() => setTocado(tocado === i ? null : i)}>
-              <circle cx={x(i)} cy={y(p.nota)} r={12} fill="transparent" />
+            <g key={p.sessionId + 'c'}>
               {i === iu && <circle cx={x(i)} cy={y(p.nota)} r={8} fill="var(--marca)" opacity={0.18} />}
               <circle
                 cx={x(i)} cy={y(p.nota)} r={destaque ? 5 : 3.6}
                 fill={p.v > p.d ? 'var(--marca)' : 'var(--card)'} stroke="var(--marca)" strokeWidth={2}
               />
-              {(comRotulo.has(i) || i === tocado) && (
+              {i === iu && tocado !== iu && (
                 <text
                   x={x(i)}
                   y={embaixo ? y(p.nota) + 15 : y(p.nota) - 9}
@@ -87,19 +90,22 @@ export default function GraficoDaDupla({ data, a, b }: { data: AppData; a: strin
             </g>
           )
         })}
-        <text x={x(0)} y={H - 8} fontSize="9" fill="var(--muted)">{diaMes(dateLabel(pontos[0].date))}</text>
-        {tocado !== null && tocado !== 0 && tocado !== iu && (
-          <text x={x(tocado)} y={H - 8} textAnchor="middle" fontSize="9" fontWeight={700} fill="var(--text)">
-            {diaMes(dateLabel(pontos[tocado].date))}
-          </text>
+        <ReguaDeForca cx={W + 16} y={y} max={Math.max(...valores)} min={Math.min(...valores)} atual={(tocado !== null ? pontos[tocado] : ultimo).nota} />
+        {sel && tocado !== null && (
+          <BalaoDoGrafico
+            x={x(tocado)}
+            y={y(sel.nota)}
+            titulo={`${diaMes(dateLabel(sel.date))} · ${sel.v}V ${sel.d}D`}
+            nota={sel.nota}
+            delta={mudou}
+            deltaTexto="no play"
+            minX={esq}
+            maxX={W - dir + 6}
+            topo={topo}
+          />
         )}
-        <text x={x(iu)} y={H - 8} textAnchor="end" fontSize="9" fill="var(--muted)">{diaMes(dateLabel(ultimo.date))}</text>
       </svg>
-      <p className="tiny muted" style={{ margin: '4px 0 0' }}>
-        {sel
-          ? `${dateLabel(sel.date)}: ${sel.v}V ${sel.d}D · força da dupla ${sel.nota}`
-          : 'Ponto cheio: noite com mais vitórias. Toque num ponto para ver o dia.'}
-      </p>
+      <LegendaDoGrafico inicio={diaMes(dateLabel(pontos[0].date))} fim={diaMes(dateLabel(ultimo.date))} cheio="mais vitórias" vazado="mais derrotas" />
     </div>
   )
 }

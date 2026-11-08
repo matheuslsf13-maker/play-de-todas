@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { isPlayed, matchPoints } from '../lib/scoring'
 import { historicoDeForca, mediaDaForca } from '../lib/stats'
 import Extremos from './Extremos'
-import { diaMes, pontosComRotulo, rotuloEmbaixo } from './grafico'
+import { LARGURA_DA_REGUA, ReguaDeForca, useArrastarNoGrafico } from './ReguaDeForca'
+import { BalaoDoGrafico, LegendaDoGrafico } from './BalaoDoGrafico'
+import { diaMes, rotuloEmbaixo } from './grafico'
 import { dateLabel, plural, type AppData } from '../lib/types'
 
 /**
@@ -16,6 +18,7 @@ import { dateLabel, plural, type AppData } from '../lib/types'
 export default function GraficoDeForca({ data, playerId }: { data: AppData; playerId: string }) {
   const pontos = useMemo(() => historicoDeForca(data, playerId, true), [data, playerId])
   const [tocado, setTocado] = useState<number | null>(null)
+  const arrastar = useArrastarNoGrafico({ n: pontos.length, larguraDoDesenho: 320, esq: 34, dir: 14, larguraTotal: 320 + LARGURA_DA_REGUA, tocado, setTocado })
 
   const jogados = pontos.filter((p) => p.jogou)
   // um play so ja tem o que mostrar se as faltas depois dele baixaram a nota
@@ -43,7 +46,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   const esq = 34
   const dir = 14
   const topo = 22
-  const base = 30
+  const base = 14
   const mediaHoje = mediaDaForca(data)
   const notas = [...pontos.map((p) => p.nota), mediaHoje]
   const min = Math.min(...notas) - 8
@@ -51,7 +54,6 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   const x = (i: number) => esq + (pontos.length === 1 ? 0 : (i * (W - esq - dir)) / (pontos.length - 1))
   const y = (v: number) => topo + ((max - v) * (H - topo - base)) / Math.max(1, max - min)
   const valores = pontos.map((p) => p.nota)
-  const comRotulo = pontosComRotulo(valores, W - esq - dir)
   const area = `M ${x(0)} ${H - base} ${pontos.map((p, i) => `L ${x(i)} ${y(p.nota)}`).join(' ')} L ${x(pontos.length - 1)} ${H - base} Z`
   const ultimo = pontos.length - 1
 
@@ -60,15 +62,14 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
   // quanto ESTE dia mexeu na forca: a nota dele contra a de logo antes (o play
   // anterior, ou a falta que veio depois dele)
   const mudou = tocado !== null && tocado > 0 ? pontos[tocado].nota - pontos[tocado - 1].nota : null
-  const antes = tocado !== null && tocado > 0 && pontos[tocado - 1].sessionId === 'inicio' ? 'do ponto de partida' : 'do play anterior'
-  const variacao =
-    mudou === null ? null : (
-      <strong style={{ color: mudou > 0 ? 'var(--verde)' : mudou < 0 ? 'var(--danger)' : 'var(--muted)' }}>
-        {mudou === 0
-          ? `força igual à ${antes}`
-          : `${mudou > 0 ? '+' : '−'}${Math.abs(mudou)} de força em relação ${antes === 'do ponto de partida' ? 'ao ponto de partida' : 'ao play anterior'}`}
-      </strong>
-    )
+  const doInicio = tocado !== null && tocado > 0 && pontos[tocado - 1].sessionId === 'inicio'
+  // o balao: "28/09 · 3V 1D" em cima e "1599 +13 no play" embaixo
+  const textoDoBalao = sel
+    ? sel.sessionId === 'inicio'
+      ? 'ponto de partida'
+      : `${diaMes(dateLabel(sel.date))} · ${sel.jogou ? (resumo ?? '').split(' · ')[0] || 'jogou' : 'faltou'}`
+    : ''
+  const deltaTexto = !sel || !sel.jogou ? 'por falta' : doInicio ? 'desde o início' : 'no play'
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -85,11 +86,12 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
         </span>
       </div>
       <svg
-        viewBox={`0 0 ${W} ${H}`}
+        viewBox={`0 0 ${W + LARGURA_DA_REGUA} ${H}`}
         width="100%"
         role="img"
         aria-label={`Força ao longo do tempo: de ${pontos[0].nota} para ${agora.nota}`}
-        style={{ display: 'block', marginTop: 6, overflow: 'visible' }}
+        style={{ display: 'block', marginTop: 6, overflow: 'visible', touchAction: 'pan-y' }}
+        {...arrastar}
       >
         <defs>
           <linearGradient id="grad-forca" x1="0" y1="0" x2="0" y2="1">
@@ -130,9 +132,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
           const destaque = i === ultimo || i === tocado
           const embaixo = rotuloEmbaixo(valores, i)
           return (
-            <g key={p.sessionId + 'c' + i} style={{ cursor: 'pointer' }} onClick={() => setTocado(tocado === i ? null : i)}>
-              {/* area de toque maior que o ponto: no celular o dedo erra */}
-              <circle cx={x(i)} cy={y(p.nota)} r={12} fill="transparent" />
+            <g key={p.sessionId + 'c' + i}>
               {i === ultimo && <circle cx={x(i)} cy={y(p.nota)} r={8} fill="var(--marca)" opacity={0.18} />}
               <circle
                 cx={x(i)}
@@ -143,7 +143,7 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
                 stroke={p.sessionId === 'inicio' ? 'var(--muted)' : 'var(--marca)'}
                 strokeWidth={2}
               />
-              {(comRotulo.has(i) || i === tocado) && (
+              {i === ultimo && tocado !== ultimo && (
                 <text
                   x={x(i)}
                   y={embaixo ? y(p.nota) + 15 : y(p.nota) - 9}
@@ -159,37 +159,28 @@ export default function GraficoDeForca({ data, playerId }: { data: AppData; play
             </g>
           )
         })}
-        <text x={x(0)} y={H - 8} fontSize="9" fill="var(--muted)">
-          {diaMes(dateLabel(pontos[0].date))}
-        </text>
-        {tocado !== null && tocado !== 0 && tocado !== ultimo && (
-          <text x={x(tocado)} y={H - 8} textAnchor="middle" fontSize="9" fontWeight={700} fill="var(--text)">
-            {diaMes(dateLabel(pontos[tocado].date))}
-          </text>
+        <ReguaDeForca
+          cx={W + 16}
+          y={y}
+          max={Math.max(...valores.filter((_, i) => pontos[i].sessionId !== 'inicio'))}
+          min={Math.min(...valores.filter((_, i) => pontos[i].sessionId !== 'inicio'))}
+          atual={(tocado !== null ? pontos[tocado] : agora).nota}
+        />
+        {sel && tocado !== null && (
+          <BalaoDoGrafico
+            x={x(tocado)}
+            y={y(sel.nota)}
+            titulo={textoDoBalao}
+            nota={sel.nota}
+            delta={mudou}
+            deltaTexto={deltaTexto}
+            minX={esq}
+            maxX={W - dir + 6}
+            topo={topo}
+          />
         )}
-        <text x={x(ultimo)} y={H - 8} textAnchor="end" fontSize="9" fill="var(--muted)">
-          {diaMes(dateLabel(agora.date))}
-        </text>
       </svg>
-      <p className="tiny muted" style={{ margin: '4px 0 0' }}>
-        {sel ? (
-          sel.sessionId === 'inicio' ? (
-            `Ponto de partida: ${sel.nota}.`
-          ) : sel.jogou ? (
-            <>
-              {`${dateLabel(sel.date)}: terminou o play com ${sel.nota}${resumo ? ` · ${resumo}` : ''}`}
-              {variacao && <> · {variacao}</>}.
-            </>
-          ) : (
-            <>
-              {`${dateLabel(sel.date)}: faltou, e a nota caiu para ${sel.nota}`}
-              {variacao && <> · {variacao}</>}.
-            </>
-          )
-        ) : (
-          'Cada ponto cheio é um play; o vazado, uma falta que baixou a nota. Toque num ponto para ver o dia.'
-        )}
-      </p>
+      <LegendaDoGrafico inicio={diaMes(dateLabel(pontos[0].date))} fim={diaMes(dateLabel(agora.date))} cheio="play" vazado="falta" />
     </div>
   )
 }
