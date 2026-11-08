@@ -924,7 +924,7 @@ sozinho, 4 conferidos na mão.
 
 ---
 
-## Pendências
+## Feito (antigas pendências)
 
 - [x] ~~**Rotacionar a secret key do Supabase**~~ — revogada em 07/09/2026.
       Conferido logo depois: a leitura pública continua respondendo 200 e a
@@ -935,21 +935,15 @@ sozinho, 4 conferidos na mão.
       a premiação secreta). Dá para mandar o link ou gravar a tela dela para
       virar vídeo. No ar em **`https://playdetodas.com.br/apresentacao/`**, com
       botão de voltar para o app.
-- [ ] **Reenviar o link no grupo.** O endereço agora é
-      **`https://playdetodas.com.br`**, com HTTPS e certificado válido desde
-      07/09/2026. Os links antigos (`play-das-meninas-`, `play-da-sexta`) dão
-      **404** — o GitHub Pages não redireciona. Quem instalou na tela de início
-      por um link antigo precisa instalar de novo.
-- [ ] Mensagem pronta para o grupo pedindo que escrevam o nome completo certo na
-      lista de confirmação (facilita a importação).
 - [x] ~~Rodar o script `07-apelido.sql`~~ — feito e conferido em 07/09/2026:
       a coluna `nickname` está no banco e responde na leitura pública.
 - [x] ~~Rodar os scripts `04`, `05` e `06` no SQL Editor~~ — feito e conferido em
       05/09/2026: `started_at`, `ended_at`, `format`, `groups`, `ranked` e a
       tabela `month_closures` estão no banco, com RLS (leitura pública, escrita
       autenticada) e tempo real ligados nas 5 tabelas.
-- [ ] Opcional: tirar o "Mais que um play, uma experiência!" do rodapé das artes
-      (já aparece dentro do logo).
+
+As pendências abertas que restavam (reenviar o link no grupo, mensagem pedindo o nome completo, tirar a
+frase do rodapé das artes) foram retiradas pelo dono em 08/11/2026.
 
 ## Força por confiança: medida e NÃO adotada (12/10/2026)
 
@@ -1467,7 +1461,26 @@ sabia quem era mensalista (cobrava todas). Modelo novo do dono (análise em
 - **Escolhido por nós**: duas tabelas (cabeçalho + itens com data) em vez de jsonb (dois celulares/fila
   offline apagariam o check-in do outro) ou de reaproveitar `checkins` (dias falsos, dívida falsa, o D45
   apagaria os check-ins); tudo derivado, sem rotina no dia 6; só no feminino.
-- **Para depois**: onde gravar "pago no plano mensal" do aluguel e a tela do aluguel/caixa de eventos; falta
-  avisada (R$ 25 de crédito ou um check-in a menos — item `abatimento`/`max_checkins`); substituta (metade para o
-  caixa de eventos); limite de 12 mensalistas com lista de espera.
+- **Entregue depois** (scripts 35 e 36, 07–08/11): aluguel no Caixa com o plano mensal e o caixa de eventos; falta
+  avisada (R$ 25 de crédito ou um check-in a menos); substituta (metade para o caixa de eventos); limite de
+  mensalistas com lista de espera; aba Mensalistas e o "Como ela paga" em Financeiro › Atletas.
 
+## D48 — O que foi decidido e entregue em 08/11/2026 (PR #8)
+
+- **Só o Play de Todas no ar.** O deploy publica só o feminino; `/masculino/` e `/mista/` levam para a raiz e um
+  service worker de saída desinstala o app antigo. O código das outras ligas e os schemas no banco ficam.
+- **A raiz sempre abre o Play de Todas**; saíram o "Trocar de play", a tela de escolha, o Instalar e o "tudo salvo".
+- **Cabeçalho = o antigo cartão do logo** da tela inicial (era o mais bonito, disse o dono); o cartão repetido saiu.
+- **Estética** (skills emil-design-eng e apple-design): barra de abas translúcida, separadores finos, coluna da força
+  alinhada, lista de plays com seta, Meninas com folha de ações e filtros numa folha, um cartão de status só,
+  Stats com 5 linhas e "Ver todas", "Primeira vez aqui?" redesenhado. Antes/depois aprovados pelo dono.
+- **Pagou só a mensalidade seguinte** (virou mensalista depois do dia 5): segura a vaga, joga o mês como avulsa e a
+  tela diz "Mensalista a partir de janeiro" (`comecaNoMesSeguinte`).
+- **Substituta sem suplente na hora**: o 💰 pergunta "Entrou no lugar de X?" (`semSubstituta`).
+- **Contagens de mensalistas** iguais nas telas (chips só com as ativas; a aba Mensalistas explica o resto).
+- **Excel de novembro** fica como está: a aba Mensalidades segue o mês da mensalidade, não o do Pix.
+- **App mais leve**: pacote principal de 932 kB para 198 kB; React e Supabase num arquivo que o service worker
+  guarda entre publicações; as abas carregam à parte com pré-carga (abrem sem sinal).
+- **npm audit 13 → 0** (Vite 6, esbuild 0.25, Puppeteer 25); deploy em Node 22.
+- Achados menores da revisão de 08/11 corrigidos (juntar cadastros e a fila, apagar lista e o dia do Financeiro,
+  compensação desfeita se o banco recusar, substituta desfeita na troca de volta, Pix acima do devido avisa).
