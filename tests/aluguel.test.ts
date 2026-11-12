@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { checkinsNaArena, contaDoAluguel } from '../src/lib/aluguel'
-import { LOCAIS_INICIAIS, economiaDoAluguel, resumoDoCaixa } from '../src/lib/checkins'
+import { LOCAIS_INICIAIS, economiaDoAluguel, entradasDosEventos, resumoDoCaixa } from '../src/lib/checkins'
 import { emptyData, type Checkin, type LancamentoDeCaixa } from '../src/lib/types'
 
 test('aluguel de janeiro: check-ins da V3 em dezembro (sem contar o uso do crédito) e o exemplo do dono', () => {
@@ -80,4 +80,30 @@ test('substituta: metade do que ela pagou vai para o caixa de eventos', () => {
   data.checkins = [c('sub', { substitui: 'mensalista', modo: 'checkin' })]
   data.checkinPagamentos = [{ checkin_id: 'sub', valor_pago: 25, valor_devido: null, pagamento_confirmado: true, observacao: null }]
   assert.deepEqual(resumoDoCaixa(data).map((r) => r.eventos), [25])
+})
+
+test('historico do caixa de eventos: cada entrada com a origem, e a soma bate com o resumo', () => {
+  const data = emptyData()
+  data.checkinDias = [{ id: 'd', date: '2026-12-07', session_id: null, titulo: null, valor_cheio: 50, valor_com_checkin: 25, created_at: '' }]
+  data.checkins = [{ id: 'sub', dia_id: 'd', player_id: 'bia', conta_id: null, local_id: null, modo: 'checkin', compareceu: true, checkin_confirmado: false, created_at: '', substitui: 'ana' }]
+  data.checkinPagamentos = [{ checkin_id: 'sub', valor_pago: 25, valor_devido: null, pagamento_confirmado: true, observacao: null }]
+  data.caixa = [{ id: 'dez', date: '2026-12-10', descricao: '', categoria: 'aluguel', tipo: 'saida', valor: 1574, created_at: '', plano_mensal: true, valor_cobrado: 1824 }]
+  const e = entradasDosEventos(data)
+  assert.deepEqual(e.map((x) => [x.origem, x.date, x.valor]), [['aluguel', '2026-12-10', 96], ['substituta', '2026-12-07', 25]])
+  assert.deepEqual([e[1].player_id, e[1].substitui, e[1].pix, e[1].doCheckin], ['bia', 'ana', 25, 25])
+  assert.equal(e.reduce((t, x) => t + x.valor, 0), resumoDoCaixa(data).slice(-1)[0].eventosAcumulado)
+})
+
+test('tirar do caixa de eventos: sem o "no lugar de" e sem o plano mensal a entrada some, e o pago continua', () => {
+  const data = emptyData()
+  data.checkinDias = [{ id: 'd', date: '2026-12-07', session_id: null, titulo: null, valor_cheio: 50, valor_com_checkin: 25, created_at: '' }]
+  data.checkins = [{ id: 'sub', dia_id: 'd', player_id: 'bia', conta_id: null, local_id: null, modo: 'integral', compareceu: true, checkin_confirmado: false, created_at: '', substitui: 'ana' }]
+  data.checkinPagamentos = [{ checkin_id: 'sub', valor_pago: 50, valor_devido: null, pagamento_confirmado: true, observacao: null }]
+  data.caixa = [{ id: 'dez', date: '2026-12-10', descricao: '', categoria: 'aluguel', tipo: 'saida', valor: 1574, created_at: '', plano_mensal: true, valor_cobrado: 1824 }]
+  assert.equal(entradasDosEventos(data).find((e) => e.origem === 'substituta')?.checkin_id, 'sub')
+  data.checkins = [{ ...data.checkins[0], substitui: null }]
+  data.caixa = [{ ...data.caixa[0], plano_mensal: false }]
+  assert.deepEqual(entradasDosEventos(data), [])
+  const r = resumoDoCaixa(data)[0]
+  assert.deepEqual([r.eventosAcumulado, r.receitasPlay, r.aluguel], [0, 50, 1574])
 })

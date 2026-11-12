@@ -40,6 +40,8 @@ import {
   relatorioDasArenas,
   resumoDoCaixa,
   economiaDoAluguel,
+  entradasDosEventos,
+  type EntradaDosEventos,
   rotuloDoDia,
   rotuloDoTipo,
   saldoDaAtleta,
@@ -806,6 +808,75 @@ function Reais({ n, sinal }: { n: number; sinal?: boolean }) {
   return <span className={cls}>{formatarReais(n)}</span>
 }
 
+/** 🎉 De onde veio cada real do caixa de eventos, ate o fim do mes aberto (o total bate com o do resumo). */
+function HistoricoDosEventos({ ate, podeEditar, onClose, onToast }: { ate: string; podeEditar: boolean; onClose: () => void; onToast: (m: string) => void }) {
+  const { data, nameOf, saveCheckin, saveCaixa } = useStore()
+  /** Tira a entrada desfazendo o que a gerou: a substituta deixa de ser "no lugar de" (o pagamento dela fica);
+   * o aluguel deixa de estar no plano mensal (o valor pago fica). Nada e apagado. */
+  function tirar(e: EntradaDosEventos) {
+    if (e.origem === 'substituta') {
+      const c = data.checkins.find((x) => x.id === e.checkin_id)
+      if (!c || !confirm(`Tirar ${formatarReais(e.valor)} do caixa de eventos?
+
+${nameOf(c.player_id)} deixa de contar como substituta de ${c.substitui ? nameOf(c.substitui) : '?'} em ${dateLabel(e.date)}. O que ela pagou continua lançado.`)) return
+      saveCheckin({ ...c, substitui: null })
+    } else {
+      const l = data.caixa.find((x) => x.id === e.caixa_id)
+      if (!l || !confirm(`Tirar ${formatarReais(e.valor)} do caixa de eventos?
+
+O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pago continua lançado.`)) return
+      saveCaixa({ ...l, plano_mensal: false })
+    }
+    onToast('Tirado do caixa de eventos')
+  }
+  const entradas = useMemo(() => entradasDosEventos(data).filter((e) => monthOf(e.date) <= ate), [data, ate])
+  const total = entradas.reduce((t, e) => t + e.valor, 0)
+  return (
+    <Modal title="🎉 Caixa de eventos" onClose={onClose}>
+      <div className="stack">
+        <div className="row spread">
+          <span className="muted small">Total até {nomeDoMes(ate)}</span>
+          <strong style={{ fontSize: 20 }}><Reais n={total} /></strong>
+        </div>
+        {entradas.length === 0 ? (
+          <Empty icon="🎉">Nada entrou no caixa de eventos ainda.</Empty>
+        ) : (
+          <table className="table">
+            <tbody>
+              {entradas.map((e, i) => (
+                <tr key={i}>
+                  <td>
+                    {e.origem === 'substituta' ? (
+                      <>
+                        <b>🔁 {nameOf(e.player_id ?? '')}</b> no lugar de <b>{e.substitui ? nameOf(e.substitui) : '?'}</b>
+                        <div className="tiny muted">
+                          {dateLabel(e.date)} · metade de {formatarReais((e.pix ?? 0) + (e.doCheckin ?? 0))}
+                          {e.doCheckin ? ` (${formatarReais(e.pix ?? 0)} pagos + ${formatarReais(e.doCheckin)} do check-in)` : ' pagos'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <b>🏟️ Aluguel da V3 no plano mensal</b>
+                        <div className="tiny muted">{dateLabel(e.date)} · a V3 cobrou {formatarReais(e.valor_cobrado ?? 0)}, 5% a menos que sem o plano</div>
+                      </>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span className="valor-pos">+{formatarReais(e.valor)}</span>
+                    {podeEditar && (
+                      <button className="btn ghost sm" style={{ display: 'block', marginTop: 6, marginLeft: 'auto' }} aria-label="Tirar do caixa de eventos" onClick={() => tirar(e)}>🗑️ Tirar</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
 function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boolean; onToast: (m: string) => void }) {
   const { data, nameOf, saveCaixa, deleteCaixa } = useStore()
   const [categoria, setCategoria] = useState<CategoriaDeCaixa>('brinde')
@@ -817,6 +888,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
   const [planoMensal, setPlanoMensal] = useState(true)
   // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
   const [aberto, setAberto] = useState<(typeof data.caixa)[number] | null>(null)
+  const [verEventos, setVerEventos] = useState(false)
 
   const resumo = useMemo(() => resumoDoCaixa(data), [data])
   const doMes = data.caixa.filter((l) => monthOf(l.date) === mes).sort((a, b) => b.date.localeCompare(a.date))
@@ -887,7 +959,13 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
               <tr><td><strong>Saldo do mês</strong></td><td><strong><Reais n={linhaDoMes.saldoDoMes} sinal /></strong></td></tr>
               <tr><td><strong>Saldo acumulado</strong></td><td><strong><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong></td></tr>
               {linhaDoMes.eventosAcumulado > 0 && (
-                <tr><td>🎉 Caixa de eventos <span className="tiny muted">(reservado dentro do saldo)</span></td><td><Reais n={linhaDoMes.eventosAcumulado} /></td></tr>
+                <tr>
+                  <td>
+                    🎉 Caixa de eventos <span className="tiny muted">(reservado dentro do saldo)</span>
+                    <button className="btn ghost sm" style={{ display: 'block', marginTop: 6 }} onClick={() => setVerEventos(true)}>📜 De onde veio</button>
+                  </td>
+                  <td><Reais n={linhaDoMes.eventosAcumulado} /></td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -1030,6 +1108,7 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
           </div>
         )}
       </div>
+      {verEventos && <HistoricoDosEventos ate={mes} podeEditar={podeEditar} onToast={onToast} onClose={() => setVerEventos(false)} />}
       {aberto && (
         <Modal title="Lançamento do caixa" onClose={() => setAberto(null)}>
           <div className="stack">
