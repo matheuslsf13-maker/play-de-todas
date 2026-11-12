@@ -78,4 +78,6 @@ Decisão sobre *regra do app* vai para o `CLAUDE.md`/`DECISOES.md`.
 - **09/11/2026** — Reformulação grande: primeiro imagens; implementar só o aprovado.
 - **12/11/2026** — Todo valor lançado automaticamente precisa de histórico ("de onde veio") e de um botão para
   desfazer. Antes de publicar, verificar onde a mudança mexe para não gerar erro.
+- **12/11/2026** — Telas com lista de pessoas seguem o padrão da aba Meninas: a linha só informa, tocar abre a folha
+  com as ações organizadas. Botão solto dentro do cartão não.
 - **12/11/2026** — Este arquivo criado para guardar o combinado e ser atualizado a cada decisão nova.

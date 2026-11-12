@@ -13,6 +13,7 @@ import { estaAoVivo } from '../lib/momentoDaInicio'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista, type ListaCompleta } from '../lib/listaDePresenca'
 import { avisoDoFinanceiro, desfazerDoPlay, diaParaLigar } from '../lib/pagamentoNaLista'
+import { adiarPlay, podeAdiar } from '../lib/adiarPlay'
 import { aplicarDesfazer, apagarListaComTudo, cadastrosDaLista, mensagemDeErro } from '../components/GestaoDaLista'
 import { TEM_LISTA } from '../lib/useLista'
 import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
@@ -495,6 +496,32 @@ function LinhaDoPlay({
  * Mudar, com o play ja montado, se ele vale para o mes e se mexe no status (o
  * campeonato que virou play de aniversario). Grava so a coluna mexida.
  */
+/** 📅 Escolher o dia novo do play adiado: as atletas, a fila, os grupos e o que ja foi pago ficam como estao. */
+function AdiarPlay({ dataAtual, onAdiar, onClose }: { dataAtual: string; onAdiar: (d: string) => void; onClose: () => void }) {
+  const umaSemana = new Date(`${dataAtual}T12:00:00`)
+  umaSemana.setDate(umaSemana.getDate() + 7)
+  const [nova, setNova] = useState(umaSemana.toISOString().slice(0, 10))
+  const valida = nova > dataAtual
+  return (
+    <Modal title="📅 Adiar o play" onClose={onClose}>
+      <div className="stack">
+        <p className="small muted" style={{ margin: 0 }}>
+          O play de {dateLabel(dataAtual)} vai para outro dia com tudo o que já foi montado: quem joga, grupos, fila e
+          os pagamentos já lançados para ele.
+        </p>
+        <label className="field">
+          <span>Novo dia do play</span>
+          <input type="date" value={nova} min={dataAtual} onChange={(e) => setNova(e.target.value)} />
+        </label>
+        {!valida && <span className="hint aviso">A data nova precisa ser depois de {dateLabel(dataAtual)}.</span>}
+        <button className="btn pink block" disabled={!valida} onClick={() => onAdiar(nova)}>
+          📅 Adiar para {valida ? dateLabel(nova) : '…'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 function OpcoesDoPlay({ session }: { session: PlaySession }) {
   const { mesclarNoPlay } = useStore()
   const vale = session.ranked !== false
@@ -1961,6 +1988,7 @@ function PlayDetail({
   /** Aba aberta dentro do play (nula = a primeira que existe) e a folha "Gerenciar" da organizadora. */
   const [aba, setAba] = useState<'quadras' | 'fila' | 'jogadas' | 'grupos' | null>(null)
   const [gerenciando, setGerenciando] = useState(false)
+  const [adiando, setAdiando] = useState(false)
   const [substituindo, setSubstituindo] = useState(false)
   /** Entra / sai em que quem sai e mensalista em dia: antes, as 24h, a compensacao e o pagamento da substituta. */
   const [faltaNoPlay, setFaltaNoPlay] = useState<Parameters<typeof substituir>[0] | null>(null)
@@ -3507,6 +3535,19 @@ function PlayDetail({
   }
   // o 'creditos' e conta do financeiro, nao intervencao na mao
   const intervencoes = (session.eventos ?? []).filter((e) => e.tipo !== 'creditos')
+  /** Adia o play aberto que ainda nao comecou (choveu): muda a data e leva junto o dia do Financeiro ligado a ele. */
+  async function adiar(novaData: string) {
+    const r = adiarPlay(data, session, novaData)
+    if ('erro' in r) {
+      onToast(r.erro)
+      return
+    }
+    for (const d of r.dias) saveCheckinDia(d)
+    await saveSession(comEvento(r.sessao, 'adiar', `Play adiado de ${dateLabel(session.date)} para ${dateLabel(novaData)}`))
+    setAdiando(false)
+    onToast(`Play adiado para ${dateLabel(novaData)} 📅`)
+  }
+
   function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string): PlaySession {
     return { ...sessao, eventos: [...(sessao.eventos ?? []), novoEvento(tipo, texto)] }
   }
@@ -4132,7 +4173,7 @@ function PlayDetail({
                 <span className="fila-num">{horaLocal(e.at)}</span>
                 <div className="grow">
                   <span className="fila-time">
-                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : e.tipo === 'reabrir' ? '🔓' : '♻️'} {e.texto}
+                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : e.tipo === 'reabrir' ? '🔓' : e.tipo === 'adiar' ? '📅' : '♻️'} {e.texto}
                   </span>
                   <span className="tiny muted">
                     {e.jogadas === 0
@@ -4181,6 +4222,8 @@ function PlayDetail({
         </button>
       )}
 
+      {adiando && <AdiarPlay dataAtual={session.date} onAdiar={(d) => void adiar(d)} onClose={() => setAdiando(false)} />}
+
       {gerenciando && (
         <Modal title="Gerenciar o play" onClose={() => setGerenciando(false)}>
           <div className="folha-secao">Arrumar a noite</div>
@@ -4201,6 +4244,17 @@ function PlayDetail({
               <span className="g"><b>Refazer tudo</b><span className="sub">monta a noite de novo</span></span>
             </button>
           </div>
+          {podeAdiar(session, data.matches) && (
+            <>
+              <div className="folha-secao">Data</div>
+              <div className="ini-grupo">
+                <button className="ini-linha ini-chev" onClick={() => { setGerenciando(false); setAdiando(true) }}>
+                  <span className="ini-ic" aria-hidden="true">📅</span>
+                  <span className="g"><b>Adiar o play</b><span className="sub">choveu? muda o dia sem montar de novo</span></span>
+                </button>
+              </div>
+            </>
+          )}
           <div className="folha-secao">Regras do play</div>
           <OpcoesDoPlay session={session} />
         </Modal>
@@ -4912,7 +4966,7 @@ function BadgeDoPlay({ s, matches }: { s: PlaySession; matches: Match[] }) {
   return estaAoVivo(s, matches, new Date()) ? (
     <span className="badge vivo"><i className="ponto-vivo" aria-hidden="true" />ao vivo</span>
   ) : (
-    <span className="badge parado">em andamento</span>
+    <span className="badge parado"><i className="ponto-vivo vermelho" aria-hidden="true" />em andamento</span>
   )
 }
 

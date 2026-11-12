@@ -359,7 +359,15 @@ function SecaoAtletas({
   const temMensalidade = (p: Player) => LIGA.id === 'feminino' && veDinheiro && categoriaDe(p) === 'mensalista'
   const [busca, setBusca] = useState('')
   const [cat, setCat] = useState<Categoria | null>(null)
+  /** A atleta com a folha de acoes aberta (tocou na linha), como na aba Meninas. */
+  const [aberta, setAberta] = useState<string | null>(null)
   const termo = normalizar(busca)
+  const mensalidadeDe = (id: string) =>
+    resumoDaMensalidade(
+      fichaDe(data, id, mesDaMensalidade),
+      hoje,
+      dividaDaMensalidade(data, id, hoje).porMes.filter((x) => x.mes < mesDaMensalidade).reduce((t, x) => t + x.falta, 0),
+    )
 
   const lista = [...data.players]
     .filter(
@@ -380,8 +388,55 @@ function SecaoAtletas({
   const comCheckin = doMes.filter((c) => c.modo === 'checkin').length
   const integrais = doMes.length - comCheckin
 
+  const folha = (() => {
+    const p = aberta ? data.players.find((x) => x.id === aberta) : undefined
+    if (!p) return null
+    const saldo = saldoDaAtleta(data, p.id)
+    const temExtrato = veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0)
+    const rotulo = CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo
+    // fecha a folha antes de abrir a janela seguinte: uma janela por vez, como em Meninas
+    const ir = (f: () => void) => () => {
+      setAberta(null)
+      f()
+    }
+    return (
+      <Modal title={nameOf(p.id)} onClose={() => setAberta(null)}>
+        <div className="row" style={{ marginBottom: 14 }}>
+          <Avatar player={p} size={56} />
+          <div className="grow" style={{ minWidth: 0 }}>
+            {p.nickname?.trim() && p.nickname.trim() !== p.name && <div className="small muted ellipsis">{p.name}</div>}
+            <div className="small">{rotulo}</div>
+            {temExtrato && <BadgeSaldo saldo={saldo.saldo} />}
+            {!p.active && <div className="tiny"><span className="pausada">inativa</span></div>}
+          </div>
+        </div>
+        <div className="folha-acoes">
+          {podeEditar && <button onClick={ir(() => onLancar(p.id))}>➕ Lançar um play<small>Pagamento e check-in de um dia</small></button>}
+          {temMensalidade(p) && (
+            <button onClick={ir(() => onMensalidade(p.id))}>
+              📅 Mensalidade de {nomeDoMes(mesDaMensalidade)}<small>{mensalidadeDe(p.id).texto}</small>
+            </button>
+          )}
+          {temExtrato && <button onClick={ir(() => onContas(p, 'extrato'))}>📒 Extrato<small>Tudo o que foi pago e jogado, com o saldo</small></button>}
+          {podeEditar && saldo.saldo !== 0 && (
+            <button onClick={ir(() => onContas(p, 'acerto'))}>⚖️ Acertar o saldo<small>Receber, devolver ou perdoar fora de um play</small></button>
+          )}
+        </div>
+        <div className="folha-acoes" style={{ marginTop: 12 }}>
+          {podeEditar && (
+            <button onClick={ir(() => onPlano(p))}>💳 Forma de pagamento<small>Hoje: {rotulo}</small></button>
+          )}
+          <button onClick={ir(() => onContas(p, 'contas'))}>
+            🏟️ {podeEditar ? 'Contas de check-in' : 'Ver contas de check-in'}<small>Wellhub, TotalPass, planos e aulas</small>
+          </button>
+        </div>
+      </Modal>
+    )
+  })()
+
   return (
     <div className="card">
+      {folha}
       <div className="grid3" style={{ marginBottom: 12 }}>
         <StatBox k="dias" v={dias.length} />
         <StatBox k="check-ins" v={comCheckin} />
@@ -417,26 +472,33 @@ function SecaoAtletas({
               .map((c) => ({ c, dia: dias.find((d) => d.id === c.dia_id)! }))
               .sort((a, b) => a.dia.date.localeCompare(b.dia.date))
             return (
-              <div key={p.id} className="atleta-linha" style={{ opacity: p.active ? 1 : 0.55 }}>
+              // a linha inteira abre a folha com as acoes, igual a aba Meninas (dono, 12/11): antes eram links e chips soltos no cartao
+              <div
+                key={p.id}
+                className="atleta-linha tocavel"
+                style={{ opacity: p.active ? 1 : 0.55 }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Opções de ${nameOf(p.id)}`}
+                onClick={() => setAberta(p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setAberta(p.id)
+                  }
+                }}
+              >
                 <div className="row" style={{ alignItems: 'flex-start' }}>
                   <Avatar player={p} size={40} />
-                  <div className="grow">
+                  <div className="grow" style={{ minWidth: 0 }}>
                     <div className="row spread" style={{ gap: 6 }}>
                       <div style={{ fontWeight: 700 }} className="ellipsis">
                         {nameOf(p.id)}
                         {!p.active && <span className="tiny muted"> · inativa</span>}
                       </div>
-                      {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && (
-                        <button className="linkish" style={{ padding: 0 }} onClick={() => onContas(p, 'extrato')}>
-                          <BadgeSaldo saldo={saldo.saldo} />
-                        </button>
-                      )}
+                      {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && <BadgeSaldo saldo={saldo.saldo} />}
                     </div>
-                    {podeEditar && (
-                      <button className="chip plano-chip" onClick={() => onPlano(p)}>
-                        {CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo} <span aria-hidden>✏️</span>
-                      </button>
-                    )}
+                    <div className="tiny muted">{CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo}</div>
                     <div className="chips-scroll" style={{ marginTop: 1, paddingInline: 0 }}>
                       {arenas.length === 0 ? (
                         <span className="tiny muted">sem check-in disponível em {nomeDoMes(mes)}</span>
@@ -464,40 +526,16 @@ function SecaoAtletas({
                       )
                     })()}
                     {temMensalidade(p) && (() => {
-                      const r = resumoDaMensalidade(
-                        fichaDe(data, p.id, mesDaMensalidade),
-                        hoje,
-                        dividaDaMensalidade(data, p.id, hoje).porMes.filter((x) => x.mes < mesDaMensalidade).reduce((t, x) => t + x.falta, 0),
-                      )
+                      const r = mensalidadeDe(p.id)
                       return (
-                        <button className="linkish tiny" style={{ padding: 0, marginTop: 2, textAlign: 'left', color: r.cor, fontWeight: 700, textTransform: 'none', letterSpacing: 0 }} onClick={() => onMensalidade(p.id)}>
+                        <div className="tiny" style={{ marginTop: 2, color: r.cor, fontWeight: 700 }}>
                           📅 Mensalidade de {nomeDoMes(mesDaMensalidade)}: {r.texto}
-                        </button>
+                        </div>
                       )
                     })()}
                     {podeEditar && disp.avisos.map((a) => (
                       <span key={a} className="hint aviso">⚠️ {a}</span>
                     ))}
-                    <div className="tiny muted acoes-atleta">
-                      <button className="linkish" onClick={() => onContas(p, 'contas')}>
-                        {podeEditar ? 'contas' : 'ver contas'}
-                      </button>
-                      {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && (
-                        <button className="linkish" onClick={() => onContas(p, 'extrato')}>
-                          extrato
-                        </button>
-                      )}
-                      {podeEditar && saldo.saldo !== 0 && (
-                        <button className="linkish" onClick={() => onContas(p, 'acerto')}>
-                          acertar
-                        </button>
-                      )}
-                      {podeEditar && (
-                        <button className="linkish" onClick={() => onLancar(p.id)}>
-                          lançar
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
