@@ -870,6 +870,42 @@ export function economiaDoAluguel(l: LancamentoDeCaixa): number {
   return centavos(centavos(l.valor_cobrado / (1 - DESCONTO_DO_PLANO)) - l.valor_cobrado)
 }
 
+/** Uma entrada do 🎉 caixa de eventos, para o historico de onde veio cada real. */
+export type EntradaDosEventos = {
+  date: string
+  valor: number
+  origem: 'substituta' | 'aluguel'
+  /** substituta: quem jogou e no lugar de quem; aluguel: o lancamento do caixa. */
+  player_id?: string
+  substitui?: string
+  pix?: number
+  doCheckin?: number
+  checkin_id?: string
+  caixa_id?: string
+  valor_cobrado?: number
+}
+
+/** Tudo o que entrou no caixa de eventos, do mais recente ao mais antigo (o resumo soma esta lista). */
+export function entradasDosEventos(data: AppData): EntradaDosEventos[] {
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d]))
+  const out: EntradaDosEventos[] = []
+  // a substituta: metade do que ela pagou vai para o caixa de eventos (a outra cobre o credito da mensalista);
+  // com check-in, o check-in tambem paga (a V3 abate no aluguel): conta a diferenca do dia (integral - com check-in)
+  for (const c of data.checkins) {
+    const dia = c.substitui && c.compareceu ? dias.get(c.dia_id) : undefined
+    if (!dia) continue
+    const pix = pagamentoDoCheckin(data, c.id)?.valor_pago ?? 0
+    const doCheckin = c.modo === 'checkin' ? Math.max(0, dia.valor_cheio - dia.valor_com_checkin) : 0
+    const valor = centavos((pix + doCheckin) / 2)
+    if (valor) out.push({ date: dia.date, valor, origem: 'substituta', checkin_id: c.id, player_id: c.player_id, substitui: c.substitui ?? undefined, pix, doCheckin })
+  }
+  for (const l of data.caixa) {
+    const valor = economiaDoAluguel(l)
+    if (valor) out.push({ date: l.date, valor, origem: 'aluguel', caixa_id: l.id, valor_cobrado: l.valor_cobrado ?? undefined })
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date))
+}
+
 /**
  * O resumo da planilha, mes a mes: receita dos plays (a soma do que foi pago
  * nos lancamentos), receitas extras e as saidas por categoria, com o saldo
@@ -902,18 +938,9 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
   for (const i of data.mensalidadeItens ?? []) {
     if (i.tipo === 'dinheiro' && i.mes >= MES_INICIAL) linha(monthOf(i.date)).mensalidades += i.valor ?? 0
   }
-  // a substituta: metade do que ela pagou vai para o caixa de eventos (a outra cobre o credito da mensalista);
-  // com check-in, o check-in tambem paga (a V3 abate no aluguel): conta a diferenca do dia (integral - com check-in)
-  for (const c of data.checkins) {
-    const dia = c.substitui && c.compareceu ? dias.get(c.dia_id) : undefined
-    if (!dia) continue
-    const pix = pagamentoDoCheckin(data, c.id)?.valor_pago ?? 0
-    const doCheckin = c.modo === 'checkin' ? Math.max(0, dia.valor_cheio - dia.valor_com_checkin) : 0
-    linha(monthOf(dia.date)).eventos += centavos((pix + doCheckin) / 2)
-  }
+  for (const e of entradasDosEventos(data)) linha(monthOf(e.date)).eventos += e.valor
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))
-    r.eventos += economiaDoAluguel(l)
     if (l.tipo === 'entrada') r.receitasExtras += l.valor
     else if (l.categoria === 'aluguel') r.aluguel += l.valor
     else if (l.categoria === 'brinde') r.brindes += l.valor

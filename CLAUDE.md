@@ -5,6 +5,9 @@ App do campeonato de **beach tennis** feminino da **V3 Arena**, jogado toda
 mês, e mostra rankings e estatísticas. Tudo é operado principalmente **pelo
 celular**.
 
+**Leia primeiro [`COMO-TRABALHAMOS.md`](COMO-TRABALHAMOS.md)**: o modo de operação combinado com o dono (o que
+entregar, o que ele espera, o que nunca fazer). Decisão nova sobre o jeito de trabalhar vai para lá.
+
 **Antes de mudar regra do campeonato, algoritmo de duplas ou o "quem está em
 quadra", leia [`DECISOES.md`](DECISOES.md)** — ele guarda o que já foi medido e
 descartado, para não refazer discussão encerrada.
@@ -697,7 +700,7 @@ masculino e o misto descrevem esse código parado.
   no mês anterior (`checkinsNaArena`: o **uso** de um check-in de crédito não conta de novo).
 - Juntar cadastros leva fichas e itens (`juntar_mensalidades` no 34, atômico).
 - **Script 35**: aluguel no Caixa (`caixa.plano_mensal/valor_cobrado/checkins_abatidos`; o lançamento é o Pix; a
-  economia de 5% vai para o 🎉 caixa de eventos, reserva dentro do saldo, `economiaDoAluguel`/`eventosAcumulado`),
+  economia de 5% vai para o 🎉 caixa de eventos, reserva dentro do saldo, `economiaDoAluguel`/`eventosAcumulado`; o "📜 De onde veio" do Resumo lista cada entrada, `entradasDosEventos`, que o resumo soma; o "🗑️ Tirar" desfaz a origem sem apagar nada: a substituta perde o `substitui`, o aluguel perde o `plano_mensal`),
   **substituta** (`checkins.substitui`: metade do valor cheio do dia para o caixa de eventos), **falta avisada** (a
   lista pergunta: R$ 25 de crédito na mensalidade do mês seguinte ou um check-in a menos na que ela está fechando —
   abatimento na ficha, `mesDaCompensacao`), **limite de mensalistas** (`ajustes.limite_mensalistas`, padrão 12) e
