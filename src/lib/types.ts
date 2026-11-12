@@ -76,7 +76,7 @@ export type SessionStatus = 'open' | 'finished'
  */
 export type PlayFormat = 'todas' | 'grupos' | 'grupos-duplas'
 
-export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra' | 'desempate' | 'grupos' | 'reabrir' | 'creditos'
+export type TipoDeEvento = 'troca' | 'entra-sai' | 'refazer' | 'refazer-tudo' | 'quadra' | 'desempate' | 'grupos' | 'reabrir' | 'creditos' | 'adiar'
 
 export type EventoDoPlay = {
   /** Hora da intervencao (ISO). */

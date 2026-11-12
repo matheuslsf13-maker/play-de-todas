@@ -337,7 +337,9 @@ label.field { display: block; }
 /* cheio (o "finalizado" e o verde suave): de longe ja se ve qual esta rolando */
 .badge.vivo { display: inline-flex; align-items: center; gap: 6px; background: var(--verde); color: var(--sempre-escuro); }
 .badge.vivo .ponto-vivo { width: 7px; height: 7px; background: var(--sempre-claro); }
-.badge.parado { background: var(--card-2); color: var(--muted); }
+/* aberto sem nada acontecendo: vermelho com a bolinha piscando, o mesmo do "Aguardando início" das quadras (dono, 12/11) */
+.badge.parado { display: inline-flex; align-items: center; gap: 6px; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.badge.parado .ponto-vivo { width: 7px; height: 7px; background: var(--danger); }
 /* play avulso: acontece, conta no historico, mas nao vale para o campeonato */
 .badge.avulso { background: var(--purple-suave); color: var(--purple); }
 /* o selo do play na lista (selos.ts): um so, o mais raro que ele detem agora */

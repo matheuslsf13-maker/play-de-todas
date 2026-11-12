@@ -627,6 +627,11 @@ masculino e o misto descrevem esse código parado.
 - **O placar só é lançável depois de "▶️ Partida iniciada"** (botões de "venceu"
   desabilitados). Corrigir placar é o ✏️ da lista "Já jogadas", que abre um modal
   e **preserva o `ended_at`** — não devolve a partida para a fila.
+- **📅 Adiar o play** (dono, 12/11/2026; `src/lib/adiarPlay.ts`, `tests/adiarPlay.test.ts`): choveu e o play não
+  aconteceu. No "⋯ Gerenciar o play", seção "Data", **só enquanto nenhuma partida foi iniciada nem lançada**
+  (`podeAdiar`). Escolhe o dia novo (depois do atual; sugere +7 dias) e o play vai inteiro: atletas, grupos, fila e os
+  dias do Financeiro ligados a ele (`checkin_dias.session_id`, com os pagamentos já lançados). Anota no diário
+  (`tipo: 'adiar'`). A lista de presença ligada ao play **não** muda a data dela (`play_em`): ela já está fechada.
 - **🔓 Reabrir o play para corrigir placar** (play finalizado, logada; `reabrir` em
   Play.tsx): volta o `status` para `open` e anota no diário (`tipo: 'reabrir'`); o ✏️ das
   "Já jogadas" corrige e o Finalizar fecha de novo. Ranking, pódio e força saem do placar,
@@ -736,8 +741,8 @@ masculino e o misto descrevem esse código parado.
   0,6–1,8). `restanteDaNoite(..., fator)` com fator 1 = a conta de antes (os testes de equivalência continuam valendo);
   Play e cartão da tela inicial usam o mesmo fator. `tests/ritmoDaNoite.test.ts`.
 - **Selo do play** (`BadgeDoPlay` em Play.tsx, lista de plays e cabeçalho do play): "● AO VIVO" verde cheio com a bolinha
-  pulsando quando `estaAoVivo` (a linha da lista ganha um fundo verde suave); aberto sem nada acontecendo = "em andamento"
-  neutro; "finalizado" verde suave. O amarelo ficou só para os selos da lista (dono, 08/11: confundia).
+  pulsando quando `estaAoVivo` (a linha da lista ganha um fundo verde suave); aberto sem nada acontecendo = "● em andamento"
+  vermelho com a bolinha vermelha piscando (o mesmo do "Aguardando início"; dono, 12/11); "finalizado" verde suave. O amarelo ficou só para os selos da lista (dono, 08/11: confundia).
 - **Cartão AO VIVO da tela inicial e da aba Play**: a barra tem a parte "em quadra" listrada andando (`barra.jogando` no
   `Quadro` de `CartaoDoMomento.tsx`, `.momento-jogando`). **A parte pintada reluz pulsando** (`.brilho-vivo`, cópia borrada
   que só muda de opacidade, no ritmo da bolinha) **só no que está acontecendo agora**: painel do play, cartão ao vivo e
@@ -781,6 +786,9 @@ masculino e o misto descrevem esse código parado.
 - **O voltar do celular fica dentro do app** (`src/lib/voltar.ts`, 08/11/2026): cada troca de aba (e a lista aberta)
   é um passo no histórico e o voltar devolve a aba anterior; janelas (`Modal`) e o play aberto ficam numa pilha
   com um passo só, e o voltar fecha a de cima (`useVoltar`). Só sai do app na primeira tela.
+- **Ações de uma pessoa ficam numa folha** (dono, 12/11/2026): em Meninas e em Financeiro › Atletas a linha mostra só a
+  informação e tocar nela abre a folha (`Modal` + `.folha-acoes`). Em Financeiro: Lançar um play, Mensalidade, Extrato,
+  Acertar o saldo e, à parte, Forma de pagamento e Contas de check-in. Nada de link ou chip solto no cartão.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 
