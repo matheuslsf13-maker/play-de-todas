@@ -358,6 +358,12 @@ masculino e o misto descrevem esse código parado.
   `tests/arrumarGrupos.test.ts` simula a noite inteira depois de grupos mexidos. Antes,
   mudar alguém de grupo era apagar e criar o play de novo. Depois do 1º "▶️ Partida
   iniciada" o botão some (o caminho é o Entra / sai); nas duplas fixas não aparece.
+  Para mudança maior (muitas meninas a mais, outro formato, outro número de grupos), o
+  **"⚙️ Reconfigurar o play"** do ⋯ Gerenciar (16/11/2026, **só antes do 1º placar**) abre a
+  tela de criar **no lugar** do play (não por cima), já preenchida, com cada menina no grupo em
+  que estava. Salvar **regrava o mesmo play** (mesmo id: check-ins, lista, diário e ausentes
+  ficam; `escolhas`, `duos` e desempates caem com a fila antiga) e anota `tipo: 'reconfigurar'`.
+  No campeonato e nas duplas fixas a divisão é refeita pela força (o que foi movido na mão se perde).
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
   as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
   cabeçalho, "avulso" marcado), 2 plays de cara e mais 4 a cada "ver mais" (08/11/2026; as tabelas "Com quem/Contra quem já
