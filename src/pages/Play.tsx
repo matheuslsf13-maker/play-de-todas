@@ -20,6 +20,7 @@ import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
   dividirDuplasEmCategorias,
   filaDeDuplas,
+  manterDuplas,
   montarDuplasPorNivel,
   moverDupla,
   partidasEntreDuplas,
@@ -32,6 +33,7 @@ import { NomesDaDupla } from '../components/NomeClicavel'
 import {
   PONTUACAO_PADRAO,
   aplicarMovidasNoCampeonato,
+  lugaresNoCampeonato,
   categoriaDaJogadora,
   categoriaDaPartida,
   categoriasDoPlay,
@@ -863,9 +865,16 @@ function NewPlay({
   const [nCategorias, setNCategorias] = useState(preset.categorias?.length || 3)
   const [gruposPorCategoria, setGruposPorCategoria] = useState(preset.categorias?.[0]?.grupos.length || 2)
   /** Campeonato: quantas quadras cada categoria tem (null = dividir o total por igual). */
-  const [qtdQuadrasEditada, setQtdQuadras] = useState<number[] | null>(null)
-  /** Campeonato: ajustes na mao, menina -> categoria e grupo. */
-  const [movidasCat, setMovidasCat] = useState<Record<string, { c: number; g: number }>>({})
+  // reconfigurando: as quadras de cada categoria como estavam
+  const [qtdQuadrasEditada, setQtdQuadras] = useState<number[] | null>(
+    editando?.categorias?.length ? editando.categorias.map((c) => c.quadras.length) : null,
+  )
+  /** Onde cada uma estava no play que esta sendo reconfigurado (categoria e grupo). */
+  const lugaresAntes = useMemo(() => (editando ? lugaresNoCampeonato(editando) : {}), [editando])
+  /** Campeonato: ajustes na mao, menina -> categoria e grupo (reconfigurando, comeca onde cada uma estava). */
+  const [movidasCat, setMovidasCat] = useState<Record<string, { c: number; g: number }>>(() =>
+    editando?.duplas_definidas?.length ? {} : lugaresAntes,
+  )
   /** Pontos do mes por colocacao (grupos+duplas e campeonato). */
   const [pontuacao, setPontuacao] = useState<number[]>(preset.pontuacao ?? PONTUACAO_PADRAO)
   /**
@@ -909,15 +918,23 @@ function NewPlay({
    */
   const [trocasDeDupla, setTrocasDeDupla] = useState<[string, string][]>([])
   /** Duplas levadas na mao para outra categoria (por qualquer uma das duas). */
-  const [duplasMovidas, setDuplasMovidas] = useState<[string, number][]>([])
+  // reconfigurando, cada dupla volta para a categoria em que estava
+  const [duplasMovidas, setDuplasMovidas] = useState<[string, number][]>(() =>
+    (editando?.duplas_definidas ?? []).flatMap(([a]) => (lugaresAntes[a] ? [[a, lugaresAntes[a].c] as [string, number]] : [])),
+  )
   const [tocadaNaDupla, setTocadaNaDupla] = useState<string | null>(null)
   /** Categorias das duplas fixas; null = automatico (4 a 7 duplas por categoria). */
-  const [nCatsDuplas, setNCatsDuplas] = useState<number | null>(null)
-  const montagem = useMemo(
-    // no misto as duplas fixas priorizam homem + mulher (quem sobra, mesmo genero, com aviso)
-    () => (emDuplasFixas ? montarDuplasPorNivel(selected, forca, EH_MISTO ? generos : undefined, sorteio) : null),
-    [emDuplasFixas, selected, forca, sorteio, generos],
+  const [nCatsDuplas, setNCatsDuplas] = useState<number | null>(
+    editando?.duplas_definidas?.length && editando.categorias?.length ? editando.categorias.length : null,
   )
+  /** Reconfigurando: as duplas do play, que ficam enquanto as duas estiverem (o "montar de novo" solta). */
+  const [duplasAntes, setDuplasAntes] = useState<[string, string][] | null>(editando?.duplas_definidas ?? null)
+  const montagem = useMemo(() => {
+    if (!emDuplasFixas) return null
+    // no misto as duplas fixas priorizam homem + mulher (quem sobra, mesmo genero, com aviso)
+    const montar = (ids: string[]) => montarDuplasPorNivel(ids, forca, EH_MISTO ? generos : undefined, sorteio)
+    return duplasAntes ? manterDuplas(duplasAntes, selected, montar) : montar(selected)
+  }, [emDuplasFixas, selected, forca, sorteio, generos, duplasAntes])
   const duplasDaNoite = useMemo(() => {
     if (!montagem) return []
     return trocasDeDupla
@@ -985,6 +1002,7 @@ function NewPlay({
     setTrocasDeDupla([])
     setDuplasMovidas([])
     setTocadaNaDupla(null)
+    setDuplasAntes(null)
   }
 
   /** Campeonato: menina para outra categoria e grupo (livre; o criar acusa grupo com menos de 4). */

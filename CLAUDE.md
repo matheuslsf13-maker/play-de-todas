@@ -363,7 +363,11 @@ masculino e o misto descrevem esse código parado.
   tela de criar **no lugar** do play (não por cima), já preenchida, com cada menina no grupo em
   que estava. Salvar **regrava o mesmo play** (mesmo id: check-ins, lista, diário e ausentes
   ficam; `escolhas`, `duos` e desempates caem com a fila antiga) e anota `tipo: 'reconfigurar'`.
-  No campeonato e nas duplas fixas a divisão é refeita pela força (o que foi movido na mão se perde).
+  **A configuração de antes fica**: no campeonato cada uma volta à categoria e ao grupo dela
+  (`lugaresNoCampeonato` → `movidasCat`) e as quadras de cada categoria se mantêm; nas duplas
+  fixas as duplas inteiras ficam, na mesma categoria (`manterDuplas`), e só quem chegou ou perdeu
+  a parceira forma dupla nova. Quem chega é encaixada pela força. O "sortear / montar de novo"
+  solta tudo e refaz pela força. `tests/reconfigurar.test.ts`.
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
   as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
   cabeçalho, "avulso" marcado), 2 plays de cara e mais 4 a cada "ver mais" (08/11/2026; as tabelas "Com quem/Contra quem já
