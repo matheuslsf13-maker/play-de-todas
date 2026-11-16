@@ -279,7 +279,7 @@ export default function Play({
       <NewPlay
         preset={creating}
         daLista={daLista?.ids}
-        onCriarLista={TEM_LISTA && canEdit && !daLista ? () => setCriandoLista(true) : undefined}
+        onCriarLista={TEM_LISTA && canEdit && !daLista && !creating.id ? () => setCriandoLista(true) : undefined}
         onCancel={() => { setCreating(null); setDaLista(null) }}
         onCreated={(id) => {
           // a lista guarda de qual play ela virou (serve ao financeiro)
@@ -306,6 +306,8 @@ export default function Play({
       <PlayDetail
         session={open}
         onBack={() => setOpenId(null)}
+        // reconfigurar: a tela de criar no lugar do play (o openId fica, e o Cancelar volta para ele)
+        onReconfigurar={() => setCreating(open)}
         onToast={onToast}
       />
     )
@@ -733,7 +735,13 @@ function NewPlay({
   onCreated: (id: string) => void
   onToast: (m: string) => void
 }) {
-  const { data, saveSession, saveMatches, savePlayer, playerById, nameOf } = useStore()
+  const { data, saveSession, saveMatches, savePlayer, playerById, nameOf, replaceSessionMatches } = useStore()
+  /**
+   * RECONFIGURAR: o preset e o proprio play (tem id). Salvar regrava ESTE play
+   * em vez de criar outro, entao o dia dos check-ins e a lista (ligados pelo id),
+   * o diario e o "quem nao chegou" ficam. So vale antes do primeiro placar.
+   */
+  const editando = preset.id ? (preset as PlaySession) : null
   const [date, setDate] = useState(preset.date ?? todayISO())
   const [title, setTitle] = useState(preset.title ?? 'Play de Todas')
   const [courts, setCourts] = useState(preset.courts ?? 3)
@@ -744,14 +752,16 @@ function NewPlay({
         ? 'campeonato'
         : (preset.format ?? 'todas'),
   )
-  const [porGrupo, setPorGrupo] = useState(8)
+  const [porGrupo, setPorGrupo] = useState(
+    editando?.groups && editando.groups.length > 1 ? Math.max(...editando.groups.map((g) => g.length)) : 8,
+  )
   /** Quantas duplas entram no mata-mata: 8 = 16 jogadoras, quartas de final. */
-  const [duplasMM, setDuplasMM] = useState(8)
+  const [duplasMM, setDuplasMM] = useState(preset.duplas_mm ?? 8)
   /** Games que fecham a partida em cada fase: grupos, duplas, semi, final. */
-  const [alvos, setAlvos] = useState<number[]>([4, 4, 4, 4])
+  const [alvos, setAlvos] = useState<number[]>(preset.alvos ?? [4, 4, 4, 4])
   /** O desempate de cada fase, na mesma ordem. */
   const [desempates, setDesempates] = useState<string[]>(
-    ['nenhum', 'nenhum', 'nenhum', 'nenhum'],
+    preset.desempates ?? ['nenhum', 'nenhum', 'nenhum', 'nenhum'],
   )
   const [ranked, setRanked] = useState(preset.ranked ?? true)
   const [contaStatus, setContaStatus] = useState(preset.conta_status ?? preset.ranked ?? true)
@@ -850,8 +860,8 @@ function NewPlay({
   /** Os dois formatos que dividem as quadras por categoria. */
   const porCategorias = emCampeonato || emDuplasFixas
   /** Campeonato: quantas categorias e quantos grupos em cada uma. */
-  const [nCategorias, setNCategorias] = useState(3)
-  const [gruposPorCategoria, setGruposPorCategoria] = useState(2)
+  const [nCategorias, setNCategorias] = useState(preset.categorias?.length || 3)
+  const [gruposPorCategoria, setGruposPorCategoria] = useState(preset.categorias?.[0]?.grupos.length || 2)
   /** Campeonato: quantas quadras cada categoria tem (null = dividir o total por igual). */
   const [qtdQuadrasEditada, setQtdQuadras] = useState<number[] | null>(null)
   /** Campeonato: ajustes na mao, menina -> categoria e grupo. */
@@ -874,7 +884,10 @@ function NewPlay({
    * Os ajustes ficam por cima do sorteio e sobrevivem a marcar mais uma
    * presenca -- so um novo sorteio limpa tudo.
    */
-  const [movidas, setMovidas] = useState<Record<string, number>>({})
+  // reconfigurando, cada uma comeca no grupo em que estava; quem chega cai pela forca
+  const [movidas, setMovidas] = useState<Record<string, number>>(() =>
+    Object.fromEntries((editando?.groups ?? []).flatMap((g, i) => g.map((id) => [id, i]))),
+  )
   /** Quem esta selecionada para mudar de grupo. */
   const [movendo, setMovendo] = useState<string | null>(null)
   const gruposBase = useMemo(() => {
@@ -1197,7 +1210,22 @@ function NewPlay({
               genero: generoDoRodizio,
             })
       const session: PlaySession = {
-        id: uid(),
+        // reconfigurando: o mesmo play, com diario e ausentes; a escolha na mao e
+        // as duplas/desempates eram da fila antiga e caem junto com ela
+        ...(editando
+          ? {
+              ...editando,
+              duos: null,
+              desempates_grupo: null,
+              quadras_cedidas: null,
+              escolhas: null,
+              eventos: [
+                ...(editando.eventos ?? []),
+                { at: new Date().toISOString(), tipo: 'reconfigurar' as const, texto: `Play reconfigurado: ${selected.length} meninas, ${fila.length} partidas`, jogadas: 0 },
+              ],
+            }
+          : {}),
+        id: editando?.id ?? uid(),
         date,
         title: title.trim() || 'Play de Todas',
         courts: effCourts,
@@ -1208,7 +1236,7 @@ function NewPlay({
         desempate_vai2: true,
         player_ids: selected,
         status: 'open',
-        created_at: new Date().toISOString(),
+        created_at: editando?.created_at ?? new Date().toISOString(),
         format: emDuplasFixas ? 'grupos-duplas' : emGrupos ? (emDuplas ? 'grupos-duplas' : 'grupos') : 'todas',
         groups: camp ? camp.groups : emGrupos ? grupos : null,
         categorias: camp ? camp.categorias : null,
@@ -1226,12 +1254,13 @@ function NewPlay({
         conta_status: contaStatus,
       }
       await saveSession(session)
-      await saveMatches(planToMatches(session.id, fila))
+      if (editando) await replaceSessionMatches(session.id, planToMatches(session.id, fila))
+      else await saveMatches(planToMatches(session.id, fila))
       for (const id of despausadas) {
         const p = data.players.find((x) => x.id === id)
         if (p && selected.includes(id)) void savePlayer(fecharPausa(data, p, todayISO(), session.id))
       }
-      onToast('Partidas geradas! 🎾')
+      onToast(editando ? 'Play reconfigurado! ⚙️' : 'Partidas geradas! 🎾')
       onCreated(session.id)
     } finally {
       setBusy(false)
@@ -1242,7 +1271,7 @@ function NewPlay({
     <>
       <div className="card">
         <div className="row spread">
-          <div className="section-title" style={{ margin: 0 }}>🎾 Novo Play</div>
+          <div className="section-title" style={{ margin: 0 }}>{editando ? '⚙️ Reconfigurar o play' : '🎾 Novo Play'}</div>
           <button className="btn ghost sm" onClick={onCancel}>Cancelar</button>
         </div>
         {onCriarLista && (
@@ -1890,7 +1919,7 @@ function NewPlay({
       )}
 
       <button className="btn pink block" disabled={selected.length < 4 || busy} onClick={() => void create()}>
-        {busy ? 'Montando as duplas…' : `✨ Gerar ${totalPartidas || ''} partidas e começar`}
+        {busy ? 'Montando as duplas…' : editando ? `⚙️ Salvar e gerar ${totalPartidas || ''} partidas` : `✨ Gerar ${totalPartidas || ''} partidas e começar`}
       </button>
     </>
   )
@@ -1975,10 +2004,12 @@ function trocarNaPartida(m: Match, sai: string, entra: string): Match {
 function PlayDetail({
   session,
   onBack,
+  onReconfigurar,
   onToast,
 }: {
   session: PlaySession
   onBack: () => void
+  onReconfigurar: () => void
   onToast: (m: string) => void
 }) {
   const { data, nameOf, playerById, canEdit, saveMatches, savePlayer, saveSession, anotarNoPlay, mesclarNoPlay, replaceSessionMatches, saveCheckinDia, saveCheckin, saveCheckinPagamento } =
@@ -4173,7 +4204,7 @@ function PlayDetail({
                 <span className="fila-num">{horaLocal(e.at)}</span>
                 <div className="grow">
                   <span className="fila-time">
-                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : e.tipo === 'reabrir' ? '🔓' : e.tipo === 'adiar' ? '📅' : '♻️'} {e.texto}
+                    {e.tipo === 'troca' ? '🔄' : e.tipo === 'entra-sai' ? '🔁' : e.tipo === 'quadra' ? '🏐' : e.tipo === 'grupos' ? '👥' : e.tipo === 'reabrir' ? '🔓' : e.tipo === 'adiar' ? '📅' : e.tipo === 'reconfigurar' ? '⚙️' : '♻️'} {e.texto}
                   </span>
                   <span className="tiny muted">
                     {e.jogadas === 0
@@ -4243,6 +4274,21 @@ function PlayDetail({
               <span className="ini-ic" aria-hidden="true">♻️</span>
               <span className="g"><b>Refazer tudo</b><span className="sub">monta a noite de novo</span></span>
             </button>
+            {/* so antes do 1o placar: com placar, mudar os grupos quebraria a conta do rodizio.
+                Abre a tela de criar NO LUGAR do play, nao por cima (dono, 16/11) */}
+            {!finished && doneCount === 0 && (
+              <button
+                className="ini-linha ini-chev"
+                onClick={() => {
+                  if (emJogo.length && !confirm('Há partida em quadra. Reconfigurar gera uma fila nova e ela volta a não ter começado. Continuar?')) return
+                  setGerenciando(false)
+                  onReconfigurar()
+                }}
+              >
+                <span className="ini-ic" aria-hidden="true">⚙️</span>
+                <span className="g"><b>Reconfigurar o play</b><span className="sub">mais meninas, outro formato ou outros grupos</span></span>
+              </button>
+            )}
           </div>
           {podeAdiar(session, data.matches) && (
             <>
