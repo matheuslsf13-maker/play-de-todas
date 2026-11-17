@@ -3152,3 +3152,14 @@ button.st-linha:active { background: var(--pink-suave); }
 .carreira-niveis span { font-size: 18px; line-height: 1.2; }
 .carreira-niveis b { font-size: 15px; font-variant-numeric: tabular-nums; }
 .carreira-niveis small { font-size: 10px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+
+/* LISTAS QUE CRESCEM (dono, 17/11): no "ver mais" a linha nova surge descendo de leve, em escada dentro do lote,
+   em vez de a lista aumentar de uma vez. So no mount: as linhas que ja estavam nao animam de novo. */
+@keyframes surgir { from { opacity: 0; transform: translateY(-8px); } }
+.surge, .surge-lista > * { animation: surgir 380ms var(--ease-out) backwards; animation-delay: calc(var(--k, 0) * 40ms); }
+.surge-lista > :nth-child(10n+2) { --k: 1; } .surge-lista > :nth-child(10n+3) { --k: 2; }
+.surge-lista > :nth-child(10n+4) { --k: 3; } .surge-lista > :nth-child(10n+5) { --k: 4; }
+.surge-lista > :nth-child(10n+6) { --k: 5; } .surge-lista > :nth-child(10n+7) { --k: 6; }
+.surge-lista > :nth-child(10n+8) { --k: 7; } .surge-lista > :nth-child(10n+9) { --k: 8; }
+.surge-lista > :nth-child(10n+10) { --k: 9; }
+@media (prefers-reduced-motion: reduce) { .surge, .surge-lista > * { animation: none; } }
