@@ -742,7 +742,7 @@ masculino e o misto descrevem esse código parado.
   caixinha, "De onde veio e para onde foi" recolhido e o Excel numa lista agrupada (`ini-grupo`). Novo lançamento com
   "➖ Saída / ➕ Receita extra" e chips com ícone (`ICONE_DO_CAIXA`). Com a caixinha marcada, uma barra mostra a divisão
   (R$ X da caixinha + R$ Y do caixa geral) e o texto explica que pode lançar o valor inteiro; a lista mostra a divisão
-  de cada gasto.
+  de cada gasto. Entrada em verde e saída em vermelho em todo o resumo (`valor-pos`/`valor-neg`; saldo pelo sinal).
 
 ## 🗓️ Cartão do momento na tela inicial (D42)
 

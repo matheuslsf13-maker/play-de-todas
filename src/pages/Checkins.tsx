@@ -1127,7 +1127,7 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
           <div className="ini-met" style={{ marginTop: 0, borderTop: '.5px solid var(--sep)' }}>
             <div><strong className="caixa-num valor-pos"><Reais n={linhaDoMes.receitaTotal} /></strong><span>entrou</span></div>
             <div><strong className="caixa-num valor-neg"><Reais n={linhaDoMes.despesaTotal} /></strong><span>saiu</span></div>
-            <div><strong className="caixa-num"><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong><span>no caixa</span></div>
+            <div><strong className={`caixa-num ${linhaDoMes.saldoAcumulado < 0 ? 'valor-neg' : 'valor-pos'}`}><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong><span>no caixa</span></div>
           </div>
           {(linhaDoMes.eventosAcumulado !== 0 || temEventos) && (
             <button className="ini-linha ini-chev" onClick={() => setVerEventos(true)}>
@@ -1144,15 +1144,15 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
             <div className="ini-corpo">
               <table className="table">
                 <tbody>
-                  <tr><td>Receita dos plays</td><td><Reais n={linhaDoMes.receitasPlay} /></td></tr>
-                  {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td><Reais n={linhaDoMes.mensalidades} /></td></tr>}
-                  <tr><td>Receitas extras</td><td><Reais n={linhaDoMes.receitasExtras} /></td></tr>
-                  <tr><td><strong>Receita total</strong></td><td><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
-                  <tr><td>Aluguel</td><td><Reais n={linhaDoMes.aluguel} /></td></tr>
-                  <tr><td>Brindes e presentes</td><td><Reais n={linhaDoMes.brindes} /></td></tr>
-                  <tr><td>Confraternização</td><td><Reais n={linhaDoMes.confraternizacao} /></td></tr>
-                  <tr><td>Outras despesas</td><td><Reais n={linhaDoMes.outras} /></td></tr>
-                  <tr><td><strong>Despesa total</strong></td><td><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
+                  <tr><td>Receita dos plays</td><td className="valor-pos"><Reais n={linhaDoMes.receitasPlay} /></td></tr>
+                  {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td className="valor-pos"><Reais n={linhaDoMes.mensalidades} /></td></tr>}
+                  <tr><td>Receitas extras</td><td className="valor-pos"><Reais n={linhaDoMes.receitasExtras} /></td></tr>
+                  <tr><td><strong>Receita total</strong></td><td className="valor-pos"><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
+                  <tr><td>Aluguel</td><td className="valor-neg"><Reais n={linhaDoMes.aluguel} /></td></tr>
+                  <tr><td>Brindes e presentes</td><td className="valor-neg"><Reais n={linhaDoMes.brindes} /></td></tr>
+                  <tr><td>Confraternização</td><td className="valor-neg"><Reais n={linhaDoMes.confraternizacao} /></td></tr>
+                  <tr><td>Outras despesas</td><td className="valor-neg"><Reais n={linhaDoMes.outras} /></td></tr>
+                  <tr><td><strong>Despesa total</strong></td><td className="valor-neg"><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
                 </tbody>
               </table>
               <p className="tiny muted" style={{ margin: '8px 0 0' }}>
@@ -1179,20 +1179,20 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
                 {resumo.map((r) => (
                   <tr key={r.mes}>
                     <td>{monthLabel(r.mes).slice(0, 3)}/{r.mes.slice(2, 4)}</td>
-                    <td><Reais n={r.receitasPlay} /></td><td><Reais n={r.mensalidades} /></td><td><Reais n={r.receitasExtras} /></td><td><Reais n={r.receitaTotal} /></td>
-                    <td><Reais n={r.aluguel} /></td><td><Reais n={r.brindes} /></td><td><Reais n={r.confraternizacao} /></td>
-                    <td><Reais n={r.outras} /></td><td><Reais n={r.despesaTotal} /></td>
-                    <td><Reais n={r.saldoDoMes} sinal /></td><td><Reais n={r.saldoAcumulado} sinal /></td>
+                    <td className="valor-pos"><Reais n={r.receitasPlay} /></td><td className="valor-pos"><Reais n={r.mensalidades} /></td><td className="valor-pos"><Reais n={r.receitasExtras} /></td><td className="valor-pos"><Reais n={r.receitaTotal} /></td>
+                    <td className="valor-neg"><Reais n={r.aluguel} /></td><td className="valor-neg"><Reais n={r.brindes} /></td><td className="valor-neg"><Reais n={r.confraternizacao} /></td>
+                    <td className="valor-neg"><Reais n={r.outras} /></td><td className="valor-neg"><Reais n={r.despesaTotal} /></td>
+                    <td className={r.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={r.saldoDoMes} sinal /></td><td className={r.saldoAcumulado < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={r.saldoAcumulado} sinal /></td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
                   <td>Total</td>
-                  <td><Reais n={totais.receitasPlay} /></td><td><Reais n={totais.mensalidades} /></td><td><Reais n={totais.receitasExtras} /></td><td><Reais n={totais.receitaTotal} /></td>
-                  <td><Reais n={totais.aluguel} /></td><td><Reais n={totais.brindes} /></td><td><Reais n={totais.confraternizacao} /></td>
-                  <td><Reais n={totais.outras} /></td><td><Reais n={totais.despesaTotal} /></td>
-                  <td><Reais n={totais.saldoDoMes} sinal /></td><td><Reais n={resumo[resumo.length - 1]?.saldoAcumulado ?? 0} sinal /></td>
+                  <td className="valor-pos"><Reais n={totais.receitasPlay} /></td><td className="valor-pos"><Reais n={totais.mensalidades} /></td><td className="valor-pos"><Reais n={totais.receitasExtras} /></td><td className="valor-pos"><Reais n={totais.receitaTotal} /></td>
+                  <td className="valor-neg"><Reais n={totais.aluguel} /></td><td className="valor-neg"><Reais n={totais.brindes} /></td><td className="valor-neg"><Reais n={totais.confraternizacao} /></td>
+                  <td className="valor-neg"><Reais n={totais.outras} /></td><td className="valor-neg"><Reais n={totais.despesaTotal} /></td>
+                  <td className={totais.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={totais.saldoDoMes} sinal /></td><td className={(resumo[resumo.length - 1]?.saldoAcumulado ?? 0) < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={resumo[resumo.length - 1]?.saldoAcumulado ?? 0} sinal /></td>
                 </tr>
               </tfoot>
             </table>

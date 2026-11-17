@@ -2942,6 +2942,7 @@ button.st-linha:active { background: var(--pink-suave); }
 .caixa-saldo-mes > span { font-size: 13px; color: var(--muted); }
 .caixa-saldo-mes strong { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
 .ini-met strong.caixa-num { font-size: 16px; }
+.ini-met strong.caixa-num span { color: inherit; font-size: inherit; } /* o <Reais> e um span: sem isto pegava o cinza da legenda */
 .caixinha-uso { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card-2); }
 .caixinha-uso.on { border-color: color-mix(in srgb, var(--pink) 45%, transparent); background: var(--pink-suave); }
 .caixinha-uso input[type="checkbox"] { width: 20px; height: 20px; flex: none; accent-color: var(--pink); }
@@ -2951,3 +2952,5 @@ button.st-linha:active { background: var(--pink-suave); }
 .caixinha-barra .do-caixa, .caixinha-legenda i.do-caixa { background: var(--muted); opacity: .6; }
 .caixinha-legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; font-weight: 700; }
 .caixinha-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+/* resumo do caixa: entrada verde, saida vermelha, sem pesar a tabela */
+.table td.valor-pos, .table td.valor-neg { font-weight: 700; }
