@@ -830,10 +830,11 @@ masculino e o misto descrevem esse código parado.
 - **Ações de uma pessoa ficam numa folha** (dono, 12/11/2026): em Meninas e em Financeiro › Atletas a linha mostra só a
   informação e tocar nela abre a folha (`Modal` + `.folha-acoes`). Em Financeiro: Lançar um play, Mensalidade, Extrato,
   Acertar o saldo e, à parte, Forma de pagamento e Contas de check-in. Nada de link ou chip solto no cartão.
-- **Abas do Desempenho** (dono, 17/11, "D2"): as duas barras (`.st-seg`) sem caixa; a escolhida tem a escrita no
-  degradê do título (`--grad-titulo`) e um traço de 4 px que **desliza** até a aba tocada (`.st-traco`, `--i`/`--n`;
-  o traço é uma janela de um degradê do tamanho da barra, então a cor muda andando). A cor da escrita aparece aos
-  poucos: o degradê fica sempre atrás do texto e o cinza some. Parado com `prefers-reduced-motion`.
+- **Abas do Desempenho** (dono, 17/11, "D2"; `components/AbasComTraco.tsx`): as duas barras (`.st-seg`) sem caixa; a
+  escolhida tem a escrita e um traço de 5 px colado embaixo, **cada um com o degradê inteiro** do nome da tela inicial
+  (`--grad-titulo`, roxo → rosa → laranja). Trocar de aba desliza o traço e, no mesmo tempo e na mesma conta, uma janela
+  (`.st-pintura`, cópia dos rótulos recortada por `clip-path` na coluna `--i`/`--n`) que pinta a palavra nova enquanto o
+  traço chega. Parado com `prefers-reduced-motion`.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 
