@@ -28,7 +28,7 @@ import {
   type PairKeyStat,
   type playedMatches,
 } from '../lib/stats'
-import { streakLevel, type computeStreaks } from '../lib/streaks'
+import { STREAK_LADDER, streakLevel, type computeStreaks } from '../lib/streaks'
 import { useStore } from '../lib/store'
 import { dateLabel, monthOf, plural } from '../lib/types'
 
@@ -407,9 +407,25 @@ function Escada({
       <div className="st-rotulo">
         Status · {seq === 0 ? 'sem sequência' : `${seq} ${seq === 1 ? 'pódio seguido' : 'pódios seguidos'}`}
       </div>
-      <CaminhoDoStatus seq={seq} vezes={vezes} />
+      <CaminhoDoStatus seq={seq} />
+      {/* a carreira (dono, 17/11): quantas vezes chegou em cada status, quantos no total e o maximo */}
+      <div className="carreira">
+        <div className="carreira-topo">
+          <span>Na carreira · {plural(STREAK_LADDER.reduce((t, x) => t + vezes(x.from), 0), 'status', 'status')}</span>
+          <span>Máximo: <strong>{maior}</strong></span>
+        </div>
+        <div className="carreira-niveis">
+          {STREAK_LADDER.map((x) => (
+            <div key={x.from} className={vezes(x.from) > 0 ? 'tem' : undefined}>
+              <span aria-hidden="true">{x.emoji}</span>
+              <b>×{vezes(x.from)}</b>
+              <small>{x.title.replace(' da V3', '').replace(' do Play', '')}</small>
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="tiny muted" style={{ marginTop: 10 }}>
-        Maior status: <strong style={{ color: 'var(--text)' }}>{maior}</strong> · {plural(podios, 'pódio')} · {plural(diasVencidos, 'dia vencido')}
+        {plural(podios, 'pódio')} · {plural(diasVencidos, 'dia vencido')}
       </div>
       {duquesas && (
         <div className="tiny" style={{ marginTop: 6, color: 'var(--ouro)', fontWeight: 700 }}>👑 Duquesa em {duquesas}</div>

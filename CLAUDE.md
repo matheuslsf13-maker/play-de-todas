@@ -850,9 +850,11 @@ masculino e o misto descrevem esse código parado.
 - **Caminho do status** (dono, 17/11; `components/CaminhoDoStatus.tsx`): 🏅 → 🔥 → ⚡ → 💎 → 👑 em bolas ligadas por um
   traço de **borda a borda** (nunca por dentro do desenho). O que ela já passou fica aceso e animado (a medalha reluz, o
   fogo tremula, o raio pisca, o diamante cintila, a coroa flutua), o degrau de agora pulsa e o traço que chega nele tem
-  uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. Usado no perfil (Desempenho) e na tela
-  inicial: quem tem o **maior status** ganha o cartão grande (`.status-destaque`: foto de 76 px, "🏆 Maior status agora",
-  o caminho com os nomes; empate = todas), as outras uma linha com foto de 52 px e o caminho `compacto`.
+  uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. No **perfil** (Desempenho), embaixo do
+  caminho, "Na carreira": quantas vezes chegou em cada status (`conquistas.vezes`), o total e o máximo. Na **tela
+  inicial** só o **maior status do mês** (`maiorDoMes` em Ranking.tsx, pelos `streaks.steps` dos plays do mês: quem
+  chegou mais alto, mesmo que tenha perdido depois; empate = todas; no histórico, de todos os tempos), em cartão grande
+  (`.status-destaque`: foto de 76 px e o caminho).
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

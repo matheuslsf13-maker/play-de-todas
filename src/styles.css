@@ -3117,3 +3117,14 @@ button.st-linha:active { background: var(--pink-suave); }
   .desliza.dir, .desliza.esq { animation: none; }
   .segmented.gelatina .gelatina-pilula { transition: none !important; }
 }
+
+/* CARREIRA DO STATUS no perfil (dono, 17/11) */
+.carreira { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sep, var(--line)); }
+.carreira-topo { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.carreira-topo strong { color: var(--text); text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.carreira-niveis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.carreira-niveis > div { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 2px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line); opacity: .5; }
+.carreira-niveis > div.tem { opacity: 1; border-color: color-mix(in srgb, var(--orange) 50%, var(--line)); background: color-mix(in srgb, var(--orange) 10%, var(--card-2)); }
+.carreira-niveis span { font-size: 18px; line-height: 1.2; }
+.carreira-niveis b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.carreira-niveis small { font-size: 10px; font-weight: 700; color: var(--muted); white-space: nowrap; }
