@@ -35,6 +35,7 @@ import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
 const PerfilDaDupla = lazy(() => import('./Stats').then((m) => ({ default: m.PerfilDaDupla })))
 import CartaoDoMomento from '../components/CartaoDoMomento'
 import { AbasComTraco } from '../components/AbasComTraco'
+import { CaminhoDoStatus } from '../components/CaminhoDoStatus'
 import { monthLabel, monthOf, plural, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
@@ -324,26 +325,49 @@ export default function Ranking({
       {/* UM bloco de status (dono, 08/11): quem esta em sequencia e, um toque abaixo, como funciona. */}
       <div className="ini-sec" id="como-funciona-status"><h2>Status</h2></div>
       <div className="ini-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</div>
+      {/* quem tem o maior status ganha o cartao grande, com a foto e o caminho animado (dono, 17/11); empate = todas */}
+      {fire
+        .filter((f) => f.streak === fire[0].streak)
+        .map((f) => {
+          const lvl = streakLevel(f.streak)
+          const falta = MAX_STREAK - f.streak
+          return (
+            <div className={`status-destaque${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
+              <span className="status-selo">🏆 Maior status agora</span>
+              <div className="status-topo">
+                <Avatar player={playerById(f.player_id)} size={76} />
+                <div className="g">
+                  <b className="ellipsis"><NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel></b>
+                  <span className="status-titulo">{lvl?.emoji} {lvl?.title}</span>
+                  <span className="status-falta">
+                    {plural(f.streak, 'pódio seguido', 'pódios seguidos')} · {falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}
+                  </span>
+                </div>
+              </div>
+              <CaminhoDoStatus seq={f.streak} />
+            </div>
+          )
+        })}
       <div className="ini-grupo">
-        {fire.length > 0 ? (
-          fire.map((f) => {
+        {fire
+          .filter((f) => f.streak < fire[0].streak)
+          .map((f) => {
             const lvl = streakLevel(f.streak)
             const falta = MAX_STREAK - f.streak
             return (
-              <div className={`ini-linha${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
-                <Avatar player={playerById(f.player_id)} size={42} />
+              <div className="ini-linha status-linha" key={f.player_id}>
+                <Avatar player={playerById(f.player_id)} size={52} />
                 <div className="g">
                   <b className="ellipsis"><NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel></b>
-                  <span className="ini-status">{lvl?.title} {lvl?.emoji}</span>
-                  <div className="ini-pips" aria-label={`${f.streak} de ${MAX_STREAK} pódios seguidos`}>
-                    {Array.from({ length: MAX_STREAK }, (_, i) => <i key={i} className={i < f.streak ? 'f' : undefined} />)}
-                    <span>{falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}</span>
-                  </div>
+                  <span className="ini-status">
+                    {lvl?.title} {lvl?.emoji} <em>· {falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}</em>
+                  </span>
+                  <CaminhoDoStatus seq={f.streak} compacto />
                 </div>
               </div>
             )
-          })
-        ) : (
+          })}
+        {fire.length === 0 && (
           <div className="ini-linha"><span className="sub">Ninguém em sequência agora: o próximo pódio começa uma.</span></div>
         )}
         <details className="ini-detalhe">

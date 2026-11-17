@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { AbasComTraco } from './AbasComTraco'
+import { CaminhoDoStatus } from './CaminhoDoStatus'
 import CampoDeBusca from './CampoDeBusca'
 import { ComparadorDeAtletas } from './Comparador'
 import GraficoDeForca from './GraficoDeForca'
@@ -27,7 +28,7 @@ import {
   type PairKeyStat,
   type playedMatches,
 } from '../lib/stats'
-import { STREAK_LADDER, streakLevel, type computeStreaks } from '../lib/streaks'
+import { streakLevel, type computeStreaks } from '../lib/streaks'
 import { useStore } from '../lib/store'
 import { dateLabel, monthOf, plural } from '../lib/types'
 
@@ -399,29 +400,12 @@ function Escada({
   diasVencidos: number
   duquesas?: string
 }) {
-  const degraus: { emoji: string; titulo: string; from: number }[] = [
-    { emoji: '🏅', titulo: '1º pódio', from: 1 },
-    ...STREAK_LADDER.map((x) => ({ emoji: x.emoji, titulo: x.title, from: x.from })),
-  ]
-  // o degrau de agora: o mais alto que a sequencia alcanca (0 = nenhum)
-  const agora = degraus.reduce((m, d, i) => (seq >= d.from ? i : m), -1)
   return (
     <div className="st-card">
       <div className="st-rotulo">
         Status · {seq === 0 ? 'sem sequência' : `${seq} ${seq === 1 ? 'pódio seguido' : 'pódios seguidos'}`}
       </div>
-      <div className="st-escada">
-        {degraus.map((d, i) => {
-          const n = d.from > 1 ? vezes(d.from) : 0
-          return (
-            <div key={d.from} className={`st-degrau${i < agora ? ' feito' : i === agora ? ' agora' : ''}`}>
-              <div className="st-bola" aria-hidden="true">{d.emoji}</div>
-              {d.titulo.replace(' da V3', '').replace(' do Play', '')}
-              {n > 0 && <small>×{n}</small>}
-            </div>
-          )
-        })}
-      </div>
+      <CaminhoDoStatus seq={seq} vezes={vezes} />
       <div className="tiny muted" style={{ marginTop: 10 }}>
         Maior status: <strong style={{ color: 'var(--text)' }}>{maior}</strong> · {plural(podios, 'pódio')} · {plural(diasVencidos, 'dia vencido')}
       </div>

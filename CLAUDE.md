@@ -840,6 +840,12 @@ masculino e o misto descrevem esse código parado.
 - **Trilha de miniaturas do Desempenho** (dono, 17/11): fica parada na ordem da força (escolher não leva a menina para a
   frente; quem veio da busca e não está entre as 16 entra no começo) e o anel da escolhida acende na **cor do nível dela**,
   a mesma do anel do perfil (`--cor-nivel` na `.st-trilha`).
+- **Caminho do status** (dono, 17/11; `components/CaminhoDoStatus.tsx`): 🏅 → 🔥 → ⚡ → 💎 → 👑 em bolas ligadas por um
+  traço de **borda a borda** (nunca por dentro do desenho). O que ela já passou fica aceso e animado (a medalha reluz, o
+  fogo tremula, o raio pisca, o diamante cintila, a coroa flutua), o degrau de agora pulsa e o traço que chega nele tem
+  uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. Usado no perfil (Desempenho) e na tela
+  inicial: quem tem o **maior status** ganha o cartão grande (`.status-destaque`: foto de 76 px, "🏆 Maior status agora",
+  o caminho com os nomes; empate = todas), as outras uma linha com foto de 52 px e o caminho `compacto`.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

@@ -2712,16 +2712,6 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .st-dest em { font-style: normal; font-size: 11.5px; color: var(--muted); }
 
 /* status como escada */
-.st-escada { display: flex; align-items: flex-start; }
-.st-degrau { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--muted); position: relative; min-width: 0; }
-.st-bola { width: 36px; height: 36px; margin: 0 auto 4px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; background: var(--card-2); border: 1px solid var(--line); position: relative; z-index: 1; }
-.st-degrau.feito .st-bola { background: var(--orange-suave); border-color: var(--orange); }
-.st-degrau.agora .st-bola { background: var(--orange-suave); border-color: var(--orange); box-shadow: 0 0 0 4px var(--orange-suave); }
-.st-degrau.agora { color: var(--text); font-weight: 800; }
-.st-degrau::before { content: ''; position: absolute; top: 18px; left: -50%; width: 100%; height: 2px; background: var(--line); }
-.st-degrau:first-child::before { display: none; }
-.st-degrau.feito::before, .st-degrau.agora::before { background: var(--orange); }
-.st-degrau small { display: block; font-size: 9.5px; opacity: .8; }
 
 /* listas compactas */
 .st-lista { display: flex; flex-direction: column; }
@@ -3030,3 +3020,84 @@ button.st-linha:active { background: var(--pink-suave); }
 /* no Ranking a barra Individual / Duplas e a mesma do Desempenho */
 .ini-nota + .st-seg { margin-bottom: 8px; }
 @media (prefers-reduced-motion: reduce) { .tabbar-pilula { transition: none; } }
+
+/* CAMINHO DO STATUS (dono, 17/11, CaminhoDoStatus): traco de borda a borda e cada degrau aceso animado */
+.caminho { --bola: 40px; --vao: 5px; display: flex; align-items: flex-start; }
+.caminho.compacto { --bola: 30px; --vao: 4px; }
+.caminho-degrau { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.caminho-traco {
+  position: absolute; top: calc(var(--bola) / 2 - 1.5px); height: 3px; border-radius: 3px; background: var(--line-2);
+  left: calc(-50% + var(--bola) / 2 + var(--vao)); right: calc(50% + var(--bola) / 2 + var(--vao));
+}
+.caminho-traco.aceso { background: linear-gradient(90deg, var(--orange), var(--yellow)); box-shadow: 0 0 8px color-mix(in srgb, var(--orange) 50%, transparent); }
+/* o traco que chega no degrau de agora tem uma luz correndo */
+.caminho-traco.chegando { background: linear-gradient(90deg, var(--orange) 0 35%, #fff6 50%, var(--yellow) 65% 100%); background-size: 300% 100%; animation: caminho-corre 2.2s linear infinite; }
+@keyframes caminho-corre { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.caminho-bola {
+  position: relative; width: var(--bola); height: var(--bola); border-radius: 50%; display: grid; place-items: center;
+  font-size: calc(var(--bola) * .44); background: var(--card-2); border: 1.5px solid var(--line-2);
+}
+.caminho-emoji { display: block; line-height: 1; }
+.caminho-degrau.falta .caminho-emoji { filter: grayscale(1); opacity: .4; }
+.caminho-degrau.feito .caminho-bola, .caminho-degrau.agora .caminho-bola {
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--orange) 30%, var(--card-2)), var(--card-2)); border-color: var(--orange);
+}
+.caminho-degrau.agora .caminho-bola { box-shadow: 0 0 14px color-mix(in srgb, var(--orange) 55%, transparent); }
+/* o degrau de agora pulsa: um anel que cresce e some */
+.caminho-degrau.agora .caminho-bola::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--orange); animation: caminho-pulso 1.8s ease-out infinite;
+}
+@keyframes caminho-pulso { from { transform: scale(1); opacity: .9; } to { transform: scale(1.45); opacity: 0; } }
+.caminho-nome { font-size: 10.5px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; max-width: 100%; }
+.caminho-nome small { display: block; font-size: 9.5px; opacity: .8; }
+.caminho-degrau.feito .caminho-nome { color: color-mix(in srgb, var(--orange) 60%, var(--text)); }
+.caminho-degrau.agora .caminho-nome { color: var(--text); font-weight: 800; }
+/* a Duquesa e de ouro */
+.caminho-bola.coroa { border-color: var(--ouro, #e9b949); box-shadow: 0 0 14px color-mix(in srgb, var(--ouro, #e9b949) 60%, transparent); }
+
+/* medalha: um reflexo passa por ela */
+.caminho-bola.reluz { overflow: hidden; }
+.caminho-bola.reluz::after {
+  content: ''; position: absolute; inset: -20%; background: linear-gradient(115deg, transparent 40%, #fff9 50%, transparent 60%);
+  transform: translateX(-120%); animation: caminho-reluz 3s ease-in-out infinite;
+}
+.caminho-degrau.agora .caminho-bola.reluz { overflow: visible; }
+@keyframes caminho-reluz { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+/* fogo: tremula pela base */
+.caminho-bola.chama .caminho-emoji { transform-origin: 50% 90%; animation: caminho-chama 1.1s ease-in-out infinite alternate; }
+@keyframes caminho-chama {
+  0% { transform: scale(1) rotate(-3deg); } 30% { transform: scale(1.08, .95) rotate(2deg); }
+  60% { transform: scale(.96, 1.08) rotate(-2deg); } 100% { transform: scale(1.05) rotate(3deg); }
+}
+/* raio: pisca como relampago */
+.caminho-bola.raio .caminho-emoji { animation: caminho-raio 2.6s steps(1) infinite; }
+@keyframes caminho-raio { 0%, 70%, 78%, 100% { opacity: 1; filter: none; } 72%, 80% { opacity: .35; } 74%, 82% { opacity: 1; filter: drop-shadow(0 0 6px var(--yellow)) brightness(1.4); } }
+/* diamante: cintila e balanca */
+.caminho-bola.brilho .caminho-emoji { animation: caminho-brilho 2.4s ease-in-out infinite; }
+@keyframes caminho-brilho { 0%, 100% { transform: rotate(-8deg); filter: drop-shadow(0 0 2px #7fdcff); } 50% { transform: rotate(8deg) scale(1.08); filter: drop-shadow(0 0 8px #7fdcff); } }
+/* coroa: flutua */
+.caminho-bola.coroa .caminho-emoji { animation: caminho-coroa 2.6s ease-in-out infinite; }
+@keyframes caminho-coroa { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px) scale(1.06); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .caminho *, .caminho *::before, .caminho *::after { animation: none !important; }
+}
+
+/* STATUS NA TELA INICIAL (dono, 17/11): o maior status em cartao grande com a foto; as outras com o caminho pequeno */
+.status-destaque {
+  position: relative; margin-bottom: 10px; padding: 16px 14px 14px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--orange) 45%, var(--line));
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--orange) 22%, transparent), transparent 60%), var(--card);
+}
+.status-destaque.queen { border-color: color-mix(in srgb, var(--yellow) 55%, var(--line)); background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--yellow) 22%, transparent), transparent 60%), var(--card); }
+.status-selo { display: inline-block; margin-bottom: 10px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: var(--text); background: color-mix(in srgb, var(--orange) 22%, transparent); }
+.status-topo { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.status-topo .g { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.status-topo b { font-size: 19px; }
+.status-topo .avatar { flex: none; box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--orange), 0 0 18px color-mix(in srgb, var(--orange) 60%, transparent); }
+.status-destaque.queen .status-topo .avatar { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--yellow), 0 0 18px color-mix(in srgb, var(--yellow) 60%, transparent); }
+.status-titulo { font-size: 15px; font-weight: 800; color: color-mix(in srgb, var(--yellow) 65%, var(--text)); }
+.status-falta { font-size: 12.5px; color: var(--muted); }
+.status-linha { align-items: flex-start; }
+.status-linha .avatar { flex: none; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px color-mix(in srgb, var(--orange) 70%, transparent); }
+.status-linha .ini-status em { font-style: normal; font-weight: 600; color: var(--muted); }
+.status-linha .caminho { margin-top: 8px; max-width: 250px; }
