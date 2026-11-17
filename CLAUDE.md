@@ -196,6 +196,10 @@ masculino e o misto descrevem esse código parado.
   **"🧊 sem status"** (`sessions.conta_status = false`, script 26, `contaNoStatus`) não existe
   para o 🔥: o pódio não soma e quem fica fora ou falta não perde. É separado do avulso; sem
   valor gravado segue o `ranked` (avulso antigo = sem status).
+  **"Conta falta" é opção separada** (dono, 16/11/2026; `sessions.conta_falta`, script 37, `contaFalta` em `stats.ts`):
+  ligada, quem não vem leva falta (a força cai da 2ª seguida e, com o status ligado, perde a sequência); desligada,
+  ninguém leva falta (quem vem zera as faltas). Sem valor gravado = a regra de antes (conta só se vale para o mês e
+  para o status). O "Conta no status" agora só fala do pódio e de quem jogou e ficou fora.
   Escada: 🔥 Em chamas (2) → ⚡ Imparável (3) → 💎 Rainha do Play (4) → 👑 **Duquesa da
   V3** (5, `MAX_STREAK`). **Não vale pontos e não tem vida** (desde `STATUS_NOVO_DESDE`
   = 06/10/2026): segue atravessando o mês e zera fora do pódio ou faltando. No 5º pódio
@@ -253,8 +257,8 @@ masculino e o misto descrevem esse código parado.
   2ª seguida em diante, por play do ranking e aumentando a cada falta: acima da média de hoje
   −10%, −30%, −50% e daí −70% da distância até ela (mín. 2; era 10/15/20… até 30%, lento
   demais: em 09/10 quem tinha 1 play e 4 faltas ainda caía no grupo forte); abaixo −2, −3, −4, depois
-  −5, até −20 na sequência. Voltou, zera. Faltar a um play avulso ou 🧊 sem status não
-  conta, mas quem veio nele zera as faltas; quem nunca
+  −5, até −20 na sequência. Voltou, zera. Faltar a um play que **não conta falta** (opção do play;
+  sem ela gravada, o avulso ou 🧊 sem status) não conta, mas quem veio nele zera as faltas; quem nunca
   jogou não cai. A ficha e as listas mostram "−N por K faltas seguidas".
 - **Pausar uma menina** (`players.pausas`, `reativada_em`, script 24; `pausaNaForca`):
   quem vai ficar um tempo fora é **pausada na aba Meninas** (o Stats só mostra): sai do ranking da força,
@@ -363,7 +367,11 @@ masculino e o misto descrevem esse código parado.
   tela de criar **no lugar** do play (não por cima), já preenchida, com cada menina no grupo em
   que estava. Salvar **regrava o mesmo play** (mesmo id: check-ins, lista, diário e ausentes
   ficam; `escolhas`, `duos` e desempates caem com a fila antiga) e anota `tipo: 'reconfigurar'`.
-  No campeonato e nas duplas fixas a divisão é refeita pela força (o que foi movido na mão se perde).
+  **A configuração de antes fica**: no campeonato cada uma volta à categoria e ao grupo dela
+  (`lugaresNoCampeonato` → `movidasCat`) e as quadras de cada categoria se mantêm; nas duplas
+  fixas as duplas inteiras ficam, na mesma categoria (`manterDuplas`), e só quem chegou ou perdeu
+  a parceira forma dupla nova. Quem chega é encaixada pela força. O "sortear / montar de novo"
+  solta tudo e refaz pela força. `tests/reconfigurar.test.ts`.
 - **🕑 Histórico** (`components/HistoricoDePartidas.tsx`): na ficha da jogadora e na da dupla,
   as partidas da mais recente para a mais antiga, agrupadas por play (V/D da noite no
   cabeçalho, "avulso" marcado), 2 plays de cara e mais 4 a cada "ver mais" (08/11/2026; as tabelas "Com quem/Contra quem já
@@ -426,6 +434,17 @@ masculino e o misto descrevem esse código parado.
   foto leva o endereço do site pequeno embaixo da frase (`enderecoDoSite` em `liga.config.ts`:
   domínio + `pasta`, ex. `playdetodas.com.br/masculino`). A arte de sempre (sem foto) continua; nela o nome longo quebra em duas linhas, a inicial ignora
   caractere invisível ("\u2060" colado do WhatsApp) e "1 pt" no singular.
+- **Ajustar a foto e sem desfoque** (dono, 16/11/2026): escolhida a foto, abre "Ajustar a foto" (`BotoesDeFoto`):
+  arrastar e zoom (dois dedos ou a barra) na faixa da foto da arte; o enquadramento (`Enquadre`, `src/lib/enquadre.ts`,
+  a mesma conta na prévia e na arte) vai para o `buildPosterComFoto`. A foto fica nítida no alto (`ALTURA_DA_FOTO`) e
+  some no fundo escuro antes dos painéis: o vidro com a foto desfocada saiu (mostrava as pernas borradas).
+- **A fila nova** (dono, 16/11; `ListaDePartidas`, `.fila-item`): posição e grupo à esquerda, nomes que não quebram
+  (`fila-nome`), selos em pílula (`fila-tag`). **Quem está em quadra** aparece em rosa com a bolinha pulsando
+  (`ponto-vivo rosa`), sem frase (o dono achou que o nome rosa pulsando já diz). **Dupla que repete** leva "repete 1/2",
+  "repete 2/2" em **todas** as vezes dela, na ordem da noite (prop `repetem`: pairKey → `{planejada, ordem}`; "troca na
+  mão" em amarelo). Uma bolinha só por dupla: a da 2ª só aparece se a parceira não está em quadra. No topo da aba Fila, recolhido, **"🔁 Quem repete
+  com quem"** (`QuemRepete`, `quemRepete` no pai): cada dupla, o grupo e onde está cada vez (já jogaram / em partida /
+  na fila Nª, o mesmo número da lista); some quando ninguém repete. Procurar o nome na fila diz "repete com X".
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
   "🔎 procurar pelo nome" (apelido ou cadastro, sem acento), com o V-D de quem foi procurada.
 - **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,
@@ -638,6 +657,9 @@ masculino e o misto descrevem esse código parado.
   (`podeAdiar`). Escolhe o dia novo (depois do atual; sugere +7 dias) e o play vai inteiro: atletas, grupos, fila e os
   dias do Financeiro ligados a ele (`checkin_dias.session_id`, com os pagamentos já lançados). Anota no diário
   (`tipo: 'adiar'`). A lista de presença ligada ao play **não** muda a data dela (`play_em`): ela já está fechada.
+- **Horário da noite** (dono, 16/11/2026; `horarioDaNoite` em `previsaoDaNoite.ts`): no cabeçalho do play terminado,
+  "início 19h27 · último placar 22h51 · total 3h24" = do 1º "Partida iniciada" ao último placar lançado (nunca o
+  Finalizar). Sem esses horários (partidas antigas), fica a estimativa "total ~Xh (estimado)".
 - **🔓 Reabrir o play para corrigir placar** (play finalizado, logada; `reabrir` em
   Play.tsx): volta o `status` para `open` e anota no diário (`tipo: 'reabrir'`); o ✏️ das
   "Já jogadas" corrige e o Finalizar fecha de novo. Ranking, pódio e força saem do placar,
@@ -716,6 +738,18 @@ masculino e o misto descrevem esse código parado.
   lista pergunta: R$ 25 de crédito na mensalidade do mês seguinte ou um check-in a menos na que ela está fechando —
   abatimento na ficha, `mesDaCompensacao`), **limite de mensalistas** (`ajustes.limite_mensalistas`, padrão 12) e
   **lista de espera** (`players.espera_mensalista`, ordem do pedido; `vagasDeMensalista.ts`).
+- **🎉 Caixinha de eventos** (script 37, `caixa.do_eventos`, dono 16/11): aba **🎉 Eventos** do Financeiro (no lugar
+  do ⚙️, que foi para o lado do mês) com o saldo em destaque, "🎁 Usar a caixinha num gasto" (abre o Caixa já marcado)
+  e o histórico. No Caixa, só **Brindes e presentes** e **Confraternização** têm "🎉 Usar o valor da caixinha de eventos?" O caixa cobre até o que tem na data, na ordem do calendário
+  (`saidasDosEventos`); o que passar sai do caixa geral como despesa da categoria (Brindes e presentes...). O gasto
+  inteiro continua na despesa (a reserva fica dentro do saldo); o caixa de eventos do mês = entradas − o que cobriu.
+  "📜 Entradas e gastos" lista os dois; o lançamento mostra a divisão e liga/desliga; o Excel tem a coluna
+  "Pago pelo caixa de eventos". Sem o 37 a marca fica só neste aparelho (`upsertTolerante`).
+- **Aba 💰 Caixa no estilo da tela inicial** (16/11): saldo do mês grande, "entrou / saiu / no caixa", a linha da
+  caixinha, "De onde veio e para onde foi" recolhido e o Excel numa lista agrupada (`ini-grupo`). Novo lançamento com
+  "➖ Saída / ➕ Receita extra" e chips com ícone (`ICONE_DO_CAIXA`). Com a caixinha marcada, uma barra mostra a divisão
+  (R$ X da caixinha + R$ Y do caixa geral) e o texto explica que pode lançar o valor inteiro; a lista mostra a divisão
+  de cada gasto. Entrada em verde e saída em vermelho em todo o resumo (`valor-pos`/`valor-neg`; saldo pelo sinal).
 
 ## 🗓️ Cartão do momento na tela inicial (D42)
 
@@ -747,8 +781,9 @@ masculino e o misto descrevem esse código parado.
   0,6–1,8). `restanteDaNoite(..., fator)` com fator 1 = a conta de antes (os testes de equivalência continuam valendo);
   Play e cartão da tela inicial usam o mesmo fator. `tests/ritmoDaNoite.test.ts`.
 - **Selo do play** (`BadgeDoPlay` em Play.tsx, lista de plays e cabeçalho do play): "● AO VIVO" verde cheio com a bolinha
-  pulsando quando `estaAoVivo` (a linha da lista ganha um fundo verde suave); aberto sem nada acontecendo = "● em andamento"
-  vermelho com a bolinha vermelha piscando (o mesmo do "Aguardando início"; dono, 12/11); "finalizado" verde suave. O amarelo ficou só para os selos da lista (dono, 08/11: confundia).
+  pulsando quando `estaAoVivo` (a linha da lista ganha um fundo verde suave); aberto sem partida iniciada = "agendado" (cinza)
+  até as 20h do dia (`HORA_PADRAO_DO_PLAY`) e "● em atraso" vermelho piscando depois; "● em andamento" vermelho só
+  para o play que começou e parou sem finalizar (`situacaoDoPlay` em `momentoDaInicio.ts`; dono, 16/11); "finalizado" verde suave. O amarelo ficou só para os selos da lista (dono, 08/11: confundia).
 - **Cartão AO VIVO da tela inicial e da aba Play**: a barra tem a parte "em quadra" listrada andando (`barra.jogando` no
   `Quadro` de `CartaoDoMomento.tsx`, `.momento-jogando`). **A parte pintada reluz pulsando** (`.brilho-vivo`, cópia borrada
   que só muda de opacidade, no ritmo da bolinha) **só no que está acontecendo agora**: painel do play, cartão ao vivo e
@@ -795,6 +830,11 @@ masculino e o misto descrevem esse código parado.
 - **Ações de uma pessoa ficam numa folha** (dono, 12/11/2026): em Meninas e em Financeiro › Atletas a linha mostra só a
   informação e tocar nela abre a folha (`Modal` + `.folha-acoes`). Em Financeiro: Lançar um play, Mensalidade, Extrato,
   Acertar o saldo e, à parte, Forma de pagamento e Contas de check-in. Nada de link ou chip solto no cartão.
+- **Abas do Desempenho** (dono, 17/11, "D2"; `components/AbasComTraco.tsx`): as duas barras (`.st-seg`) sem caixa; a
+  escolhida tem a escrita e um traço de 5 px colado embaixo, **cada um com o degradê inteiro** do nome da tela inicial
+  (`--grad-titulo`, roxo → rosa → laranja). Trocar de aba desliza o traço e, no mesmo tempo e na mesma conta, uma janela
+  (`.st-pintura`, cópia dos rótulos recortada por `clip-path` na coluna `--i`/`--n`) que pinta a palavra nova enquanto o
+  traço chega. Parado com `prefers-reduced-motion`.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

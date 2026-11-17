@@ -18,7 +18,7 @@
  */
 import { categoriasDoPlay, duosDaCategoria, partidasDaCategoria } from './campeonato'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from './desempateDoDia'
-import { HORAS_DA_LISTA_DEPOIS_DO_PLAY, dataEmSaoPaulo, estaAberta, type Lista, type ListaCompleta } from './listaDePresenca'
+import { HORAS_DA_LISTA_DEPOIS_DO_PLAY, dataEmSaoPaulo, estaAberta, inicioEmSaoPaulo, type Lista, type ListaCompleta } from './listaDePresenca'
 import { isPlayed } from './scoring'
 import { computeStats, rankDuplasDoDia, rankPlayers } from './stats'
 import { podiosDoDia } from './streaks'
@@ -56,6 +56,26 @@ export function estaAoVivo(s: PlaySession, matches: Match[], agora: Date): boole
   if (!ms.some((m) => !!m.started_at || isPlayed(m))) return false
   const hoje = dataEmSaoPaulo(agora.toISOString())
   return s.date === hoje || agora.getTime() - ultimaAtividade(ms) < HORAS_AO_VIVO * HORA
+}
+
+/** Hora em que o play comeca, quando nada diz outra (o play nao guarda hora; a lista padrao e 20h). */
+export const HORA_PADRAO_DO_PLAY = '20:00'
+
+/**
+ * O selo do play (dono, 16/11): "em andamento" so quando ha play rodando. Aberto sem partida iniciada:
+ * antes da hora e "agendado"; passou do dia e da hora sem comecar, "em atraso" (vermelho piscando).
+ * Comecou mas parou ha dias sem finalizar continua "em andamento".
+ */
+export function situacaoDoPlay(
+  s: PlaySession,
+  matches: Match[],
+  agora: Date,
+): 'finalizado' | 'ao-vivo' | 'agendado' | 'atrasado' | 'andamento' {
+  if (s.status !== 'open') return 'finalizado'
+  if (estaAoVivo(s, matches, agora)) return 'ao-vivo'
+  const comecou = matches.some((m) => m.session_id === s.id && (!!m.started_at || isPlayed(m)))
+  if (comecou) return 'andamento'
+  return agora.getTime() < Date.parse(inicioEmSaoPaulo(s.date, HORA_PADRAO_DO_PLAY)) ? 'agendado' : 'atrasado'
 }
 
 export function momentoDaInicio(opts: {

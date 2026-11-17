@@ -11,7 +11,7 @@ test('Pagamentos detalha o aluguel (cobrado, plano, check-ins abatidos, caixa de
   d.caixa = [{ id: 'a', date: '2026-11-08', descricao: 'Aluguel', categoria: 'aluguel', tipo: 'saida', valor: 800, plano_mensal: true, valor_cobrado: 950, checkins_abatidos: 6, created_at: '' }]
   const pg = planilhasCompletas(d, (id) => id, null, '2026-11-08').find((a) => a.nome === 'Pagamentos')!.linhas
   assert.equal(pg[0].length, pg[1].length)
-  assert.deepEqual(pg[1].slice(5), [{ reais: 950 }, 'Sim', 6, { reais: 50 }])
+  assert.deepEqual(pg[1].slice(5), [{ reais: 950 }, 'Sim', 6, { reais: 50 }, ''])
 })
 
 test('aba Mensalistas: limite, vagas, deve/credito e a lista de espera', () => {

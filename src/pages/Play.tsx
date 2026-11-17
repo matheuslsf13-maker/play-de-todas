@@ -9,7 +9,7 @@ const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import CartaoDoMomento from '../components/CartaoDoMomento'
-import { estaAoVivo } from '../lib/momentoDaInicio'
+import { situacaoDoPlay } from '../lib/momentoDaInicio'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista, type ListaCompleta } from '../lib/listaDePresenca'
 import { avisoDoFinanceiro, desfazerDoPlay, diaParaLigar } from '../lib/pagamentoNaLista'
@@ -20,6 +20,7 @@ import DuplasFixasNaCriacao from '../components/DuplasFixasNaCriacao'
 import {
   dividirDuplasEmCategorias,
   filaDeDuplas,
+  manterDuplas,
   montarDuplasPorNivel,
   moverDupla,
   partidasEntreDuplas,
@@ -32,6 +33,7 @@ import { NomesDaDupla } from '../components/NomeClicavel'
 import {
   PONTUACAO_PADRAO,
   aplicarMovidasNoCampeonato,
+  lugaresNoCampeonato,
   categoriaDaJogadora,
   categoriaDaPartida,
   categoriasDoPlay,
@@ -109,6 +111,7 @@ import {
 } from '../lib/stats'
 import { buildDayPoster, buildDayPosterGrupos, buildPosterComFoto, type PosterRow } from '../lib/poster'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
+import type { Enquadre } from '../lib/enquadre'
 import {
   MODOS,
   REGRA_PADRAO,
@@ -144,9 +147,9 @@ import { EscolherCompensacao, useCompensarFalta } from '../components/FichaDaMen
 import { diaDoPlay, diaJaExiste, prepararPagamento } from '../lib/pagamentoNaLista'
 import { formatarReais, lerValor } from '../lib/checkins'
 import { selosDosPlays } from '../lib/selos'
-import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { computeStreaks, contaFalta, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
-import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante, resumoAoVivo, ritmoDaNoite } from '../lib/previsaoDaNoite'
+import { chavesDoPlay, formatarMinutos, horaLocal, horarioDaNoite, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante, resumoAoVivo, ritmoDaNoite } from '../lib/previsaoDaNoite'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { planoDoRefazer } from '../lib/fila'
@@ -524,14 +527,22 @@ function AdiarPlay({ dataAtual, onAdiar, onClose }: { dataAtual: string; onAdiar
   )
 }
 
+/** O texto da opcao "Conta falta" (separada do status desde 16/11). */
+function textoDaFalta(conta: boolean, status: boolean): string {
+  return conta
+    ? `quem não vier leva falta: da 2ª seguida a força cai${status ? ' e perde a sequência 🔥' : ''}`
+    : 'quem não vier não leva falta (nem na força, nem no 🔥); quem vier zera as faltas dela'
+}
+
 function OpcoesDoPlay({ session }: { session: PlaySession }) {
   const { mesclarNoPlay } = useStore()
   const vale = session.ranked !== false
   const status = contaNoStatus(session)
+  const falta = contaFalta(session)
   return (
     <details className="card">
       <summary className="small" style={{ fontWeight: 700, cursor: 'pointer' }}>
-        ⚙️ Vale para o mês e para o 🔥?
+        ⚙️ Vale para o mês, para o 🔥 e conta falta?
       </summary>
       <div className="stack" style={{ marginTop: 10 }}>
         <label className={`toggle-card row${vale ? '' : ' avulso'}`} style={{ gap: 10, cursor: 'pointer' }}>
@@ -543,7 +554,7 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
           <span className="grow">
             <strong>{vale ? '🏆 Vale para o ranking do mês' : '🎈 Play avulso'}</strong>
             <span className="hint" style={{ marginTop: 2 }}>
-              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês e faltar não conta'}
+              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês'}
             </span>
           </span>
         </label>
@@ -557,9 +568,20 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
             <strong>{status ? '🔥 Conta no status' : '🧊 Play sem status'}</strong>
             <span className="hint" style={{ marginTop: 2 }}>
               {status
-                ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
-                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde; faltar também não conta como falta'}
+                ? 'o pódio soma 🔥; quem joga e fica fora do pódio perde a sequência'
+                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora não perde'}
             </span>
+          </span>
+        </label>
+        <label className={`toggle-card row${falta ? '' : ' avulso'}`} style={{ gap: 10, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={falta}
+            onChange={(e) => mesclarNoPlay(session.id, { campo: 'conta_falta', valor: e.target.checked })}
+          />
+          <span className="grow">
+            <strong>{falta ? '📉 Conta falta' : '🙈 Não conta falta'}</strong>
+            <span className="hint" style={{ marginTop: 2 }}>{textoDaFalta(falta, status)}</span>
           </span>
         </label>
       </div>
@@ -765,6 +787,7 @@ function NewPlay({
   )
   const [ranked, setRanked] = useState(preset.ranked ?? true)
   const [contaStatus, setContaStatus] = useState(preset.conta_status ?? preset.ranked ?? true)
+  const [comFalta, setComFalta] = useState(preset.id ? contaFalta(preset as PlaySession) : (preset.conta_falta ?? true))
   const [importando, setImportando] = useState(false)
   /** A janela de cadastrar uma atleta nova sem sair da tela. */
   const [cadastrando, setCadastrando] = useState(false)
@@ -863,9 +886,16 @@ function NewPlay({
   const [nCategorias, setNCategorias] = useState(preset.categorias?.length || 3)
   const [gruposPorCategoria, setGruposPorCategoria] = useState(preset.categorias?.[0]?.grupos.length || 2)
   /** Campeonato: quantas quadras cada categoria tem (null = dividir o total por igual). */
-  const [qtdQuadrasEditada, setQtdQuadras] = useState<number[] | null>(null)
-  /** Campeonato: ajustes na mao, menina -> categoria e grupo. */
-  const [movidasCat, setMovidasCat] = useState<Record<string, { c: number; g: number }>>({})
+  // reconfigurando: as quadras de cada categoria como estavam
+  const [qtdQuadrasEditada, setQtdQuadras] = useState<number[] | null>(
+    editando?.categorias?.length ? editando.categorias.map((c) => c.quadras.length) : null,
+  )
+  /** Onde cada uma estava no play que esta sendo reconfigurado (categoria e grupo). */
+  const lugaresAntes = useMemo(() => (editando ? lugaresNoCampeonato(editando) : {}), [editando])
+  /** Campeonato: ajustes na mao, menina -> categoria e grupo (reconfigurando, comeca onde cada uma estava). */
+  const [movidasCat, setMovidasCat] = useState<Record<string, { c: number; g: number }>>(() =>
+    editando?.duplas_definidas?.length ? {} : lugaresAntes,
+  )
   /** Pontos do mes por colocacao (grupos+duplas e campeonato). */
   const [pontuacao, setPontuacao] = useState<number[]>(preset.pontuacao ?? PONTUACAO_PADRAO)
   /**
@@ -909,15 +939,23 @@ function NewPlay({
    */
   const [trocasDeDupla, setTrocasDeDupla] = useState<[string, string][]>([])
   /** Duplas levadas na mao para outra categoria (por qualquer uma das duas). */
-  const [duplasMovidas, setDuplasMovidas] = useState<[string, number][]>([])
+  // reconfigurando, cada dupla volta para a categoria em que estava
+  const [duplasMovidas, setDuplasMovidas] = useState<[string, number][]>(() =>
+    (editando?.duplas_definidas ?? []).flatMap(([a]) => (lugaresAntes[a] ? [[a, lugaresAntes[a].c] as [string, number]] : [])),
+  )
   const [tocadaNaDupla, setTocadaNaDupla] = useState<string | null>(null)
   /** Categorias das duplas fixas; null = automatico (4 a 7 duplas por categoria). */
-  const [nCatsDuplas, setNCatsDuplas] = useState<number | null>(null)
-  const montagem = useMemo(
-    // no misto as duplas fixas priorizam homem + mulher (quem sobra, mesmo genero, com aviso)
-    () => (emDuplasFixas ? montarDuplasPorNivel(selected, forca, EH_MISTO ? generos : undefined, sorteio) : null),
-    [emDuplasFixas, selected, forca, sorteio, generos],
+  const [nCatsDuplas, setNCatsDuplas] = useState<number | null>(
+    editando?.duplas_definidas?.length && editando.categorias?.length ? editando.categorias.length : null,
   )
+  /** Reconfigurando: as duplas do play, que ficam enquanto as duas estiverem (o "montar de novo" solta). */
+  const [duplasAntes, setDuplasAntes] = useState<[string, string][] | null>(editando?.duplas_definidas ?? null)
+  const montagem = useMemo(() => {
+    if (!emDuplasFixas) return null
+    // no misto as duplas fixas priorizam homem + mulher (quem sobra, mesmo genero, com aviso)
+    const montar = (ids: string[]) => montarDuplasPorNivel(ids, forca, EH_MISTO ? generos : undefined, sorteio)
+    return duplasAntes ? manterDuplas(duplasAntes, selected, montar) : montar(selected)
+  }, [emDuplasFixas, selected, forca, sorteio, generos, duplasAntes])
   const duplasDaNoite = useMemo(() => {
     if (!montagem) return []
     return trocasDeDupla
@@ -985,6 +1023,7 @@ function NewPlay({
     setTrocasDeDupla([])
     setDuplasMovidas([])
     setTocadaNaDupla(null)
+    setDuplasAntes(null)
   }
 
   /** Campeonato: menina para outra categoria e grupo (livre; o criar acusa grupo com menos de 4). */
@@ -1252,6 +1291,7 @@ function NewPlay({
         desempates: comFases ? desempates : null,
         ranked,
         conta_status: contaStatus,
+        conta_falta: comFalta,
       }
       await saveSession(session)
       if (editando) await replaceSessionMatches(session.id, planToMatches(session.id, fila))
@@ -1628,7 +1668,7 @@ function NewPlay({
                 <span className="hint" style={{ marginTop: 2 }}>
                   {ranked
                     ? 'os pontos entram no ranking do mês e as sequências 🔥 correm normalmente'
-                    : 'não soma pontos no ranking do mês e faltar não conta — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
+                    : 'não soma pontos no ranking do mês — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
                 </span>
               </span>
             </label>
@@ -1641,9 +1681,19 @@ function NewPlay({
                 <strong>{contaStatus ? '🔥 Conta no status' : '🧊 Play sem status'}</strong>
                 <span className="hint" style={{ marginTop: 2 }}>
                   {contaStatus
-                    ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
-                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde; faltar também não conta como falta'}
+                    ? 'o pódio soma 🔥; quem joga e fica fora do pódio perde a sequência'
+                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora não perde'}
                 </span>
+              </span>
+            </label>
+          </div>
+
+          <div className={`toggle-card${comFalta ? '' : ' avulso'}`}>
+            <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={comFalta} onChange={(e) => setComFalta(e.target.checked)} />
+              <span className="grow">
+                <strong>{comFalta ? '📉 Conta falta' : '🙈 Não conta falta'}</strong>
+                <span className="hint" style={{ marginTop: 2 }}>{textoDaFalta(comFalta, contaStatus)}</span>
               </span>
             </label>
           </div>
@@ -2406,6 +2456,7 @@ function PlayDetail({
   const doneCount = matches.filter(isPlayed).length
 
   /** "8 partidas", ou "7 a 9" quando um entra/sai deixou desigual. */
+  const horario = useMemo(() => horarioDaNoite(matches), [matches])
   const jogosPorPessoa = useMemo(() => {
     const n = new Map(session.player_ids.map((id) => [id, 0]))
     for (const m of matches) for (const id of jogadorasDaPartida(m)) if (n.has(id)) n.set(id, (n.get(id) ?? 0) + 1)
@@ -2912,6 +2963,37 @@ function PlayDetail({
     return porPartida
   }, [matches, nameOf, grupos, session.player_ids.length, session.eventos])
 
+  /** "Com quem eu repito?" (dono, 16/11): cada dupla que joga mais de uma vez hoje, com as partidas dela. */
+  const quemRepete = useMemo(() => {
+    const porPar = new Map<string, { ids: [string, string]; partidas: Match[] }>()
+    for (const m of matches) {
+      if ((m.fase ?? 1) >= 2) continue
+      for (const d of [m.team_a, m.team_b]) {
+        const k = pairKey(d[0], d[1])
+        const x = porPar.get(k) ?? { ids: [d[0], d[1]] as [string, string], partidas: [] }
+        x.partidas.push(m)
+        porPar.set(k, x)
+      }
+    }
+    return [...porPar.values()].filter((x) => x.partidas.length > 1)
+  }, [matches])
+  /** Cada dupla que repete: se estava no plano e a ordem das vezes dela (jogadas, em quadra e a fila), para o "repete 1/2". */
+  const repetem = useMemo(() => {
+    const naNoite = new Map(
+      [...emJogo, ...[...proximas.values()].filter((m) => !emJogo.some((x) => x.id === m.id)), ...filaPrevista].map((m, i) => [m.id, i]),
+    )
+    const quando = (m: Match) => (isPlayed(m) ? Date.parse(m.ended_at ?? '') || 0 : Number.MAX_SAFE_INTEGER / 2 + (naNoite.get(m.id) ?? 1e6))
+    return new Map(
+      quemRepete.map((x) => [
+        pairKey(x.ids[0], x.ids[1]),
+        {
+          planejada: x.partidas.every((m) => duplasRepetidas.get(m.id)?.planejada ?? true),
+          ordem: [...x.partidas].sort((a, b) => quando(a) - quando(b)).map((m) => m.id),
+        },
+      ]),
+    )
+  }, [quemRepete, duplasRepetidas, emJogo, proximas, filaPrevista])
+
   function setScore(m: Match, a: number | null, b: number | null, tie?: number | null) {
     // lancar o placar tambem encerra a partida: a quadra fica livre de novo
     const encerrando = a !== null && b !== null
@@ -2971,7 +3053,7 @@ function PlayDetail({
    */
   const duplasDaFoto = soFase2 ? soComCampea(duplasDoDia) : []
   const podeArteComFoto = soFase2 ? duplasDaFoto.length > 0 : podiosSel.length === 1
-  async function gerarArteComFoto(foto: File) {
+  async function gerarArteComFoto(foto: File, enquadre: Enquadre) {
     const um = podiosSel.length === 1 ? podiosSel[0] : null
     if (!soFase2 && !um) {
       onToast('Escolha um grupo para a arte com foto')
@@ -2979,7 +3061,7 @@ function PlayDetail({
     }
     setGerando(true)
     try {
-      const comum = { data: dateLabel(session.date), foto, logoUrl: URL_DO_LOGO }
+      const comum = { data: dateLabel(session.date), foto, logoUrl: URL_DO_LOGO, enquadre }
       const titulos = ['Campeãs do dia', 'Vice-campeãs', '3º lugar']
       const blob = soFase2
         ? await buildPosterComFoto({
@@ -3692,7 +3774,10 @@ function PlayDetail({
           {matches.length > 0 && (finished || !restanteDaNoite) && (
             <div className="tiny" style={{ marginTop: 6, fontWeight: 700 }}>
               🎾 Cada menina jogou <strong>{jogosPorPessoa}</strong>
-              {soFase2 ? ' na fase de grupos' : ''} · noite de {duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}
+              {soFase2 ? ' na fase de grupos' : ''} ·{' '}
+              {horario
+                ? `início ${horaLocal(horario.inicio)} · último placar ${horaLocal(horario.fim)} · total ${formatarMinutos(horario.minutos)}`
+                : `total ~${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))} (estimado)`}
             </div>
           )}
           {matches.length > 0 && !finished && restanteDaNoite && (
@@ -4133,6 +4218,22 @@ function PlayDetail({
 
       )}
 
+      {abaAtiva === 'fila' && quemRepete.length > 0 && (
+        <QuemRepete
+          itens={quemRepete}
+          noite={[
+            ...emJogo,
+            ...[...proximas.values()].filter((m) => !emJogo.some((x) => x.id === m.id)),
+            ...filaPrevista,
+          ]}
+          jogadas={jogadas.length}
+          emQuadra={emJogo}
+          grupoDe={ehCampeonato ? categoriaDe : grupoDe}
+          totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
+          nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
+          planejada={(m) => duplasRepetidas.get(m.id)?.planejada ?? true}
+        />
+      )}
       {abaAtiva === 'fila' && (
       <ListaDePartidas
         titulo="⏭️ Próximas na fila"
@@ -4148,7 +4249,7 @@ function PlayDetail({
         grupoDe={ehCampeonato ? categoriaDe : grupoDe}
         totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
         nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
-        repetidas={duplasRepetidas}
+        repetem={repetem}
         desempateDe={regraDe}
         emQuadra={ocupadas}
         filtravel
@@ -4182,7 +4283,7 @@ function PlayDetail({
         grupoDe={ehCampeonato ? categoriaDe : grupoDe}
         totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
         nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
-        repetidas={duplasRepetidas}
+        repetem={repetem}
         desempateDe={regraDe}
         emQuadra={ocupadas}
         target={session.target}
@@ -4635,7 +4736,7 @@ function PlayDetail({
                   <span className="sub">{grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`}</span>
                 </span>
               </button>
-              {podeArteComFoto && <BotoesDeFoto lista gerando={gerando} aoEscolher={(f) => void gerarArteComFoto(f)} />}
+              {podeArteComFoto && <BotoesDeFoto lista gerando={gerando} aoEscolher={(f, enq) => void gerarArteComFoto(f, enq)} />}
               </div>
               {!podeArteComFoto && (!soFase2 || ehCampeonato) && (
                 <div className="ini-legenda">
@@ -5008,11 +5109,15 @@ function MatchCard({
  * acontecendo fica neutro. Antes era tudo amarelo, a mesma cor dos selos da lista (dono, 08/11).
  */
 function BadgeDoPlay({ s, matches }: { s: PlaySession; matches: Match[] }) {
-  if (s.status !== 'open') return <span className="badge finished">finalizado</span>
-  return estaAoVivo(s, matches, new Date()) ? (
-    <span className="badge vivo"><i className="ponto-vivo" aria-hidden="true" />ao vivo</span>
-  ) : (
-    <span className="badge parado"><i className="ponto-vivo vermelho" aria-hidden="true" />em andamento</span>
+  const sit = situacaoDoPlay(s, matches, new Date())
+  if (sit === 'finalizado') return <span className="badge finished">finalizado</span>
+  if (sit === 'ao-vivo') return <span className="badge vivo"><i className="ponto-vivo" aria-hidden="true" />ao vivo</span>
+  if (sit === 'agendado') return <span className="badge agendado">agendado</span>
+  return (
+    <span className="badge parado">
+      <i className="ponto-vivo vermelho" aria-hidden="true" />
+      {sit === 'atrasado' ? 'em atraso' : 'em andamento'}
+    </span>
   )
 }
 
@@ -5027,7 +5132,7 @@ function ListaDePartidas({
   grupoDe,
   totalGrupos,
   nomesDosGrupos,
-  repetidas,
+  repetem,
   emQuadra,
   faseDe,
   ausentes,
@@ -5054,7 +5159,8 @@ function ListaDePartidas({
   totalGrupos: number
   /** Campeonato: `grupoDe` traz a categoria (1 = A) e a etiqueta mostra a letra. */
   nomesDosGrupos?: string[]
-  repetidas: Map<string, Repeticao>
+  /** As duplas que jogam mais de uma vez hoje (pairKey -> se estava no plano): o 🔁 vai em TODAS as vezes delas. */
+  repetem?: Map<string, { planejada: boolean; ordem: string[] }>
   emQuadra: Set<string>
   /** Para separar as fases na lista: muda o rotulo, entra um divisor (grupos -> duplas fixas). */
   faseDe?: (m: Match) => string
@@ -5130,7 +5236,8 @@ function ListaDePartidas({
     if (!filtradas.some(isPlayed)) {
       const dela = partidas.filter((m) => jogadorasDaPartida(m).includes(id))
       if (!dela.length) return 'nada na fila'
-      return `${plural(dela.length, 'partida')} na fila, a próxima é a ${numeroDe.get(dela[0].id) ?? partidas.indexOf(dela[0]) + 1}ª`
+      const com = [...(repetem?.keys() ?? [])].filter((k) => k.split('|').includes(id)).map((k) => nameOf(k.split('|').find((x) => x !== id) as string))
+      return `${plural(dela.length, 'partida')} na fila, a próxima é a ${numeroDe.get(dela[0].id) ?? partidas.indexOf(dela[0]) + 1}ª${com.length ? `, repete com ${com.join(' e ')}` : ''}`
     }
     let v = 0
     let d = 0
@@ -5215,9 +5322,9 @@ function ListaDePartidas({
             return (
               <div key={m.id}>
               {divisor && <div className="fase-divisor">{divisor}</div>}
-              <div className="fila-linha">
-                <span className="fila-num">
-                  {numeroDe.has(m.id) ? `${numeroDe.get(m.id)}ª` : m.round}
+              <div className="fila-item">
+                <span className="fila-pos">
+                  <b>{numeroDe.has(m.id) ? `${numeroDe.get(m.id)}ª` : m.round}</b>
                   <GrupoTag
                     grupo={nomesDosGrupos || (m.fase ?? 1) < 2 ? grupoDe.get(m.team_a[0]) : undefined}
                     total={totalGrupos}
@@ -5225,50 +5332,50 @@ function ListaDePartidas({
                   />
                 </span>
                 <span className="grow" style={{ minWidth: 0 }}>
-                  <span className={`fila-time${jogada && aWin ? ' venceu' : ''}`}>
-                    {nameOf(m.team_a[0])} + {nameOf(m.team_a[1])}
-                    {jogada && <b> {m.score_a}</b>}
-                    {jogada && pa > 0 && <i> +{pa}</i>}
-                  </span>
-                  <span className={`fila-time${jogada && !aWin ? ' venceu' : ''}`}>
-                    {nameOf(m.team_b[0])} + {nameOf(m.team_b[1])}
-                    {jogada && <b> {m.score_b}</b>}
-                    {jogada && pb > 0 && <i> +{pb}</i>}
-                  </span>
-                  {m.disputa_3o && (
-                    <span className="tiny nowrap" style={{ color: 'var(--bronze)', fontWeight: 800 }}>
-                      🥉 3º lugar
-                    </span>
-                  )}
-                  {ausentes && jogadorasDaPartida(m).some((id) => ausentes.has(id)) && (
-                    <span className="tiny nowrap" style={{ color: 'var(--yellow)', fontWeight: 800 }}>
-                      ⏳ espera {jogadorasDaPartida(m).filter((id) => ausentes.has(id)).map(nameOf).join(' e ')} chegar
-                    </span>
-                  )}
-                  {jogada && m.tie != null && desempateDe && (
-                    <span className="tiny nowrap tie-tag" title="decidida no tie">
-                      🎯 {placarDoTie(desempateDe(m), m.tie)}
-                    </span>
-                  )}
-                  {repetidas.has(m.id) && (
-                    <span className="tiny muted">
-                      🔁 {(repetidas.get(m.id) as Repeticao).duplas.join(' e ')}{' '}
-                      {(repetidas.get(m.id) as Repeticao).duplas.length > 1 ? 'jogam' : 'joga'} pela 2ª vez
-                      {(repetidas.get(m.id) as Repeticao).planejada
-                        ? ' — é o que deixa todas com o mesmo número de partidas'
-                        : ' — não estava no plano: veio de uma troca na mão. Refazer a fila compensa.'}
-                    </span>
-                  )}
-                  {novatas.length > 0 && (
-                    <span className="tiny" style={{ color: 'var(--teal)', fontWeight: 700 }}>
-                      🆕 {novatas.length === 4
-                        ? 'as quatro ainda estão esperando a primeira partida'
-                        : `${novatas.map(nameOf).join(', ')} ainda não ${novatas.length === 1 ? 'entrou' : 'entraram'} em quadra`}
-                    </span>
-                  )}
-                  {!jogada && jogadorasDaPartida(m).some((id) => emQuadra.has(id)) && (
-                    <span className="tiny muted">⏳ tem gente desta partida em quadra agora</span>
-                  )}
+                  {([m.team_a, m.team_b] as [string, string][]).map((t, lado) => {
+                    const venceu = jogada && (lado === 0) === aWin
+                    const rep = (m.fase ?? 1) < 2 ? repetem?.get(pairKey(t[0], t[1])) : undefined
+                    const repete = rep !== undefined
+                    const noPlano = rep?.planejada
+                    return (
+                      <span key={lado} className={`fila-time${venceu ? ' venceu' : ''}`}>
+                        {t.map((id, k) => (
+                          <span key={id} className={`fila-nome${!jogada && emQuadra.has(id) ? ' em-partida' : ''}`}>
+                            {k > 0 && '+ '}
+                            {/* uma bolinha por dupla: a 2a so ganha a dela se a parceira nao esta em quadra (dono, 17/11) */}
+                            {!jogada && emQuadra.has(id) && (k === 0 || !emQuadra.has(t[0])) && <i className="ponto-vivo rosa" aria-hidden="true" />}
+                            {nameOf(id)}{' '}
+                          </span>
+                        ))}
+                        {jogada && <b>{lado === 0 ? m.score_a : m.score_b}</b>}
+                        {jogada && (lado === 0 ? pa : pb) > 0 && <i> +{lado === 0 ? pa : pb}</i>}
+                        {repete && (
+                          <span
+                            className={`fila-tag repete${noPlano ? '' : ' fora'}`}
+                            title={noPlano ? 'é o que deixa todas com o mesmo número de partidas' : 'não estava no plano: veio de uma troca na mão. Refazer a fila compensa.'}
+                          >
+                            repete {(rep?.ordem.indexOf(m.id) ?? 0) + 1}/{rep?.ordem.length}{noPlano ? '' : ' · troca na mão'}
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })}
+                  {(() => {
+                    const esperando = ausentes ? jogadorasDaPartida(m).filter((id) => ausentes.has(id)) : []
+                    const tags = [
+                      m.disputa_3o && <span key="3o" className="fila-tag bronze">🥉 3º lugar</span>,
+                      esperando.length > 0 && <span key="e" className="fila-tag espera">⏳ espera {esperando.map(nameOf).join(' e ')} chegar</span>,
+                      jogada && m.tie != null && desempateDe && (
+                        <span key="t" className="fila-tag tie-tag" title="decidida no tie">🎯 {placarDoTie(desempateDe(m), m.tie)}</span>
+                      ),
+                      novatas.length > 0 && (
+                        <span key="n" className="fila-tag novata">
+                          🆕 {novatas.length === 4 ? 'as quatro vão estrear na noite' : `${novatas.map(nameOf).join(' e ')} ${novatas.length === 1 ? 'estreia' : 'estreiam'} na noite`}
+                        </span>
+                      ),
+                    ].filter(Boolean)
+                    return tags.length > 0 ? <span className="fila-tags">{tags}</span> : null
+                  })()}
                 </span>
                 {jogada && editable && onCorrigir && (
                   <button
@@ -5287,6 +5394,80 @@ function ListaDePartidas({
         <p className="tiny muted" style={{ marginBottom: 0 }}>{rodape}</p>
       )}
     </div>
+  )
+}
+
+/**
+ * QUEM REPETE COM QUEM (dono, 16/11): nos grupos que nao fecham (6, 7, 10, 11) algumas duplas jogam duas
+ * vezes, e as meninas chegam perguntando com quem vao repetir. Cada dupla, o grupo e onde estao as duas partidas.
+ */
+function QuemRepete({
+  itens,
+  noite,
+  jogadas,
+  emQuadra,
+  grupoDe,
+  totalGrupos,
+  nomesDosGrupos,
+  planejada,
+}: {
+  itens: { ids: [string, string]; partidas: Match[] }[]
+  /** em quadra, as separadas para as quadras e a fila, na ordem: o numero e o mesmo da lista da fila */
+  noite: Match[]
+  jogadas: number
+  emQuadra: Match[]
+  grupoDe: Map<string, number>
+  totalGrupos: number
+  nomesDosGrupos?: string[]
+  planejada: (m: Match) => boolean
+}) {
+  const { nameOf } = useStore()
+  const posicao = new Map(noite.map((m, i) => [m.id, jogadas + i + 1]))
+  const ordenados = [...itens].sort(
+    (a, b) => (grupoDe.get(a.ids[0]) ?? 0) - (grupoDe.get(b.ids[0]) ?? 0) || nameOf(a.ids[0]).localeCompare(nameOf(b.ids[0])),
+  )
+  const naoPlanejadas = itens.filter((x) => x.partidas.some((m, i) => i > 0 && !planejada(m))).length
+  // as jogadas primeiro, depois a ordem da noite
+  const ordem = (m: Match) => (isPlayed(m) ? 0 : posicao.get(m.id) ?? Number.MAX_SAFE_INTEGER)
+  const onde = (m: Match) => {
+    if (isPlayed(m)) return <span className="fila-tag feita">✅ já jogaram</span>
+    if (emQuadra.some((x) => x.id === m.id)) return <span className="fila-tag vivo"><i className="ponto-vivo rosa" aria-hidden="true" />em partida agora</span>
+    return <span className="fila-tag">na fila · {posicao.get(m.id) ?? '?'}ª</span>
+  }
+  return (
+    <details className="ini-grupo ini-detalhe quem-repete">
+      <summary className="ini-linha">
+        <span className="ini-ic roxo" aria-hidden="true">🔁</span>
+        <span className="g">
+          <b>Quem repete com quem</b>
+          <span className="sub">
+            {plural(itens.length, 'dupla joga', 'duplas jogam')} duas vezes hoje
+            {naoPlanejadas > 0 ? ` · ${naoPlanejadas} por troca na mão` : ' · é o que deixa todas com o mesmo número de partidas'}
+          </span>
+        </span>
+      </summary>
+      <div className="ini-corpo">
+        {ordenados.map((x) => (
+          <div key={x.ids.join()} className="repete-linha">
+            <div className="repete-nomes">
+              <span className="fila-nome">{nameOf(x.ids[0])} </span>
+              <span className="fila-nome">+ {nameOf(x.ids[1])}</span>
+              <GrupoTag grupo={grupoDe.get(x.ids[0])} total={totalGrupos} nome={nomesDosGrupos?.[(grupoDe.get(x.ids[0]) ?? 1) - 1]} />
+            </div>
+            <div className="fila-tags">
+              {[...x.partidas].sort((a, b) => ordem(a) - ordem(b)).map((m, i) => (
+                <span key={m.id} className="repete-vez">
+                  <small>{i + 1}ª vez</small> {onde(m)}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+        <p className="tiny muted" style={{ margin: '10px 0 0' }}>
+          Na lista da fila, a dupla que repete aparece com "repete 1/2" e "repete 2/2". Procurar o nome na fila também diz com quem ela repete.
+        </p>
+      </div>
+    </details>
   )
 }
 

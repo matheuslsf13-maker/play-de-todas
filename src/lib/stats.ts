@@ -2,6 +2,12 @@ import { isPlayed, matchPoints } from './scoring'
 import type { AppData, Match, Player, PlaySession } from './types'
 import { monthOf } from './types'
 
+/** Faltar a este play conta como falta (na forca e, com status, no 🔥)? Sem a opcao gravada, a regra de antes. */
+export function contaFalta(s: Pick<PlaySession, 'ranked' | 'conta_status' | 'conta_falta'>): boolean {
+  return s.conta_falta ?? (s.ranked !== false && s.conta_status !== false)
+}
+
+
 export type PlayerStat = {
   player_id: string
   matches: number
@@ -657,9 +663,9 @@ export function calcularElo(data: AppData, upToDate?: string, acompanhar?: strin
     const jogouAqui = acompanhar !== undefined && jogos.some((m) => [...m.team_a, ...m.team_b].includes(acompanhar))
     if (jogouAqui) historico.push({ date: s.date, sessionId: s.id, nota: Math.round(nota(acompanhar as string)), jogou: true })
     if (jogos.length === 0) continue
-    // play avulso ou sem status (um aniversario, o app emprestado): faltar nele
+    // play que nao conta falta (opcao do play; sem ela, o avulso ou sem status): faltar nele
     // nao conta, mas quem veio jogou -- e isso zera as faltas dela
-    const semFalta = s.ranked === false || s.conta_status === false
+    const semFalta = !contaFalta(s)
     const presentes = new Set(s.player_ids)
     // quem some volta para a media DE HOJE (nao mais 1500 fixo)
     const meio = regra.novataNaMedia ? media() : ELO_INICIAL

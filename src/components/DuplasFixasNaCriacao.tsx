@@ -164,7 +164,7 @@ export default function DuplasFixasNaCriacao({
 
       <div className="row" style={{ gap: 8, marginTop: 10 }}>
         <button type="button" className="btn ghost sm grow" onClick={onRemontar}>
-          {ajustada ? '↩️ Voltar ao que o app montou' : '🔀 Montar de novo'}
+          {ajustada ? '🧮 Formar automático pelo app' : '🔀 Montar de novo'}
         </button>
       </div>
       <em className="hint">

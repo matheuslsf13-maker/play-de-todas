@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { AbasComTraco } from './AbasComTraco'
 import CampoDeBusca from './CampoDeBusca'
 import { ComparadorDeAtletas } from './Comparador'
 import GraficoDeForca from './GraficoDeForca'
@@ -250,13 +251,17 @@ export default function PainelJogadora({
         </div>
       </div>
 
-      <div className="st-seg interno" role="tablist">
-        {(['resumo', 'partidas', 'parcerias', 'comparar'] as Aba[]).map((id) => (
-          <button key={id} type="button" role="tab" aria-selected={aba === id} className={aba === id ? 'on' : ''} onClick={() => setAba(id)}>
-            {id === 'resumo' ? 'Resumo' : id === 'partidas' ? 'Partidas' : id === 'parcerias' ? 'Parcerias' : 'Comparar'}
-          </button>
-        ))}
-      </div>
+      <AbasComTraco
+        interno
+        abas={[
+          { id: 'resumo' as Aba, rotulo: 'Resumo' },
+          { id: 'partidas' as Aba, rotulo: 'Partidas' },
+          { id: 'parcerias' as Aba, rotulo: 'Parcerias' },
+          { id: 'comparar' as Aba, rotulo: 'Comparar' },
+        ]}
+        ativa={aba}
+        onEscolher={setAba}
+      />
 
       {aba === 'resumo' && (
         <>

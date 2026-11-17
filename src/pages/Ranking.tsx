@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { Avatar, Empty, Modal, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
+import type { Enquadre } from '../lib/enquadre'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
 import {
@@ -114,7 +115,7 @@ export default function Ranking({
   // cinco basta para saber quem esta na briga; a lista inteira fica a um toque
 
   /** Sem foto, a arte de sempre; com foto, a do podio com a foto por fundo. */
-  async function gerarImagem(foto?: File) {
+  async function gerarImagem(foto?: File, enquadre?: Enquadre) {
     setGerando(true)
     try {
       const usoDoMes = new Map(
@@ -142,7 +143,7 @@ export default function Ranking({
       // a arte carrega so quando alguem pede (fica fora do pacote da tela inicial)
       const { buildMonthPoster, buildPosterComFoto } = await import('../lib/poster')
       const blob = foto
-        ? await buildPosterComFoto({ data: rotuloPeriodo, titulo: 'Pódio do mês', rows: linhas.slice(0, 6), foto, logoUrl: URL_DO_LOGO })
+        ? await buildPosterComFoto({ data: rotuloPeriodo, titulo: 'Pódio do mês', rows: linhas.slice(0, 6), foto, logoUrl: URL_DO_LOGO, enquadre })
         : await buildMonthPoster(rotuloPeriodo, linhas, URL_DO_LOGO)
       setPoster({ url: URL.createObjectURL(blob), blob })
     } catch (e) {
@@ -264,7 +265,7 @@ export default function Ranking({
                 <span className="ini-ic roxo" aria-hidden="true">👑</span>
                 <span className="g"><b>{gerando ? 'Montando a arte…' : 'Gerar imagem do fechamento do mês'}</b></span>
               </button>
-              <BotoesDeFoto lista gerando={gerando} textoCamera="📷 Tirar foto" aoEscolher={(f) => void gerarImagem(f)} />
+              <BotoesDeFoto lista gerando={gerando} textoCamera="📷 Tirar foto" aoEscolher={(f, enq) => void gerarImagem(f, enq)} />
             </div>
           )}
         </>

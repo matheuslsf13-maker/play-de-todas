@@ -76,6 +76,18 @@ export function montarDuplasPorNivel(
 }
 
 /** Troca duas pessoas de lugar (cada uma vai para a dupla da outra). */
+/**
+ * RECONFIGURAR um play de duplas fixas: as duplas que continuam inteiras ficam
+ * como estavam; so quem chegou (ou perdeu a parceira) e montado de novo.
+ */
+export function manterDuplas(antigas: Duo[], ids: string[], montar: (resto: string[]) => DuplasMontadas): DuplasMontadas {
+  const no = new Set(ids)
+  const ficam = antigas.filter(([a, b]) => no.has(a) && no.has(b))
+  const usadas = new Set(ficam.flat())
+  const novas = montar(ids.filter((id) => !usadas.has(id)))
+  return { ...novas, duplas: [...ficam, ...novas.duplas] }
+}
+
 export function trocarNasDuplas(duplas: Duo[], a: string, b: string): Duo[] {
   if (a === b) return duplas
   return duplas.map((d) => d.map((id) => (id === a ? b : id === b ? a : id)) as Duo)

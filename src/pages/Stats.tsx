@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AbasComTraco } from '../components/AbasComTraco'
 import DetalheDupla from '../components/DetalheDaDupla'
 import PainelDuplas from '../components/PainelDuplas'
 import { duplasDoRecorte } from '../lib/duplasDoRecorte'
@@ -117,13 +118,11 @@ export default function Stats({
             />
           )}
         </div>
-        <div className="st-seg" role="tablist">
-          {(Object.keys(ROTULO_DO_MODO) as Modo[]).map((id) => (
-            <button key={id} type="button" role="tab" aria-selected={modo === id} className={modo === id ? 'on' : ''} onClick={() => setModo(id)}>
-              {ROTULO_DO_MODO[id]}
-            </button>
-          ))}
-        </div>
+        <AbasComTraco
+          abas={(Object.keys(ROTULO_DO_MODO) as Modo[]).map((id) => ({ id, rotulo: ROTULO_DO_MODO[id] }))}
+          ativa={modo}
+          onEscolher={setModo}
+        />
       </div>
 
       {modo === 'forca' ? (

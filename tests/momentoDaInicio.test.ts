@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { escolherListaDoMomento, type Lista, type ListaCompleta, type NomeNaLista } from '../src/lib/listaDePresenca'
-import { contagem, decorrido, estaAoVivo, momentoDaInicio, podioDaNoite, tempoDaLista, type Momento } from '../src/lib/momentoDaInicio'
+import { contagem, decorrido, estaAoVivo, momentoDaInicio, podioDaNoite, situacaoDoPlay, tempoDaLista, type Momento } from '../src/lib/momentoDaInicio'
 import type { Match, PlaySession } from '../src/lib/types'
 
 /*
@@ -300,4 +300,17 @@ test('podio com muitos grupos: ate 5 linhas e o resto em "+N"', () => {
   // ate 5: nada escondido
   const p5 = podioDaNoite({ ...s, groups: groups.slice(0, 5) }, ms.slice(0, 5), (id) => id)
   assert.equal(p5?.tipo === 'varios' && p5.mais, 0)
+})
+
+test('selo do play: agendado antes das 20h do dia, em atraso depois, em andamento so com partida', () => {
+  const s = play('s1', '2026-11-17')
+  const em = (iso: string) => situacaoDoPlay(s, [], new Date(iso))
+  assert.equal(em('2026-11-16T23:00:00Z'), 'agendado') // vespera
+  assert.equal(em('2026-11-17T22:59:00Z'), 'agendado') // 19h59 do dia
+  assert.equal(em('2026-11-17T23:01:00Z'), 'atrasado') // 20h01 sem comecar
+  assert.equal(em('2026-11-19T12:00:00Z'), 'atrasado') // dias depois
+  const iniciada = partida('s1', { started_at: '2026-11-17T23:10:00Z' })
+  assert.equal(situacaoDoPlay(s, [iniciada], new Date('2026-11-17T23:20:00Z')), 'ao-vivo')
+  assert.equal(situacaoDoPlay(s, [iniciada], new Date('2026-11-20T23:20:00Z')), 'andamento')
+  assert.equal(situacaoDoPlay({ ...s, status: 'finished' }, [], new Date()), 'finalizado')
 })

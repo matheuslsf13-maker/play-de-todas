@@ -1,10 +1,13 @@
 import {
   type CriterioDoDia,
   computeStats,
+  contaFalta,
   playedMatches,
   rankPlayers,
   type PlayerStat,
 } from './stats'
+
+export { contaFalta }
 import { podioDoMataMata } from './campeonato'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from './desempateDoDia'
 import type { AppData, DesempateDeGrupo, Match, PlaySession, StreakChoice } from './types'
@@ -253,7 +256,7 @@ export function computeStreaks(data: AppData): Streaks {
   const escolhas = new Map(data.choices.map((c) => [`${c.player_id}:${c.month}`, c]))
   const finished = data.sessions
     // um play que nao vale para o mes nem para o status nao existe aqui
-    .filter((s) => s.status === 'finished' && (s.ranked !== false || contaNoStatus(s)))
+    .filter((s) => s.status === 'finished' && (s.ranked !== false || contaNoStatus(s) || contaFalta(s)))
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
 
   const current = new Map<string, number>()
@@ -372,8 +375,11 @@ export function computeStreaks(data: AppData): Streaks {
           ),
         )
     if (vaiProMes) podiumOf.set(s.id, [...noPodio])
-    // play fora do status: quem subiu nao soma, quem ficou fora ou faltou nao perde
-    if (!contaNoStatus(s)) continue
+    // play fora do status: quem subiu nao soma e quem ficou fora nao perde; quem faltou perde so se o play
+    // conta falta (opcao separada desde 16/11)
+    const status = contaNoStatus(s)
+    const falta = contaFalta(s)
+    if (!status && !falta) continue
 
     const jogaram = new Set<string>()
     for (const m of ms) for (const id of [...m.team_a, ...m.team_b]) jogaram.add(id)
@@ -384,6 +390,15 @@ export function computeStreaks(data: AppData): Streaks {
 
     for (const p of data.players) {
       const seq = current.get(p.id) ?? 0
+      if (!jogaram.has(p.id)) {
+        // faltou: perde tudo, se o play conta falta
+        if (falta) {
+          current.set(p.id, 0)
+          lives.set(p.id, 0)
+        }
+        continue
+      }
+      if (!status) continue
       if (noPodio.has(p.id)) {
         const nova = seq + 1
         current.set(p.id, nova)
@@ -405,7 +420,7 @@ export function computeStreaks(data: AppData): Streaks {
           streak: seq, usouVida: true, value: valorAntigo(seq),
         })
       } else {
-        // faltou, ou ficou fora do podio sem vida: perde tudo
+        // ficou fora do podio sem vida: perde tudo
         current.set(p.id, 0)
         lives.set(p.id, 0)
       }

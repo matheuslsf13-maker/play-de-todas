@@ -120,7 +120,7 @@ export function rotuloDoTipo(tipo: TipoDeConta | undefined): string {
 export const CATEGORIAS_DE_CAIXA: { valor: CategoriaDeCaixa; rotulo: string; tipo: 'entrada' | 'saida' }[] = [
   { valor: 'extra', rotulo: 'Receita extra', tipo: 'entrada' },
   { valor: 'aluguel', rotulo: 'Aluguel', tipo: 'saida' },
-  { valor: 'brinde', rotulo: 'Brindes', tipo: 'saida' },
+  { valor: 'brinde', rotulo: 'Brindes e presentes', tipo: 'saida' },
   { valor: 'confraternizacao', rotulo: 'Confraternização', tipo: 'saida' },
   { valor: 'outra', rotulo: 'Outras despesas', tipo: 'saida' },
 ]
@@ -856,7 +856,7 @@ export type LinhaDoResumo = {
   despesaTotal: number
   saldoDoMes: number
   saldoAcumulado: number
-  /** 🎉 o que entrou no caixa de eventos no mes (a economia do aluguel no plano mensal) e o total ate ali. */
+  /** 🎉 o que o caixa de eventos ganhou no mes (entradas menos o que pagou de gastos) e o total ate ali. */
   eventos: number
   eventosAcumulado: number
 }
@@ -906,6 +906,44 @@ export function entradasDosEventos(data: AppData): EntradaDosEventos[] {
   return out.sort((a, b) => b.date.localeCompare(a.date))
 }
 
+/** Um gasto pago com o caixa de eventos: quanto o caixa cobriu e quanto passou do que ele tinha (caixa geral). */
+export type SaidaDosEventos = { caixa_id: string; date: string; descricao: string; valor: number; coberto: number; resto: number }
+
+/**
+ * Os gastos marcados "pagar com o caixa de eventos", na ordem do calendario: cada um tira do caixa ate o que ele
+ * tem naquela data (as entradas do mesmo dia valem antes); o que passa fica como despesa comum da categoria, que
+ * ja sai do saldo geral. Tudo derivado: apagar ou mudar um lancamento refaz a conta. Mais recente primeiro.
+ */
+export function saidasDosEventos(data: AppData): SaidaDosEventos[] {
+  type Mov = { date: string; ordem: number; criado: string; entra?: number; saida?: LancamentoDeCaixa }
+  const movs: Mov[] = [
+    ...entradasDosEventos(data).map((e) => ({ date: e.date, ordem: 0, criado: '', entra: e.valor })),
+    ...data.caixa
+      .filter((l) => l.do_eventos && l.tipo === 'saida')
+      .map((l) => ({ date: l.date, ordem: 1, criado: l.created_at, saida: l })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.ordem - b.ordem || a.criado.localeCompare(b.criado))
+  let saldo = 0
+  const out: SaidaDosEventos[] = []
+  for (const m of movs) {
+    if (m.entra !== undefined) {
+      saldo = centavos(saldo + m.entra)
+      continue
+    }
+    const l = m.saida as LancamentoDeCaixa
+    const coberto = centavos(Math.min(l.valor, Math.max(0, saldo)))
+    saldo = centavos(saldo - coberto)
+    out.push({ caixa_id: l.id, date: l.date, descricao: l.descricao, valor: l.valor, coberto, resto: centavos(l.valor - coberto) })
+  }
+  return out.reverse()
+}
+
+/** Quanto o caixa de eventos tem ao fim de `date` (para mostrar antes de lancar um gasto). */
+export function saldoDosEventosEm(data: AppData, date: string): number {
+  const entrou = entradasDosEventos(data).filter((e) => e.date <= date).reduce((t, e) => t + e.valor, 0)
+  const saiu = saidasDosEventos(data).filter((s) => s.date <= date).reduce((t, s) => t + s.coberto, 0)
+  return centavos(entrou - saiu)
+}
+
 /**
  * O resumo da planilha, mes a mes: receita dos plays (a soma do que foi pago
  * nos lancamentos), receitas extras e as saidas por categoria, com o saldo
@@ -939,6 +977,7 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
     if (i.tipo === 'dinheiro' && i.mes >= MES_INICIAL) linha(monthOf(i.date)).mensalidades += i.valor ?? 0
   }
   for (const e of entradasDosEventos(data)) linha(monthOf(e.date)).eventos += e.valor
+  for (const s of saidasDosEventos(data)) linha(monthOf(s.date)).eventos -= s.coberto
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))
     if (l.tipo === 'entrada') r.receitasExtras += l.valor

@@ -1,6 +1,6 @@
 import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '../lib/pagamentoNaLista'
 import CampoDeBusca from '../components/CampoDeBusca'
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
 import { dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
@@ -41,6 +41,8 @@ import {
   resumoDoCaixa,
   economiaDoAluguel,
   entradasDosEventos,
+  saidasDosEventos,
+  saldoDosEventosEm,
   type EntradaDosEventos,
   rotuloDoDia,
   rotuloDoTipo,
@@ -93,7 +95,7 @@ import { gerarXlsx } from '../lib/xlsx'
  * parte do app que nao e publica, porque a chave anon e publica.
  */
 
-type Secao = 'atletas' | 'mensalistas' | 'dias' | 'arenas' | 'caixa' | 'padroes'
+type Secao = 'atletas' | 'mensalistas' | 'dias' | 'arenas' | 'caixa' | 'eventos' | 'padroes'
 
 /** O modal da atleta abre nas contas, no extrato do saldo ou direto no acerto. */
 type VisaoDasContas = 'contas' | 'extrato' | 'acerto'
@@ -102,7 +104,7 @@ type VisaoDasContas = 'contas' | 'extrato' | 'acerto'
 type PedidoDeLancamento = { checkin?: Checkin; playerId?: string; diaId?: string }
 
 const CHAVE_DA_SECAO = `${LIGA.prefixo}:checkins-secao`
-const SECOES: Secao[] = ['atletas', 'mensalistas', 'dias', 'arenas', 'caixa', 'padroes']
+const SECOES: Secao[] = ['atletas', 'mensalistas', 'dias', 'arenas', 'caixa', 'eventos', 'padroes']
 
 function secaoSalva(): Secao {
   try {
@@ -154,7 +156,12 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
   // a secao guardada pode ser o Caixa de quando estava logada: deslogada, cai em Atletas
   // a mensalidade so existe no Play de Todas e so a organizadora logada mexe nela
   const temMensalistas = LIGA.id === 'feminino' && veDinheiro
-  const secaoAtiva: Secao = (secao === 'caixa' && !veDinheiro) || (secao === 'mensalistas' && !temMensalistas) ? 'atletas' : secao
+  // a caixinha de eventos e dinheiro do Play de Todas: so logada
+  const temEventos = LIGA.id === 'feminino' && veDinheiro
+  const secaoAtiva: Secao =
+    (secao === 'caixa' && !veDinheiro) || (secao === 'mensalistas' && !temMensalistas) || (secao === 'eventos' && !temEventos) ? 'atletas' : secao
+  /** O "Usar a caixinha" da aba Eventos abre o Caixa ja com a opcao marcada. */
+  const [gastoDaCaixinha, setGastoDaCaixinha] = useState(0)
 
   const secoes: { id: Secao; rotulo: string }[] = [
     { id: 'atletas', rotulo: '👯 Atletas' },
@@ -162,7 +169,8 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
     { id: 'dias', rotulo: '📅 Dias' },
     { id: 'arenas', rotulo: '📤 Arenas' },
     ...(veDinheiro ? [{ id: 'caixa' as const, rotulo: '💰 Caixa' }] : []),
-    { id: 'padroes', rotulo: '⚙️' },
+    // o ⚙️ saiu daqui para o cabecalho, ao lado do mes; no lugar dele, a caixinha (dono, 16/11)
+    ...(temEventos ? [{ id: 'eventos' as const, rotulo: '🎉 Eventos' }] : []),
   ]
 
   return (
@@ -182,11 +190,23 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       <div className="card">
         <div className="row spread" style={{ marginBottom: 10 }}>
           <div className="section-title" style={{ margin: 0 }}>💰 Financeiro</div>
-          <select className="select" style={{ width: 'auto' }} value={mes} onChange={(e) => setMes(e.target.value)}>
-            {meses.map((m) => (
-              <option key={m} value={m}>{monthLabel(m)}</option>
-            ))}
-          </select>
+          <div className="row" style={{ gap: 8 }}>
+            <select className="select" style={{ width: 'auto' }} value={mes} onChange={(e) => setMes(e.target.value)}>
+              {meses.map((m) => (
+                <option key={m} value={m}>{monthLabel(m)}</option>
+              ))}
+            </select>
+            <button
+              className={`btn ${secaoAtiva === 'padroes' ? 'pink' : 'ghost'}`}
+              style={{ width: 44, height: 44, padding: 0, flex: 'none' }}
+              aria-label="Ajustes do financeiro (arenas, planos e valores)"
+              aria-pressed={secaoAtiva === 'padroes'}
+              title="Ajustes"
+              onClick={() => setSecao(secaoAtiva === 'padroes' ? 'atletas' : 'padroes')}
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
         <div className="segmented quebra" style={{ '--cols': secoes.length === 4 ? 2 : Math.min(3, secoes.length) } as CSSProperties}>
           {secoes.map((s) => (
@@ -225,7 +245,20 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
         />
       )}
       {secaoAtiva === 'arenas' && <SecaoArenas mes={mes} onToast={onToast} />}
-      {secaoAtiva === 'caixa' && veDinheiro && <SecaoCaixa mes={mes} podeEditar={podeEditar} onToast={onToast} />}
+      {secaoAtiva === 'caixa' && veDinheiro && (
+        <SecaoCaixa key={gastoDaCaixinha} mes={mes} podeEditar={podeEditar} onToast={onToast} comCaixinha={gastoDaCaixinha > 0} />
+      )}
+      {secaoAtiva === 'eventos' && temEventos && (
+        <HistoricoDosEventos
+          ate={mes}
+          podeEditar={podeEditar}
+          onToast={onToast}
+          onUsar={() => {
+            setGastoDaCaixinha((n) => n + 1)
+            setSecao('caixa')
+          }}
+        />
+      )}
       {secaoAtiva === 'padroes' && <SecaoPadroes podeEditar={podeEditar} onToast={onToast} />}
 
       {planoDe && <EditarPlanoDaAtleta jogadora={planoDe} onClose={() => setPlanoDeId(null)} onToast={onToast} onAbrirFicha={setFichaDe} />}
@@ -847,7 +880,21 @@ function Reais({ n, sinal }: { n: number; sinal?: boolean }) {
 }
 
 /** 🎉 De onde veio cada real do caixa de eventos, ate o fim do mes aberto (o total bate com o do resumo). */
-function HistoricoDosEventos({ ate, podeEditar, onClose, onToast }: { ate: string; podeEditar: boolean; onClose: () => void; onToast: (m: string) => void }) {
+function HistoricoDosEventos({
+  ate,
+  podeEditar,
+  onClose,
+  onToast,
+  onUsar,
+}: {
+  ate: string
+  podeEditar: boolean
+  /** Com ele, abre numa janela (do Caixa); sem ele, e a aba 🎉 Eventos. */
+  onClose?: () => void
+  onToast: (m: string) => void
+  /** "Usar a caixinha": vai para o Caixa com a opcao marcada. */
+  onUsar?: () => void
+}) {
   const { data, nameOf, saveCheckin, saveCaixa } = useStore()
   /** Tira a entrada desfazendo o que a gerou: a substituta deixa de ser "no lugar de" (o pagamento dela fica);
    * o aluguel deixa de estar no plano mensal (o valor pago fica). Nada e apagado. */
@@ -868,20 +915,63 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
     onToast('Tirado do caixa de eventos')
   }
   const entradas = useMemo(() => entradasDosEventos(data).filter((e) => monthOf(e.date) <= ate), [data, ate])
-  const total = entradas.reduce((t, e) => t + e.valor, 0)
+  const saidas = useMemo(() => saidasDosEventos(data).filter((x) => monthOf(x.date) <= ate && x.coberto > 0), [data, ate])
+  const total = entradas.reduce((t, e) => t + e.valor, 0) - saidas.reduce((t, x) => t + x.coberto, 0)
+  // entradas e gastos juntos, do mais recente ao mais antigo
+  const linhas = [
+    ...entradas.map((e) => ({ date: e.date, entrada: e, saida: null })),
+    ...saidas.map((x) => ({ date: x.date, entrada: null, saida: x })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
+  const rotuloDe = (id: string) => {
+    const l = data.caixa.find((c) => c.id === id)
+    return CATEGORIAS_DE_CAIXA.find((c) => c.valor === l?.categoria)?.rotulo ?? 'despesa'
+  }
   return (
-    <Modal title="🎉 Caixa de eventos" onClose={onClose}>
+    <Moldura onClose={onClose}>
       <div className="stack">
-        <div className="row spread">
-          <span className="muted small">Total até {nomeDoMes(ate)}</span>
-          <strong style={{ fontSize: 20 }}><Reais n={total} /></strong>
-        </div>
-        {entradas.length === 0 ? (
+        {onClose ? (
+          <div className="row spread">
+            <span className="muted small">Saldo até {nomeDoMes(ate)}</span>
+            <strong style={{ fontSize: 20 }}><Reais n={total} /></strong>
+          </div>
+        ) : (
+          <>
+            <div className="caixinha-saldo">
+              <span className="muted small">Tem na caixinha{ate < monthOf(todayISO()) ? ` (fim de ${nomeDoMes(ate)})` : ''}</span>
+              <strong><Reais n={total} /></strong>
+              <span className="tiny muted">reservado dentro do saldo do caixa, para presentes e confraternizações</span>
+            </div>
+            {podeEditar && onUsar && (
+              <button className="btn pink block" onClick={onUsar} disabled={total <= 0}>
+                🎁 Usar a caixinha num gasto
+              </button>
+            )}
+            <div className="tiny muted">
+              Entra metade do que a substituta paga e a economia do aluguel no plano mensal. Sai quando um gasto de
+              Brindes e presentes ou Confraternização usa a caixinha; o que passar do saldo sai do caixa geral.
+            </div>
+            <div className="section-title" style={{ margin: '6px 0 0' }}>📜 Entradas e gastos</div>
+          </>
+        )}
+        {linhas.length === 0 ? (
           <Empty icon="🎉">Nada entrou no caixa de eventos ainda.</Empty>
         ) : (
           <table className="table">
             <tbody>
-              {entradas.map((e, i) => (
+              {linhas.map(({ entrada: e, saida: x }, i) => x ? (
+                <tr key={i}>
+                  <td>
+                    <b>🎁 {x.descricao || 'Gasto pago com o caixa de eventos'}</b>
+                    <div className="tiny muted">
+                      {dateLabel(x.date)} · {formatarReais(x.valor)} no total
+                      {x.resto > 0 ? `: ${formatarReais(x.coberto)} do caixa de eventos e ${formatarReais(x.resto)} do caixa geral (${rotuloDe(x.caixa_id)})` : ''}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span className="valor-neg">−{formatarReais(x.coberto)}</span>
+                  </td>
+                </tr>
+              ) : e && (
                 <tr key={i}>
                   <td>
                     {e.origem === 'substituta' ? (
@@ -911,19 +1001,37 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
           </table>
         )}
       </div>
-    </Modal>
+    </Moldura>
   )
 }
 
-function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boolean; onToast: (m: string) => void }) {
+/** A caixinha numa janela (aberta do Caixa) ou num cartao (a aba 🎉 Eventos). */
+function Moldura({ onClose, children }: { onClose?: () => void; children: React.ReactNode }) {
+  if (onClose) return <Modal title="🎉 Caixinha de eventos" onClose={onClose}>{children}</Modal>
+  return (
+    <div className="card">
+      <div className="section-title">🎉 Caixinha de eventos</div>
+      {children}
+    </div>
+  )
+}
+
+function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: string; podeEditar: boolean; onToast: (m: string) => void; comCaixinha?: boolean }) {
   const { data, nameOf, saveCaixa, deleteCaixa } = useStore()
   const [categoria, setCategoria] = useState<CategoriaDeCaixa>('brinde')
+  const formulario = useRef<HTMLDivElement>(null)
+  // vindo do "Usar a caixinha": o formulario aparece na tela
+  useEffect(() => {
+    if (comCaixinha) formulario.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [comCaixinha])
   const [date, setDate] = useState(todayISO())
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [tudo, setTudo] = useState(false)
   /** Aluguel da V3 pago no plano mensal (5% de desconto): ja vem marcado (dono, 07/11). */
   const [planoMensal, setPlanoMensal] = useState(true)
+  /** Gasto pago com o 🎉 caixa de eventos (dono, 16/11). */
+  const [doEventos, setDoEventos] = useState(comCaixinha)
   // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
   const [aberto, setAberto] = useState<(typeof data.caixa)[number] | null>(null)
   const [verEventos, setVerEventos] = useState(false)
@@ -949,17 +1057,26 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
     ? contaDoAluguel({ valorNoPlano: valorLido, desconto: planoMensal ? undefined : 0, checkinsMesAnterior: checkinsAbatidos })
     : null
 
+  // o caixa de eventos paga gastos comuns (presentes, confraternizacao...); o aluguel tem a conta dele
+  // so nos gastos de evento: presentes e confraternizacao (dono, 16/11)
+  const podeEventos = LIGA.id === 'feminino' && (categoria === 'brinde' || categoria === 'confraternizacao')
+  const temEventos = useMemo(() => entradasDosEventos(data).length > 0, [data])
+  const noEventos = podeEventos && date ? saldoDosEventosEm(data, date) : 0
+  const cobre = podeEventos && doEventos && valorLido ? Math.min(valorLido, Math.max(0, noEventos)) : 0
+
   function lancar() {
     if (valorLido === null || valorLido <= 0 || !date) return
     saveCaixa({
       id: uid(), date, descricao: descricao.trim(), categoria, tipo, created_at: new Date().toISOString(),
+      ...(podeEventos && doEventos ? { do_eventos: true } : {}),
       ...(aluguel
         ? { valor: aluguel.pagarNoPix, plano_mensal: planoMensal, valor_cobrado: valorLido, checkins_abatidos: checkinsAbatidos }
         : { valor: valorLido }),
     })
     setDescricao('')
     setValor('')
-    onToast(tipo === 'entrada' ? 'Receita lançada' : 'Saída lançada')
+    setDoEventos(false)
+    onToast(tipo === 'entrada' ? 'Receita lançada' : podeEventos && doEventos ? 'Gasto lançado com a caixinha 🎉' : 'Saída lançada')
   }
 
   const totais = resumo.reduce(
@@ -972,45 +1089,85 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
     { receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0 },
   )
 
+  const rotuloDa = (c: string) => CATEGORIAS_DE_CAIXA.find((x) => x.valor === c)?.rotulo ?? c
+  const doEventosPorId = useMemo(() => new Map(saidasDosEventos(data).map((x) => [x.caixa_id, x])), [data])
+  const excel = async () => {
+    const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
+    const arquivo = new File([gerarXlsx(planilhas)], `controle-${LIGA.prefixo}-${tudo ? 'tudo' : mes}.xlsx`, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const r = await baixarOuCompartilhar(arquivo, `Controle Play de Todas — ${tudo ? 'tudo' : monthLabel(mes)}`)
+    onToast(r === 'baixou' ? 'Planilha salva 📊' : 'Planilha enviada 📊')
+  }
+  const linhaDoExcel = (
+    <button className="ini-linha ini-chev" onClick={excel}>
+      <span className="ini-ic verde" aria-hidden="true">📊</span>
+      <span className="g"><b>Excel completo</b><span className="sub">{tudo ? 'todos os meses' : nomeDoMes(mes)}, com plays, mensalidades e caixa</span></span>
+    </button>
+  )
+  const passa = doEventos && valorLido ? Math.max(0, valorLido - cobre) : 0
+
   return (
     <>
-      <div className="card">
-        <div className="row spread" style={{ marginBottom: 10 }}>
-          <div className="section-title" style={{ margin: 0 }}>📊 Resumo</div>
-          <div className="segmented" style={{ width: 'auto' }}>
-            <button className={!tudo ? 'on' : ''} onClick={() => setTudo(false)}>{nomeDoMes(mes)}</button>
-            <button className={tudo ? 'on' : ''} onClick={() => setTudo(true)}>Tudo</button>
-          </div>
+      <div className="ini-sec" style={{ marginTop: 6 }}>
+        <h2>💰 Caixa</h2>
+        <div className="segmented" style={{ width: 'auto' }}>
+          <button className={!tudo ? 'on' : ''} onClick={() => setTudo(false)}>{nomeDoMes(mes)}</button>
+          <button className={tudo ? 'on' : ''} onClick={() => setTudo(true)}>Tudo</button>
         </div>
-        {!tudo ? (
-          <table className="table">
-            <tbody>
-              <tr><td>Receita dos plays</td><td><Reais n={linhaDoMes.receitasPlay} /></td></tr>
-              {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td><Reais n={linhaDoMes.mensalidades} /></td></tr>}
-              <tr><td>Receitas extras</td><td><Reais n={linhaDoMes.receitasExtras} /></td></tr>
-              <tr><td><strong>Receita total</strong></td><td><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
-              <tr><td>Aluguel</td><td><Reais n={linhaDoMes.aluguel} /></td></tr>
-              <tr><td>Brindes</td><td><Reais n={linhaDoMes.brindes} /></td></tr>
-              <tr><td>Confraternização</td><td><Reais n={linhaDoMes.confraternizacao} /></td></tr>
-              <tr><td>Outras despesas</td><td><Reais n={linhaDoMes.outras} /></td></tr>
-              <tr><td><strong>Despesa total</strong></td><td><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
-              <tr><td><strong>Saldo do mês</strong></td><td><strong><Reais n={linhaDoMes.saldoDoMes} sinal /></strong></td></tr>
-              <tr><td><strong>Saldo acumulado</strong></td><td><strong><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong></td></tr>
-              {linhaDoMes.eventosAcumulado > 0 && (
-                <tr>
-                  <td>
-                    🎉 Caixa de eventos <span className="tiny muted">(reservado dentro do saldo)</span>
-                    <button className="btn ghost sm" style={{ display: 'block', marginTop: 6 }} onClick={() => setVerEventos(true)}>📜 De onde veio</button>
-                  </td>
-                  <td><Reais n={linhaDoMes.eventosAcumulado} /></td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        ) : resumo.length === 0 ? (
-          <Empty icon="💰">Nenhum movimento ainda.</Empty>
-        ) : (
-          <div className="tabela-rolavel">
+      </div>
+      {!tudo ? (
+        <div className="ini-grupo">
+          <div className="caixa-saldo-mes">
+            <span>Saldo de {nomeDoMes(mes)}</span>
+            <strong className={linhaDoMes.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}>
+              <Reais n={linhaDoMes.saldoDoMes} sinal />
+            </strong>
+          </div>
+          <div className="ini-met" style={{ marginTop: 0, borderTop: '.5px solid var(--sep)' }}>
+            <div><strong className="caixa-num valor-pos"><Reais n={linhaDoMes.receitaTotal} /></strong><span>entrou</span></div>
+            <div><strong className="caixa-num valor-neg"><Reais n={linhaDoMes.despesaTotal} /></strong><span>saiu</span></div>
+            <div><strong className={`caixa-num ${linhaDoMes.saldoAcumulado < 0 ? 'valor-neg' : 'valor-pos'}`}><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong><span>no caixa</span></div>
+          </div>
+          {(linhaDoMes.eventosAcumulado !== 0 || temEventos) && (
+            <button className="ini-linha ini-chev" onClick={() => setVerEventos(true)}>
+              <span className="ini-ic rosa" aria-hidden="true">🎉</span>
+              <span className="g"><b>Caixinha de eventos</b><span className="sub">reservada dentro do caixa · entradas e gastos</span></span>
+              <span className="ini-pts" style={{ fontSize: 17 }}><Reais n={linhaDoMes.eventosAcumulado} /></span>
+            </button>
+          )}
+          <details className="ini-detalhe">
+            <summary className="ini-linha">
+              <span className="ini-ic roxo" aria-hidden="true">🧾</span>
+              <span className="g"><b>De onde veio e para onde foi</b><span className="sub">receitas e despesas por tipo</span></span>
+            </summary>
+            <div className="ini-corpo">
+              <table className="table">
+                <tbody>
+                  <tr><td>Receita dos plays</td><td className="valor-pos"><Reais n={linhaDoMes.receitasPlay} /></td></tr>
+                  {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td className="valor-pos"><Reais n={linhaDoMes.mensalidades} /></td></tr>}
+                  <tr><td>Receitas extras</td><td className="valor-pos"><Reais n={linhaDoMes.receitasExtras} /></td></tr>
+                  <tr><td><strong>Receita total</strong></td><td className="valor-pos"><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
+                  <tr><td>Aluguel</td><td className="valor-neg"><Reais n={linhaDoMes.aluguel} /></td></tr>
+                  <tr><td>Brindes e presentes</td><td className="valor-neg"><Reais n={linhaDoMes.brindes} /></td></tr>
+                  <tr><td>Confraternização</td><td className="valor-neg"><Reais n={linhaDoMes.confraternizacao} /></td></tr>
+                  <tr><td>Outras despesas</td><td className="valor-neg"><Reais n={linhaDoMes.outras} /></td></tr>
+                  <tr><td><strong>Despesa total</strong></td><td className="valor-neg"><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
+                </tbody>
+              </table>
+              <p className="tiny muted" style={{ margin: '8px 0 0' }}>
+                A receita dos plays e das mensalidades vem dos lançamentos; aqui embaixo entram só as receitas extras e as saídas.
+                Gasto pago pela caixinha conta inteiro na despesa: a caixinha é uma reserva dentro do caixa.
+              </p>
+            </div>
+          </details>
+          {linhaDoExcel}
+        </div>
+      ) : resumo.length === 0 ? (
+        <div className="card"><Empty icon="💰">Nenhum movimento ainda.</Empty></div>
+      ) : (
+        <div className="ini-grupo">
+          <div className="tabela-rolavel" style={{ padding: '4px 8px' }}>
             <table className="table">
               <thead>
                 <tr>
@@ -1022,130 +1179,165 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 {resumo.map((r) => (
                   <tr key={r.mes}>
                     <td>{monthLabel(r.mes).slice(0, 3)}/{r.mes.slice(2, 4)}</td>
-                    <td><Reais n={r.receitasPlay} /></td><td><Reais n={r.mensalidades} /></td><td><Reais n={r.receitasExtras} /></td><td><Reais n={r.receitaTotal} /></td>
-                    <td><Reais n={r.aluguel} /></td><td><Reais n={r.brindes} /></td><td><Reais n={r.confraternizacao} /></td>
-                    <td><Reais n={r.outras} /></td><td><Reais n={r.despesaTotal} /></td>
-                    <td><Reais n={r.saldoDoMes} sinal /></td><td><Reais n={r.saldoAcumulado} sinal /></td>
+                    <td className="valor-pos"><Reais n={r.receitasPlay} /></td><td className="valor-pos"><Reais n={r.mensalidades} /></td><td className="valor-pos"><Reais n={r.receitasExtras} /></td><td className="valor-pos"><Reais n={r.receitaTotal} /></td>
+                    <td className="valor-neg"><Reais n={r.aluguel} /></td><td className="valor-neg"><Reais n={r.brindes} /></td><td className="valor-neg"><Reais n={r.confraternizacao} /></td>
+                    <td className="valor-neg"><Reais n={r.outras} /></td><td className="valor-neg"><Reais n={r.despesaTotal} /></td>
+                    <td className={r.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={r.saldoDoMes} sinal /></td><td className={r.saldoAcumulado < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={r.saldoAcumulado} sinal /></td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
                   <td>Total</td>
-                  <td><Reais n={totais.receitasPlay} /></td><td><Reais n={totais.mensalidades} /></td><td><Reais n={totais.receitasExtras} /></td><td><Reais n={totais.receitaTotal} /></td>
-                  <td><Reais n={totais.aluguel} /></td><td><Reais n={totais.brindes} /></td><td><Reais n={totais.confraternizacao} /></td>
-                  <td><Reais n={totais.outras} /></td><td><Reais n={totais.despesaTotal} /></td>
-                  <td><Reais n={totais.saldoDoMes} sinal /></td><td><Reais n={resumo[resumo.length - 1]?.saldoAcumulado ?? 0} sinal /></td>
+                  <td className="valor-pos"><Reais n={totais.receitasPlay} /></td><td className="valor-pos"><Reais n={totais.mensalidades} /></td><td className="valor-pos"><Reais n={totais.receitasExtras} /></td><td className="valor-pos"><Reais n={totais.receitaTotal} /></td>
+                  <td className="valor-neg"><Reais n={totais.aluguel} /></td><td className="valor-neg"><Reais n={totais.brindes} /></td><td className="valor-neg"><Reais n={totais.confraternizacao} /></td>
+                  <td className="valor-neg"><Reais n={totais.outras} /></td><td className="valor-neg"><Reais n={totais.despesaTotal} /></td>
+                  <td className={totais.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={totais.saldoDoMes} sinal /></td><td className={(resumo[resumo.length - 1]?.saldoAcumulado ?? 0) < 0 ? 'valor-neg' : 'valor-pos'}><Reais n={resumo[resumo.length - 1]?.saldoAcumulado ?? 0} sinal /></td>
                 </tr>
               </tfoot>
             </table>
           </div>
-        )}
-        <p className="tiny muted" style={{ margin: '8px 0 0' }}>
-          A receita dos plays é a soma do que foi pago nos lançamentos dos dias. Aqui entram só as receitas extras e as saídas.
-        </p>
-        <button
-          className="btn teal block"
-          style={{ marginTop: 10 }}
-          onClick={async () => {
-            const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
-            const arquivo = new File([gerarXlsx(planilhas)], `controle-${LIGA.prefixo}-${tudo ? 'tudo' : mes}.xlsx`, {
-              type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            })
-            const r = await baixarOuCompartilhar(arquivo, `Controle Play de Todas — ${tudo ? 'tudo' : monthLabel(mes)}`)
-            onToast(r === 'baixou' ? 'Planilha salva 📊' : 'Planilha enviada 📊')
-          }}
-        >
-          📊 Excel completo ({tudo ? 'tudo' : nomeDoMes(mes)})
-        </button>
-      </div>
+          {linhaDoExcel}
+        </div>
+      )}
 
-      <div className="card">
-        <div className="section-title">💰 Caixa de {nomeDoMes(mes)}</div>
-        {podeEditar && (
-          <div className="stack" style={{ marginBottom: 12 }}>
-            <div className="chips-scroll">
-              {CATEGORIAS_DE_CAIXA.map((c) => (
-                <button key={c.valor} className={`chip ${categoria === c.valor ? 'on' : ''}`} onClick={() => setCategoria(c.valor)}>
-                  {c.tipo === 'entrada' ? '➕ ' : '➖ '}{c.rotulo}
-                </button>
-              ))}
-            </div>
-            <div className="grid2">
-              <label className="field">
-                <span>Data</span>
-                <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </label>
-              <label className="field">
-                <span>{ehAluguel ? 'Valor que a V3 cobrou' : 'Valor (R$)'}</span>
-                <input className="input valor" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
-              </label>
-            </div>
-            {ehAluguel && (
-              <>
-                <label className="toggle-card row">
-                  <input type="checkbox" checked={planoMensal} onChange={(e) => setPlanoMensal(e.target.checked)} />
-                  <span>
-                    <strong>Pago no plano mensal (5% de desconto)</strong>
-                    <span className="tiny muted" style={{ display: 'block' }}>A economia vai para o 🎉 caixa de eventos.</span>
-                  </span>
-                </label>
-                {aluguel && (
-                  <div className="conta-aluguel tiny">
-                    {planoMensal && (
-                      <div>Sem o plano seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para o 🎉 caixa de eventos</strong></div>
-                    )}
-                    <div>
-                      Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)} × {formatarReais(25)} ={' '}
-                      {formatarReais(aluguel.credito)}
-                    </div>
-                    <div className="pagar">Pagar no Pix: <strong>{formatarReais(aluguel.pagarNoPix)}</strong></div>
-                    {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
-                  </div>
-                )}
-                {!aluguel && <div className="conta-aluguel vazio tiny">Digite o valor que a V3 cobrou para ver a conta.</div>}
-                {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
-              </>
-            )}
-            <label className="field">
-              <span>Descrição</span>
-              <input
-                className="input"
-                placeholder={tipo === 'entrada' ? 'Valor avulso do play de sexta' : ehAluguel ? 'Aluguel de dezembro' : 'Brindes Shopee'}
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && lancar()}
-              />
-            </label>
-            <button className={`btn block ${tipo === 'entrada' ? 'teal' : 'pink'}`} disabled={valorLido === null || valorLido <= 0} onClick={lancar}>
-              {tipo === 'entrada' ? '➕ Lançar receita' : '➖ Lançar saída'}
-            </button>
-          </div>
-        )}
-        {doMes.length === 0 ? (
-          <div className="tiny muted" style={{ textAlign: 'center' }}>Nenhuma receita extra nem saída em {nomeDoMes(mes)}.</div>
-        ) : (
-          <div className="stack">
-            {doMes.map((l) => (
-              <div
-                key={l.id}
-                className="fila-linha"
-                style={podeEditar ? { cursor: 'pointer', minHeight: 44 } : undefined}
-                {...(podeEditar ? { role: 'button', tabIndex: 0, onClick: () => setAberto(l), onKeyDown: (e: React.KeyboardEvent) => e.key === 'Enter' && setAberto(l) } : {})}
-              >
-                <span className="fila-num">{dateLabel(l.date).slice(0, 5)}</span>
-                <div className="grow">
-                  <span className="fila-time"><b>{l.descricao || CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo}</b></span>
-                  <span className="tiny muted">{CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria}</span>
+      {podeEditar && (
+        <>
+          <div className="ini-sec"><h2>Novo lançamento</h2></div>
+          <div className="card" ref={formulario}>
+            <div className="stack">
+              <div className="segmented">
+                <button className={tipo === 'saida' ? 'on' : ''} onClick={() => tipo !== 'saida' && setCategoria('brinde')}>➖ Saída</button>
+                <button className={tipo === 'entrada' ? 'on' : ''} onClick={() => setCategoria('extra')}>➕ Receita extra</button>
+              </div>
+              {tipo === 'saida' && (
+                <div className="chips-scroll">
+                  {CATEGORIAS_DE_CAIXA.filter((c) => c.tipo === 'saida').map((c) => (
+                    <button key={c.valor} className={`chip ${categoria === c.valor ? 'on' : ''}`} onClick={() => setCategoria(c.valor)}>
+                      {ICONE_DO_CAIXA[c.valor]} {c.rotulo}
+                    </button>
+                  ))}
                 </div>
-                <span className={l.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'}>
+              )}
+              <div className="grid2">
+                <label className="field">
+                  <span>Data</span>
+                  <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>{ehAluguel ? 'Valor que a V3 cobrou' : 'Valor (R$)'}</span>
+                  <input className="input valor" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
+                </label>
+              </div>
+              {ehAluguel && (
+                <>
+                  <label className="toggle-card row">
+                    <input type="checkbox" checked={planoMensal} onChange={(e) => setPlanoMensal(e.target.checked)} />
+                    <span>
+                      <strong>Pago no plano mensal (5% de desconto)</strong>
+                      <span className="tiny muted" style={{ display: 'block' }}>A economia vai para a 🎉 caixinha de eventos.</span>
+                    </span>
+                  </label>
+                  {aluguel && (
+                    <div className="conta-aluguel tiny">
+                      {planoMensal && (
+                        <div>Sem o plano seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para a 🎉 caixinha de eventos</strong></div>
+                      )}
+                      <div>
+                        Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)} × {formatarReais(25)} ={' '}
+                        {formatarReais(aluguel.credito)}
+                      </div>
+                      <div className="pagar">Pagar no Pix: <strong>{formatarReais(aluguel.pagarNoPix)}</strong></div>
+                      {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
+                    </div>
+                  )}
+                  {!aluguel && <div className="conta-aluguel vazio tiny">Digite o valor que a V3 cobrou para ver a conta.</div>}
+                  {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
+                </>
+              )}
+              {podeEventos && (
+                <div className={`caixinha-uso${doEventos ? ' on' : ''}`}>
+                  <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={doEventos} onChange={(e) => setDoEventos(e.target.checked)} />
+                    <span className="grow">
+                      <strong>🎉 Usar o valor da caixinha de eventos?</strong>
+                      <span className="tiny muted" style={{ display: 'block' }}>
+                        Tem {formatarReais(Math.max(0, noEventos))} na caixinha em {dateLabel(date)}.
+                      </span>
+                    </span>
+                  </label>
+                  {doEventos && valorLido ? (
+                    <>
+                      <div className="caixinha-barra" role="img" aria-label={`${formatarReais(cobre)} da caixinha e ${formatarReais(passa)} do caixa geral`}>
+                        {cobre > 0 && <span className="da-caixinha" style={{ flexGrow: cobre }} />}
+                        {passa > 0 && <span className="do-caixa" style={{ flexGrow: passa }} />}
+                      </div>
+                      <div className="caixinha-legenda">
+                        <span><i className="da-caixinha" /> {formatarReais(cobre)} da caixinha</span>
+                        {passa > 0 && <span><i className="do-caixa" /> {formatarReais(passa)} do caixa geral</span>}
+                      </div>
+                      <div className="tiny muted">
+                        {passa > 0
+                          ? noEventos > 0
+                            ? `A caixinha só tem ${formatarReais(noEventos)}: ela paga isso e fica zerada. Os ${formatarReais(passa)} que passam saem do caixa geral, como ${rotuloDa(categoria)}. Pode lançar o valor inteiro: o app divide sozinho e guarda a divisão no histórico.`
+                            : `A caixinha está vazia nessa data: sai tudo do caixa geral, como ${rotuloDa(categoria)}.`
+                          : `Sai tudo da caixinha; sobram ${formatarReais(noEventos - cobre)} nela.`}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              )}
+              <label className="field">
+                <span>Descrição</span>
+                <input
+                  className="input"
+                  placeholder={tipo === 'entrada' ? 'Valor avulso do play de sexta' : ehAluguel ? 'Aluguel de dezembro' : 'Brindes Shopee'}
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && lancar()}
+                />
+              </label>
+              <button className={`btn block ${tipo === 'entrada' ? 'teal' : 'pink'}`} disabled={valorLido === null || valorLido <= 0} onClick={lancar}>
+                {tipo === 'entrada' ? '➕ Lançar receita' : `➖ Lançar ${valorLido ? formatarReais(ehAluguel && aluguel ? aluguel.pagarNoPix : valorLido) : 'saída'}`}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="ini-sec">
+        <h2>Lançamentos</h2>
+        <span className="muted small">{doMes.length > 0 ? plural(doMes.length, 'lançamento', 'lançamentos') : ''}</span>
+      </div>
+      {doMes.length === 0 ? (
+        <div className="card"><div className="tiny muted" style={{ textAlign: 'center' }}>Nenhuma receita extra nem saída em {nomeDoMes(mes)}.</div></div>
+      ) : (
+        <div className="ini-grupo">
+          {doMes.map((l) => {
+            const ev = l.do_eventos ? doEventosPorId.get(l.id) : undefined
+            const conteudo = (
+              <>
+                <span className={`ini-ic ${l.tipo === 'entrada' ? 'verde' : l.do_eventos ? 'rosa' : ''}`} aria-hidden="true">{ICONE_DO_CAIXA[l.categoria] ?? '💸'}</span>
+                <span className="g">
+                  <b>{l.descricao || rotuloDa(l.categoria)}</b>
+                  <span className="sub">
+                    {dateLabel(l.date).slice(0, 5)} · {rotuloDa(l.categoria)}
+                    {ev ? ` · 🎉 ${formatarReais(ev.coberto)} da caixinha${ev.resto > 0 ? ` + ${formatarReais(ev.resto)} do caixa` : ''}` : ''}
+                  </span>
+                </span>
+                <span className={l.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'} style={{ flex: 'none' }}>
                   {l.tipo === 'entrada' ? '+' : '−'} {formatarReais(l.valor)}
                 </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              </>
+            )
+            return podeEditar ? (
+              <button key={l.id} className="ini-linha" onClick={() => setAberto(l)}>{conteudo}</button>
+            ) : (
+              <div key={l.id} className="ini-linha">{conteudo}</div>
+            )
+          })}
+        </div>
+      )}
       {verEventos && <HistoricoDosEventos ate={mes} podeEditar={podeEditar} onToast={onToast} onClose={() => setVerEventos(false)} />}
       {aberto && (
         <Modal title="Lançamento do caixa" onClose={() => setAberto(null)}>
@@ -1165,6 +1357,30 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 <div>{plural(aberto.checkins_abatidos ?? 0, 'check-in abatido', 'check-ins abatidos')} do mês anterior</div>
               </div>
             ) : null}
+            {LIGA.id === 'feminino' && (aberto.do_eventos || aberto.categoria === 'brinde' || aberto.categoria === 'confraternizacao') && (() => {
+              const x = aberto.do_eventos ? saidasDosEventos(data).find((y) => y.caixa_id === aberto.id) : undefined
+              return (
+                <>
+                  {x && (
+                    <div className="conta-aluguel tiny">
+                      <div>🎉 {formatarReais(x.coberto)} saíram do caixa de eventos</div>
+                      {x.resto > 0 && <div>{formatarReais(x.resto)} saíram do caixa geral (o caixa de eventos não tinha mais)</div>}
+                    </div>
+                  )}
+                  <button
+                    className="btn ghost block"
+                    onClick={() => {
+                      const novo = { ...aberto, do_eventos: !aberto.do_eventos }
+                      saveCaixa(novo)
+                      setAberto(novo)
+                      onToast(novo.do_eventos ? 'Pago com o caixa de eventos 🎉' : 'Volta a sair do caixa geral')
+                    }}
+                  >
+                    {aberto.do_eventos ? '↩️ Tirar do caixa de eventos (sai do caixa geral)' : '🎉 Pagar com o caixa de eventos'}
+                  </button>
+                </>
+              )
+            })()}
             <button
               className="btn danger block"
               onClick={() => {
@@ -1182,6 +1398,9 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
     </>
   )
 }
+
+/** Um icone por tipo de lancamento do caixa (lista e chips). */
+const ICONE_DO_CAIXA: Record<string, string> = { extra: '💵', aluguel: '🏟️', brinde: '🎁', confraternizacao: '🥂', outra: '🧾' }
 
 /* ================================================================ padroes */
 

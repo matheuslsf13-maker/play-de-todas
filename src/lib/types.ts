@@ -135,6 +135,7 @@ export type MesclaDoPlay =
   /** se o play soma no ranking do mes / se mexe no status 🔥 */
   | { campo: 'ranked'; valor: boolean }
   | { campo: 'conta_status'; valor: boolean }
+  | { campo: 'conta_falta'; valor: boolean }
   /** quem ainda nao chegou: marca ou desmarca UMA menina */
   | { campo: 'ausentes'; id: string; ausente: boolean }
   /** a partida escolhida na mao para uma quadra (null = volta a sugestao do app) */
@@ -230,6 +231,12 @@ export type PlaySession = {
    * `ranked`, como era antes da opcao existir (script 26).
    */
   conta_status?: boolean | null
+  /**
+   * Faltar a este play conta como falta? (dono, 16/11; script 37). Conta = a falta baixa a forca (da 2a seguida)
+   * e, com o status ligado, faz perder a sequencia 🔥. Ausente = a regra de antes: conta so se o play vale
+   * para o mes e para o status (`contaFalta` em streaks.ts).
+   */
+  conta_falta?: boolean | null
   /**
    * CAMPEONATO: as categorias (A, B, C...), cada uma com os seus grupos e as
    * suas quadras fixas. Ausente = uma categoria so, com todos os grupos e
@@ -505,6 +512,11 @@ export type LancamentoDeCaixa = {
   plano_mensal?: boolean | null
   valor_cobrado?: number | null
   checkins_abatidos?: number | null
+  /**
+   * Saida paga com o 🎉 caixa de eventos (script 37, dono 16/11): o caixa cobre ate o que tem na data; o que
+   * passar fica como despesa comum da categoria, no caixa geral (`saidasDosEventos` em checkins.ts).
+   */
+  do_eventos?: boolean | null
   created_at: string
 }
 
