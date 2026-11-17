@@ -74,6 +74,7 @@ import {
   type AppData,
   type AulaDaConta,
   type CategoriaDeCaixa,
+  type LancamentoDeCaixa,
   type Checkin,
   type CheckinConta,
   type CheckinDia,
@@ -895,10 +896,23 @@ function HistoricoDosEventos({
   /** "Usar a caixinha": vai para o Caixa com a opcao marcada. */
   onUsar?: () => void
 }) {
-  const { data, nameOf, saveCheckin, saveCaixa } = useStore()
+  const { data, nameOf, saveCheckin, saveCaixa, deleteCaixa } = useStore()
+  const [movimentar, setMovimentar] = useState(false)
+  /** Transferencia, entrada externa e devolucao sao lancamentos feitos na mao: tirar = apagar o lancamento. */
+  function apagarMovimento(caixaId: string, texto: string) {
+    if (!confirm(texto)) return
+    deleteCaixa(caixaId)
+    onToast('Movimento desfeito')
+  }
   /** Tira a entrada desfazendo o que a gerou: a substituta deixa de ser "no lugar de" (o pagamento dela fica);
    * o aluguel deixa de estar no plano mensal (o valor pago fica). Nada e apagado. */
   function tirar(e: EntradaDosEventos) {
+    if (e.origem === 'transferencia' || e.origem === 'externa') {
+      const qual = e.origem === 'transferencia' ? 'a transferência' : 'a entrada externa'
+      const efeito = e.origem === 'transferencia' ? 'O valor volta a ficar livre no caixa geral.' : 'O valor sai da caixinha e da receita extra do mês.'
+      apagarMovimento(e.caixa_id ?? '', `Desfazer ${qual} de ${formatarReais(e.valor)} de ${dateLabel(e.date)}?\n\n${efeito}`)
+      return
+    }
     if (e.origem === 'substituta') {
       const c = data.checkins.find((x) => x.id === e.checkin_id)
       if (!c || !confirm(`Tirar ${formatarReais(e.valor)} do caixa de eventos?
@@ -946,8 +960,14 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
                 🎁 Usar a caixinha num gasto
               </button>
             )}
+            {podeEditar && (
+              <button className="btn ghost block" onClick={() => setMovimentar(true)}>
+                Movimentar a caixinha
+              </button>
+            )}
             <div className="tiny muted">
-              Entra metade do que a substituta paga e a economia do aluguel no plano mensal. Sai quando um gasto de
+              Entra metade do que a substituta paga, a economia do aluguel no plano mensal e o que for colocado na mão
+              (do caixa ou de fora). Sai quando um gasto de
               Brindes e presentes ou Confraternização usa a caixinha; o que passar do saldo sai do caixa geral.
             </div>
             <div className="section-title" style={{ margin: '6px 0 0' }}>📜 Entradas e gastos</div>
@@ -958,7 +978,21 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
         ) : (
           <table className="table">
             <tbody>
-              {linhas.map(({ entrada: e, saida: x }, i) => x ? (
+              {linhas.map(({ entrada: e, saida: x }, i) => x?.devolucao ? (
+                <tr key={i}>
+                  <td>
+                    <b>Devolvido ao caixa</b>
+                    <div className="tiny muted">{dateLabel(x.date)}{x.descricao ? ` · ${x.descricao}` : ''} · volta a ficar livre no caixa geral</div>
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span className="valor-neg">−{formatarReais(x.coberto)}</span>
+                    {podeEditar && (
+                      <button className="btn ghost sm" style={{ display: 'block', marginTop: 6, marginLeft: 'auto' }} aria-label="Desfazer a devolução"
+                        onClick={() => apagarMovimento(x.caixa_id, `Desfazer a devolução de ${formatarReais(x.valor)} de ${dateLabel(x.date)}?\n\nO valor volta para a caixinha.`)}>🗑️ Tirar</button>
+                    )}
+                  </td>
+                </tr>
+              ) : x ? (
                 <tr key={i}>
                   <td>
                     <b>🎁 {x.descricao || 'Gasto pago com o caixa de eventos'}</b>
@@ -982,6 +1016,13 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
                           {e.doCheckin ? ` (${formatarReais(e.pix ?? 0)} pagos + ${formatarReais(e.doCheckin)} do check-in)` : ' pagos'}
                         </div>
                       </>
+                    ) : e.origem === 'transferencia' || e.origem === 'externa' ? (
+                      <>
+                        <b>{e.origem === 'transferencia' ? 'Transferido do caixa' : 'Entrada externa'}</b>
+                        <div className="tiny muted">
+                          {dateLabel(e.date)}{e.descricao ? ` · ${e.descricao}` : ''} · {e.origem === 'transferencia' ? 'dinheiro que já estava no caixa' : 'recebido de terceiros ou aporte pessoal'}
+                        </div>
+                      </>
                     ) : (
                       <>
                         <b>🏟️ Aluguel da V3 no plano mensal</b>
@@ -1001,7 +1042,107 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
           </table>
         )}
       </div>
+      {movimentar && <MovimentarCaixinha onClose={() => setMovimentar(false)} onToast={onToast} />}
     </Moldura>
+  )
+}
+
+type Movimento = 'transferir' | 'externa' | 'devolver'
+const MOVIMENTOS: { id: Movimento; titulo: string; explica: string }[] = [
+  { id: 'transferir', titulo: 'Transferir do caixa', explica: 'Separa parte do dinheiro que já está no caixa para a caixinha de eventos.' },
+  { id: 'externa', titulo: 'Entrada externa', explica: 'Recebidos de terceiros ou aporte pessoal: entra como receita extra, direto na caixinha.' },
+  { id: 'devolver', titulo: 'Devolver ao caixa', explica: 'A caixinha libera esse valor para o caixa geral.' },
+]
+
+/**
+ * O que esta livre no caixa (o saldo menos a caixinha) ao fim do mes de `date`.
+ * shortcut: por mes, nao por dia (o resumo do caixa e mensal); se precisar do dia exato, somar os movimentos ate a data.
+ */
+function livreNoCaixa(data: AppData, date: string): number {
+  const linha = resumoDoCaixa(data).filter((r) => r.mes <= monthOf(date)).slice(-1)[0]
+  return linha ? Math.round((linha.saldoAcumulado - linha.eventosAcumulado) * 100) / 100 : 0
+}
+
+/** Colocar ou tirar dinheiro da caixinha na mao (dono, 17/11): do caixa, de fora, ou de volta ao caixa. */
+function MovimentarCaixinha({ onClose, onToast }: { onClose: () => void; onToast: (m: string) => void }) {
+  const { data, saveCaixa, deleteCaixa, repo } = useStore()
+  const semColuna = repo.kind === 'supabase' && avisosDoBanco.colunas.has('caixa.transferencia')
+  const [mov, setMov] = useState<Movimento>(semColuna ? 'externa' : 'transferir')
+  const [date, setDate] = useState(todayISO())
+  const [valor, setValor] = useState('')
+  const [descricao, setDescricao] = useState('')
+  /** O que acabou de ser gravado: a janela mostra e deixa desfazer. */
+  const [feito, setFeito] = useState<{ id: string; texto: string } | null>(null)
+  const lido = lerValor(valor)
+  const livre = date ? livreNoCaixa(data, date) : 0
+  const naCaixinha = date ? saldoDosEventosEm(data, date) : 0
+  const limite = mov === 'transferir' ? Math.max(0, livre) : mov === 'devolver' ? Math.max(0, naCaixinha) : Infinity
+  const passou = lido !== null && lido > limite
+  const bloqueado = semColuna && mov !== 'externa'
+
+  function salvar() {
+    if (lido === null || lido <= 0 || !date || passou || bloqueado) return
+    const id = uid()
+    saveCaixa({
+      id, date, descricao: descricao.trim(), created_at: new Date().toISOString(), valor: lido,
+      ...(mov === 'externa'
+        ? { categoria: 'extra' as const, tipo: 'entrada' as const, do_eventos: true }
+        : { categoria: 'outra' as const, tipo: mov === 'transferir' ? 'saida' as const : 'entrada' as const, transferencia: true }),
+    })
+    const texto = mov === 'transferir' ? 'Transferido para a caixinha' : mov === 'externa' ? 'Entrada externa na caixinha' : 'Devolvido ao caixa'
+    setFeito({ id, texto: `${texto}: ${formatarReais(lido)}` })
+    setValor('')
+    setDescricao('')
+  }
+
+  if (feito) {
+    return (
+      <Modal title="Movimentar a caixinha" onClose={onClose}>
+        <div className="stack">
+          <div className="banner info">✅ {feito.texto}</div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn ghost grow" onClick={() => { deleteCaixa(feito.id); setFeito(null); onToast('Movimento desfeito') }}>Desfazer</button>
+            <button className="btn pink grow" onClick={onClose}>Fechar</button>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
+  return (
+    <Modal title="Movimentar a caixinha" onClose={onClose}>
+      <div className="stack">
+        <div className="row spread tiny muted">
+          <span>Livre no caixa: <strong>{formatarReais(livre)}</strong></span>
+          <span>Na caixinha: <strong>{formatarReais(naCaixinha)}</strong></span>
+        </div>
+        <div className="stack" style={{ gap: 8 }}>
+          {MOVIMENTOS.map((m) => (
+            <button key={m.id} type="button" className={`opcao-mov${mov === m.id ? ' on' : ''}`} aria-pressed={mov === m.id} onClick={() => setMov(m.id)}>
+              <b>{m.titulo}</b>
+              <span>{m.explica}</span>
+            </button>
+          ))}
+        </div>
+        {bloqueado && <div className="banner warn">Transferir e devolver precisam do script 38 no banco (supabase/38-caixinha-transferencia.sql).</div>}
+        <label className="field"><span>Data</span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label className="field">
+          <span>Valor</span>
+          <input inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
+        </label>
+        {passou && (
+          <div className="tiny valor-neg">
+            {mov === 'transferir' ? `O caixa só tem ${formatarReais(Math.max(0, livre))} livre nessa data.` : `A caixinha só tem ${formatarReais(Math.max(0, naCaixinha))} nessa data.`}
+          </div>
+        )}
+        <label className="field">
+          <span>Descrição (opcional)</span>
+          <input placeholder={mov === 'externa' ? 'ex.: rifa, doação, Ingryd colocou' : 'ex.: reserva para a festa'} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+        </label>
+        <button className="btn pink block" disabled={lido === null || lido <= 0 || !date || passou || bloqueado} onClick={salvar}>
+          {MOVIMENTOS.find((m) => m.id === mov)?.titulo}{lido ? ` · ${formatarReais(lido)}` : ''}
+        </button>
+      </div>
+    </Modal>
   )
 }
 
@@ -1035,12 +1176,13 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
   // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
   const [aberto, setAberto] = useState<(typeof data.caixa)[number] | null>(null)
   const [verEventos, setVerEventos] = useState(false)
+  const [movimentar, setMovimentar] = useState(false)
 
   const resumo = useMemo(() => resumoDoCaixa(data), [data])
   const doMes = data.caixa.filter((l) => monthOf(l.date) === mes).sort((a, b) => b.date.localeCompare(a.date))
   const linhaDoMes: LinhaDoResumo = resumo.find((r) => r.mes === mes) ?? {
     mes, receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0,
-    despesaTotal: 0, saldoDoMes: 0, eventos: 0,
+    despesaTotal: 0, saldoDoMes: 0, transferido: 0, eventos: 0,
     eventosAcumulado: resumo.filter((r) => r.mes < mes).slice(-1)[0]?.eventosAcumulado ?? 0,
     // sem movimento no mes, o acumulado e o do ultimo mes anterior
     saldoAcumulado: resumo.filter((r) => r.mes < mes).slice(-1)[0]?.saldoAcumulado ?? 0,
@@ -1090,6 +1232,9 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
   )
 
   const rotuloDa = (c: string) => CATEGORIAS_DE_CAIXA.find((x) => x.valor === c)?.rotulo ?? c
+  const rotuloDoLancamento = (l: LancamentoDeCaixa) =>
+    l.transferencia ? (l.tipo === 'saida' ? 'Transferência para a caixinha' : 'Devolução da caixinha')
+      : l.do_eventos && l.tipo === 'entrada' ? 'Entrada externa na caixinha' : rotuloDa(l.categoria)
   const doEventosPorId = useMemo(() => new Map(saidasDosEventos(data).map((x) => [x.caixa_id, x])), [data])
   const excel = async () => {
     const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
@@ -1129,12 +1274,20 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
             <div><strong className="caixa-num valor-neg"><Reais n={linhaDoMes.despesaTotal} /></strong><span>saiu</span></div>
             <div><strong className={`caixa-num ${linhaDoMes.saldoAcumulado < 0 ? 'valor-neg' : 'valor-pos'}`}><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong><span>no caixa</span></div>
           </div>
-          {(linhaDoMes.eventosAcumulado !== 0 || temEventos) && (
-            <button className="ini-linha ini-chev" onClick={() => setVerEventos(true)}>
-              <span className="ini-ic rosa" aria-hidden="true">🎉</span>
-              <span className="g"><b>Caixinha de eventos</b><span className="sub">reservada dentro do caixa · entradas e gastos</span></span>
-              <span className="ini-pts" style={{ fontSize: 17 }}><Reais n={linhaDoMes.eventosAcumulado} /></span>
-            </button>
+          {(linhaDoMes.eventosAcumulado !== 0 || temEventos || podeEditar) && LIGA.id === 'feminino' && (
+            <div className="caixinha-linha">
+              <button className="ini-linha ini-chev" onClick={() => setVerEventos(true)}>
+                <span className="ini-ic rosa" aria-hidden="true">🎉</span>
+                <span className="g">
+                  <b>Caixinha de eventos</b>
+                  <span className="sub">livre no caixa: {formatarReais(Math.round((linhaDoMes.saldoAcumulado - linhaDoMes.eventosAcumulado) * 100) / 100)}</span>
+                </span>
+                <span className="ini-pts" style={{ fontSize: 17 }}><Reais n={linhaDoMes.eventosAcumulado} /></span>
+              </button>
+              {podeEditar && (
+                <button className="btn ghost sm caixinha-mov" onClick={() => setMovimentar(true)}>Movimentar</button>
+              )}
+            </div>
           )}
           <details className="ini-detalhe">
             <summary className="ini-linha">
@@ -1153,11 +1306,20 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
                   <tr><td>Confraternização</td><td className="valor-neg"><Reais n={linhaDoMes.confraternizacao} /></td></tr>
                   <tr><td>Outras despesas</td><td className="valor-neg"><Reais n={linhaDoMes.outras} /></td></tr>
                   <tr><td><strong>Despesa total</strong></td><td className="valor-neg"><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
+                  {linhaDoMes.transferido !== 0 && (
+                    <tr>
+                      <td>{linhaDoMes.transferido > 0 ? 'Transferido para a caixinha' : 'Devolvido da caixinha'} <span className="tiny muted">(fora da despesa)</span></td>
+                      <td className={linhaDoMes.transferido > 0 ? 'valor-neg' : 'valor-pos'}>
+                        {linhaDoMes.transferido > 0 ? '−' : '+'}<Reais n={Math.abs(linhaDoMes.transferido)} />
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               <p className="tiny muted" style={{ margin: '8px 0 0' }}>
                 A receita dos plays e das mensalidades vem dos lançamentos; aqui embaixo entram só as receitas extras e as saídas.
-                Gasto pago pela caixinha conta inteiro na despesa: a caixinha é uma reserva dentro do caixa.
+                Gasto pago pela caixinha conta inteiro na despesa: a caixinha é uma reserva dentro do caixa. Por isso a
+                transferência entre o caixa e a caixinha fica fora da receita e da despesa: o dinheiro não sai do caixa.
               </p>
             </div>
           </details>
@@ -1319,9 +1481,9 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
               <>
                 <span className={`ini-ic ${l.tipo === 'entrada' ? 'verde' : l.do_eventos ? 'rosa' : ''}`} aria-hidden="true">{ICONE_DO_CAIXA[l.categoria] ?? '💸'}</span>
                 <span className="g">
-                  <b>{l.descricao || rotuloDa(l.categoria)}</b>
+                  <b>{l.descricao || rotuloDoLancamento(l)}</b>
                   <span className="sub">
-                    {dateLabel(l.date).slice(0, 5)} · {rotuloDa(l.categoria)}
+                    {dateLabel(l.date).slice(0, 5)} · {rotuloDoLancamento(l)}
                     {ev ? ` · 🎉 ${formatarReais(ev.coberto)} da caixinha${ev.resto > 0 ? ` + ${formatarReais(ev.resto)} do caixa` : ''}` : ''}
                   </span>
                 </span>
@@ -1339,6 +1501,7 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
         </div>
       )}
       {verEventos && <HistoricoDosEventos ate={mes} podeEditar={podeEditar} onToast={onToast} onClose={() => setVerEventos(false)} />}
+      {movimentar && <MovimentarCaixinha onClose={() => setMovimentar(false)} onToast={onToast} />}
       {aberto && (
         <Modal title="Lançamento do caixa" onClose={() => setAberto(null)}>
           <div className="stack">

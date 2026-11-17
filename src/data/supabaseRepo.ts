@@ -256,7 +256,7 @@ export const supabaseRepo: Repo = {
     const sb = client()
     // o misto nao tem check-ins (o dinheiro e de cada campeonato): nem pergunta
     const semCheckins = EH_MISTO ? Promise.resolve({ data: [], error: null }) : null
-    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens, ajustes] =
+    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens, ajustes, colunaTransferencia] =
       await Promise.all([
         EH_MISTO
           ? jogadoresDosDoisCampeonatos().then((data) => ({ data, error: null }), (error) => ({ data: null, error }))
@@ -277,7 +277,11 @@ export const supabaseRepo: Repo = {
         TEM_MENSALIDADE ? sb.from('mensalidades').select('*') : { data: [], error: null },
         TEM_MENSALIDADE ? sb.from('mensalidade_itens').select('*') : { data: [], error: null },
         TEM_MENSALIDADE ? sb.from('ajustes').select('*') : { data: [], error: null },
+        // a coluna do script 38: sem ela, transferir para a caixinha fica desligado (ver saveCaixa)
+        semCheckins ?? sb.from('caixa').select('transferencia').limit(1),
       ])
+    if (colunaTransferencia.error) avisosDoBanco.colunas.add('caixa.transferencia')
+    else avisosDoBanco.colunas.delete('caixa.transferencia')
     const err = players.error || sessions.error || matches.error
     if (err) throw err
     // estas tabelas sao mais novas: se ainda nao foram criadas, o app segue
@@ -525,6 +529,15 @@ export const supabaseRepo: Repo = {
     if (error) throw error
   },
   async saveCaixa(lancamento: LancamentoDeCaixa) {
+    // a transferencia NAO pode cair na tolerancia: sem a coluna ela viraria uma despesa/receita comum
+    if (lancamento.transferencia) {
+      const { error } = await client().from('caixa').upsert(lancamento)
+      if (!error) return
+      if (!colunaQueFaltou(error.message)) throw error
+      // sem o script 38 nao ha onde gravar: fica so neste aparelho (gravar travaria a fila de envio)
+      avisosDoBanco.colunas.add('caixa.transferencia')
+      return
+    }
     await upsertTolerante('caixa', lancamento)
   },
   async deleteCaixa(id: string) {
