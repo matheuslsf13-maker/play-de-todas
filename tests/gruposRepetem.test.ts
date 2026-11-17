@@ -48,3 +48,21 @@ test('grupo de 8 repetindo: 28 partidas, 14 jogos cada', () => {
   assert.equal(fila.filter((m) => m.grupo === 0).length, 14)
   assert.equal(fila.filter((m) => m.grupo === 1).length, 28)
 })
+
+test('divisao recomendada: 22 = 8, 8 e 6; evita o grupo de 7', async () => {
+  const { gruposRecomendados, melhoresTamanhos } = await import('../src/lib/pairing')
+  assert.equal(gruposRecomendados(22), 3)
+  assert.deepEqual(melhoresTamanhos(22, 3), [8, 8, 6])
+  assert.deepEqual(melhoresTamanhos(16, 2), [8, 8])
+  assert.equal(gruposRecomendados(16), 2)
+  assert.equal(melhoresTamanhos(30, 4).includes(7), false)
+  assert.deepEqual(melhoresTamanhos(7, 3), [7])
+  for (let n = 8; n <= 40; n++) {
+    for (let k = 1; k <= Math.floor(n / 4); k++) {
+      const t = melhoresTamanhos(n, k)
+      assert.equal(t.reduce((a, b) => a + b, 0), n)
+      assert.equal(t.length, k)
+      assert.ok(t.every((x) => x >= 4))
+    }
+  }
+})

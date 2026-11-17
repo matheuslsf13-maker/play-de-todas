@@ -644,6 +644,10 @@ masculino e o misto descrevem esse código parado.
   `gruposQueRepetem`), e `jogosDoRodizio`/`partidasDoRodizio` recebem `vezes`: gerar, refazer, `precisaRefazer` e
   `problemasDaFila` contam o dobro (sem isso o refazer cortaria a 2ª volta). O Reconfigurar não leva a marca.
   `tests/gruposRepetem.test.ts`.
+- **Quantidade de grupos, não meninas por grupo** (dono, 17/11/2026): o stepper da criação escolhe quantos grupos e a
+  frase embaixo diz quantas vão em cada um (`melhoresTamanhos`: evita 7 e 11, depois 6 e 10, depois grupos desiguais e
+  longe de 7; os maiores no topo). Abre na divisão recomendada (`gruposRecomendados`: 22 = 8, 8 e 6) e, fora dela,
+  mostra "✨ Usar a recomendada". O quadradinho do "Todas repetem" fica no topo de cada grupo (`toggle-card`).
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
   quadra parada e a troca de jogadoras. **O placar guarda o `started_at`** (D43; antes

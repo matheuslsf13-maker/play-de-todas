@@ -68,6 +68,8 @@ import {
   jogadorasDaPartida,
   ordemDeEspera,
   jogosDoRodizio,
+  gruposRecomendados,
+  melhoresTamanhos,
   gruposQueRepetem,
   podeRepetirRodizio,
   vezesDoRodizio,
@@ -778,8 +780,9 @@ function NewPlay({
         ? 'campeonato'
         : (preset.format ?? 'todas'),
   )
-  const [porGrupo, setPorGrupo] = useState(
-    editando?.groups && editando.groups.length > 1 ? Math.max(...editando.groups.map((g) => g.length)) : 8,
+  /** Quantos grupos (dono, 17/11: antes era "meninas por grupo"); nulo = o que o app recomenda para as confirmadas. */
+  const [numGrupos, setNumGrupos] = useState<number | null>(
+    editando?.groups && editando.groups.length > 1 ? editando.groups.length : null,
   )
   /** Quantas duplas entram no mata-mata: 8 = 16 jogadoras, quartas de final. */
   const [duplasMM, setDuplasMM] = useState(preset.duplas_mm ?? 8)
@@ -926,6 +929,12 @@ function NewPlay({
   )
   /** Quem esta selecionada para mudar de grupo. */
   const [movendo, setMovendo] = useState<string | null>(null)
+  const maxGrupos = Math.max(1, Math.floor(selected.length / 4))
+  const recomendados = gruposRecomendados(selected.length)
+  const nGrupos = selected.length < 8 ? 1 : Math.min(maxGrupos, Math.max(1, numGrupos ?? recomendados))
+  const tamanhosAlvo = melhoresTamanhos(selected.length, nGrupos)
+  /** O misto ainda divide por tamanho: o tamanho medio da quantidade escolhida. */
+  const porGrupo = Math.max(4, Math.round(selected.length / nGrupos))
   const gruposBase = useMemo(() => {
     if (selected.length < 8) return [selected]
     // grupos POR NIVEL tambem no grupos+duplas: com grupos equilibrados a 1a de
@@ -934,10 +943,11 @@ function NewPlay({
     if (format === 'grupos' || format === 'grupos-duplas') {
       return generoDoRodizio
         ? formarGruposMistos(selected, forca, porGrupo, generoDoRodizio, sorteio)
-        : formarGrupos(selected, forca, porGrupo, sorteio)
+        : formarGrupos(selected, forca, porGrupo, sorteio, tamanhosAlvo)
     }
     return [selected]
-  }, [format, selected, forca, porGrupo, sorteio, generoDoRodizio])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [format, selected, forca, porGrupo, sorteio, generoDoRodizio, tamanhosAlvo.join()])
   /**
    * DUPLAS FIXAS: as duplas por nivel (forte com forte), com as trocas feitas na
    * mao por cima -- cada troca e um par de pessoas que trocaram de dupla, e so
@@ -1446,8 +1456,8 @@ function NewPlay({
               onClick={() => {
                 // o grupos+duplas e jogado em grupos de 4; nos outros o grupo
                 // grande e que faz sentido, por isso o padrao muda junto
-                if (f.valor === 'grupos-duplas' && format !== 'grupos-duplas') setPorGrupo(4)
-                if (f.valor === 'grupos' && format !== 'grupos') setPorGrupo(8)
+                if (f.valor === 'grupos-duplas' && format !== 'grupos-duplas') setNumGrupos(Math.max(1, Math.floor(selected.length / 4)))
+                if (f.valor === 'grupos' && format !== 'grupos') setNumGrupos(null)
                 setFormat(f.valor)
               }}
             >
@@ -1738,13 +1748,25 @@ function NewPlay({
           {(format === 'grupos' || format === 'grupos-duplas') && (
             <div className="toggle-card">
               <div className="field" style={{ marginBottom: 0 }}>
-                <span>Meninas por grupo</span>
-                <Stepper value={porGrupo} min={4} max={12} onChange={setPorGrupo} />
+                <span>Quantidade de grupos</span>
+                <Stepper value={nGrupos} min={1} max={maxGrupos} onChange={setNumGrupos} disabled={selected.length < 8} />
                 <em className="hint">
                   {selected.length < 8
                     ? 'com menos de 8 confirmadas não dá para dividir: vai sair um grupo só'
-                    : `com ${selected.length} confirmadas o app monta ${descreverGrupos(tamanhos)} — grupo 1 com quem está jogando melhor`}
+                    : `${selected.length} confirmadas: ${descreverGrupos(tamanhosAlvo)} — grupo 1 com quem está jogando melhor`}
                 </em>
+                {selected.length >= 8 && (
+                  nGrupos === recomendados ? (
+                    <em className="hint">✅ a divisão que o app recomenda para {selected.length}</em>
+                  ) : (
+                    <button type="button" className="btn ghost sm" style={{ marginTop: 6, alignSelf: 'flex-start' }} onClick={() => setNumGrupos(recomendados)}>
+                      ✨ Usar a recomendada: {descreverGrupos(melhoresTamanhos(selected.length, recomendados))}
+                    </button>
+                  )
+                )}
+                {tamanhosAlvo.some((t) => t % 4 === 3) && (
+                  <em className="hint aviso">⚠️ grupo de {tamanhosAlvo.find((t) => t % 4 === 3)}: cada uma repete 2 parceiras — é o tamanho mais difícil de fechar</em>
+                )}
               </div>
             </div>
           )}
@@ -1757,6 +1779,13 @@ function NewPlay({
                   <div className="grupo-nome">
                     Grupo {i + 1} · {g.length} meninas · {partidasDoRodizio(g.length, false, vezesNaCriacao(i))} partidas
                   </div>
+                  {format === 'grupos' && !generoDoRodizio && (
+                    <TodasRepetem
+                      jogadoras={g.length}
+                      ligado={repetemIdx.includes(i)}
+                      onChange={(v) => setRepetemIdx((r) => (v ? [...r.filter((x) => x !== i), i] : r.filter((x) => x !== i)))}
+                    />
+                  )}
                   <div className="tiny muted" style={{ marginBottom: 6 }}>
                     💪 força média <strong>{mediaDeForca(g)}</strong>
                     {' · '}
@@ -1795,13 +1824,6 @@ function NewPlay({
                     >
                       ↪️ Mover {nameOf(movendo)} para o grupo {i + 1}
                     </button>
-                  )}
-                  {format === 'grupos' && !generoDoRodizio && (
-                    <TodasRepetem
-                      jogadoras={g.length}
-                      ligado={repetemIdx.includes(i)}
-                      onChange={(v) => setRepetemIdx((r) => (v ? [...r.filter((x) => x !== i), i] : r.filter((x) => x !== i)))}
-                    />
                   )}
                 </div>
               ))}
@@ -1970,7 +1992,7 @@ function NewPlay({
             <div className="banner warn" style={{ margin: '10px 0 0' }}>
               🏐 Só dá para usar <strong>{plural(effCourts, 'quadra')}</strong>:{' '}
               {travadoPorGrupo
-                ? `cada partida precisa de 4 meninas do mesmo grupo, e ${descreverGrupos(tamanhos)} enchem só ${effCourts} por vez. Para usar as ${courts}, aumente o tamanho do grupo (8 enchem 2 quadras, 12 enchem 3).`
+                ? `cada partida precisa de 4 meninas do mesmo grupo, e ${descreverGrupos(tamanhos)} enchem só ${effCourts} por vez. Para usar as ${courts}, diminua a quantidade de grupos (8 enchem 2 quadras, 12 enchem 3).`
                 : `${courts} quadras pedem ${courts * 4} meninas jogando juntas, e são ${selected.length}.`}
             </div>
           ) : format === 'todas' && totalPartidas > 40 ? (
@@ -6202,6 +6224,13 @@ function ArrumarGrupos({
           return (
             <div key={i} className={`grupo-box ${classe(i)}`}>
               <div className="grupo-nome">{nomeDoGrupo(i)} · {g.length} meninas</div>
+              {podeRepetir && !genero && (
+                <TodasRepetem
+                  jogadoras={g.length}
+                  ligado={repetem.includes(i)}
+                  onChange={(v) => setRepetem((r) => (v ? [...r.filter((x) => x !== i), i] : r.filter((x) => x !== i)))}
+                />
+              )}
               <div className="tiny muted" style={{ marginBottom: 6 }}>💪 força média <strong>{media}</strong></div>
               {g.length < 4 && (
                 <em className="hint aviso" style={{ marginBottom: 6 }}>
@@ -6231,13 +6260,6 @@ function ArrumarGrupos({
                   ↪️ Mover {nameOf(movendo)} para cá
                 </button>
               )}
-              {podeRepetir && !genero && (
-                <TodasRepetem
-                  jogadoras={g.length}
-                  ligado={repetem.includes(i)}
-                  onChange={(v) => setRepetem((r) => (v ? [...r.filter((x) => x !== i), i] : r.filter((x) => x !== i)))}
-                />
-              )}
             </div>
           )
         })}
@@ -6260,12 +6282,14 @@ export function TodasRepetem({ jogadoras, ligado, onChange }: { jogadoras: numbe
   if (!podeRepetirRodizio(jogadoras)) return null
   const vezes = ligado ? 2 : 1
   return (
-    <label className="row" style={{ gap: 8, marginTop: 8, cursor: 'pointer', alignItems: 'flex-start' }}>
+    <label className="toggle-card row" style={{ gap: 10, cursor: 'pointer', margin: '0 0 8px' }}>
       <input type="checkbox" checked={ligado} onChange={(e) => onChange(e.target.checked)} />
       <span className="grow">
         <strong>🔁 Todas repetem uma vez</strong>
         <span className="hint" style={{ marginTop: 2 }}>
-          {`cada dupla joga duas vezes: ${jogosDoRodizio(jogadoras, false, vezes)} jogos para cada uma, ${partidasDoRodizio(jogadoras, false, vezes)} partidas no grupo`}
+          {ligado
+            ? `cada dupla joga duas vezes, com os adversários pelo equilíbrio de força: ${jogosDoRodizio(jogadoras, false, vezes)} jogos para cada uma, ${partidasDoRodizio(jogadoras, false, vezes)} partidas`
+            : `para o play do grupo durar mais: hoje são ${jogosDoRodizio(jogadoras)} jogos para cada uma; marcado, ${jogosDoRodizio(jogadoras, false, 2)}`}
         </span>
       </span>
     </label>
