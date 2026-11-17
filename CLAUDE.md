@@ -434,6 +434,9 @@ masculino e o misto descrevem esse código parado.
   foto leva o endereço do site pequeno embaixo da frase (`enderecoDoSite` em `liga.config.ts`:
   domínio + `pasta`, ex. `playdetodas.com.br/masculino`). A arte de sempre (sem foto) continua; nela o nome longo quebra em duas linhas, a inicial ignora
   caractere invisível ("\u2060" colado do WhatsApp) e "1 pt" no singular.
+- **Transparência de volta, sem forma** (dono, 17/11): embaixo da foto nítida entra um campo só das **cores** da foto
+  (`manchaDeCor` em `poster.ts`: a metade de baixo da janela reduzida a 12×9 px e ampliada aos poucos, sem `ctx.filter`,
+  que o Safari não tem), e os painéis de vidro deixam essas cores aparecer. Não dá para ver perna nem nada borrado.
 - **Ajustar a foto e sem desfoque** (dono, 16/11/2026): escolhida a foto, abre "Ajustar a foto" (`BotoesDeFoto`):
   arrastar e zoom (dois dedos ou a barra) na faixa da foto da arte; o enquadramento (`Enquadre`, `src/lib/enquadre.ts`,
   a mesma conta na prévia e na arte) vai para o `buildPosterComFoto`. A foto fica nítida no alto (`ALTURA_DA_FOTO`) e
@@ -835,6 +838,24 @@ masculino e o misto descrevem esse código parado.
   (`--grad-titulo`, roxo → rosa → laranja). Trocar de aba desliza o traço e, no mesmo tempo e na mesma conta, uma janela
   (`.st-pintura`, cópia dos rótulos recortada por `clip-path` na coluna `--i`/`--n`) que pinta a palavra nova enquanto o
   traço chega. Parado com `prefers-reduced-motion`.
+  A mesma barra no **perfil da dupla** (`DetalheDaDupla`, janela de altura fixa `Modal alta`: trocar de aba não encolhe).
+  **O conteúdo da aba entra deslizando** do lado para onde a aba andou (`ConteudoQueDesliza`, no mesmo tempo do traço;
+  a moldura `.desliza-moldura` corta o que passa para o lado). Vale também para a troca de tela no menu de baixo
+  (`App.tsx`). No Ranking ("Força e entrosamento") ficou a barra de
+  antes (👤 Individual / 🤝 Duplas) com a **pílula gelatina** (`SegmentadoGelatina`: a borda da frente sai primeiro e
+  estica, a de trás vem depois e balança). A **barra inferior** tem uma pílula rosa que
+  desliza até a aba tocada (`.tabbar-pilula`, mesmo tempo `--st-anda`; some com a lista de presença aberta).
+- **Trilha de miniaturas do Desempenho** (dono, 17/11): fica parada na ordem da força (escolher não leva a menina para a
+  frente; quem veio da busca e não está entre as 16 entra no começo) e o anel da escolhida acende na **cor do nível dela**,
+  a mesma do anel do perfil (`--cor-nivel` na `.st-trilha`).
+- **Caminho do status** (dono, 17/11; `components/CaminhoDoStatus.tsx`): 🏅 → 🔥 → ⚡ → 💎 → 👑 em bolas ligadas por um
+  traço de **borda a borda** (nunca por dentro do desenho). O que ela já passou fica aceso e animado (a medalha reluz, o
+  fogo tremula, o raio pisca, o diamante cintila, a coroa flutua), o degrau de agora pulsa e o traço que chega nele tem
+  uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. No **perfil** (Desempenho), embaixo do
+  caminho, "Na carreira": quantas vezes chegou em cada status (`conquistas.vezes`), o total e o máximo. Na **tela
+  inicial** só o **maior status do mês** (`maiorDoMes` em Ranking.tsx, pelos `streaks.steps` dos plays do mês: quem
+  chegou mais alto, mesmo que tenha perdido depois; empate = todas; no histórico, de todos os tempos), em cartão grande
+  (`.status-destaque`: foto de 76 px e o caminho).
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

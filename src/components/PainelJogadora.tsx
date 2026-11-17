@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { AbasComTraco } from './AbasComTraco'
+import { AbasComTraco, ConteudoQueDesliza } from './AbasComTraco'
+import { CaminhoDoStatus } from './CaminhoDoStatus'
 import CampoDeBusca from './CampoDeBusca'
 import { ComparadorDeAtletas } from './Comparador'
 import GraficoDeForca from './GraficoDeForca'
@@ -101,11 +102,13 @@ export default function PainelJogadora({
   const diasVencidos = [...streaks.winnersOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
   const podios = [...streaks.podiumOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
 
-  // a trilha: quem esta aberta primeiro, depois as outras pela ordem da forca
+  // a trilha: pela ordem da forca, parada (dono, 17/11: escolher nao leva a menina para a frente, so acende o anel);
+  // quem foi aberta pela busca e nao esta entre as 16 entra no comeco
   const trilha = useMemo(() => {
     const ordem = forcas.map((l) => l.player_id).filter((id) => comJogo.includes(id))
     const resto = comJogo.filter((id) => !ordem.includes(id))
-    return [selected, ...[...ordem, ...resto].filter((id) => id !== selected)].slice(0, 16)
+    const lista = [...ordem, ...resto].slice(0, 16)
+    return lista.includes(selected) ? lista : [selected, ...lista.slice(0, 15)]
   }, [forcas, comJogo, selected])
 
   const termo = normalizar(busca.trim())
@@ -130,7 +133,7 @@ export default function PainelJogadora({
         </button>
       )}
 
-      <div className="st-trilha" role="listbox" aria-label="Trocar de jogadora">
+      <div className="st-trilha" role="listbox" aria-label="Trocar de jogadora" style={{ ['--cor-nivel' as string]: cor }}>
         <button type="button" aria-label="Buscar jogadora" aria-pressed={buscando} onClick={() => setBuscando(!buscando)}>
           <span className="st-lupa-foto" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
@@ -263,6 +266,7 @@ export default function PainelJogadora({
         onEscolher={setAba}
       />
 
+      <ConteudoQueDesliza indice={(['resumo', 'partidas', 'parcerias', 'comparar'] as Aba[]).indexOf(aba)}>
       {aba === 'resumo' && (
         <>
           {minhaForca && forcaOculta && <EmAvaliacao plays={minhaForca.emAvaliacao as number} />}
@@ -312,6 +316,7 @@ export default function PainelJogadora({
       {aba === 'parcerias' && <Parcerias pares={meusPares} rivais={meusRivais} />}
 
       {aba === 'comparar' && <ComparadorDeAtletas key={selected} inicial={selected} matches={matches} stats={stats} streaks={streaks} period={period} comJogo={comJogo} />}
+      </ConteudoQueDesliza>
     </>
   )
 }
@@ -397,31 +402,30 @@ function Escada({
   diasVencidos: number
   duquesas?: string
 }) {
-  const degraus: { emoji: string; titulo: string; from: number }[] = [
-    { emoji: '🏅', titulo: '1º pódio', from: 1 },
-    ...STREAK_LADDER.map((x) => ({ emoji: x.emoji, titulo: x.title, from: x.from })),
-  ]
-  // o degrau de agora: o mais alto que a sequencia alcanca (0 = nenhum)
-  const agora = degraus.reduce((m, d, i) => (seq >= d.from ? i : m), -1)
   return (
     <div className="st-card">
       <div className="st-rotulo">
         Status · {seq === 0 ? 'sem sequência' : `${seq} ${seq === 1 ? 'pódio seguido' : 'pódios seguidos'}`}
       </div>
-      <div className="st-escada">
-        {degraus.map((d, i) => {
-          const n = d.from > 1 ? vezes(d.from) : 0
-          return (
-            <div key={d.from} className={`st-degrau${i < agora ? ' feito' : i === agora ? ' agora' : ''}`}>
-              <div className="st-bola" aria-hidden="true">{d.emoji}</div>
-              {d.titulo.replace(' da V3', '').replace(' do Play', '')}
-              {n > 0 && <small>×{n}</small>}
+      <CaminhoDoStatus seq={seq} />
+      {/* a carreira (dono, 17/11): quantas vezes chegou em cada status, quantos no total e o maximo */}
+      <div className="carreira">
+        <div className="carreira-topo">
+          <span>Na carreira · {plural(STREAK_LADDER.reduce((t, x) => t + vezes(x.from), 0), 'status', 'status')}</span>
+          <span>Máximo: <strong>{maior}</strong></span>
+        </div>
+        <div className="carreira-niveis">
+          {STREAK_LADDER.map((x) => (
+            <div key={x.from} className={vezes(x.from) > 0 ? 'tem' : undefined}>
+              <span aria-hidden="true">{x.emoji}</span>
+              <b>×{vezes(x.from)}</b>
+              <small>{x.title.replace(' da V3', '').replace(' do Play', '')}</small>
             </div>
-          )
-        })}
+          ))}
+        </div>
       </div>
       <div className="tiny muted" style={{ marginTop: 10 }}>
-        Maior status: <strong style={{ color: 'var(--text)' }}>{maior}</strong> · {plural(podios, 'pódio')} · {plural(diasVencidos, 'dia vencido')}
+        {plural(podios, 'pódio')} · {plural(diasVencidos, 'dia vencido')}
       </div>
       {duquesas && (
         <div className="tiny" style={{ marginTop: 6, color: 'var(--ouro)', fontWeight: 700 }}>👑 Duquesa em {duquesas}</div>

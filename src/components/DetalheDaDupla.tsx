@@ -3,12 +3,15 @@ import { ComparadorDeDuplas } from './Comparador'
 import GraficoDaDupla from './GraficoDaDupla'
 import HistoricoDePartidas from './HistoricoDePartidas'
 import { Avatar, Modal } from './ui'
+import { AbasComTraco, ConteudoQueDesliza } from './AbasComTraco'
 import { JOGOS_PARA_ENTROSAMENTO, PLAYS_EM_AVALIACAO, emAvaliacao, forcaDeDuplas, nivelDeForca } from '../lib/forca'
 import { duoMatches, mediaDaForca, playedMatches, type DuoStat } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { plural } from '../lib/types'
 
 type Aba = 'resumo' | 'rivais' | 'partidas' | 'comparar'
+const ABAS: Aba[] = ['resumo', 'rivais', 'partidas', 'comparar']
+const ROTULO_DA_ABA: Record<Aba, string> = { resumo: 'Resumo', rivais: 'Rivais', partidas: 'Partidas', comparar: 'Comparar' }
 type OrdemDeRival = 'jogos' | 'pct' | 'dificeis'
 type Rival = { key: string; a: string; b: string; v: number; d: number }
 
@@ -57,7 +60,7 @@ export default function DetalheDaDupla({
   }, [jogos, duo])
 
   return (
-    <Modal title="Perfil da dupla" onClose={onClose}>
+    <Modal title="Perfil da dupla" onClose={onClose} alta>
       <div className="pd-cabecalho">
         <span className="pd-par">
           <Avatar player={playerById(duo.a)} size={56} />
@@ -79,14 +82,14 @@ export default function DetalheDaDupla({
         )}
       </div>
 
-      <div className="pd-abas" role="tablist">
-        {(['resumo', 'rivais', 'partidas', 'comparar'] as Aba[]).map((id) => (
-          <button key={id} type="button" role="tab" aria-selected={aba === id} className={aba === id ? 'on' : ''} onClick={() => setAba(id)}>
-            {id === 'resumo' ? 'Resumo' : id === 'rivais' ? 'Rivais' : id === 'partidas' ? 'Partidas' : 'Comparar'}
-          </button>
-        ))}
-      </div>
+      <AbasComTraco
+        interno
+        abas={ABAS.map((id) => ({ id, rotulo: ROTULO_DA_ABA[id] }))}
+        ativa={aba}
+        onEscolher={setAba}
+      />
 
+      <ConteudoQueDesliza indice={ABAS.indexOf(aba)}>
       {aba === 'resumo' && (
         <>
           {forca && oculta && (
@@ -121,6 +124,7 @@ export default function DetalheDaDupla({
       {aba === 'partidas' && <HistoricoDePartidas partidas={jogos} dupla={[duo.a, duo.b]} semForca={oculta} />}
 
       {aba === 'comparar' && <ComparadorDeDuplas key={duo.key} inicial={[duo.a, duo.b]} matches={matches} comJogo={comJogo} />}
+      </ConteudoQueDesliza>
     </Modal>
   )
 }

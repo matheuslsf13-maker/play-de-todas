@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AbasComTraco } from '../components/AbasComTraco'
+import { AbasComTraco, ConteudoQueDesliza } from '../components/AbasComTraco'
 import DetalheDupla from '../components/DetalheDaDupla'
 import PainelDuplas from '../components/PainelDuplas'
 import { duplasDoRecorte } from '../lib/duplasDoRecorte'
@@ -125,6 +125,7 @@ export default function Stats({
         />
       </div>
 
+      <ConteudoQueDesliza indice={(Object.keys(ROTULO_DO_MODO) as Modo[]).indexOf(modo)}>
       {modo === 'forca' ? (
         <PainelForca />
       ) : modo === 'jogadora' ? (
@@ -145,6 +146,7 @@ export default function Stats({
           <PainelDuplas matches={matches} />
         </ProvedorDePerfil>
       )}
+      </ConteudoQueDesliza>
     </ProvedorDePerfil>
   )
 }
