@@ -1,3 +1,4 @@
+import { subirAoConteudo } from '../lib/rolagem'
 import { useEffect, useMemo, useState } from 'react'
 import { AbasComTraco, ConteudoQueDesliza } from '../components/AbasComTraco'
 import DetalheDupla from '../components/DetalheDaDupla'
@@ -92,7 +93,7 @@ export default function Stats({
     setAnteriores((a) => [...a, selected])
     setPlayerId(id)
     setModo('jogadora')
-    window.scrollTo(0, 0)
+    subirAoConteudo()
   }
   const anterior = anteriores[anteriores.length - 1]
   function voltar() {
