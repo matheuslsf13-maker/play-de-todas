@@ -122,7 +122,7 @@ function Cartao({
       return (
         <Quadro
           cor="fechada"
-          selo={`🏐 ${momento.parado ? 'Play em andamento' : 'Próximo play'}`}
+          selo={<><span className="ponto-vivo branco" aria-hidden="true" />{momento.parado ? 'Play em andamento' : 'Próximo play'}</>}
           tempo={dateLabel(s.date)}
           titulo={s.title?.trim() || 'Play'}
           metricas={[
@@ -342,7 +342,9 @@ function PlayDeHoje({ session, aoVivo, onAbrir }: { session: PlaySession; aoVivo
             <span className="bolinha-viva" aria-hidden="true" /> Ao vivo · {r.jogadas} de {plural(r.total, 'partida')}
           </>
         ) : (
-          `🏐 Play de hoje · ${plural(session.player_ids.length, 'jogadora')}`
+          <>
+            <span className="ponto-vivo branco" aria-hidden="true" /> Play de hoje · {plural(session.player_ids.length, 'jogadora')}
+          </>
         )}
       </span>
       <span className="momento-faixa-acao">Ver o play ›</span>

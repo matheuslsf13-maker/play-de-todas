@@ -2526,6 +2526,9 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .cronometro { color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; }
 .ponto-vivo { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); }
 .ponto-vivo.vermelho { background: #ef4444; }
+/* o proximo play (dono, 17/11: no lugar da bola de volei): a mesma bolinha que pulsa, em branco */
+.ponto-vivo.branco { background: #fff; box-shadow: 0 0 6px #ffffffaa; }
+.momento-selo .ponto-vivo, .momento-faixa-texto .ponto-vivo { display: inline-block; vertical-align: 1px; margin-right: 6px; }
 .ponto-vivo::after {
   content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit;
   animation: ponto-pulsando 1.6s cubic-bezier(.23, 1, .32, 1) infinite;
@@ -3011,11 +3014,13 @@ button.st-linha:active { background: var(--pink-suave); }
 @media (prefers-reduced-motion: reduce) { .tabbar-pilula { transition: none; } }
 
 /* CAMINHO DO STATUS (dono, 17/11, CaminhoDoStatus): traco de borda a borda e cada degrau aceso animado */
-.caminho { --bola: 40px; --vao: 5px; display: flex; align-items: flex-start; }
-.caminho.compacto { --bola: 30px; --vao: 4px; }
+/* o traco entra 2px por baixo das bolas (a bola fica por cima): encosta de fato, sem fresta (dono, 17/11) */
+.caminho { --bola: 40px; --vao: -2px; display: flex; align-items: flex-start; }
+.caminho.compacto { --bola: 30px; --vao: -2px; }
 .caminho-degrau { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .caminho-traco {
-  position: absolute; top: calc(var(--bola) / 2 - 1.5px); height: 3px; border-radius: 3px; background: var(--line-2);
+  /* top em pixel inteiro: no meio pixel (18,5) o iPhone arredondava diferente a cada quadro e o traco subia e descia */
+  position: absolute; z-index: 0; top: calc(var(--bola) / 2 - 2px); height: 4px; border-radius: 4px; background: var(--line-2);
   left: calc(-50% + var(--bola) / 2 + var(--vao)); right: calc(50% + var(--bola) / 2 + var(--vao));
 }
 .caminho-traco.aceso { background: linear-gradient(90deg, var(--orange), var(--yellow)); box-shadow: 0 0 8px color-mix(in srgb, var(--orange) 50%, transparent); }
@@ -3023,7 +3028,7 @@ button.st-linha:active { background: var(--pink-suave); }
 .caminho-traco.chegando { background: linear-gradient(90deg, var(--orange) 0 35%, #fff6 50%, var(--yellow) 65% 100%); background-size: 300% 100%; animation: caminho-corre 2.2s linear infinite; }
 @keyframes caminho-corre { from { background-position: 100% 0; } to { background-position: 0 0; } }
 .caminho-bola {
-  position: relative; width: var(--bola); height: var(--bola); border-radius: 50%; display: grid; place-items: center;
+  position: relative; z-index: 1; width: var(--bola); height: var(--bola); border-radius: 50%; display: grid; place-items: center;
   font-size: calc(var(--bola) * .44); background: var(--card-2); border: 1.5px solid var(--line-2);
 }
 .caminho-emoji { display: block; line-height: 1; }
