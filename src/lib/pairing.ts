@@ -106,6 +106,55 @@ export function tamanhosDosGrupos(jogadoras: number, grupos: number): number[] {
   return Array.from({ length: grupos }, (_, i) => base + (i < resto ? 1 : 0))
 }
 
+/*
+ * A MELHOR DIVISAO PARA UMA QUANTIDADE DE GRUPOS (dono, 17/11/2026): a organizadora escolhe quantos grupos e o app
+ * diz quantas vao em cada um. Evita os tamanhos em que o rodizio nao fecha: 7 e 11 (cada uma repete 2 parceiras)
+ * pesam muito, 6 e 10 (repete 1) pesam um pouco; depois, grupos parecidos e perto de 7. Ex.: 22 em 3 grupos = 8, 8
+ * e 6 (nao 8, 7 e 7). Os maiores ficam no topo, como sempre (a sobra ia para os primeiros grupos).
+ */
+function custoDoTamanho(t: number): number {
+  const r = t % 4
+  return r === 3 ? 10 : r === 2 ? 3 : 0
+}
+
+/** O quanto uma divisao e ruim (menor e melhor). */
+export function custoDaDivisao(tamanhos: number[]): number {
+  const desigual = Math.max(...tamanhos) - Math.min(...tamanhos)
+  return tamanhos.reduce((c, t) => c + custoDoTamanho(t) + 0.5 * Math.abs(t - 7), 0) + 1.5 * desigual
+}
+
+/** O tamanho de cada grupo, para `grupos` grupos (cada um com 4+), do maior para o menor. */
+export function melhoresTamanhos(jogadoras: number, grupos: number): number[] {
+  const k = Math.max(1, Math.min(grupos, Math.floor(jogadoras / 4)))
+  if (k <= 1 || jogadoras < 8) return [jogadoras]
+  let melhor = tamanhosDosGrupos(jogadoras, k)
+  let menor = custoDaDivisao(melhor)
+  const partes = (resto: number, faltam: number, teto: number, acc: number[]) => {
+    if (faltam === 0) {
+      if (resto === 0 && custoDaDivisao(acc) < menor) {
+        melhor = acc
+        menor = custoDaDivisao(acc)
+      }
+      return
+    }
+    for (let t = Math.min(teto, resto - 4 * (faltam - 1)); t >= 4 && t * faltam >= resto; t--) {
+      partes(resto - t, faltam - 1, t, [...acc, t])
+    }
+  }
+  partes(jogadoras, k, jogadoras, [])
+  return melhor
+}
+
+/** Quantos grupos o app recomenda para esse total (a divisao de menor custo). */
+export function gruposRecomendados(jogadoras: number): number {
+  if (jogadoras < 8) return 1
+  let melhor = 1
+  for (let k = 2; k <= Math.floor(jogadoras / 4); k++) {
+    if (custoDaDivisao(melhoresTamanhos(jogadoras, k)) < custoDaDivisao(melhoresTamanhos(jogadoras, melhor))) melhor = k
+  }
+  return melhor
+}
+
 /**
  * A fila por forca, com SORTEIO ENTRE EMPATADAS.
  *
@@ -357,13 +406,15 @@ export function formarGrupos(
   tamanho: number,
   /** Semente do sorteio entre empatadas; sem ela, sorteia de verdade. */
   semente?: number,
+  /** O tamanho de cada grupo, ja escolhido (`melhoresTamanhos`); sem isso, sai do `tamanho`. */
+  tamanhos?: number[],
 ): string[][] {
-  const grupos = numeroDeGrupos(playerIds.length, tamanho)
-  if (grupos <= 1) return [playerIds.slice()]
+  const lista = tamanhos ?? tamanhosDosGrupos(playerIds.length, numeroDeGrupos(playerIds.length, tamanho))
+  if (lista.length <= 1) return [playerIds.slice()]
   const ordenadas = filaPorForca(playerIds, ratings, semente)
   const out: string[][] = []
   let i = 0
-  for (const t of tamanhosDosGrupos(playerIds.length, grupos)) {
+  for (const t of lista) {
     out.push(ordenadas.slice(i, i + t))
     i += t
   }
