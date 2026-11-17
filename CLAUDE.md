@@ -637,6 +637,13 @@ masculino e o misto descrevem esse código parado.
   número, fixa de categoria inclusive); todas em jogo ou só 1 quadra: tremidinha e aviso.
   Mínimo 1. Números físicos em `sessions.quadras_abertas` (`[1, 3, 4]` não renumera); a fila
   manda "abrir/tirar uma", nunca o total. Sem o 33 só tira a última, livre e não fixa.
+- **🔁 Todas repetem uma vez** (dono, 17/11/2026; script 39, `sessions.grupos_repetem` = índices de `groups`): no formato
+  `grupos`, o quadradinho em cada grupo (criação e "✏️ Arrumar grupos") faz o grupo jogar o rodízio **duas vezes** — cada
+  dupla se forma de novo e todas jogam o dobro (grupo de 4: 6 partidas, 6 jogos cada). Só aparece onde o rodízio fecha sem
+  ninguém repetir (`podeRepetirRodizio`: 4, 5, 8, 9…). No código o grupo é pela chave do conteúdo (`chaveDoGrupo`,
+  `gruposQueRepetem`), e `jogosDoRodizio`/`partidasDoRodizio` recebem `vezes`: gerar, refazer, `precisaRefazer` e
+  `problemasDaFila` contam o dobro (sem isso o refazer cortaria a 2ª volta). O Reconfigurar não leva a marca.
+  `tests/gruposRepetem.test.ts`.
 - **Partida iniciada**: quem está em quadra agora é definido pelo botão
   "▶️ Partida iniciada"; lançar o placar encerra. Isso alimenta o aviso de
   quadra parada e a troca de jogadoras. **O placar guarda o `started_at`** (D43; antes

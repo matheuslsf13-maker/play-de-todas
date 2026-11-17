@@ -68,6 +68,9 @@ import {
   jogadorasDaPartida,
   ordemDeEspera,
   jogosDoRodizio,
+  gruposQueRepetem,
+  podeRepetirRodizio,
+  vezesDoRodizio,
   parceirasDoRodizio,
   repeticoesPorJogadora,
   partidasDoRodizio,
@@ -787,6 +790,8 @@ function NewPlay({
     preset.desempates ?? ['nenhum', 'nenhum', 'nenhum', 'nenhum'],
   )
   const [ranked, setRanked] = useState(preset.ranked ?? true)
+  /** Indices dos grupos que jogam o rodizio duas vezes ("todas repetem uma vez"). */
+  const [repetemIdx, setRepetemIdx] = useState<number[]>(editando?.grupos_repetem ?? [])
   const [contaStatus, setContaStatus] = useState(preset.conta_status ?? preset.ranked ?? true)
   const [comFalta, setComFalta] = useState(preset.id ? contaFalta(preset as PlaySession) : (preset.conta_falta ?? true))
   const [importando, setImportando] = useState(false)
@@ -1060,9 +1065,13 @@ function NewPlay({
   /** O limite veio da divisao em grupos, e nao de faltar gente? */
   const travadoPorGrupo = grupos.length > 1 && maxCourts < Math.floor(selected.length / 4)
 
+  // "todas repetem uma vez": so no formato em grupos, so nos grupos em que o rodizio fecha sem repetir
+  const repeteNaCriacao = format === 'grupos' && !generoDoRodizio && grupos.length > 1
+  const repetemDaCriacao = repetemIdx.filter((i) => grupos[i] && podeRepetirRodizio(grupos[i].length)).sort()
+  const vezesNaCriacao = (i: number) => (repeteNaCriacao && repetemDaCriacao.includes(i) ? 2 : 1)
   const totalPartidas = emDuplasFixas
     ? categoriasDeDuplas.reduce((t, ds) => t + partidasEntreDuplas(ds.length), 0)
-    : grupos.reduce((t, g) => t + partidasDoRodizio(g.length, ehMistoOGrupo(g)), 0)
+    : grupos.reduce((t, g, i) => t + partidasDoRodizio(g.length, ehMistoOGrupo(g), vezesNaCriacao(i)), 0)
   const parceirasMin = Math.min(...tamanhos.map(parceirasDoRodizio))
   const parceirasMax = Math.max(...tamanhos.map(parceirasDoRodizio))
   // jogos e parceiras nao sao a mesma coisa: num grupo de 6 cada uma joga com
@@ -1070,8 +1079,8 @@ function NewPlay({
   /** A regra e o alvo que a fase de grupos vai usar: e dela que sai a estimativa de tempo. */
   const regraDaNoite = emDuplas ? lerRegra(desempates[0] ?? 'nenhum') : regra
   const minutosDaNoite = minutosDaPartida(emDuplas ? alvos[0] : target, regraDaNoite)
-  const jogosMin = Math.min(...grupos.map((g) => jogosDoRodizio(g.length, ehMistoOGrupo(g))))
-  const jogosMax = Math.max(...grupos.map((g) => jogosDoRodizio(g.length, ehMistoOGrupo(g))))
+  const jogosMin = Math.min(...grupos.map((g, i) => jogosDoRodizio(g.length, ehMistoOGrupo(g), vezesNaCriacao(i))))
+  const jogosMax = Math.max(...grupos.map((g, i) => jogosDoRodizio(g.length, ehMistoOGrupo(g), vezesNaCriacao(i))))
   const repetem = Math.max(...grupos.map((g) => repeticoesPorJogadora(g.length, ehMistoOGrupo(g))))
   const restPorVez = selected.length - effCourts * 4
   /**
@@ -1248,6 +1257,7 @@ function NewPlay({
               history: buildHistory(playedMatches(data)),
               groups: emGrupos ? (camp ? camp.groups : grupos) : undefined,
               genero: generoDoRodizio,
+              repetem: repeteNaCriacao ? gruposQueRepetem(grupos, repetemDaCriacao) : undefined,
             })
       const session: PlaySession = {
         // reconfigurando: o mesmo play, com diario e ausentes; a escolha na mao e
@@ -1279,6 +1289,7 @@ function NewPlay({
         created_at: editando?.created_at ?? new Date().toISOString(),
         format: emDuplasFixas ? 'grupos-duplas' : emGrupos ? (emDuplas ? 'grupos-duplas' : 'grupos') : 'todas',
         groups: camp ? camp.groups : emGrupos ? grupos : null,
+        grupos_repetem: repeteNaCriacao && repetemDaCriacao.length ? repetemDaCriacao : null,
         categorias: camp ? camp.categorias : null,
         // pontos do mes pela colocacao final; plays antigos nao tem e seguem pelo placar
         pontuacao: comFases && ranked ? pontuacao : null,
@@ -1744,7 +1755,7 @@ function NewPlay({
               {grupos.map((g, i) => (
                 <div key={i} className={`grupo-box ${classeDoGrupo(i + 1)}`}>
                   <div className="grupo-nome">
-                    Grupo {i + 1} · {g.length} meninas · {partidasDoRodizio(g.length)} partidas
+                    Grupo {i + 1} · {g.length} meninas · {partidasDoRodizio(g.length, false, vezesNaCriacao(i))} partidas
                   </div>
                   <div className="tiny muted" style={{ marginBottom: 6 }}>
                     💪 força média <strong>{mediaDeForca(g)}</strong>
@@ -1784,6 +1795,13 @@ function NewPlay({
                     >
                       ↪️ Mover {nameOf(movendo)} para o grupo {i + 1}
                     </button>
+                  )}
+                  {format === 'grupos' && !generoDoRodizio && (
+                    <TodasRepetem
+                      jogadoras={g.length}
+                      ligado={repetemIdx.includes(i)}
+                      onChange={(v) => setRepetemIdx((r) => (v ? [...r.filter((x) => x !== i), i] : r.filter((x) => x !== i)))}
+                    />
                   )}
                 </div>
               ))}
@@ -2122,6 +2140,8 @@ function PlayDetail({
         : undefined,
     [session.duplas_mistas, data.players],
   )
+  /** Grupos que jogam o rodizio duas vezes ("todas repetem uma vez"). */
+  const repetemNoPlay = useMemo(() => gruposQueRepetem(session.groups, session.grupos_repetem), [session.groups, session.grupos_repetem])
   /** O nome de uma dupla fixa a partir de qualquer uma das duas. */
   const nomeDaDuplaFixa = useCallback(
     (id: string) => {
@@ -2594,8 +2614,9 @@ function PlayDetail({
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
       genero: generoDoPlay,
       ausentes: new Set([...proximos].filter((x) => grupo.includes(x))),
+      repetem: repetemNoPlay,
     })
-    if (problemasDaFila([grupo], fila, nome, generoDoPlay).length > 0) return
+    if (problemasDaFila([grupo], fila, nome, generoDoPlay, repetemNoPlay).length > 0) return
     const ultima = matches.reduce((n, m) => Math.max(n, m.round), 0)
     const novas = planToMatches(session.id, fila).map((m, i) => ({ ...m, round: ultima + i + 1 }))
     const doGrupoIds = new Set(doGrupo.map((m) => m.id))
@@ -2633,7 +2654,7 @@ function PlayDetail({
     const pendentes = doGrupo.filter((m) => !isPlayed(m) && !iniciada(m))
     const comoPlano = (ms: { team_a: [string, string]; team_b: [string, string] }[]): PlannedMatch[] =>
       ms.map((m) => ({ team_a: m.team_a, team_b: m.team_b, grupo: 0 }))
-    if (problemasDaFila([grupo], comoPlano(doGrupo), nome, generoDoPlay).length > 0) return
+    if (problemasDaFila([grupo], comoPlano(doGrupo), nome, generoDoPlay, repetemNoPlay).length > 0) return
     const novas = pendentesPelaAtrasada({
       ids: grupo,
       fixas,
@@ -2644,7 +2665,7 @@ function PlayDetail({
       genero: generoDoPlay,
     })
     if (!novas) return
-    if (problemasDaFila([grupo], comoPlano([...fixas, ...novas]), nome, generoDoPlay).length > 0) return
+    if (problemasDaFila([grupo], comoPlano([...fixas, ...novas]), nome, generoDoPlay, repetemNoPlay).length > 0) return
     const ultima = matches.reduce((n, m) => Math.max(n, m.round), 0)
     const plano = novas.map((m) => ({ ...m, grupo: gi }))
     const criadas = planToMatches(session.id, plano).map((m, i) => ({ ...m, round: ultima + i + 1 }))
@@ -2944,7 +2965,7 @@ function PlayDetail({
         return !trocas.some((t) => d.includes(t.entra as string) && (t.round === m.round || t.round === primeira.round))
       }
       const g = grupos?.find((x) => x.includes(d[0]))
-      return repeticoesPorJogadora(g ? g.length : session.player_ids.length) > 0
+      return repeticoesPorJogadora(g ? g.length : session.player_ids.length) > 0 || (!!g && vezesDoRodizio(g, repetemNoPlay) > 1)
     }
     // so a fase 1: no mata-mata do grupos-duplas a dupla e fixa e joga toda partida junta
     for (const m of matches) {
@@ -3205,6 +3226,7 @@ function PlayDetail({
       matches: base,
       fixa,
       genero: generoDoPlay,
+      repetem: gruposQueRepetem(sessao.groups, sessao.grupos_repetem),
     })
     if (precisam.length === 0 && orfas.length === 0) {
       if (!silencioso && !opcoes.automatico) onToast('A fila já está certa — nada para refazer ✅')
@@ -3225,6 +3247,7 @@ function PlayDetail({
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
       genero: generoDoPlay,
       historyWeight: 1,
+      repetem: gruposQueRepetem(sessao.groups, sessao.grupos_repetem),
     })
     // a fila nova entra depois da ultima posicao ja usada, para nao haver duas
     // partidas com o mesmo numero na lista
@@ -3390,6 +3413,7 @@ function PlayDetail({
           entrosamento: ajusteDeEntrosamento(data),
           history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
           genero: generoDoPlay,
+          repetem: repetemNoPlay,
         })
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
     // a noite recomeca do zero: duplas, desempates e quadras cedidas tambem
@@ -3414,7 +3438,7 @@ function PlayDetail({
    * Nas duplas fixas o grupo e a categoria das duplas: la nao aparece.
    */
   const podeArrumarGrupos = canEdit && !finished && !duplasFixas && matches.every((m) => !isPlayed(m) && !iniciada(m))
-  async function salvarGrupos(groups: string[][]) {
+  async function salvarGrupos(groups: string[][], repetemIdx: number[]) {
     // conferido de novo aqui: outro celular pode ter iniciado uma partida
     if (matches.some((m) => isPlayed(m) || iniciada(m))) {
       onToast('O play já começou — agora só pelo 🔁 Entra / sai')
@@ -3430,10 +3454,14 @@ function PlayDetail({
     }
     const grupoDe = (gs: string[][], id: string) => gs.findIndex((g) => g.includes(id))
     const mudaram = session.player_ids.filter((id) => grupoDe(session.groups ?? [], id) !== grupoDe(groups, id))
-    if (mudaram.length === 0) {
+    const grupos_repetem = repetemIdx.filter((i) => groups[i] && podeRepetirRodizio(groups[i].length)).sort()
+    const repetemAntes = [...(session.grupos_repetem ?? [])].sort()
+    const mudouRepete = grupos_repetem.join() !== repetemAntes.join()
+    if (mudaram.length === 0 && !mudouRepete) {
       setArrumando(null)
       return
     }
+    const repetem = gruposQueRepetem(groups, grupos_repetem)
     // a fila nova sai CONFERIDA (grupos, jogos de cada uma, duplas do rodizio):
     // se nao fechar, nada e gravado e o play fica como estava
     const { fila, problemas } = filaDosGruposArrumados({
@@ -3444,15 +3472,22 @@ function PlayDetail({
       entrosamento: ajusteDeEntrosamento(data),
       history: buildHistory(playedMatches(data).filter((m) => m.session_id !== session.id)),
       genero: generoDoPlay,
+      repetem,
     })
     if (problemas.length) {
       onToast(`Não salvei: ${problemas[0]}`)
       return
     }
     await replaceSessionMatches(session.id, planToMatches(session.id, fila))
-    const texto = `Grupos arrumados antes de começar: ${mudaram.map((id) => `${nameOf(id)} → ${nomeDoGrupo(grupoDe(groups, id))}`).join(', ')}`
+    const partes = [
+      ...(mudaram.length ? [mudaram.map((id) => `${nameOf(id)} → ${nomeDoGrupo(grupoDe(groups, id))}`).join(', ')] : []),
+      ...(mudouRepete
+        ? [grupos_repetem.length ? `todas repetem uma vez em ${grupos_repetem.map((i) => nomeDoGrupo(i)).join(', ')}` : 'ninguém repete o rodízio']
+        : []),
+    ]
+    const texto = `Grupos arrumados antes de começar: ${partes.join('; ')}`
     await saveSession(
-      comEvento({ ...session, groups, rounds: fila.length, duos: null, desempates_grupo: null, quadras_cedidas: null }, 'grupos', texto),
+      comEvento({ ...session, groups, grupos_repetem: grupos_repetem.length ? grupos_repetem : null, rounds: fila.length, duos: null, desempates_grupo: null, quadras_cedidas: null }, 'grupos', texto),
     )
     setArrumando(null)
     onToast('Grupos salvos e fila refeita 👥')
@@ -3898,7 +3933,9 @@ function PlayDetail({
           genero={generoDoPlay}
           onChange={setArrumando}
           onCancelar={() => setArrumando(null)}
-          onSalvar={() => void salvarGrupos(arrumando)}
+          podeRepetir={session.format === 'grupos'}
+          repetemAntes={session.grupos_repetem ?? []}
+          onSalvar={(repetem) => void salvarGrupos(arrumando, repetem)}
         />
       )}
       {grupos && grupos.length > 1 && !(arrumando && podeArrumarGrupos) && (
@@ -6133,6 +6170,8 @@ function ArrumarGrupos({
   genero,
   onChange,
   onCancelar,
+  podeRepetir,
+  repetemAntes,
   onSalvar,
 }: {
   grupos: string[][]
@@ -6142,10 +6181,13 @@ function ArrumarGrupos({
   genero?: Generos
   onChange: (g: string[][]) => void
   onCancelar: () => void
-  onSalvar: () => void
+  podeRepetir: boolean
+  repetemAntes: number[]
+  onSalvar: (repetem: number[]) => void
 }) {
   const { nameOf } = useStore()
   const [movendo, setMovendo] = useState<string | null>(null)
+  const [repetem, setRepetem] = useState<number[]>(repetemAntes)
   function mover(id: string, para: number) {
     onChange(moverNoRascunho(grupos, id, para))
     setMovendo(null)
@@ -6189,6 +6231,13 @@ function ArrumarGrupos({
                   ↪️ Mover {nameOf(movendo)} para cá
                 </button>
               )}
+              {podeRepetir && !genero && (
+                <TodasRepetem
+                  jogadoras={g.length}
+                  ligado={repetem.includes(i)}
+                  onChange={(v) => setRepetem((r) => (v ? [...r.filter((x) => x !== i), i] : r.filter((x) => x !== i)))}
+                />
+              )}
             </div>
           )
         })}
@@ -6198,11 +6247,28 @@ function ArrumarGrupos({
       </em>
       <div className="row" style={{ gap: 8, marginTop: 12 }}>
         <button className="btn ghost grow" onClick={onCancelar}>Cancelar</button>
-        <button className="btn pink grow" disabled={curto} onClick={onSalvar}>
+        <button className="btn pink grow" disabled={curto} onClick={() => onSalvar(repetem)}>
           ✅ Salvar e refazer a fila
         </button>
       </div>
     </div>
+  )
+}
+
+/** "Todas repetem uma vez": o grupo joga o rodizio duas vezes. So aparece onde o rodizio fecha sem ninguem repetir. */
+export function TodasRepetem({ jogadoras, ligado, onChange }: { jogadoras: number; ligado: boolean; onChange: (v: boolean) => void }) {
+  if (!podeRepetirRodizio(jogadoras)) return null
+  const vezes = ligado ? 2 : 1
+  return (
+    <label className="row" style={{ gap: 8, marginTop: 8, cursor: 'pointer', alignItems: 'flex-start' }}>
+      <input type="checkbox" checked={ligado} onChange={(e) => onChange(e.target.checked)} />
+      <span className="grow">
+        <strong>🔁 Todas repetem uma vez</strong>
+        <span className="hint" style={{ marginTop: 2 }}>
+          {`cada dupla joga duas vezes: ${jogosDoRodizio(jogadoras, false, vezes)} jogos para cada uma, ${partidasDoRodizio(jogadoras, false, vezes)} partidas no grupo`}
+        </span>
+      </span>
+    </label>
   )
 }
 

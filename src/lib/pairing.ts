@@ -405,16 +405,43 @@ export function repeticoesPorJogadora(jogadoras: number, misto = false): number 
 }
 
 /** Quantas partidas o rodizio de um grupo desse tamanho gera. */
-export function partidasDoRodizio(jogadoras: number, misto = false): number {
+export function partidasDoRodizio(jogadoras: number, misto = false, vezes = 1): number {
   if (jogadoras < 4) return 0
-  return (jogadoras * jogosDoRodizio(jogadoras, misto)) / 4
+  return (jogadoras * jogosDoRodizio(jogadoras, misto, vezes)) / 4
 }
 
 /** Quantos jogos cada uma faz -- igual para todas do grupo. */
-export function jogosDoRodizio(jogadoras: number, misto = false): number {
+export function jogosDoRodizio(jogadoras: number, misto = false, vezes = 1): number {
   if (jogadoras < 4) return 0
-  if (misto) return jogadoras / 2 + repeticoesPorJogadora(jogadoras, true)
-  return jogadoras - 1 + repeticoesPorJogadora(jogadoras)
+  if (misto) return (jogadoras / 2 + repeticoesPorJogadora(jogadoras, true)) * vezes
+  return (jogadoras - 1 + repeticoesPorJogadora(jogadoras)) * vezes
+}
+
+/*
+ * GRUPO QUE JOGA O RODIZIO DUAS VEZES (dono, 17/11/2026): "todas repetem uma vez". Num play de 22 em grupos de
+ * 6, 6, 6 e 4, o grupo de 4 (3 partidas) acabava muito antes. So vale para grupo em que o rodizio fecha sem
+ * ninguem repetir (4, 5, 8, 9...): ali cada dupla se forma de novo e todas jogam o dobro. O play guarda os
+ * indices em `sessions.grupos_repetem`; no codigo o grupo e identificado pelo conteudo (`chaveDoGrupo`).
+ */
+export function podeRepetirRodizio(jogadoras: number, misto = false): boolean {
+  return jogadoras >= 4 && repeticoesPorJogadora(jogadoras, misto) === 0
+}
+
+/** O grupo pelo conteudo (a ordem das meninas nao importa). */
+export function chaveDoGrupo(ids: readonly string[]): string {
+  return [...ids].sort().join(',')
+}
+
+/** Os grupos do play que repetem o rodizio, pela chave. */
+export function gruposQueRepetem(groups: string[][] | null | undefined, indices: number[] | null | undefined): Set<string> {
+  const out = new Set<string>()
+  for (const i of indices ?? []) if (groups?.[i] && podeRepetirRodizio(groups[i].length)) out.add(chaveDoGrupo(groups[i]))
+  return out
+}
+
+/** 2 se o grupo repete o rodizio, senao 1. */
+export function vezesDoRodizio(ids: readonly string[], repetem?: Set<string>): number {
+  return repetem?.has(chaveDoGrupo(ids)) ? 2 : 1
 }
 
 /** Genero de cada um, no play misto de duplas mistas. */
@@ -1373,6 +1400,8 @@ export type ScheduleOptions = {
    * parceira de par dela -- em 02/11 a Wanessa esperou a Ana Pretti por 1 hora.
    */
   ausentes?: Set<string>
+  /** Grupos que jogam o rodizio duas vezes (`chaveDoGrupo`). */
+  repetem?: Set<string>
 }
 
 /** Monta a fila de partidas do dia. */
@@ -1387,9 +1416,12 @@ export function gerarFila(opts: ScheduleOptions): PlannedMatch[] {
   const grupos = opts.groups?.length ? opts.groups : [opts.playerIds]
   const todas: PlannedMatch[] = []
   grupos.forEach((ids, i) => {
-    for (const m of rodizioDoGrupo(ids, opts.ratings, antes, dia, opts.entrosamento, opts.genero, opts.ausentes)) {
-      todas.push({ ...m, grupo: i })
-      marcarConfronto(m.team_a, m.team_b, dia)
+    // a 2a volta vem depois de marcar os confrontos da 1a: os adversarios variam quando o grupo deixa
+    for (let v = vezesDoRodizio(ids, opts.repetem); v > 0; v--) {
+      for (const m of rodizioDoGrupo(ids, opts.ratings, antes, dia, opts.entrosamento, opts.genero, opts.ausentes)) {
+        todas.push({ ...m, grupo: i })
+        marcarConfronto(m.team_a, m.team_b, dia)
+      }
     }
   })
   return ordenarFila(todas)
@@ -1441,7 +1473,7 @@ export function refazerFila(opts: RefazerOptions): PlannedMatch[] {
      */
     const misto = grupoMisto(ids, opts.genero)
     const mista = (d: Duo) => !misto || duplaMista(d, opts.genero)
-    const alvo = jogosDoRodizio(ids.length, misto)
+    const alvo = jogosDoRodizio(ids.length, misto, vezesDoRodizio(ids, opts.repetem))
     const resta = (id: string) => alvo - totalDe(id)
     const registrar = (a: Duo, b: Duo, repetida: boolean) => {
       partidas.push({ team_a: a, team_b: b, repetida })

@@ -8,6 +8,7 @@ import {
   type Generos,
   type PlannedMatch,
   type ScheduleOptions,
+  vezesDoRodizio,
 } from './pairing'
 import { pairKey } from './stats'
 
@@ -46,7 +47,13 @@ export function problemasDosGrupos(jogadoras: string[], grupos: string[][], nome
 }
 
 /** O que esta errado nesta fila para estes grupos (vazio = a fila esta certa). */
-export function problemasDaFila(grupos: string[][], fila: PlannedMatch[], nomeDoGrupo: (i: number) => string, genero?: Generos): string[] {
+export function problemasDaFila(
+  grupos: string[][],
+  fila: PlannedMatch[],
+  nomeDoGrupo: (i: number) => string,
+  genero?: Generos,
+  repetem?: Set<string>,
+): string[] {
   const out: string[] = []
   for (const m of fila) {
     const quatro = jogadorasDaPartida(m)
@@ -63,9 +70,10 @@ export function problemasDaFila(grupos: string[][], fila: PlannedMatch[], nomeDo
     const nome = nomeDoGrupo(gi)
     const doGrupo = fila.filter((m) => m.grupo === gi)
     const misto = grupoMisto(g, genero)
-    const alvo = jogosDoRodizio(g.length, misto)
-    if (doGrupo.length !== partidasDoRodizio(g.length, misto)) {
-      out.push(`${nome}: ${doGrupo.length} partidas, o rodízio pede ${partidasDoRodizio(g.length, misto)}`)
+    const vezes = vezesDoRodizio(g, repetem)
+    const alvo = jogosDoRodizio(g.length, misto, vezes)
+    if (doGrupo.length !== partidasDoRodizio(g.length, misto, vezes)) {
+      out.push(`${nome}: ${doGrupo.length} partidas, o rodízio pede ${partidasDoRodizio(g.length, misto, vezes)}`)
     }
     const jogos = new Map(g.map((id) => [id, 0]))
     const duplas = new Set<string>()
@@ -105,7 +113,7 @@ export function filaDosGruposArrumados(
   let problemas: string[] = []
   for (let t = 0; t < (opts.tentativas ?? 5); t++) {
     fila = gerarFila(opts)
-    problemas = problemasDaFila(opts.groups, fila, opts.nomeDoGrupo, opts.genero)
+    problemas = problemasDaFila(opts.groups, fila, opts.nomeDoGrupo, opts.genero, opts.repetem)
     if (problemas.length === 0) break
   }
   return { fila, problemas }

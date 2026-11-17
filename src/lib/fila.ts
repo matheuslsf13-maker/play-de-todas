@@ -13,6 +13,7 @@ import {
   grupoMisto,
   jogadorasDaPartida,
   jogosDoRodizio,
+  vezesDoRodizio,
   type Generos,
   ordemDeEspera,
   ordemPrevista,
@@ -216,11 +217,11 @@ export function proximasPelaFila(
  * play que nao precisava, e cada toque desmontava o rodizio de 6 que evita
  * alguem emendar 3.
  */
-export function precisaRefazer(grupo: string[], partidasDoGrupo: Match[], genero?: Generos): boolean {
+export function precisaRefazer(grupo: string[], partidasDoGrupo: Match[], genero?: Generos, repetem?: Set<string>): boolean {
   if (grupo.length < 4) return false
   // play de duplas mistas: so contam as duplas homem + mulher
   const misto = grupoMisto(grupo, genero)
-  const alvo = jogosDoRodizio(grupo.length, misto)
+  const alvo = jogosDoRodizio(grupo.length, misto, vezesDoRodizio(grupo, repetem))
   const jogos = new Map(grupo.map((id) => [id, 0]))
   const duplas = new Set<string>()
   for (const m of partidasDoGrupo) {
@@ -258,13 +259,15 @@ export function planoDoRefazer(opts: {
   fixa: (m: Match) => boolean
   /** Play de duplas mistas: o genero de cada um. */
   genero?: Generos
+  /** Grupos que jogam o rodizio duas vezes (`chaveDoGrupo`). */
+  repetem?: Set<string>
 }): { precisam: string[][]; orfas: Match[]; naFila: Match[]; preservadas: Match[] } {
   const noPlay = new Set(opts.jogadoras)
   const pendente = (m: Match) => (m.fase ?? 1) === 1 && !isPlayed(m) && !opts.fixa(m)
   const orfas = opts.matches.filter((m) => pendente(m) && jogadorasDaPartida(m).some((id) => !noPlay.has(id)))
   const semOrfas = opts.matches.filter((m) => !orfas.includes(m))
   const doGrupo = (g: Set<string>) => (m: Match) => jogadorasDaPartida(m).some((id) => g.has(id))
-  const precisam = opts.grupos.filter((g) => precisaRefazer(g, semOrfas.filter(doGrupo(new Set(g))), opts.genero))
+  const precisam = opts.grupos.filter((g) => precisaRefazer(g, semOrfas.filter(doGrupo(new Set(g))), opts.genero, opts.repetem))
   const daFilaNova = doGrupo(new Set(precisam.flat()))
   const naFila = semOrfas.filter((m) => pendente(m) && daFilaNova(m))
   return { precisam, orfas, naFila, preservadas: semOrfas.filter((m) => !naFila.includes(m)) }

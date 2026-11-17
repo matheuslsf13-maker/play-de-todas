@@ -216,6 +216,8 @@ export type PlaySession = {
    * [grupos, duplas fixas, semifinal, final]. Ausente = usa `target` em todas.
    */
   alvos?: number[] | null
+  /** Indices de `groups` que jogam o rodizio duas vezes ("todas repetem uma vez", script 39). */
+  grupos_repetem?: number[] | null
   /** Historico: hoje o tie sempre vai a 2, entao isto e sempre `true`. */
   desempate_vai2?: boolean | null
   /**
