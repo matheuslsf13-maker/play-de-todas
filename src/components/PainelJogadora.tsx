@@ -10,6 +10,8 @@ import { ListaExpansivel } from './StatsPecas'
 import { Avatar, Empty } from './ui'
 import {
   PLAYS_EM_AVALIACAO,
+  emAvaliacao,
+  forcaDeDuplas,
   rankingDeForca,
   textoDaAvaliacao,
   textoDaQueda,
@@ -22,6 +24,7 @@ import {
   historicoDeForca,
   mediaDaForca,
   opponentStats,
+  pairKey,
   partnerStats,
   winRate,
   type computeStats,
@@ -313,7 +316,7 @@ export default function PainelJogadora({
         </div>
       )}
 
-      {aba === 'parcerias' && <Parcerias pares={meusPares} rivais={meusRivais} />}
+      {aba === 'parcerias' && <Parcerias jogadora={selected} pares={meusPares} rivais={meusRivais} />}
 
       {aba === 'comparar' && <ComparadorDeAtletas key={selected} inicial={selected} matches={matches} stats={stats} streaks={streaks} period={period} comJogo={comJogo} />}
       </ConteudoQueDesliza>
@@ -435,9 +438,12 @@ function Escada({
 }
 
 /** Parcerias: com quem e contra quem jogou, por jogos ou por aproveitamento. */
-function Parcerias({ pares, rivais }: { pares: PairKeyStat[]; rivais: PairKeyStat[] }) {
-  const { nameOf, playerById } = useStore()
+function Parcerias({ jogadora, pares, rivais }: { jogadora: string; pares: PairKeyStat[]; rivais: PairKeyStat[] }) {
+  const { data, nameOf, playerById, canEdit } = useStore()
   const [lado, setLado] = useState<Lado>('com')
+  // "com quem": o entrosamento da dupla, como no resto do app (era "N pts juntas"); oculto com alguém em avaliação
+  const forcas = useMemo(() => forcaDeDuplas(data), [data])
+  const avaliacao = useMemo(() => emAvaliacao(data), [data])
   const [ordem, setOrdem] = useState<OrdemDeParceria>('jogos')
   const base = lado === 'com' ? pares : rivais
   const lista = [...base].sort((a, b) =>
@@ -450,7 +456,20 @@ function Parcerias({ pares, rivais }: { pares: PairKeyStat[]; rivais: PairKeySta
         <Avatar player={playerById(p.other_id)} size={40} />
         <span className="st-nome">
           <b><NomeClicavel id={p.other_id}>{nameOf(p.other_id)}</NomeClicavel></b>
-          <span>{plural(p.matches, 'jogo')}{lado === 'com' && ` · ${p.points} pts juntas`}</span>
+          <span>
+            {plural(p.matches, 'jogo')}
+            {lado === 'com' && (() => {
+              const f = forcas.get(pairKey(jogadora, p.other_id))
+              if (!f || (!canEdit && (avaliacao.has(jogadora) || avaliacao.has(p.other_id)))) return null
+              const e = Math.round(f.entrosamento)
+              return (
+                <>
+                  {' · entrosamento '}
+                  <span className={`st-chip-ent ${e > 0 ? '' : e < 0 ? 'neg' : 'zero'}`}>{e > 0 ? `+${e}` : e < 0 ? `−${-e}` : '0'}</span>
+                </>
+              )
+            })()}
+          </span>
           <span className="st-barrinha" style={{ display: 'block' }}><i style={{ width: `${pct}%` }} /></span>
         </span>
         <span className="st-valor">

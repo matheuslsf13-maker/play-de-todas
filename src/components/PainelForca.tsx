@@ -206,7 +206,8 @@ export default function PainelForca() {
           . A força aparece depois do {PLAYS_EM_AVALIACAO}º play; até lá o app já usa para montar grupos e duplas.
         </p>
       )}
-      {foraDoRanking.length > 0 && (
+      {/* so a admin: a lista crescia sem fim e as meninas nao precisam dela (dono, 17/11) */}
+      {canEdit && foraDoRanking.length > 0 && (
         <p className="tiny muted">
           ⏸️ <strong>Fora do ranking agora:</strong>{' '}
           {foraDoRanking.map((l, i) => (
