@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ComparadorDeDuplas } from './Comparador'
 import GraficoDaDupla from './GraficoDaDupla'
 import HistoricoDePartidas from './HistoricoDePartidas'
-import { Avatar, Modal } from './ui'
+import { Avatar, Modal, atrasoDoSurge } from './ui'
 import { AbasComTraco, ConteudoQueDesliza } from './AbasComTraco'
 import { JOGOS_PARA_ENTROSAMENTO, PLAYS_EM_AVALIACAO, emAvaliacao, forcaDeDuplas, nivelDeForca } from '../lib/forca'
 import { duoMatches, mediaDaForca, playedMatches, type DuoStat } from '../lib/stats'
@@ -226,10 +226,10 @@ function AbaRivais({ rivais }: { rivais: Rival[] }) {
       </div>
       <div className="pd-cartao">
         <div className="pd-rotulo">Contra quem jogaram · {rivais.length}</div>
-        {vistas.map((r) => {
+        {vistas.map((r, i) => {
           const pct = Math.round(taxa(r) * 100)
           return (
-            <div key={r.key} className="pd-rival">
+            <div key={r.key} className={`pd-rival${i >= RIVAIS_DE_CARA ? ' surge' : ''}`} style={i >= RIVAIS_DE_CARA ? atrasoDoSurge(i - RIVAIS_DE_CARA, 12) : undefined}>
               <span className="pd-par mini">
                 <Avatar player={playerById(r.a)} size={30} />
                 <Avatar player={playerById(r.b)} size={30} />

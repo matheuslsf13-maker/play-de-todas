@@ -28,8 +28,23 @@ export function SetaPequena({ v }: { v?: number }) {
  * Lista com "Ver todas (N)": as primeiras ficam sempre e o resto abre por `grid-template-rows` 0fr → 1fr (320 ms)
  * com as linhas em cascata (CSS); a seta do botao gira. Parada com `prefers-reduced-motion`.
  */
-export function ListaExpansivel({ itens, visiveis, rotulo, total }: { itens: ReactNode[]; visiveis: number; rotulo: string; /** Quantas linhas de verdade (os titulos de bloco tambem sao itens). */ total?: number }) {
+export function ListaExpansivel({ itens, visiveis, rotulo, total, passo }: { itens: ReactNode[]; visiveis: number; rotulo: string; /** Quantas linhas de verdade (os titulos de bloco tambem sao itens). */ total?: number; /** Cresce de `passo` em `passo` em vez de abrir todas (lista longa, como a das duplas). */ passo?: number }) {
   const [aberta, setAberta] = useState(false)
+  const [mostrar, setMostrar] = useState(visiveis)
+  if (passo) {
+    const falta = itens.length - mostrar
+    return (
+      <div className={`st-expansivel${falta <= 0 ? ' aberta' : ''}`}>
+        <div className="st-lista">{itens.slice(0, visiveis)}</div>
+        {mostrar > visiveis && <div className="st-lista surge-lista">{itens.slice(visiveis, mostrar)}</div>}
+        {itens.length > visiveis && (
+          <button type="button" className="st-ver-mais" onClick={() => setMostrar(falta > 0 ? mostrar + passo : visiveis)}>
+            {falta > 0 ? `Mostrar mais ${Math.min(passo, falta)} (faltam ${falta})` : 'Recolher'} <i>▾</i>
+          </button>
+        )}
+      </div>
+    )
+  }
   const resto = itens.slice(visiveis)
   return (
     <div className={`st-expansivel${aberta ? ' aberta' : ''}`}>

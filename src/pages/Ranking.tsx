@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
-import { Avatar, Empty, Modal, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
+import { Avatar, Empty, Modal, atrasoDoSurge, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
 import type { Enquadre } from '../lib/enquadre'
 import { monthRankingText } from '../lib/share'
@@ -242,7 +242,7 @@ export default function Ranking({
               </button>
             ) : (
               <>
-                <ClassificacaoEmLista rows={rows.slice(0, qtd)} fire={streaks.current} variacao={variacaoDoMes} />
+                <ClassificacaoEmLista rows={rows.slice(0, qtd)} fire={streaks.current} variacao={variacaoDoMes} surge />
                 {qtd < rows.length && (
                   <button className="ini-linha ini-centro" onClick={() => setQtd((n) => n + 10)}>
                     Mostrar mais {Math.min(10, rows.length - qtd)} ↓
@@ -535,8 +535,11 @@ export function ClassificacaoEmLista({
   vagas = 3,
   desempates,
   partidas,
+  surge,
 }: {
   rows: PlayerStat[]
+  /** As linhas entram surgindo (a lista que cresce de 10 em 10). */
+  surge?: boolean
   fire?: Map<string, number>
   variacao?: Map<string, number>
   /** Quantas posicoes ganham cor de podio (0 = nenhuma: a lista geral dos grupos). */
@@ -549,11 +552,11 @@ export function ClassificacaoEmLista({
   const { nameOf, playerById } = useStore()
   return (
     <>
-      {rows.map((s) => {
+      {rows.map((s, i) => {
         const bal = balance(s)
         const emoji = (fire?.get(s.player_id) ?? 0) >= 2 ? streakLevel(fire?.get(s.player_id) as number)?.emoji : undefined
         return (
-          <div className="ini-linha" key={s.player_id}>
+          <div className={`ini-linha${surge ? ' surge' : ''}`} style={surge ? atrasoDoSurge(i) : undefined} key={s.player_id}>
             <Colocacao pos={posicao.get(s.player_id) ?? 0} v={variacao?.get(s.player_id)} vagas={vagas} />
             <Avatar player={playerById(s.player_id)} size={36} />
             <div className="g">

@@ -178,7 +178,7 @@ export default function PainelDuplas({ matches }: { matches: ReturnType<typeof p
           </div>
           {resto.length > 0 && (
             <div className="st-card">
-              <ListaExpansivel itens={resto} visiveis={LINHAS_DE_CARA} rotulo="as duplas" total={ordenadas.length} />
+              <ListaExpansivel itens={resto} visiveis={LINHAS_DE_CARA} rotulo="as duplas" total={ordenadas.length} passo={10} />
             </div>
           )}
           <div className="st-legenda">

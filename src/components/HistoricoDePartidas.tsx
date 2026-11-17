@@ -3,6 +3,7 @@ import { forcaDasDuplasNasPartidas } from '../lib/forca'
 import { forcaNasPartidas } from '../lib/stats'
 import { useStore } from '../lib/store'
 import { dateLabel, type Match } from '../lib/types'
+import { atrasoDoSurge } from './ui'
 
 /** Quantos plays aparecem de cara (dono, 08/11: a ficha ficava longa demais) e quantos cada "ver mais" traz. */
 const PLAYS_DE_CARA = 2
@@ -93,11 +94,11 @@ export default function HistoricoDePartidas({
 
   return (
     <div className="stack" style={{ gap: 12 }}>
-      {porPlay.slice(0, mostrar).map(({ sid, partidas: ps }) => {
+      {porPlay.slice(0, mostrar).map(({ sid, partidas: ps }, i) => {
         const v = ps.filter((p) => p.pro > p.contra).length
         const s = sessao.get(sid)
         return (
-          <div key={sid}>
+          <div key={sid} className={i >= PLAYS_DE_CARA ? 'surge' : undefined} style={i >= PLAYS_DE_CARA ? atrasoDoSurge(i - PLAYS_DE_CARA, PLAYS_POR_VEZ) : undefined}>
             <div className="row spread tiny" style={{ fontWeight: 800, marginBottom: 4 }}>
               <span className="muted">
                 {dateLabel(s?.date ?? '')}

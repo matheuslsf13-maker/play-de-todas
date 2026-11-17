@@ -867,6 +867,8 @@ masculino e o misto descrevem esse código parado.
   altura fixa medida em `--topo-alto` (ResizeObserver), e o "Play de Todas" grande (`.topo-hero`) fica **abaixo** dele e
   rola com a página; ao rolar, o topo vira vidro e o título pequeno (`.topo-titulo`) aparece. Antes o topo encolhia
   animando a altura (travava) e as barras grudadas (`.st-topo`) usavam uma altura que pulava, abrindo um vão.
+- **Parcerias e "fora do ranking"** (dono, 17/11): em Desempenho › Jogadora › Parcerias, o "com quem" mostra o **entrosamento** da dupla (`st-chip-ent`, oculto para visitante com alguém 🔍), não mais "N pts juntas". A lista "⏸️ Fora do ranking agora" no fim da aba Força só aparece para a admin.
+- **Lista que cresce surge, não pula** (dono, 17/11): Desempenho › Duplas mostra **10 a mais por toque** (`ListaExpansivel` com `passo`). Todo "ver mais" faz as linhas novas entrarem descendo de leve, em escada (classe `surge` + `atrasoDoSurge` de `ui.tsx`, ou `.surge-lista`): classificação do mês, fila/já jogadas, rivais da dupla, 🕑 Histórico. Lista nova com "ver mais" = usar isso.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

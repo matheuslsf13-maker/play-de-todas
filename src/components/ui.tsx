@@ -1,4 +1,7 @@
 import React from 'react'
+
+/** Linha que entrou num "ver mais" (classe `surge`): o atraso em escada dentro do lote, para a lista crescer sem pulo. */
+export const atrasoDoSurge = (i: number, passo = 10) => ({ '--k': i % passo }) as React.CSSProperties
 import { createPortal } from 'react-dom'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import type { Player } from '../lib/types'

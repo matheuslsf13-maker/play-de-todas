@@ -53,7 +53,7 @@ import {
 import ImportarLista from '../components/ImportarLista'
 import NovaAtleta from '../components/NovaAtleta'
 import NivelDaNovata from '../components/NivelDaNovata'
-import { Avatar, Empty, Modal, Stepper, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
+import { Avatar, Empty, Modal, Stepper, atrasoDoSurge, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import {
   duplasDaFase2,
   aplicarAjustesDeGrupo,
@@ -5326,7 +5326,7 @@ function ListaDePartidas({
             const fase = faseDe?.(m)
             const divisor = fase && (i === 0 || faseDe?.(visiveis[i - 1]) !== fase) ? fase : null
             return (
-              <div key={m.id}>
+              <div key={m.id} className={aberta && !filtrando && i >= LIMITE ? 'surge' : undefined} style={aberta && !filtrando && i >= LIMITE ? atrasoDoSurge(i - LIMITE, 12) : undefined}>
               {divisor && <div className="fase-divisor">{divisor}</div>}
               <div className="fila-item">
                 <span className="fila-pos">
