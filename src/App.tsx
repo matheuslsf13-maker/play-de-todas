@@ -1,7 +1,7 @@
 import { subirAoConteudo } from './lib/rolagem'
 import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
 import { IconeDaAba } from './components/IconesDeAba'
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
 import { ConteudoQueDesliza } from './components/AbasComTraco'
 import { LIGA } from './liga'
 import { Logo, Modal, Toast, useToast } from './components/ui'
@@ -82,6 +82,10 @@ export default function App() {
   }, [canEdit])
   // saiu da conta (ou a aba guardada e de administradora): volta para o Ranking
   const abaVisivel: Tab = abas.some((t) => t.id === tab) ? tab : 'ranking'
+  // a tela troca so quando a aba nova esta pronta (dono, 17/11): na 1a visita de cada aba o "Carregando…" curto
+  // entrava no lugar da pagina, a pagina encolhia, o Safari voltava ao topo e abria a barra (o pulo do 1o toque).
+  // Com o valor adiado, o React segura a tela atual enquanto a aba nova carrega; o menu de baixo muda na hora.
+  const abaNaTela = useDeferredValue(abaVisivel)
   useEffect(() => {
     try {
       localStorage.setItem(CHAVE_DA_ABA, tab)
@@ -100,6 +104,7 @@ export default function App() {
   const [abrirPlay, setAbrirPlay] = useState<string | null>(null)
   /** A lista de presenca aberta (pelo link ?lista= ou por um cartao): aparece no lugar da aba. */
   const [lista, setLista] = useState<string | null>(codigoDaUrl)
+  const listaNaTela = useDeferredValue(lista)
   /** A organizadora pediu para montar o play com a lista: o Novo Play abre com as confirmadas. */
   const [montar, setMontar] = useState<Montagem | null>(null)
   /** Sai da lista para uma aba (por padrao a tela inicial) e tira o ?lista= do endereco. */
@@ -107,7 +112,6 @@ export default function App() {
     // o ?lista= sai do endereco no passo novo do historico (efeito abaixo); voltar devolve a lista
     setLista(null)
     setTab(t)
-    subirAoConteudo()
   }, [])
   const abrirLista = useCallback((codigo: string) => {
     setLista(codigo)
@@ -151,7 +155,7 @@ export default function App() {
       return
     }
     subirAoConteudo()
-  }, [tab])
+  }, [abaNaTela])
   const [login, setLogin] = useState(false)
 
   // topo que encolhe ao rolar, com histerese: encolhe passados 80px e so volta
@@ -241,11 +245,11 @@ export default function App() {
       ) : (
         <main>
           <Suspense fallback={carregando}>
-          {lista && (
+          {listaNaTela && (
             // tocar no nome de alguem da lista abre o perfil dela (dono, 06/11)
             <ProvedorDePerfil value={(id) => { setAbrirStats({ jogadora: id }); irParaAba('stats') }}>
             <ListaDePresenca
-              codigo={lista}
+              codigo={listaNaTela}
               onSair={() => irParaAba('ranking')}
               onMontarPlay={(m) => { setMontar(m); irParaAba('play') }}
               onApagou={() => { show('Lista apagada'); irParaAba('play') }}
@@ -254,8 +258,8 @@ export default function App() {
             </ProvedorDePerfil>
           )}
           {/* trocar de aba no menu de baixo traz a tela do lado da aba tocada (dono, 17/11) */}
-          <ConteudoQueDesliza indice={abas.findIndex((t) => t.id === abaVisivel)}>
-          {!lista && abaVisivel === 'ranking' && (
+          <ConteudoQueDesliza indice={abas.findIndex((t) => t.id === abaNaTela)}>
+          {!listaNaTela && abaNaTela === 'ranking' && (
             <ProvedorDePerfil value={abrirPerfil}>
               <Ranking
                 onToast={show}
@@ -265,7 +269,7 @@ export default function App() {
               />
             </ProvedorDePerfil>
           )}
-          {!lista && abaVisivel === 'play' && (
+          {!listaNaTela && abaNaTela === 'play' && (
             <Play
               onToast={show}
               abrir={abrirPlay}
@@ -275,11 +279,11 @@ export default function App() {
               onAbrirLista={abrirLista}
             />
           )}
-          {!lista && abaVisivel === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
-          {!lista && abaVisivel === 'players' && (
+          {!listaNaTela && abaNaTela === 'stats' && <Stats abrir={abrirStats} onAbriu={() => setAbrirStats(null)} />}
+          {!listaNaTela && abaNaTela === 'players' && (
             <Players onToast={show} />
           )}
-          {!lista && abaVisivel === 'checkins' && (
+          {!listaNaTela && abaNaTela === 'checkins' && (
             <Checkins onToast={show} />
           )}
           </ConteudoQueDesliza>
