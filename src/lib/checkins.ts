@@ -856,6 +856,8 @@ export type LinhaDoResumo = {
   despesaTotal: number
   saldoDoMes: number
   saldoAcumulado: number
+  /** Transferido do caixa geral para a caixinha no mes, menos o que ela devolveu (nao e receita nem despesa). */
+  transferido: number
   /** 🎉 o que o caixa de eventos ganhou no mes (entradas menos o que pagou de gastos) e o total ate ali. */
   eventos: number
   eventosAcumulado: number
@@ -874,8 +876,10 @@ export function economiaDoAluguel(l: LancamentoDeCaixa): number {
 export type EntradaDosEventos = {
   date: string
   valor: number
-  origem: 'substituta' | 'aluguel'
-  /** substituta: quem jogou e no lugar de quem; aluguel: o lancamento do caixa. */
+  /** transferencia = "Transferir do caixa"; externa = dinheiro de fora (terceiros ou aporte pessoal), que e receita extra. */
+  origem: 'substituta' | 'aluguel' | 'transferencia' | 'externa'
+  descricao?: string
+  /** substituta: quem jogou e no lugar de quem; aluguel, transferencia e externa: o lancamento do caixa. */
   player_id?: string
   substitui?: string
   pix?: number
@@ -902,12 +906,19 @@ export function entradasDosEventos(data: AppData): EntradaDosEventos[] {
   for (const l of data.caixa) {
     const valor = economiaDoAluguel(l)
     if (valor) out.push({ date: l.date, valor, origem: 'aluguel', caixa_id: l.id, valor_cobrado: l.valor_cobrado ?? undefined })
+    // a caixinha recebendo na mao (dono, 17/11): do caixa geral (transferencia) ou de fora (receita extra marcada)
+    if (l.transferencia && l.tipo === 'saida') out.push({ date: l.date, valor: l.valor, origem: 'transferencia', caixa_id: l.id, descricao: l.descricao })
+    else if (!l.transferencia && l.do_eventos && l.tipo === 'entrada') out.push({ date: l.date, valor: l.valor, origem: 'externa', caixa_id: l.id, descricao: l.descricao })
   }
   return out.sort((a, b) => b.date.localeCompare(a.date))
 }
 
 /** Um gasto pago com o caixa de eventos: quanto o caixa cobriu e quanto passou do que ele tinha (caixa geral). */
-export type SaidaDosEventos = { caixa_id: string; date: string; descricao: string; valor: number; coberto: number; resto: number }
+export type SaidaDosEventos = {
+  caixa_id: string; date: string; descricao: string; valor: number; coberto: number; resto: number
+  /** "Devolver ao caixa": a caixinha libera o valor (o que passar do saldo nao sai de lugar nenhum). */
+  devolucao?: boolean
+}
 
 /**
  * Os gastos marcados "pagar com o caixa de eventos", na ordem do calendario: cada um tira do caixa ate o que ele
@@ -919,7 +930,8 @@ export function saidasDosEventos(data: AppData): SaidaDosEventos[] {
   const movs: Mov[] = [
     ...entradasDosEventos(data).map((e) => ({ date: e.date, ordem: 0, criado: '', entra: e.valor })),
     ...data.caixa
-      .filter((l) => l.do_eventos && l.tipo === 'saida')
+      // os gastos marcados e as devolucoes ao caixa geral
+      .filter((l) => (l.do_eventos && l.tipo === 'saida' && !l.transferencia) || (l.transferencia && l.tipo === 'entrada'))
       .map((l) => ({ date: l.date, ordem: 1, criado: l.created_at, saida: l })),
   ].sort((a, b) => a.date.localeCompare(b.date) || a.ordem - b.ordem || a.criado.localeCompare(b.criado))
   let saldo = 0
@@ -932,7 +944,8 @@ export function saidasDosEventos(data: AppData): SaidaDosEventos[] {
     const l = m.saida as LancamentoDeCaixa
     const coberto = centavos(Math.min(l.valor, Math.max(0, saldo)))
     saldo = centavos(saldo - coberto)
-    out.push({ caixa_id: l.id, date: l.date, descricao: l.descricao, valor: l.valor, coberto, resto: centavos(l.valor - coberto) })
+    const devolucao = Boolean(l.transferencia)
+    out.push({ caixa_id: l.id, date: l.date, descricao: l.descricao, valor: l.valor, coberto, resto: devolucao ? 0 : centavos(l.valor - coberto), ...(devolucao ? { devolucao } : {}) })
   }
   return out.reverse()
 }
@@ -957,7 +970,7 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
     meses.add(mes)
     let l = porMes.get(mes)
     if (!l) {
-      l = { mes, receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0, saldoAcumulado: 0, eventos: 0, eventosAcumulado: 0 }
+      l = { mes, receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0, saldoAcumulado: 0, transferido: 0, eventos: 0, eventosAcumulado: 0 }
       porMes.set(mes, l)
     }
     return l
@@ -977,9 +990,17 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
     if (i.tipo === 'dinheiro' && i.mes >= MES_INICIAL) linha(monthOf(i.date)).mensalidades += i.valor ?? 0
   }
   for (const e of entradasDosEventos(data)) linha(monthOf(e.date)).eventos += e.valor
-  for (const s of saidasDosEventos(data)) linha(monthOf(s.date)).eventos -= s.coberto
+  for (const s of saidasDosEventos(data)) {
+    linha(monthOf(s.date)).eventos -= s.coberto
+    if (s.devolucao) linha(monthOf(s.date)).transferido -= s.coberto
+  }
   for (const l of data.caixa) {
     const r = linha(monthOf(l.date))
+    // transferencia so move dinheiro que ja esta no caixa: fica fora da receita e da despesa
+    if (l.transferencia) {
+      if (l.tipo === 'saida') r.transferido += l.valor
+      continue
+    }
     if (l.tipo === 'entrada') r.receitasExtras += l.valor
     else if (l.categoria === 'aluguel') r.aluguel += l.valor
     else if (l.categoria === 'brinde') r.brindes += l.valor
@@ -995,6 +1016,7 @@ export function resumoDoCaixa(data: AppData): LinhaDoResumo[] {
       r.mensalidades = centavos(r.mensalidades)
       r.receitaTotal = centavos(r.receitasPlay + r.mensalidades + r.receitasExtras)
       r.eventos = centavos(r.eventos)
+      r.transferido = centavos(r.transferido)
       eventos = centavos(eventos + r.eventos)
       r.eventosAcumulado = eventos
       r.despesaTotal = centavos(r.aluguel + r.brindes + r.confraternizacao + r.outras)

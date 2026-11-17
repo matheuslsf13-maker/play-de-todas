@@ -172,6 +172,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (op.type === 'saveAjuste' && (LIGA.id !== 'feminino' || (repo.kind === 'supabase' && avisosDoBanco.tabelas.has('ajustes')))) {
         throw new Error('Os ajustes precisam do script 35 no banco.')
       }
+      if (op.type === 'saveCaixa' && op.lancamento.transferencia && repo.kind === 'supabase' && avisosDoBanco.colunas.has('caixa.transferencia')) {
+        throw new Error('Transferir para a caixinha precisa do script 38 no banco.')
+      }
       if (op.type === 'saveMensalidade' || op.type === 'saveItemDaMensalidade' || op.type === 'deleteItemDaMensalidade') {
         if (LIGA.id !== 'feminino') throw new Error('Mensalidade disponível apenas no Play de Todas')
         const tabela = op.type === 'saveMensalidade' ? 'mensalidades' : 'mensalidade_itens'

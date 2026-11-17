@@ -749,6 +749,14 @@ masculino e o misto descrevem esse código parado.
   inteiro continua na despesa (a reserva fica dentro do saldo); o caixa de eventos do mês = entradas − o que cobriu.
   "📜 Entradas e gastos" lista os dois; o lançamento mostra a divisão e liga/desliga; o Excel tem a coluna
   "Pago pelo caixa de eventos". Sem o 37 a marca fica só neste aparelho (`upsertTolerante`).
+- **Movimentar a caixinha na mão** (script 38, dono 17/11; `MovimentarCaixinha` em Checkins.tsx): o "Movimentar" ao lado
+  da linha da caixinha (Caixa) e na aba 🎉 Eventos abre três opções. **Transferir do caixa** (`caixa.transferencia` +
+  saída) e **Devolver ao caixa** (transferência + entrada) só movem dinheiro que já está no caixa: ficam **fora da receita
+  e da despesa** e aparecem à parte no "De onde veio e para onde foi" (`LinhaDoResumo.transferido`). **Entrada externa**
+  (terceiros ou aporte pessoal) é receita extra com `do_eventos`. Transferir até o **livre** (saldo − caixinha, por mês:
+  `livreNoCaixa`), devolver até o que a caixinha tem; desfazer = apagar o lançamento (🗑️ no histórico ou "Desfazer" na
+  janela), e a conta se refaz sozinha. **Sem o 38** o app detecta (`avisosDoBanco.colunas` 'caixa.transferencia') e só deixa
+  a entrada externa; `saveCaixa` nunca grava transferência pela tolerância (viraria despesa comum). `tests/caixinha.test.ts`.
 - **Aba 💰 Caixa no estilo da tela inicial** (16/11): saldo do mês grande, "entrou / saiu / no caixa", a linha da
   caixinha, "De onde veio e para onde foi" recolhido e o Excel numa lista agrupada (`ini-grupo`). Novo lançamento com
   "➖ Saída / ➕ Receita extra" e chips com ícone (`ICONE_DO_CAIXA`). Com a caixinha marcada, uma barra mostra a divisão

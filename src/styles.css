@@ -3163,3 +3163,19 @@ button.st-linha:active { background: var(--pink-suave); }
 .surge-lista > :nth-child(10n+8) { --k: 7; } .surge-lista > :nth-child(10n+9) { --k: 8; }
 .surge-lista > :nth-child(10n+10) { --k: 9; }
 @media (prefers-reduced-motion: reduce) { .surge, .surge-lista > * { animation: none; } }
+
+/* caixinha de eventos no Caixa: a linha que abre o historico e, ao lado, o "Movimentar" (dono, 17/11) */
+.caixinha-linha { display: flex; align-items: center; border-top: .5px solid var(--sep); }
+.caixinha-linha + .ini-linha, .caixinha-linha + details { border-top: .5px solid var(--sep); }
+.caixinha-linha > .ini-linha { flex: 1; min-width: 0; }
+.caixinha-mov { flex: none; margin-right: 12px; }
+/* as tres opcoes da janela "Movimentar a caixinha" */
+.opcao-mov {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; padding: 12px 14px; text-align: left;
+  border-radius: 14px; border: 1.5px solid var(--line); background: var(--card-2); color: var(--text); cursor: pointer;
+  touch-action: manipulation; transition: border-color 150ms ease, background-color 150ms ease, transform 140ms var(--ease-out);
+}
+.opcao-mov:active { transform: scale(.98); }
+.opcao-mov b { font-size: 15px; }
+.opcao-mov span { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.opcao-mov.on { border-color: var(--pink); background: var(--pink-suave); }

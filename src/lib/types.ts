@@ -517,6 +517,11 @@ export type LancamentoDeCaixa = {
    * passar fica como despesa comum da categoria, no caixa geral (`saidasDosEventos` em checkins.ts).
    */
   do_eventos?: boolean | null
+  /**
+   * Transferencia entre o caixa geral e a 🎉 caixinha (script 38, dono 17/11): nao e receita nem despesa.
+   * Saida = "Transferir do caixa" (guarda na caixinha); entrada = "Devolver ao caixa" (a caixinha libera).
+   */
+  transferencia?: boolean | null
   created_at: string
 }
 

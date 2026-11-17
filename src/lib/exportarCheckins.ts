@@ -263,7 +263,7 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
   }
 
   // ---- Pagamentos: a aba de saidas da planilha (mais as receitas extras), uma por linha
-  const pagoPelosEventos = new Map(saidasDosEventos(data).map((x) => [x.caixa_id, x.coberto]))
+  const pagoPelosEventos = new Map(saidasDosEventos(data).filter((x) => !x.devolucao).map((x) => [x.caixa_id, x.coberto]))
   const linhasDoCaixa: { date: string; linha: Celula[] }[] = [
     ...data.caixa
       .filter((l) => !mes || monthOf(l.date) === mes)
@@ -272,7 +272,9 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
         linha: [
           dateLabel(l.date),
           l.descricao,
-          CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria,
+          l.transferencia
+            ? l.tipo === 'saida' ? 'Transferência para a caixinha de eventos' : 'Devolução da caixinha ao caixa'
+            : CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria,
           l.tipo === 'entrada' ? 'Entrada' : 'Saída',
           { reais: l.tipo === 'entrada' ? l.valor : -l.valor },
           // aluguel da V3: o que ela cobrou, se foi no plano mensal, os check-ins abatidos e a economia que foi para o caixa de eventos
