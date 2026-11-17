@@ -1017,6 +1017,7 @@ textarea.input { line-height: 1.45; }
   flex: none;
   width: 38px;
   height: 38px;
+  padding: 0; /* o iPhone poe padding nos botoes e empurrava o sol para o lado */
   border-radius: 12px;
   border: 1px solid rgba(255, 246, 238, .28);
   background: rgba(255, 246, 238, .12);
@@ -3048,21 +3049,22 @@ button.st-linha:active { background: var(--pink-suave); }
 /* fogo: a chama mexe pela base e a luz dela tremula */
 .caminho-bola.chama .caminho-emoji { transform-origin: 50% 90%; animation: caminho-chama 1.3s ease-in-out infinite; }
 @keyframes caminho-chama {
-  0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 3px #ff8a3d99); }
-  25% { transform: scale(1.06, .95) rotate(2deg); filter: drop-shadow(0 -1px 5px #ffb03dcc); }
-  50% { transform: scale(.96, 1.08) rotate(-2deg); filter: drop-shadow(0 0 3px #ff8a3d99); }
-  75% { transform: scale(1.04, .98) rotate(3deg); filter: drop-shadow(0 -1px 6px #ff6a3dcc); }
+  /* so balanca e muda o brilho pela base: esticar na vertical fazia a chama descer e subir (dono, 17/11) */
+  0%, 100% { transform: rotate(-4deg) skewX(2deg); filter: drop-shadow(0 0 3px #ff8a3d99); }
+  25% { transform: rotate(3deg) skewX(-3deg); filter: drop-shadow(0 0 5px #ffb03dcc) brightness(1.1); }
+  50% { transform: rotate(-2deg) skewX(2deg); filter: drop-shadow(0 0 3px #ff8a3d99); }
+  75% { transform: rotate(4deg) skewX(-2deg); filter: drop-shadow(0 0 6px #ff6a3dcc) brightness(1.15); }
 }
 /* raio: choques dentro do circulo, um tremido rapido e o clarao amarelo por dentro */
 .caminho-bola.raio .caminho-emoji { animation: caminho-raio 2.2s linear infinite; }
 .caminho-bola.raio::after { background: radial-gradient(circle, #ffe45c66, transparent 70%); animation: caminho-clarao 2.2s linear infinite; }
 @keyframes caminho-raio {
   0%, 60%, 100% { transform: none; filter: none; }
-  62% { transform: translate(-1px, 1px) rotate(-6deg); filter: drop-shadow(0 0 5px #ffe45c) brightness(1.5); }
-  65% { transform: translate(1px, -1px) rotate(5deg); filter: none; }
-  68% { transform: translate(-1px, 0) rotate(-3deg); filter: drop-shadow(0 0 6px #ffe45c) brightness(1.6); }
+  62% { transform: translateX(-1px) rotate(-6deg); filter: drop-shadow(0 0 5px #ffe45c) brightness(1.5); }
+  65% { transform: translateX(1px) rotate(5deg); filter: none; }
+  68% { transform: translateX(-1px) rotate(-3deg); filter: drop-shadow(0 0 6px #ffe45c) brightness(1.6); }
   72% { transform: none; filter: none; }
-  80% { transform: translate(1px, 1px) rotate(4deg); filter: drop-shadow(0 0 4px #ffe45c) brightness(1.4); }
+  80% { transform: translateX(1px) rotate(4deg); filter: drop-shadow(0 0 4px #ffe45c) brightness(1.4); }
   83% { transform: none; filter: none; }
 }
 @keyframes caminho-clarao { 0%, 60%, 72%, 79%, 84%, 100% { opacity: 0; } 62%, 68% { opacity: 1; } 65% { opacity: .3; } 80% { opacity: .8; } }
