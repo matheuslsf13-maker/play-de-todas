@@ -21,26 +21,12 @@
   transition: height .22s var(--ease-out), margin-bottom .22s var(--ease-out), background-color .2s, border-color .2s;
 }
 .app { --topo-alto: calc(var(--topo-linha) + 14px + env(safe-area-inset-top)); }
-.app.topo-compacto { --topo-alto: calc(48px + env(safe-area-inset-top)); }
 .topbar .row { flex-wrap: wrap; row-gap: 4px; }
 /* o bloco do titulo desce para a 2a linha; o tema vai para a ponta da 1a */
 .topbar .row > .grow { order: 1; flex: 1 0 100%; }
 .topbar .bt-tema { margin-left: auto; }
 .topbar h1.hero-nome { font-size: 32px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.08; }
 .topbar .sub { margin-top: 3px; }
-.topo-compacto .topbar {
-  padding-top: calc(8px + env(safe-area-inset-top));
-  padding-bottom: 6px;
-  margin-bottom: calc(14px + var(--topo-linha) + 14px - 48px);
-  background: color-mix(in srgb, var(--fundo) 82%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  border-bottom-color: var(--line);
-}
-.topo-compacto .topbar .row { flex-wrap: nowrap; }
-.topo-compacto .topbar .row > .grow { order: 0; flex: 1 1 0; }
-.topo-compacto .topbar h1.hero-nome { font-size: 17px; letter-spacing: -0.01em; }
-.topo-compacto .topbar img, .topo-compacto .topbar svg { width: 30px !important; height: 30px !important; }
 @media (prefers-reduced-transparency: reduce) { .topo-compacto .topbar { background: var(--fundo); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 
 /* ---------- secoes e listas agrupadas ---------- */
@@ -208,7 +194,7 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 .folha-secao:first-child { margin-top: 0; }
 
 /* material translucido mais firme: onde o navegador nao desfoca o fundo (ou desfoca pouco), o que passa por baixo nao atrapalha o texto */
-.st-topo { background: color-mix(in srgb, var(--fundo) 92%, transparent); }
+.st-topo { background: color-mix(in srgb, var(--fundo) 95%, transparent); }
 .tabbar { background: color-mix(in srgb, var(--card) 90%, transparent); }
 
 /* ranking do dia dentro do play (janela): mesmos blocos do ranking do mes */
@@ -244,8 +230,8 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
   transition: background-color .6s cubic-bezier(.4, 0, .2, 1), border-color .6s cubic-bezier(.4, 0, .2, 1);
 }
 .app.topo-compacto .topbar {
+  /* sem linha embaixo (dono, 17/11): o topo e a barra grudada de cada tela viram uma peca so */
   background: color-mix(in srgb, var(--fundo) 95%, transparent);
-  border-bottom-color: var(--line);
 }
 .app .topbar .row, .app.topo-compacto .topbar .row { flex-wrap: nowrap; }
 .app .topbar .row > .grow, .app.topo-compacto .topbar .row > .grow { order: 0; flex: 1 1 0; min-width: 0; }
