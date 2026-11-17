@@ -853,9 +853,9 @@ masculino e o misto descrevem esse código parado.
   fogo tremula, o raio pisca, o diamante cintila, a coroa flutua), o degrau de agora pulsa e o traço que chega nele tem
   uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. No **perfil** (Desempenho), embaixo do
   caminho, "Na carreira": quantas vezes chegou em cada status (`conquistas.vezes`), o total e o máximo. Na **tela
-  inicial** só o **maior status do mês** (`maiorDoMes` em Ranking.tsx, pelos `streaks.steps` dos plays do mês: quem
-  chegou mais alto, mesmo que tenha perdido depois; empate = todas; no histórico, de todos os tempos), em cartão grande
-  (`.status-destaque`: foto de 76 px e o caminho).
+  inicial** só **quem está no status agora** (`onFire`, 2+ pódios seguidos; dono, 17/11, no lugar do "maior do mês"),
+  cada uma num cartão grande (`.status-destaque`: foto de 76 px e o caminho); o selo "🏆 Maior status agora" só em quem
+  está mais alto (empate = todas).
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 
