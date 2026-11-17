@@ -194,7 +194,7 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 .folha-secao:first-child { margin-top: 0; }
 
 /* material translucido mais firme: onde o navegador nao desfoca o fundo (ou desfoca pouco), o que passa por baixo nao atrapalha o texto */
-.st-topo { background: color-mix(in srgb, var(--fundo) 95%, transparent); }
+.st-topo { background: var(--fundo); -webkit-backdrop-filter: none; backdrop-filter: none; } /* opaca e sem desfoque: ver o .topbar */
 .tabbar { background: color-mix(in srgb, var(--card) 90%, transparent); }
 
 /* ranking do dia dentro do play (janela): mesmos blocos do ranking do mes */
@@ -225,13 +225,13 @@ button.ini-linha.off, label.ini-linha.off { opacity: .5; pointer-events: none; }
 .app .topbar, .app.topo-compacto .topbar {
   height: auto; overflow: visible; margin: 0 -14px; padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
   background: var(--fundo); border-bottom: .5px solid transparent;
-  /* o vidro fica ligado sempre: ligar o blur na hora dava um estalo (dono, 17/11: recolher mais lento e fluido) */
-  -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
-  transition: background-color .6s cubic-bezier(.4, 0, .2, 1), border-color .6s cubic-bezier(.4, 0, .2, 1);
+  /* sem desfoque: desfocar o que passa por baixo a cada quadro (as fotos da aba Forca) engasgava a rolagem no
+     iPhone, e com o fundo quase opaco o vidro nem aparecia (dono, 17/11) */
+  -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 .app.topo-compacto .topbar {
   /* sem linha embaixo (dono, 17/11): o topo e a barra grudada de cada tela viram uma peca so */
-  background: color-mix(in srgb, var(--fundo) 95%, transparent);
+  background: var(--fundo);
 }
 .app .topbar .row, .app.topo-compacto .topbar .row { flex-wrap: nowrap; }
 .app .topbar .row > .grow, .app.topo-compacto .topbar .row > .grow { order: 0; flex: 1 1 0; min-width: 0; }
