@@ -2577,13 +2577,6 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .pd-forca small { display: block; font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
 .pd-forca b { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 
-.pd-abas { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); margin-bottom: 10px; }
-.pd-abas button {
-  border: 0; background: none; min-height: 40px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: var(--muted);
-  cursor: pointer; touch-action: manipulation; transition: transform 140ms var(--ease-out), background 200ms ease-out, color 200ms ease-out;
-}
-.pd-abas button:active { transform: scale(.97); }
-.pd-abas button.on { background: var(--card-2); color: var(--text); box-shadow: 0 1px 0 var(--line-2) inset; }
 
 .pd-cartao { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 10px; }
 .pd-rotulo { font-size: 10.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
@@ -2821,8 +2814,6 @@ button.st-linha:active { background: var(--pink-suave); }
 }
 .st-seg.interno { grid-template-columns: repeat(4, 1fr); }
 .st-seg.interno button { font-size: 12.5px; padding: 0 2px; }
-.pd-abas { grid-template-columns: repeat(4, 1fr); }
-.pd-abas button { font-size: 12.5px; padding: 0 2px; }
 
 /* ---------- comparador (08/11): verde = lado A, rosa = lado B ---------- */
 .cp-cartao { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 10px; }
@@ -3017,8 +3008,6 @@ button.st-linha:active { background: var(--pink-suave); }
   width: calc((100% - 8px) / var(--n)); border-radius: 12px; background: var(--pink-suave); pointer-events: none;
   transform: translateX(calc(var(--i) * 100%)); transition: transform var(--st-anda);
 }
-/* no Ranking a barra Individual / Duplas e a mesma do Desempenho */
-.ini-nota + .st-seg { margin-bottom: 8px; }
 @media (prefers-reduced-motion: reduce) { .tabbar-pilula { transition: none; } }
 
 /* CAMINHO DO STATUS (dono, 17/11, CaminhoDoStatus): traco de borda a borda e cada degrau aceso animado */
@@ -3101,3 +3090,30 @@ button.st-linha:active { background: var(--pink-suave); }
 .status-linha .avatar { flex: none; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px color-mix(in srgb, var(--orange) 70%, transparent); }
 .status-linha .ini-status em { font-style: normal; font-weight: 600; color: var(--muted); }
 .status-linha .caminho { margin-top: 8px; max-width: 250px; }
+
+/* CONTEUDO QUE DESLIZA (dono, 17/11, ConteudoQueDesliza): a tela da aba entra do lado para onde a aba andou.
+   A moldura corta o que passa para o lado (sem rolagem horizontal) e vai ate a borda da tela. */
+.desliza-moldura { overflow-x: clip; margin: 0 -14px; padding: 0 14px; }
+.desliza.dir { animation: desliza-da-dir var(--st-anda) both; }
+.desliza.esq { animation: desliza-da-esq var(--st-anda) both; }
+@keyframes desliza-da-dir { from { transform: translateX(42%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes desliza-da-esq { from { transform: translateX(-42%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* janela de altura fixa (perfil da dupla): trocar de aba nao encolhe a janela */
+.modal.alta { height: 86dvh; height: min(86dvh, calc(var(--vv-altura, 100dvh) - 24px)); }
+
+/* PILULA GELATINA (dono, 17/11, SegmentadoGelatina): a borda da frente sai primeiro e estica,
+   a de tras vem depois e balanca ao chegar */
+.segmented.gelatina { position: relative; gap: 0; }
+.segmented.gelatina button, .segmented.gelatina button.on { position: relative; z-index: 1; background: none; transition: color 260ms ease, transform 140ms var(--ease-out); }
+.segmented.gelatina button.on { color: var(--sempre-escuro); }
+.gelatina-pilula {
+  position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 11px; background: var(--por-do-sol); pointer-events: none;
+  left: calc(4px + var(--i) * (100% - 8px) / var(--n)); right: calc(4px + (var(--n) - 1 - var(--i)) * (100% - 8px) / var(--n));
+}
+.segmented.gelatina.dir .gelatina-pilula { transition: right 260ms cubic-bezier(.3, .7, .4, 1), left 560ms cubic-bezier(.34, 1.7, .5, 1) 70ms; }
+.segmented.gelatina.esq .gelatina-pilula { transition: left 260ms cubic-bezier(.3, .7, .4, 1), right 560ms cubic-bezier(.34, 1.7, .5, 1) 70ms; }
+@media (prefers-reduced-motion: reduce) {
+  .desliza.dir, .desliza.esq { animation: none; }
+  .segmented.gelatina .gelatina-pilula { transition: none !important; }
+}

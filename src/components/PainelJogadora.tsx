@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { AbasComTraco } from './AbasComTraco'
+import { AbasComTraco, ConteudoQueDesliza } from './AbasComTraco'
 import { CaminhoDoStatus } from './CaminhoDoStatus'
 import CampoDeBusca from './CampoDeBusca'
 import { ComparadorDeAtletas } from './Comparador'
@@ -266,6 +266,7 @@ export default function PainelJogadora({
         onEscolher={setAba}
       />
 
+      <ConteudoQueDesliza indice={(['resumo', 'partidas', 'parcerias', 'comparar'] as Aba[]).indexOf(aba)}>
       {aba === 'resumo' && (
         <>
           {minhaForca && forcaOculta && <EmAvaliacao plays={minhaForca.emAvaliacao as number} />}
@@ -315,6 +316,7 @@ export default function PainelJogadora({
       {aba === 'parcerias' && <Parcerias pares={meusPares} rivais={meusRivais} />}
 
       {aba === 'comparar' && <ComparadorDeAtletas key={selected} inicial={selected} matches={matches} stats={stats} streaks={streaks} period={period} comJogo={comJogo} />}
+      </ConteudoQueDesliza>
     </>
   )
 }

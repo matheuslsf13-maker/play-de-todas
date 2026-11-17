@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useRef, type CSSProperties, type ReactNode } from 'react'
 
 /**
  * As abas do Desempenho (dono, 17/11): a escolhida tem a escrita no degrade do titulo e um traco embaixo.
@@ -31,6 +31,61 @@ export function AbasComTraco<T extends string>({
         ))}
       </span>
       <span className="st-traco" aria-hidden="true" />
+    </div>
+  )
+}
+
+/** Para que lado a aba andou desde a ultima vez (ref: muda so quando o indice muda). */
+function useLado(indice: number): '' | 'dir' | 'esq' {
+  const antes = useRef(indice)
+  const lado = useRef<'' | 'dir' | 'esq'>('')
+  if (antes.current !== indice) {
+    lado.current = indice > antes.current ? 'dir' : 'esq'
+    antes.current = indice
+  }
+  return lado.current
+}
+
+/**
+ * O conteudo da aba entra deslizando do lado para onde a aba andou (dono, 17/11): tocar numa aba a direita
+ * traz a tela da direita, no mesmo tempo do traco. Na primeira vez nao anima.
+ */
+export function ConteudoQueDesliza({ indice, children }: { indice: number; children: ReactNode }) {
+  const lado = useLado(indice)
+  return (
+    <div className="desliza-moldura">
+      <div key={indice} className={`desliza ${lado}`}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A barra de botoes com a pilula pintada que vai ate a opcao tocada como gelatina (dono, 17/11): a borda da
+ * frente sai primeiro e estica, a de tras vem depois e balanca ao chegar.
+ */
+export function SegmentadoGelatina<T extends string>({
+  opcoes,
+  ativa,
+  onEscolher,
+  style,
+}: {
+  opcoes: { id: T; rotulo: ReactNode }[]
+  ativa: T
+  onEscolher: (id: T) => void
+  style?: CSSProperties
+}) {
+  const i = Math.max(0, opcoes.findIndex((o) => o.id === ativa))
+  const lado = useLado(i)
+  return (
+    <div className={`segmented gelatina ${lado}`} style={{ ...style, '--i': i, '--n': opcoes.length } as CSSProperties}>
+      <span className="gelatina-pilula" aria-hidden="true" />
+      {opcoes.map((o) => (
+        <button key={o.id} type="button" className={o.id === ativa ? 'on' : ''} aria-pressed={o.id === ativa} onClick={() => onEscolher(o.id)}>
+          {o.rotulo}
+        </button>
+      ))}
     </div>
   )
 }

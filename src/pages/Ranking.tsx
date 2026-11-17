@@ -34,7 +34,7 @@ import { NomeClicavel, useAbrirPerfil } from '../components/NomeClicavel'
 // o perfil da dupla vem do Stats, que carrega a parte: sem isto o Stats inteiro entrava no pacote da tela inicial
 const PerfilDaDupla = lazy(() => import('./Stats').then((m) => ({ default: m.PerfilDaDupla })))
 import CartaoDoMomento from '../components/CartaoDoMomento'
-import { AbasComTraco } from '../components/AbasComTraco'
+import { SegmentadoGelatina } from '../components/AbasComTraco'
 import { CaminhoDoStatus } from '../components/CaminhoDoStatus'
 import { monthLabel, monthOf, plural, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
@@ -781,8 +781,9 @@ function TopDaForca({ onVerTudo }: { onVerTudo?: () => void }) {
       <div className="ini-sec"><h2>Força e entrosamento</h2></div>
       <div className="ini-nota">não é ranking e nunca zera</div>
 
-      <AbasComTraco
-        abas={[{ id: 'individual', rotulo: 'Individual' }, { id: 'duplas', rotulo: 'Duplas' }]}
+      <SegmentadoGelatina
+        style={{ marginBottom: 8 }}
+        opcoes={[{ id: 'individual', rotulo: '👤 Individual' }, { id: 'duplas', rotulo: '🤝 Duplas' }]}
         ativa={modo}
         onEscolher={setModo}
       />

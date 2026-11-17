@@ -203,7 +203,7 @@ function useTravarFundo() {
   }, [])
 }
 
-export function Modal({ title, onClose, children, semFechar }: { title: string; onClose: () => void; children: React.ReactNode; /** sem o "Fechar" do canto: a janela tem o proprio botao de saida */ semFechar?: boolean }) {
+export function Modal({ title, onClose, children, semFechar, alta }: { title: string; onClose: () => void; children: React.ReactNode; /** sem o "Fechar" do canto: a janela tem o proprio botao de saida */ semFechar?: boolean; /** altura fixa: janela com abas de tamanhos diferentes nao encolhe ao trocar (perfil da dupla, 17/11) */ alta?: boolean }) {
   useTravarFundo()
   // o voltar do celular fecha a janela, em vez de sair do app (08/11)
   useVoltar(true, onClose)
@@ -212,7 +212,7 @@ export function Modal({ title, onClose, children, semFechar }: { title: string; 
   // "Trocar de play" escondia o Play Mista atras dela
   return createPortal(
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal${alta ? ' alta' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="row spread" style={{ marginBottom: 12 }}>
           <strong>{title}</strong>
           {!semFechar && <button className="btn ghost sm" onClick={onClose}>Fechar</button>}

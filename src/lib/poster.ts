@@ -571,10 +571,22 @@ export async function buildPosterComFoto(opts: {
   c.fillStyle = ESCURO
   c.fillRect(0, 0, W, H)
 
-  // a foto nitida em cima, no enquadramento escolhido, e some aos poucos no fundo escuro antes dos paineis:
-  // sem desfoque (o vidro desfocado mostrava as pernas borradas e baixava a qualidade; dono, 16/11)
   c.imageSmoothingQuality = 'high'
   const r = enquadrarFoto(foto.width, foto.height, W, ALTURA_DA_FOTO, opts.enquadre)
+
+  // a transparencia (dono, 17/11): embaixo da foto, um fundo feito so das CORES da foto -- tao desfocado que nao
+  // sobra forma (as pernas borradas do vidro antigo, 16/11) -- e e ele que o vidro dos paineis deixa aparecer
+  const manchas = manchaDeCor(foto, r)
+  c.globalAlpha = 0.85
+  c.drawImage(manchas, 0, ALTURA_DA_FOTO * 0.45, W, H - ALTURA_DA_FOTO * 0.45)
+  c.globalAlpha = 1
+  const veu = c.createLinearGradient(0, ALTURA_DA_FOTO * 0.45, 0, H)
+  veu.addColorStop(0, 'rgba(13,10,18,.15)')
+  veu.addColorStop(1, 'rgba(13,10,18,.55)')
+  c.fillStyle = veu
+  c.fillRect(0, ALTURA_DA_FOTO * 0.45, W, H)
+
+  // a foto nitida em cima, no enquadramento escolhido, e some aos poucos nesse fundo antes dos paineis
   const nitida = document.createElement('canvas')
   nitida.width = W
   nitida.height = ALTURA_DA_FOTO
@@ -766,15 +778,49 @@ function caminhoDoVidro(c: CanvasRenderingContext2D, x: number, y: number, w: nu
 }
 
 /**
- * Painel de vidro sobre o fundo escuro: um tom claro leve e a borda fininha.
+ * As cores da foto (a mesma janela enquadrada) reduzidas a poucos pixels e ampliadas aos poucos: um campo de cor
+ * liso, sem forma nenhuma, que funciona em qualquer navegador (o `ctx.filter` nao existe no Safari).
+ */
+function manchaDeCor(foto: HTMLImageElement, r: { x: number; y: number; w: number; h: number }): HTMLCanvasElement {
+  let atual = document.createElement('canvas')
+  atual.width = 12
+  atual.height = 9
+  const p = atual.getContext('2d')
+  // so a metade de baixo da janela: e a cor que continua para baixo da foto
+  if (p) {
+    const k = 12 / W
+    p.drawImage(foto, r.x * k, (r.y - ALTURA_DA_FOTO / 2) * (9 / (ALTURA_DA_FOTO / 2)), r.w * k, r.h * (9 / (ALTURA_DA_FOTO / 2)))
+  }
+  for (const [w, h] of [[48, 36], [192, 144], [540, 405]]) {
+    const prox = document.createElement('canvas')
+    prox.width = w
+    prox.height = h
+    const q = prox.getContext('2d')
+    if (q) {
+      q.imageSmoothingQuality = 'high'
+      q.drawImage(atual, 0, 0, w, h)
+    }
+    atual = prox
+  }
+  return atual
+}
+
+/**
+ * Painel de vidro: o fundo de cores da foto aparece por ele, com um tom escuro leve, o brilho no alto e a borda fininha.
  */
 function vidro(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   c.save()
   caminhoDoVidro(c, x, y, w, h, r)
   c.clip()
-  c.fillStyle = 'rgba(13,10,18,.42)'
+  c.fillStyle = 'rgba(13,10,18,.34)'
   c.fillRect(x, y, w, h)
-  c.fillStyle = 'rgba(255,255,255,.07)'
+  c.fillStyle = 'rgba(255,255,255,.09)'
+  c.fillRect(x, y, w, h)
+  // brilho no alto do vidro
+  const luz = c.createLinearGradient(0, y, 0, y + Math.min(h, 120))
+  luz.addColorStop(0, 'rgba(255,255,255,.10)')
+  luz.addColorStop(1, 'rgba(255,255,255,0)')
+  c.fillStyle = luz
   c.fillRect(x, y, w, h)
   c.restore()
   c.save()
