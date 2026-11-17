@@ -3745,8 +3745,8 @@ function PlayDetail({
               🎾 Cada menina jogou <strong>{jogosPorPessoa}</strong>
               {soFase2 ? ' na fase de grupos' : ''} ·{' '}
               {horario
-                ? `das ${horaLocal(horario.inicio)} às ${horaLocal(horario.fim)} (${formatarMinutos(horario.minutos)})`
-                : `noite de ~${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`}
+                ? `início ${horaLocal(horario.inicio)} · último placar ${horaLocal(horario.fim)} · total ${formatarMinutos(horario.minutos)}`
+                : `total ~${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))} (estimado)`}
             </div>
           )}
           {matches.length > 0 && !finished && restanteDaNoite && (
