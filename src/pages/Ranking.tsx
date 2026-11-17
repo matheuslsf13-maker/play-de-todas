@@ -343,7 +343,9 @@ export default function Ranking({
                 <b className="ellipsis"><NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel></b>
                 <span className="status-titulo">{lvl?.emoji} {lvl?.title}</span>
                 <span className="status-falta">
-                  {plural(f.streak, 'pódio seguido', 'pódios seguidos')} · {falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}
+                  {falta <= 0
+                    ? 'no topo: segue Duquesa enquanto estiver no pódio'
+                    : `${plural(f.streak, 'pódio seguido', 'pódios seguidos')} · ${falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}`}
                 </span>
               </div>
             </div>
@@ -380,7 +382,7 @@ export default function Ranking({
             </ul>
             <div className="premio">
               👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
-              presente misterioso 🎁. O status recomeça.
+              presente misterioso 🎁. Segue Duquesa até sair do pódio ou faltar.
             </div>
           </div>
         </details>

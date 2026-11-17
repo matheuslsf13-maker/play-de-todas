@@ -204,7 +204,8 @@ masculino e o misto descrevem esse código parado.
   V3** (5, `MAX_STREAK`). **Não vale pontos e não tem vida** (desde `STATUS_NOVO_DESDE`
   = 06/10/2026): segue atravessando o mês e zera fora do pódio ou faltando. No 5º pódio
   ela vira Duquesa (`streaks.duquesas`): ganha um **presente misterioso** (não revelar o que é),
-  o status zera e o **nome fica dourado com 👑 para sempre** (`useStore().duquesas` →
+  o **nome fica dourado com 👑 para sempre** e ela **segue Duquesa** até sair do pódio ou faltar (dono, 17/11; antes
+  zerava na hora; o 5 repetido é `seguiuDuquesa` e os textos dizem "segue", sem contar de novo nas conquistas) (`useStore().duquesas` →
   `NomeClicavel`, classe `nome-duquesa`). **Não existe Hall das Duquesas** (o card saiu do Ranking em 03/11/2026): o que fica é o nome dourado. O perfil mostra as conquistas (`conquistas`:
   maior nível e quantas vezes chegou em cada um). Antes da data vale a regra antiga
   (usar = pontos no fechamento, preservar = 1 vida): os +3 de setembro ficam.

@@ -591,6 +591,9 @@ Agora o ranking do mês é só o que foi jogado e o status é **reconhecimento**
 - no 5º pódio seguido: **Hall das Duquesas**, camisa dourada com o nome + presente
   surpresa, o status **zera na hora** (dá para buscar de novo) e o nome fica
   **dourado com a coroa para sempre**;
+  - **17/11/2026 (dono): a Duquesa não zera mais.** Ela fica no 👑 enquanto seguir no pódio
+    e cai só fora do pódio ou faltando, como os outros status. Virar Duquesa de novo exige
+    perder e refazer os 5 seguidos;
 - o perfil de todas mostra as conquistas: maior degrau e quantas vezes chegou em cada.
 
 `computeStreaks` roda a regra antiga até `STATUS_NOVO_DESDE` e a nova dali em

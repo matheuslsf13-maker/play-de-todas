@@ -24,8 +24,9 @@ import { monthOf, todayISO } from './types'
  * REGRA NOVA (plays desde `STATUS_NOVO_DESDE`): o status NAO vale pontos. Ele
  * segue de play em play, atravessando o mes, e zera quando ela sai do podio ou
  * falta -- sem vida. No 5o podio seguido ela vira DUQUESA: ganha o presente
- * misterioso e o status recomeca do zero, mas o nome fica dourado com a coroa no
- * app para sempre (nao ha "Hall": a lista `duquesas` so alimenta o nome dourado). Os pontos de status "roubavam" o podio
+ * misterioso, o nome fica dourado com a coroa no
+ * app para sempre (nao ha "Hall": a lista `duquesas` so alimenta o nome dourado) e ela SEGUE Duquesa ate sair
+ * do podio ou faltar, como todo status (dono, 17/11; antes o status zerava na hora). Os pontos de status "roubavam" o podio
  * do mes de quem tinha jogado mais, e isso desanimava.
  *
  * REGRA ANTIGA (ate 05/10/2026, so para o passado nao mudar): no fechamento do
@@ -202,6 +203,8 @@ export type StreakStep = {
   /** true quando a vida foi gasta para segurar o status neste play. */
   usouVida: boolean
   value: number
+  /** Ja era Duquesa e seguiu no podio (o 5 repetido): os textos dizem "segue", nao "virou". */
+  seguiuDuquesa?: boolean
 }
 
 /** Decisao de fechamento de mes: preservar (padrao) ou usar. */
@@ -400,18 +403,17 @@ export function computeStreaks(data: AppData): Streaks {
       }
       if (!status) continue
       if (noPodio.has(p.id)) {
-        const nova = seq + 1
+        // na regra nova o teto e a Duquesa: ela fica nela enquanto seguir no podio (dono, 17/11)
+        const nova = regraNova ? Math.min(seq + 1, MAX_STREAK) : seq + 1
         current.set(p.id, nova)
         if (nova > (best.get(p.id) ?? 0)) best.set(p.id, nova)
         steps.push({
           session_id: s.id, date: s.date, player_id: p.id,
           streak: nova, usouVida: false, value: regraNova ? 0 : valorAntigo(nova),
+          ...(regraNova && seq >= MAX_STREAK ? { seguiuDuquesa: true } : {}),
         })
-        if (regraNova && nova >= MAX_STREAK) {
-          // virou Duquesa: entra no Hall e recomeca do zero
-          duquesas.push({ player_id: p.id, date: s.date, session_id: s.id })
-          current.set(p.id, 0)
-        }
+        // virou Duquesa agora: nome dourado para sempre. NAO zera (dono, 17/11): so cai fora do podio ou faltando
+        if (regraNova && nova >= MAX_STREAK && seq < MAX_STREAK) duquesas.push({ player_id: p.id, date: s.date, session_id: s.id })
       } else if (!regraNova && seq >= 2 && jogaram.has(p.id) && (lives.get(p.id) ?? 0) > 0) {
         // veio, ficou fora do podio, mas tinha vida: o status sobrevive
         lives.set(p.id, 0)
@@ -436,8 +438,12 @@ export function computeStreaks(data: AppData): Streaks {
 
   // conquistas: cada vez que a sequencia CHEGA num nivel conta uma
   const conquistas = new Map<string, Conquistas>()
+  const ultimoPasso = new Map<string, number>()
   for (const st of steps) {
-    if (st.usouVida || st.streak < 2 || st.streak > MAX_STREAK) continue
+    // a Duquesa que segue no podio repete o 5: so a chegada conta
+    const repetiu = ultimoPasso.get(st.player_id) === st.streak
+    ultimoPasso.set(st.player_id, st.streak)
+    if (repetiu || st.usouVida || st.streak < 2 || st.streak > MAX_STREAK) continue
     const c = conquistas.get(st.player_id) ?? { melhor: 0, vezes: {}, duquesas: [] }
     c.vezes[st.streak] = (c.vezes[st.streak] ?? 0) + 1
     c.melhor = Math.max(c.melhor, st.streak)

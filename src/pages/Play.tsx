@@ -4562,11 +4562,16 @@ function PlayDetail({
             <>
               {award && awardLevel && (
                 <div className="banner warn" style={{ background: 'var(--orange-suave)', color: 'var(--orange)' }}>
-                  {award.streak >= MAX_STREAK ? (
+                  {award.seguiuDuquesa ? (
+                    <>
+                      👑 <strong>{nameOf(award.player_id)}</strong> segue <strong>Duquesa da V3</strong>! Mais um
+                      pódio: a coroa continua com ela.
+                    </>
+                  ) : award.streak >= MAX_STREAK ? (
                     <>
                       👑 <strong>{nameOf(award.player_id)}</strong> virou <strong>Duquesa da V3</strong>!
                       {' '}{award.streak} pódios seguidos: nome dourado com a coroa para sempre e o presente
-                      misterioso 🎁, e o status recomeça.
+                      misterioso 🎁. Segue Duquesa enquanto estiver no pódio.
                     </>
                   ) : (
                     <>
