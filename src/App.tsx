@@ -316,7 +316,9 @@ export default function App() {
         )}
       </p>
 
-      <nav className="tabbar">
+      <nav className="tabbar" style={{ ['--i' as string]: abas.findIndex((t) => t.id === abaVisivel), ['--n' as string]: abas.length }}>
+        {/* a pilula desliza ate a aba tocada (dono, 17/11); some com a lista de presenca aberta */}
+        {!lista && abas.some((t) => t.id === abaVisivel) && <span className="tabbar-pilula" aria-hidden="true" />}
         {abas.map((t) => (
           <button key={t.id} className={!lista && abaVisivel === t.id ? 'active' : ''} onClick={() => irParaAba(t.id)}>
             <span className="ic"><IconeDaAba id={t.id} /></span>

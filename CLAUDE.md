@@ -835,6 +835,11 @@ masculino e o misto descrevem esse código parado.
   (`--grad-titulo`, roxo → rosa → laranja). Trocar de aba desliza o traço e, no mesmo tempo e na mesma conta, uma janela
   (`.st-pintura`, cópia dos rótulos recortada por `clip-path` na coluna `--i`/`--n`) que pinta a palavra nova enquanto o
   traço chega. Parado com `prefers-reduced-motion`.
+  A mesma barra no Ranking ("Força e entrosamento": Individual / Duplas). A **barra inferior** tem uma pílula rosa que
+  desliza até a aba tocada (`.tabbar-pilula`, mesmo tempo `--st-anda`; some com a lista de presença aberta).
+- **Trilha de miniaturas do Desempenho** (dono, 17/11): fica parada na ordem da força (escolher não leva a menina para a
+  frente; quem veio da busca e não está entre as 16 entra no começo) e o anel da escolhida acende na **cor do nível dela**,
+  a mesma do anel do perfil (`--cor-nivel` na `.st-trilha`).
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

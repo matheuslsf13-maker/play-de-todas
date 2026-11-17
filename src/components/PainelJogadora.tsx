@@ -101,11 +101,13 @@ export default function PainelJogadora({
   const diasVencidos = [...streaks.winnersOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
   const podios = [...streaks.podiumOf.entries()].filter(([sid, ids]) => ids.includes(selected) && noPeriodo(sid)).length
 
-  // a trilha: quem esta aberta primeiro, depois as outras pela ordem da forca
+  // a trilha: pela ordem da forca, parada (dono, 17/11: escolher nao leva a menina para a frente, so acende o anel);
+  // quem foi aberta pela busca e nao esta entre as 16 entra no comeco
   const trilha = useMemo(() => {
     const ordem = forcas.map((l) => l.player_id).filter((id) => comJogo.includes(id))
     const resto = comJogo.filter((id) => !ordem.includes(id))
-    return [selected, ...[...ordem, ...resto].filter((id) => id !== selected)].slice(0, 16)
+    const lista = [...ordem, ...resto].slice(0, 16)
+    return lista.includes(selected) ? lista : [selected, ...lista.slice(0, 15)]
   }, [forcas, comJogo, selected])
 
   const termo = normalizar(busca.trim())
@@ -130,7 +132,7 @@ export default function PainelJogadora({
         </button>
       )}
 
-      <div className="st-trilha" role="listbox" aria-label="Trocar de jogadora">
+      <div className="st-trilha" role="listbox" aria-label="Trocar de jogadora" style={{ ['--cor-nivel' as string]: cor }}>
         <button type="button" aria-label="Buscar jogadora" aria-pressed={buscando} onClick={() => setBuscando(!buscando)}>
           <span className="st-lupa-foto" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">

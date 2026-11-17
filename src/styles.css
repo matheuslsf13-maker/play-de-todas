@@ -2677,7 +2677,9 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 .st-trilha button:active { transform: scale(.95); }
 .st-trilha button span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-trilha .on { color: var(--text); font-weight: 800; }
-.st-trilha .on .avatar { box-shadow: 0 0 0 2px var(--fundo), 0 0 0 4px var(--pink); }
+.st-trilha .avatar { box-shadow: 0 0 0 2px var(--fundo), 0 0 0 2px transparent; transition: box-shadow 320ms cubic-bezier(.23, 1, .32, 1); }
+/* o anel da escolhida tem a cor do nivel dela, a mesma do perfil logo abaixo (dono, 17/11) */
+.st-trilha .on .avatar { box-shadow: 0 0 0 2px var(--fundo), 0 0 0 4px var(--cor-nivel, var(--pink)), 0 0 12px color-mix(in srgb, var(--cor-nivel, var(--pink)) 55%, transparent); }
 .st-lupa-foto { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--card-2); border: 1px dashed var(--line-2); color: var(--text); }
 
 /* cartao da jogadora */
@@ -3016,3 +3018,15 @@ button.st-linha:active { background: var(--pink-suave); }
   box-shadow: 0 0 10px color-mix(in srgb, var(--pink) 45%, transparent);
 }
 @media (prefers-reduced-motion: reduce) { .st-traco, .st-traco::before, .st-pintura { transition: none; } }
+
+/* BARRA INFERIOR: a pilula rosa desliza ate a aba tocada, no mesmo tempo das abas do Desempenho (dono, 17/11) */
+.tabbar button { position: relative; z-index: 1; }
+.tabbar button.active { background: none; transition: transform 140ms var(--ease-out), color var(--st-anda); }
+.tabbar-pilula {
+  position: absolute; z-index: 0; top: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); left: 4px;
+  width: calc((100% - 8px) / var(--n)); border-radius: 12px; background: var(--pink-suave); pointer-events: none;
+  transform: translateX(calc(var(--i) * 100%)); transition: transform var(--st-anda);
+}
+/* no Ranking a barra Individual / Duplas e a mesma do Desempenho */
+.ini-nota + .st-seg { margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) { .tabbar-pilula { transition: none; } }
