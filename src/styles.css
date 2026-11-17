@@ -2997,7 +2997,7 @@ button.st-linha:active { background: var(--pink-suave); }
   display: flex; align-items: flex-end; justify-content: center; min-height: 40px; padding: 0 2px 13px;
   background: none; box-shadow: none; color: var(--muted); font-size: 13.5px; font-weight: 800; letter-spacing: 0;
 }
-.st-seg.interno button, .st-seg.interno .st-pintura > span { font-size: 12.5px; }
+.st-seg.interno button, .st-seg.interno .st-pintura > span { font-size: 12.5px; padding: 0 2px 13px; }
 .st-pintura {
   position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), 1fr); pointer-events: none;
   clip-path: inset(0 calc((var(--n) - 1 - var(--i)) * 100% / var(--n)) 0 calc(var(--i) * 100% / var(--n)));
