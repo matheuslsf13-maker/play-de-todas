@@ -3113,8 +3113,10 @@ button.st-linha:active { background: var(--pink-suave); }
 /* CONTEUDO QUE DESLIZA (dono, 17/11, ConteudoQueDesliza): a tela da aba entra do lado para onde a aba andou.
    A moldura corta o que passa para o lado (sem rolagem horizontal) e vai ate a borda da tela. */
 .desliza-moldura { overflow-x: clip; margin: 0 -14px; padding: 0 14px; }
-.desliza.dir { animation: desliza-da-dir var(--st-anda) both; }
-.desliza.esq { animation: desliza-da-esq var(--st-anda) both; }
+/* `backwards`, nunca `both`: terminada a entrada, a tela volta a ser comum. Com o estado final preso pela animacao, o
+   iPhone mantinha a aba inteira numa camada animada por baixo da barra grudada, e a rolagem engasgava (Forca, 17/11) */
+.desliza.dir { animation: desliza-da-dir var(--st-anda) backwards; }
+.desliza.esq { animation: desliza-da-esq var(--st-anda) backwards; }
 @keyframes desliza-da-dir { from { transform: translateX(42%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes desliza-da-esq { from { transform: translateX(-42%); opacity: 0; } to { transform: none; opacity: 1; } }
 

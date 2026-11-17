@@ -845,7 +845,8 @@ masculino e o misto descrevem esse código parado.
   (`.st-pintura`, cópia dos rótulos recortada por `clip-path` na coluna `--i`/`--n`) que pinta a palavra nova enquanto o
   traço chega. Parado com `prefers-reduced-motion`.
   A mesma barra no **perfil da dupla** (`DetalheDaDupla`, janela de altura fixa `Modal alta`: trocar de aba não encolhe).
-  **O conteúdo da aba entra deslizando** do lado para onde a aba andou (`ConteudoQueDesliza`, no mesmo tempo do traço;
+  **O conteúdo da aba entra deslizando** do lado para onde a aba andou (`ConteudoQueDesliza`, no mesmo tempo do traço; `backwards`, nunca `both`: o estado final preso deixava a aba numa camada
+  animada por baixo da barra grudada e a rolagem da Força engasgava no iPhone;
   a moldura `.desliza-moldura` corta o que passa para o lado). Vale também para a troca de tela no menu de baixo
   (`App.tsx`). No Ranking ("Força e entrosamento") ficou a barra de
   antes (👤 Individual / 🤝 Duplas) com a **pílula gelatina** (`SegmentadoGelatina`: desliza passando um pouco do ponto e
