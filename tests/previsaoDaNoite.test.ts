@@ -12,6 +12,7 @@ import {
 import { lerRegra, type Regra } from '../src/lib/desempate'
 import { duplasQueEntraram, duplasVivas, nomeDaRodada } from '../src/lib/pairing'
 import {
+  horarioDaNoite,
   chavesDoPlay,
   formatarMinutos,
   quadrasEmUso,
@@ -460,4 +461,19 @@ test('D43: campeonato -- a categoria com uma quadra parada demora mais, as outra
   assert.deepEqual(novo.slice(1), hoje.slice(1))
   // com as duas quadras em uso nada muda
   assert.deepEqual(conta(matches, agora), conta(matches))
+})
+
+test('horario da noite: do 1o inicio ao ultimo placar, sem olhar o finalizar', () => {
+  const m = (ini: string | null, fim: string | null, placar = true) =>
+    ({ id: Math.random().toString(), session_id: 's', round: 1, court: 1, team_a: ['a', 'b'], team_b: ['c', 'd'],
+       score_a: placar ? 4 : null, score_b: placar ? 1 : null, started_at: ini, ended_at: fim }) as Match
+  const h = horarioDaNoite([
+    m('2026-11-16T22:27:00Z', '2026-11-16T22:45:00Z'),
+    m('2026-11-17T01:30:00Z', '2026-11-17T01:51:00Z'),
+    m('2026-11-17T02:00:00Z', null, false), // em quadra, sem placar: nao conta
+  ])
+  assert.equal(h?.minutos, 204)
+  assert.equal(h?.inicio, '2026-11-16T22:27:00.000Z')
+  assert.equal(h?.fim, '2026-11-17T01:51:00.000Z')
+  assert.equal(horarioDaNoite([m(null, null)]), null)
 })

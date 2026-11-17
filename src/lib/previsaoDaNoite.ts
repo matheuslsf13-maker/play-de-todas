@@ -20,6 +20,24 @@ import { isPlayed } from './scoring'
 import type { Categoria, Match, PlaySession } from './types'
 
 /**
+ * O horario real da noite (dono, 16/11): do 1o "Partida iniciada" ao ultimo placar lancado. Nao usa o
+ * "finalizar o play", que pode ser apertado bem depois. Null sem os dois horarios (partidas antigas).
+ */
+export function horarioDaNoite(ms: Match[]): { inicio: string; fim: string; minutos: number } | null {
+  let ini = Infinity
+  let fim = -Infinity
+  for (const m of ms) {
+    if (m.score_a == null || m.score_b == null) continue
+    const a = m.started_at ? Date.parse(m.started_at) : NaN
+    const b = m.ended_at ? Date.parse(m.ended_at) : NaN
+    if (Number.isFinite(a) && a < ini) ini = a
+    if (Number.isFinite(b) && b > fim) fim = b
+  }
+  if (!Number.isFinite(ini) || !Number.isFinite(fim) || fim <= ini) return null
+  return { inicio: new Date(ini).toISOString(), fim: new Date(fim).toISOString(), minutos: Math.round((fim - ini) / 60000) }
+}
+
+/**
  * Quanto dura um GAME, em media, em quadra. E a calibragem: uma partida ate
  * 4 leva uns 15 min, e ela tem em media 5,5 games (os 4 de quem ganha mais
  * uns 1,5 de quem perde) -- 15 / 5,5.

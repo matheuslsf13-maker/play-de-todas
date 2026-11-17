@@ -650,6 +650,9 @@ masculino e o misto descrevem esse código parado.
   (`podeAdiar`). Escolhe o dia novo (depois do atual; sugere +7 dias) e o play vai inteiro: atletas, grupos, fila e os
   dias do Financeiro ligados a ele (`checkin_dias.session_id`, com os pagamentos já lançados). Anota no diário
   (`tipo: 'adiar'`). A lista de presença ligada ao play **não** muda a data dela (`play_em`): ela já está fechada.
+- **Horário da noite** (dono, 16/11/2026; `horarioDaNoite` em `previsaoDaNoite.ts`): no cabeçalho do play terminado,
+  "das 19h27 às 22h51 (3h24)" = do 1º "Partida iniciada" ao último placar lançado (nunca o Finalizar). Sem esses
+  horários (partidas antigas), fica a estimativa "noite de ~Xh".
 - **🔓 Reabrir o play para corrigir placar** (play finalizado, logada; `reabrir` em
   Play.tsx): volta o `status` para `open` e anota no diário (`tipo: 'reabrir'`); o ✏️ das
   "Já jogadas" corrige e o Finalizar fecha de novo. Ranking, pódio e força saem do placar,

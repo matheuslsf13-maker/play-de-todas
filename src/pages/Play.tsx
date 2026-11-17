@@ -149,7 +149,7 @@ import { formatarReais, lerValor } from '../lib/checkins'
 import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaFalta, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
-import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante, resumoAoVivo, ritmoDaNoite } from '../lib/previsaoDaNoite'
+import { chavesDoPlay, formatarMinutos, horaLocal, horarioDaNoite, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante, resumoAoVivo, ritmoDaNoite } from '../lib/previsaoDaNoite'
 import { useWakeLock } from '../lib/wakelock'
 import { useStore } from '../lib/store'
 import { planoDoRefazer } from '../lib/fila'
@@ -2456,6 +2456,7 @@ function PlayDetail({
   const doneCount = matches.filter(isPlayed).length
 
   /** "8 partidas", ou "7 a 9" quando um entra/sai deixou desigual. */
+  const horario = useMemo(() => horarioDaNoite(matches), [matches])
   const jogosPorPessoa = useMemo(() => {
     const n = new Map(session.player_ids.map((id) => [id, 0]))
     for (const m of matches) for (const id of jogadorasDaPartida(m)) if (n.has(id)) n.set(id, (n.get(id) ?? 0) + 1)
@@ -3742,7 +3743,10 @@ function PlayDetail({
           {matches.length > 0 && (finished || !restanteDaNoite) && (
             <div className="tiny" style={{ marginTop: 6, fontWeight: 700 }}>
               🎾 Cada menina jogou <strong>{jogosPorPessoa}</strong>
-              {soFase2 ? ' na fase de grupos' : ''} · noite de {duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}
+              {soFase2 ? ' na fase de grupos' : ''} ·{' '}
+              {horario
+                ? `das ${horaLocal(horario.inicio)} às ${horaLocal(horario.fim)} (${formatarMinutos(horario.minutos)})`
+                : `noite de ~${duracaoEstimada(matches.length, session.courts, minutosMedios(matches))}`}
             </div>
           )}
           {matches.length > 0 && !finished && restanteDaNoite && (
