@@ -828,11 +828,11 @@ masculino e o misto descrevem esse código parado.
   se faltarem, aparece um aviso no lugar da aba. O **status** da tela inicial é um cartão só: quem está
   em sequência e, recolhido, "Como funciona o status" (`details.status-como`).
 
-- **O voltar do celular fica dentro do app** (`src/lib/voltar.ts`, 08/11/2026): as abas visitadas (e a lista aberta)
-  ficam numa pilha no `App.tsx` com **um passo só** no histórico (17/11: um `pushState` por toque abria a barra do Safari
-  e a tela pulava) e o voltar devolve a aba anterior. Trocar de aba rola até o começo do conteúdo, nunca até o y = 0
-  (`subirAoConteudo` em `src/lib/rolagem.ts`: no topo o Safari abre a barra); janelas (`Modal`) e o play aberto ficam numa pilha
-  com um passo só, e o voltar fecha a de cima (`useVoltar`). Só sai do app na primeira tela.
+- **O voltar do celular fica dentro do app** (`src/lib/voltar.ts`, 08/11/2026): o histórico do navegador tem **um
+  passo só, gravado ao abrir o site** (17/11: qualquer `pushState` durante o uso abria a barra do Safari e a tela pulava).
+  O voltar consome o passo e o grava de novo: com janela aberta (`useVoltar`: `Modal`, o play aberto) fecha a de cima;
+  senão o `App.tsx` volta à aba anterior (pilha `abasAnteriores`); sem nada para voltar, sai do app. Trocar de aba rola
+  até o começo do conteúdo, nunca até o y = 0 (`subirAoConteudo` em `src/lib/rolagem.ts`: no topo o Safari abre a barra).
 - **Ações de uma pessoa ficam numa folha** (dono, 12/11/2026): em Meninas e em Financeiro › Atletas a linha mostra só a
   informação e tocar nela abre a folha (`Modal` + `.folha-acoes`). Em Financeiro: Lançar um play, Mensalidade, Extrato,
   Acertar o saldo e, à parte, Forma de pagamento e Contas de check-in. Nada de link ou chip solto no cartão.
