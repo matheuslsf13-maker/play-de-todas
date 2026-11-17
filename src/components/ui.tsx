@@ -19,7 +19,7 @@ export function Avatar({ player, size = 34 }: { player?: Player; size?: number }
   // "Aninha" com um circulo escrito "AS" (de Ana Cristina Souza) confunde
   const exibido = player ? player.nickname?.trim() || player.name : ''
   if (player?.photo_url) {
-    return <img className="avatar" style={style} src={player.photo_url} alt={exibido} />
+    return <img className="avatar" style={style} src={player.photo_url} alt={exibido} decoding="async" />
   }
   return <span className="avatar" style={style}>{player ? initials(exibido) : '?'}</span>
 }
