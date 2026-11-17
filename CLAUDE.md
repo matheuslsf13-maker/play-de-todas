@@ -823,6 +823,9 @@ masculino e o misto descrevem esse código parado.
   `play-de-todas:checkins-secao`): o app recarrega ao voltar para a tela, e cair
   sempre no Ranking obrigava a navegar de novo.
 
+- **Trocar de aba nunca mostra o "Carregando…" no lugar da página** (`abaNaTela`/`listaNaTela` = `useDeferredValue` em
+  `App.tsx`, 17/11): na 1ª visita de cada aba `lazy` a página encolhia até a altura da tela, o Safari voltava ao topo e abria a
+  barra (o pulo do 1º toque). A tela atual fica até a nova estar pronta; o menu de baixo muda na hora.
 - **Financeiro e Meninas carregam à parte** (`lazy` em `App.tsx`, 08/11/2026): só a organizadora usa. Logada,
   os dois são baixados em segundo plano ao abrir o app (o service worker guarda, para abrir sem sinal);
   se faltarem, aparece um aviso no lugar da aba. O **status** da tela inicial é um cartão só: quem está
