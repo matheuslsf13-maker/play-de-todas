@@ -2963,6 +2963,25 @@ function PlayDetail({
     return porPartida
   }, [matches, nameOf, grupos, session.player_ids.length, session.eventos])
 
+  /** "Com quem eu repito?" (dono, 16/11): cada dupla que joga mais de uma vez hoje, com as partidas dela. */
+  const quemRepete = useMemo(() => {
+    const porPar = new Map<string, { ids: [string, string]; partidas: Match[] }>()
+    for (const m of matches) {
+      if ((m.fase ?? 1) >= 2) continue
+      for (const d of [m.team_a, m.team_b]) {
+        const k = pairKey(d[0], d[1])
+        const x = porPar.get(k) ?? { ids: [d[0], d[1]] as [string, string], partidas: [] }
+        x.partidas.push(m)
+        porPar.set(k, x)
+      }
+    }
+    return [...porPar.values()].filter((x) => x.partidas.length > 1)
+  }, [matches])
+  const repetem = useMemo(
+    () => new Map(quemRepete.map((x) => [pairKey(x.ids[0], x.ids[1]), x.partidas.every((m) => duplasRepetidas.get(m.id)?.planejada ?? true)])),
+    [quemRepete, duplasRepetidas],
+  )
+
   function setScore(m: Match, a: number | null, b: number | null, tie?: number | null) {
     // lancar o placar tambem encerra a partida: a quadra fica livre de novo
     const encerrando = a !== null && b !== null
@@ -4187,6 +4206,22 @@ function PlayDetail({
 
       )}
 
+      {abaAtiva === 'fila' && quemRepete.length > 0 && (
+        <QuemRepete
+          itens={quemRepete}
+          noite={[
+            ...emJogo,
+            ...[...proximas.values()].filter((m) => !emJogo.some((x) => x.id === m.id)),
+            ...filaPrevista,
+          ]}
+          jogadas={jogadas.length}
+          emQuadra={emJogo}
+          grupoDe={ehCampeonato ? categoriaDe : grupoDe}
+          totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
+          nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
+          planejada={(m) => duplasRepetidas.get(m.id)?.planejada ?? true}
+        />
+      )}
       {abaAtiva === 'fila' && (
       <ListaDePartidas
         titulo="⏭️ Próximas na fila"
@@ -4202,7 +4237,7 @@ function PlayDetail({
         grupoDe={ehCampeonato ? categoriaDe : grupoDe}
         totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
         nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
-        repetidas={duplasRepetidas}
+        repetem={repetem}
         desempateDe={regraDe}
         emQuadra={ocupadas}
         filtravel
@@ -4236,7 +4271,7 @@ function PlayDetail({
         grupoDe={ehCampeonato ? categoriaDe : grupoDe}
         totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
         nomesDosGrupos={ehCampeonato ? cats.map((c) => c.nome) : undefined}
-        repetidas={duplasRepetidas}
+        repetem={repetem}
         desempateDe={regraDe}
         emQuadra={ocupadas}
         target={session.target}
@@ -5085,7 +5120,7 @@ function ListaDePartidas({
   grupoDe,
   totalGrupos,
   nomesDosGrupos,
-  repetidas,
+  repetem,
   emQuadra,
   faseDe,
   ausentes,
@@ -5112,7 +5147,8 @@ function ListaDePartidas({
   totalGrupos: number
   /** Campeonato: `grupoDe` traz a categoria (1 = A) e a etiqueta mostra a letra. */
   nomesDosGrupos?: string[]
-  repetidas: Map<string, Repeticao>
+  /** As duplas que jogam mais de uma vez hoje (pairKey -> se estava no plano): o 🔁 vai em TODAS as vezes delas. */
+  repetem?: Map<string, boolean>
   emQuadra: Set<string>
   /** Para separar as fases na lista: muda o rotulo, entra um divisor (grupos -> duplas fixas). */
   faseDe?: (m: Match) => string
@@ -5188,7 +5224,8 @@ function ListaDePartidas({
     if (!filtradas.some(isPlayed)) {
       const dela = partidas.filter((m) => jogadorasDaPartida(m).includes(id))
       if (!dela.length) return 'nada na fila'
-      return `${plural(dela.length, 'partida')} na fila, a próxima é a ${numeroDe.get(dela[0].id) ?? partidas.indexOf(dela[0]) + 1}ª`
+      const com = [...(repetem?.keys() ?? [])].filter((k) => k.split('|').includes(id)).map((k) => nameOf(k.split('|').find((x) => x !== id) as string))
+      return `${plural(dela.length, 'partida')} na fila, a próxima é a ${numeroDe.get(dela[0].id) ?? partidas.indexOf(dela[0]) + 1}ª${com.length ? `, repete com ${com.join(' e ')}` : ''}`
     }
     let v = 0
     let d = 0
@@ -5273,9 +5310,9 @@ function ListaDePartidas({
             return (
               <div key={m.id}>
               {divisor && <div className="fase-divisor">{divisor}</div>}
-              <div className="fila-linha">
-                <span className="fila-num">
-                  {numeroDe.has(m.id) ? `${numeroDe.get(m.id)}ª` : m.round}
+              <div className="fila-item">
+                <span className="fila-pos">
+                  <b>{numeroDe.has(m.id) ? `${numeroDe.get(m.id)}ª` : m.round}</b>
                   <GrupoTag
                     grupo={nomesDosGrupos || (m.fase ?? 1) < 2 ? grupoDe.get(m.team_a[0]) : undefined}
                     total={totalGrupos}
@@ -5283,50 +5320,55 @@ function ListaDePartidas({
                   />
                 </span>
                 <span className="grow" style={{ minWidth: 0 }}>
-                  <span className={`fila-time${jogada && aWin ? ' venceu' : ''}`}>
-                    {nameOf(m.team_a[0])} + {nameOf(m.team_a[1])}
-                    {jogada && <b> {m.score_a}</b>}
-                    {jogada && pa > 0 && <i> +{pa}</i>}
-                  </span>
-                  <span className={`fila-time${jogada && !aWin ? ' venceu' : ''}`}>
-                    {nameOf(m.team_b[0])} + {nameOf(m.team_b[1])}
-                    {jogada && <b> {m.score_b}</b>}
-                    {jogada && pb > 0 && <i> +{pb}</i>}
-                  </span>
-                  {m.disputa_3o && (
-                    <span className="tiny nowrap" style={{ color: 'var(--bronze)', fontWeight: 800 }}>
-                      🥉 3º lugar
-                    </span>
-                  )}
-                  {ausentes && jogadorasDaPartida(m).some((id) => ausentes.has(id)) && (
-                    <span className="tiny nowrap" style={{ color: 'var(--yellow)', fontWeight: 800 }}>
-                      ⏳ espera {jogadorasDaPartida(m).filter((id) => ausentes.has(id)).map(nameOf).join(' e ')} chegar
-                    </span>
-                  )}
-                  {jogada && m.tie != null && desempateDe && (
-                    <span className="tiny nowrap tie-tag" title="decidida no tie">
-                      🎯 {placarDoTie(desempateDe(m), m.tie)}
-                    </span>
-                  )}
-                  {repetidas.has(m.id) && (
-                    <span className="tiny muted">
-                      🔁 {(repetidas.get(m.id) as Repeticao).duplas.join(' e ')}{' '}
-                      {(repetidas.get(m.id) as Repeticao).duplas.length > 1 ? 'jogam' : 'joga'} pela 2ª vez
-                      {(repetidas.get(m.id) as Repeticao).planejada
-                        ? ' — é o que deixa todas com o mesmo número de partidas'
-                        : ' — não estava no plano: veio de uma troca na mão. Refazer a fila compensa.'}
-                    </span>
-                  )}
-                  {novatas.length > 0 && (
-                    <span className="tiny" style={{ color: 'var(--teal)', fontWeight: 700 }}>
-                      🆕 {novatas.length === 4
-                        ? 'as quatro ainda estão esperando a primeira partida'
-                        : `${novatas.map(nameOf).join(', ')} ainda não ${novatas.length === 1 ? 'entrou' : 'entraram'} em quadra`}
-                    </span>
-                  )}
-                  {!jogada && jogadorasDaPartida(m).some((id) => emQuadra.has(id)) && (
-                    <span className="tiny muted">⏳ tem gente desta partida em quadra agora</span>
-                  )}
+                  {([m.team_a, m.team_b] as [string, string][]).map((t, lado) => {
+                    const venceu = jogada && (lado === 0) === aWin
+                    const noPlano = (m.fase ?? 1) < 2 ? repetem?.get(pairKey(t[0], t[1])) : undefined
+                    const repete = noPlano !== undefined
+                    return (
+                      <span key={lado} className={`fila-time${venceu ? ' venceu' : ''}`}>
+                        {t.map((id, k) => (
+                          <span key={id} className={`fila-nome${!jogada && emQuadra.has(id) ? ' em-partida' : ''}`}>
+                            {k > 0 && '+ '}
+                            {!jogada && emQuadra.has(id) && <i className="ponto-vivo rosa" aria-hidden="true" />}
+                            {nameOf(id)}{' '}
+                          </span>
+                        ))}
+                        {jogada && <b>{lado === 0 ? m.score_a : m.score_b}</b>}
+                        {jogada && (lado === 0 ? pa : pb) > 0 && <i> +{lado === 0 ? pa : pb}</i>}
+                        {repete && (
+                          <span
+                            className={`fila-tag repete${noPlano ? '' : ' fora'}`}
+                            title={noPlano ? 'é o que deixa todas com o mesmo número de partidas' : 'não estava no plano: veio de uma troca na mão. Refazer a fila compensa.'}
+                          >
+                            🔁 {noPlano ? 'repete' : 'repete · troca na mão'}
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })}
+                  {(() => {
+                    const naQuadra = !jogada ? jogadorasDaPartida(m).filter((id) => emQuadra.has(id)) : []
+                    const esperando = ausentes ? jogadorasDaPartida(m).filter((id) => ausentes.has(id)) : []
+                    const tags = [
+                      m.disputa_3o && <span key="3o" className="fila-tag bronze">🥉 3º lugar</span>,
+                      naQuadra.length > 0 && (
+                        <span key="q" className="fila-tag vivo">
+                          <i className="ponto-vivo rosa" aria-hidden="true" />
+                          {naQuadra.length === 4 ? 'as quatro' : naQuadra.map(nameOf).join(' e ')} em partida agora
+                        </span>
+                      ),
+                      esperando.length > 0 && <span key="e" className="fila-tag espera">⏳ espera {esperando.map(nameOf).join(' e ')} chegar</span>,
+                      jogada && m.tie != null && desempateDe && (
+                        <span key="t" className="fila-tag tie-tag" title="decidida no tie">🎯 {placarDoTie(desempateDe(m), m.tie)}</span>
+                      ),
+                      novatas.length > 0 && (
+                        <span key="n" className="fila-tag novata">
+                          🆕 {novatas.length === 4 ? 'as quatro vão estrear na noite' : `${novatas.map(nameOf).join(' e ')} ${novatas.length === 1 ? 'estreia' : 'estreiam'} na noite`}
+                        </span>
+                      ),
+                    ].filter(Boolean)
+                    return tags.length > 0 ? <span className="fila-tags">{tags}</span> : null
+                  })()}
                 </span>
                 {jogada && editable && onCorrigir && (
                   <button
@@ -5345,6 +5387,80 @@ function ListaDePartidas({
         <p className="tiny muted" style={{ marginBottom: 0 }}>{rodape}</p>
       )}
     </div>
+  )
+}
+
+/**
+ * QUEM REPETE COM QUEM (dono, 16/11): nos grupos que nao fecham (6, 7, 10, 11) algumas duplas jogam duas
+ * vezes, e as meninas chegam perguntando com quem vao repetir. Cada dupla, o grupo e onde estao as duas partidas.
+ */
+function QuemRepete({
+  itens,
+  noite,
+  jogadas,
+  emQuadra,
+  grupoDe,
+  totalGrupos,
+  nomesDosGrupos,
+  planejada,
+}: {
+  itens: { ids: [string, string]; partidas: Match[] }[]
+  /** em quadra, as separadas para as quadras e a fila, na ordem: o numero e o mesmo da lista da fila */
+  noite: Match[]
+  jogadas: number
+  emQuadra: Match[]
+  grupoDe: Map<string, number>
+  totalGrupos: number
+  nomesDosGrupos?: string[]
+  planejada: (m: Match) => boolean
+}) {
+  const { nameOf } = useStore()
+  const posicao = new Map(noite.map((m, i) => [m.id, jogadas + i + 1]))
+  const ordenados = [...itens].sort(
+    (a, b) => (grupoDe.get(a.ids[0]) ?? 0) - (grupoDe.get(b.ids[0]) ?? 0) || nameOf(a.ids[0]).localeCompare(nameOf(b.ids[0])),
+  )
+  const naoPlanejadas = itens.filter((x) => x.partidas.some((m, i) => i > 0 && !planejada(m))).length
+  // as jogadas primeiro, depois a ordem da noite
+  const ordem = (m: Match) => (isPlayed(m) ? 0 : posicao.get(m.id) ?? Number.MAX_SAFE_INTEGER)
+  const onde = (m: Match) => {
+    if (isPlayed(m)) return <span className="fila-tag feita">✅ já jogaram</span>
+    if (emQuadra.some((x) => x.id === m.id)) return <span className="fila-tag vivo"><i className="ponto-vivo rosa" aria-hidden="true" />em partida agora</span>
+    return <span className="fila-tag">na fila · {posicao.get(m.id) ?? '?'}ª</span>
+  }
+  return (
+    <details className="ini-grupo ini-detalhe quem-repete">
+      <summary className="ini-linha">
+        <span className="ini-ic roxo" aria-hidden="true">🔁</span>
+        <span className="g">
+          <b>Quem repete com quem</b>
+          <span className="sub">
+            {plural(itens.length, 'dupla joga', 'duplas jogam')} duas vezes hoje
+            {naoPlanejadas > 0 ? ` · ${naoPlanejadas} por troca na mão` : ' · é o que deixa todas com o mesmo número de partidas'}
+          </span>
+        </span>
+      </summary>
+      <div className="ini-corpo">
+        {ordenados.map((x) => (
+          <div key={x.ids.join()} className="repete-linha">
+            <div className="repete-nomes">
+              <span className="fila-nome">{nameOf(x.ids[0])} </span>
+              <span className="fila-nome">+ {nameOf(x.ids[1])}</span>
+              <GrupoTag grupo={grupoDe.get(x.ids[0])} total={totalGrupos} nome={nomesDosGrupos?.[(grupoDe.get(x.ids[0]) ?? 1) - 1]} />
+            </div>
+            <div className="fila-tags">
+              {[...x.partidas].sort((a, b) => ordem(a) - ordem(b)).map((m, i) => (
+                <span key={m.id} className="repete-vez">
+                  <small>{i + 1}ª vez</small> {onde(m)}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+        <p className="tiny muted" style={{ margin: '10px 0 0' }}>
+          Na lista da fila, a dupla que repete aparece com 🔁. Procurar o nome na fila também diz com quem ela repete.
+        </p>
+      </div>
+    </details>
   )
 }
 

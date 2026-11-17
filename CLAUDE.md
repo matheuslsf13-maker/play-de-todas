@@ -438,6 +438,12 @@ masculino e o misto descrevem esse código parado.
   arrastar e zoom (dois dedos ou a barra) na faixa da foto da arte; o enquadramento (`Enquadre`, `src/lib/enquadre.ts`,
   a mesma conta na prévia e na arte) vai para o `buildPosterComFoto`. A foto fica nítida no alto (`ALTURA_DA_FOTO`) e
   some no fundo escuro antes dos painéis: o vidro com a foto desfocada saiu (mostrava as pernas borradas).
+- **A fila nova** (dono, 16/11; `ListaDePartidas`, `.fila-item`): posição e grupo à esquerda, nomes que não quebram
+  (`fila-nome`), selos em pílula (`fila-tag`). **Quem está em quadra** aparece em rosa com a bolinha pulsando
+  (`ponto-vivo rosa`) e a pílula "em partida agora". **Dupla que repete** leva "🔁 repete" em **todas** as vezes dela
+  (prop `repetem`: pairKey → no plano; "troca na mão" em amarelo). No topo da aba Fila, recolhido, **"🔁 Quem repete
+  com quem"** (`QuemRepete`, `quemRepete` no pai): cada dupla, o grupo e onde está cada vez (já jogaram / em partida /
+  na fila Nª, o mesmo número da lista); some quando ninguém repete. Procurar o nome na fila diz "repete com X".
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
   "🔎 procurar pelo nome" (apelido ou cadastro, sem acento), com o V-D de quem foi procurada.
 - **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,
