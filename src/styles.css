@@ -2931,3 +2931,8 @@ button.st-linha:active { background: var(--pink-suave); }
 
 /* "Ajustar a foto" da arte do podio: a faixa da foto, arrastavel (sem rolar a pagina junto) */
 .ajustar-foto { display: block; width: 100%; height: auto; border-radius: 14px; touch-action: none; cursor: grab; background: #0d0a12; }
+
+/* a caixinha de eventos (aba 🎉 Eventos do Financeiro): o saldo em destaque */
+.caixinha-saldo { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 12px; text-align: center;
+  border-radius: 16px; background: color-mix(in srgb, var(--pink) 12%, transparent); border: 1px solid color-mix(in srgb, var(--pink) 30%, transparent); }
+.caixinha-saldo strong { font-size: 34px; line-height: 1.1; }

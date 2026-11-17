@@ -175,7 +175,7 @@ function AjustarFoto({ foto, onCancelar, onPronto }: { foto: File; onCancelar: (
         <button type="button" className="btn ghost grow" onClick={() => setEnq(ENQUADRE_PADRAO)}>
           Centralizar
         </button>
-        <button type="button" className="btn primary grow" disabled={!img} onClick={() => onPronto(enq)}>
+        <button type="button" className="btn pink grow" disabled={!img} onClick={() => onPronto(enq)}>
           ✅ Gerar a arte
         </button>
       </div>

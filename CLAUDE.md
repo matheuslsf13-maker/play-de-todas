@@ -731,8 +731,9 @@ masculino e o misto descrevem esse código parado.
   lista pergunta: R$ 25 de crédito na mensalidade do mês seguinte ou um check-in a menos na que ela está fechando —
   abatimento na ficha, `mesDaCompensacao`), **limite de mensalistas** (`ajustes.limite_mensalistas`, padrão 12) e
   **lista de espera** (`players.espera_mensalista`, ordem do pedido; `vagasDeMensalista.ts`).
-- **Gasto pago com o 🎉 caixa de eventos** (script 37, `caixa.do_eventos`, dono 16/11): no Caixa, uma saída comum
-  (não o aluguel) marca "🎉 Pagar com o caixa de eventos". O caixa cobre até o que tem na data, na ordem do calendário
+- **🎉 Caixinha de eventos** (script 37, `caixa.do_eventos`, dono 16/11): aba **🎉 Eventos** do Financeiro (no lugar
+  do ⚙️, que foi para o lado do mês) com o saldo em destaque, "🎁 Usar a caixinha num gasto" (abre o Caixa já marcado)
+  e o histórico. No Caixa, só **Brindes e presentes** e **Confraternização** têm "🎉 Usar o valor da caixinha de eventos?" O caixa cobre até o que tem na data, na ordem do calendário
   (`saidasDosEventos`); o que passar sai do caixa geral como despesa da categoria (Brindes e presentes...). O gasto
   inteiro continua na despesa (a reserva fica dentro do saldo); o caixa de eventos do mês = entradas − o que cobriu.
   "📜 Entradas e gastos" lista os dois; o lançamento mostra a divisão e liga/desliga; o Excel tem a coluna
