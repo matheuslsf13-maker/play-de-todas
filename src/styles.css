@@ -3044,29 +3044,54 @@ button.st-linha:active { background: var(--pink-suave); }
 /* a Duquesa e de ouro */
 .caminho-bola.coroa { border-color: var(--ouro, #e9b949); box-shadow: 0 0 14px color-mix(in srgb, var(--ouro, #e9b949) 60%, transparent); }
 
-/* medalha: um reflexo passa por ela */
-.caminho-bola.reluz { overflow: hidden; }
-.caminho-bola.reluz::after {
-  content: ''; position: absolute; inset: -20%; background: linear-gradient(115deg, transparent 40%, #fff9 50%, transparent 60%);
-  transform: translateX(-120%); animation: caminho-reluz 3s ease-in-out infinite;
+/* Cada degrau anima so dentro do proprio circulo (dono, 17/11: o reflexo da medalha vazava por cima da tela).
+   O ::before da bola e o anel do degrau de agora; o ::after e o brilho de dentro. */
+.caminho-bola::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; pointer-events: none; opacity: 0; }
+/* medalha: brilho de ouro que respira, sem exagero */
+.caminho-bola.reluz .caminho-emoji { animation: caminho-reluz 2.8s ease-in-out infinite; }
+@keyframes caminho-reluz {
+  0%, 100% { filter: drop-shadow(0 0 1px #ffd76a80) brightness(1); }
+  50% { filter: drop-shadow(0 0 5px #ffd76acc) brightness(1.15); }
 }
-.caminho-degrau.agora .caminho-bola.reluz { overflow: visible; }
-@keyframes caminho-reluz { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
-/* fogo: tremula pela base */
-.caminho-bola.chama .caminho-emoji { transform-origin: 50% 90%; animation: caminho-chama 1.1s ease-in-out infinite alternate; }
+/* fogo: a chama mexe pela base e a luz dela tremula */
+.caminho-bola.chama .caminho-emoji { transform-origin: 50% 90%; animation: caminho-chama 1.3s ease-in-out infinite; }
 @keyframes caminho-chama {
-  0% { transform: scale(1) rotate(-3deg); } 30% { transform: scale(1.08, .95) rotate(2deg); }
-  60% { transform: scale(.96, 1.08) rotate(-2deg); } 100% { transform: scale(1.05) rotate(3deg); }
+  0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 3px #ff8a3d99); }
+  25% { transform: scale(1.06, .95) rotate(2deg); filter: drop-shadow(0 -1px 5px #ffb03dcc); }
+  50% { transform: scale(.96, 1.08) rotate(-2deg); filter: drop-shadow(0 0 3px #ff8a3d99); }
+  75% { transform: scale(1.04, .98) rotate(3deg); filter: drop-shadow(0 -1px 6px #ff6a3dcc); }
 }
-/* raio: pisca como relampago */
-.caminho-bola.raio .caminho-emoji { animation: caminho-raio 2.6s steps(1) infinite; }
-@keyframes caminho-raio { 0%, 70%, 78%, 100% { opacity: 1; filter: none; } 72%, 80% { opacity: .35; } 74%, 82% { opacity: 1; filter: drop-shadow(0 0 6px var(--yellow)) brightness(1.4); } }
-/* diamante: cintila e balanca */
-.caminho-bola.brilho .caminho-emoji { animation: caminho-brilho 2.4s ease-in-out infinite; }
-@keyframes caminho-brilho { 0%, 100% { transform: rotate(-8deg); filter: drop-shadow(0 0 2px #7fdcff); } 50% { transform: rotate(8deg) scale(1.08); filter: drop-shadow(0 0 8px #7fdcff); } }
-/* coroa: flutua */
-.caminho-bola.coroa .caminho-emoji { animation: caminho-coroa 2.6s ease-in-out infinite; }
-@keyframes caminho-coroa { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px) scale(1.06); } }
+/* raio: choques dentro do circulo, um tremido rapido e o clarao amarelo por dentro */
+.caminho-bola.raio .caminho-emoji { animation: caminho-raio 2.2s linear infinite; }
+.caminho-bola.raio::after { background: radial-gradient(circle, #ffe45c66, transparent 70%); animation: caminho-clarao 2.2s linear infinite; }
+@keyframes caminho-raio {
+  0%, 60%, 100% { transform: none; filter: none; }
+  62% { transform: translate(-1px, 1px) rotate(-6deg); filter: drop-shadow(0 0 5px #ffe45c) brightness(1.5); }
+  65% { transform: translate(1px, -1px) rotate(5deg); filter: none; }
+  68% { transform: translate(-1px, 0) rotate(-3deg); filter: drop-shadow(0 0 6px #ffe45c) brightness(1.6); }
+  72% { transform: none; filter: none; }
+  80% { transform: translate(1px, 1px) rotate(4deg); filter: drop-shadow(0 0 4px #ffe45c) brightness(1.4); }
+  83% { transform: none; filter: none; }
+}
+@keyframes caminho-clarao { 0%, 60%, 72%, 79%, 84%, 100% { opacity: 0; } 62%, 68% { opacity: 1; } 65% { opacity: .3; } 80% { opacity: .8; } }
+/* diamante: balanca de leve para os lados e cintila */
+.caminho-bola.brilho .caminho-emoji { animation: caminho-brilho 3s ease-in-out infinite; }
+@keyframes caminho-brilho {
+  0%, 100% { transform: rotate(-5deg); filter: drop-shadow(0 0 2px #7fdcff99) brightness(1); }
+  50% { transform: rotate(5deg); filter: drop-shadow(0 0 6px #7fdcffdd) brightness(1.2); }
+}
+.caminho-bola.brilho::after { inset: auto; top: 18%; right: 20%; width: 5px; height: 5px; border-radius: 0;
+  background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: caminho-cintila 3s ease-in-out infinite; }
+@keyframes caminho-cintila { 0%, 35%, 65%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.3) rotate(45deg); } }
+/* coroa: ouro reluzente */
+.caminho-bola.coroa .caminho-emoji { animation: caminho-coroa 2.4s ease-in-out infinite; }
+@keyframes caminho-coroa {
+  0%, 100% { filter: drop-shadow(0 0 2px #ffd76a99) brightness(1); }
+  50% { filter: drop-shadow(0 0 7px #ffd76a) brightness(1.25); }
+}
+.caminho-bola.coroa::after { background: radial-gradient(circle at 50% 40%, #ffd76a40, transparent 70%); animation: caminho-ouro 2.4s ease-in-out infinite; }
+@keyframes caminho-ouro { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
   .caminho *, .caminho *::before, .caminho *::after { animation: none !important; }
@@ -3102,20 +3127,23 @@ button.st-linha:active { background: var(--pink-suave); }
 /* janela de altura fixa (perfil da dupla): trocar de aba nao encolhe a janela */
 .modal.alta { height: 86dvh; height: min(86dvh, calc(var(--vv-altura, 100dvh) - 24px)); }
 
-/* PILULA GELATINA (dono, 17/11, SegmentadoGelatina): a borda da frente sai primeiro e estica,
-   a de tras vem depois e balanca ao chegar */
+/* PILULA GELATINA (dono, 17/11, SegmentadoGelatina): desliza com um leve passar do ponto e estica no caminho.
+   So transform: animar left/right repintava e deixava rastro embaixo da pilula no iPhone. */
 .segmented.gelatina { position: relative; gap: 0; }
-.segmented.gelatina button, .segmented.gelatina button.on { position: relative; z-index: 1; background: none; transition: color 260ms ease, transform 140ms var(--ease-out); }
+.segmented.gelatina button, .segmented.gelatina button.on { position: relative; z-index: 1; background: none; transition: color 220ms ease, transform 140ms var(--ease-out); }
 .segmented.gelatina button.on { color: var(--sempre-escuro); }
 .gelatina-pilula {
-  position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 11px; background: var(--por-do-sol); pointer-events: none;
-  left: calc(4px + var(--i) * (100% - 8px) / var(--n)); right: calc(4px + (var(--n) - 1 - var(--i)) * (100% - 8px) / var(--n));
+  position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / var(--n)); pointer-events: none;
+  transform: translateX(calc(var(--i) * 100%)); transition: transform 340ms cubic-bezier(.3, 1.18, .5, 1);
 }
-.segmented.gelatina.dir .gelatina-pilula { transition: right 260ms cubic-bezier(.3, .7, .4, 1), left 560ms cubic-bezier(.34, 1.7, .5, 1) 70ms; }
-.segmented.gelatina.esq .gelatina-pilula { transition: left 260ms cubic-bezier(.3, .7, .4, 1), right 560ms cubic-bezier(.34, 1.7, .5, 1) 70ms; }
+.gelatina-massa { position: absolute; inset: 0; border-radius: 11px; background: var(--por-do-sol); }
+.segmented.gelatina.dir .gelatina-massa { transform-origin: 0 50%; animation: gelatina-estica 340ms ease-out; }
+.segmented.gelatina.esq .gelatina-massa { transform-origin: 100% 50%; animation: gelatina-estica 340ms ease-out; }
+@keyframes gelatina-estica { 0% { transform: scaleX(1); } 35% { transform: scaleX(1.14) scaleY(.94); } 70% { transform: scaleX(.98) scaleY(1.02); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .desliza.dir, .desliza.esq { animation: none; }
   .segmented.gelatina .gelatina-pilula { transition: none !important; }
+  .segmented.gelatina .gelatina-massa { animation: none !important; }
 }
 
 /* CARREIRA DO STATUS no perfil (dono, 17/11) */

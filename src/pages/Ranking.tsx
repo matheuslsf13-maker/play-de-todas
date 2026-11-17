@@ -22,6 +22,7 @@ import {
   computeStreaks,
   MAX_STREAK,
   mesFechado,
+  onFire,
   STREAK_LADDER,
   streakLevel,
 } from '../lib/streaks'
@@ -35,7 +36,7 @@ const PerfilDaDupla = lazy(() => import('./Stats').then((m) => ({ default: m.Per
 import CartaoDoMomento from '../components/CartaoDoMomento'
 import { SegmentadoGelatina } from '../components/AbasComTraco'
 import { CaminhoDoStatus } from '../components/CaminhoDoStatus'
-import { dateLabel, monthLabel, monthOf, plural, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
+import { monthLabel, monthOf, plural, todayISO, type AppData, type DesempateDeGrupo, type Match, type MonthClosure } from '../lib/types'
 
 /** Opcao do seletor que mostra tudo o que ja foi jogado, sem cortar por mes. */
 const HISTORICO = 'all'
@@ -94,15 +95,13 @@ export default function Ranking({
     return variacoes(ordenarComDesempates(linhasAntes).posicao, ordenarComDesempates(rows).posicao)
   }, [data, activeMonth, historico, nameOf, rows])
 
-  /** O maior status do mes: a sequencia mais alta que alguem alcancou nos plays do mes (2+ = um status). */
-  const maiorDoMes = useMemo(() => {
-    const doMes = streaks.steps.filter((x) => x.streak >= 2 && (historico || monthOf(x.date) === activeMonth))
-    const topo = Math.max(0, ...doMes.map((x) => x.streak))
-    const primeiro = new Map<string, { player_id: string; streak: number; date: string }>()
-    for (const x of [...doMes].sort((p, q) => p.date.localeCompare(q.date)))
-      if (x.streak === topo && !primeiro.has(x.player_id)) primeiro.set(x.player_id, { player_id: x.player_id, streak: x.streak, date: x.date })
-    return [...primeiro.values()]
-  }, [streaks, activeMonth, historico])
+  /** Quem esta com status agora (2+ podios seguidos), do maior para o menor. */
+  const noStatus = useMemo(() => onFire(streaks), [streaks])
+  /** O status mais alto que alguem alcancou nos plays do mes de hoje: quem esta nele agora ganha o selo. */
+  const topoDoMes = useMemo(() => {
+    const mes = monthOf(todayISO())
+    return Math.max(0, ...streaks.steps.filter((x) => monthOf(x.date) === mes).map((x) => x.streak))
+  }, [streaks])
   const decisoes = useMemo(
     () => (historico ? [] : streaks.decisions.filter((d) => d.month === activeMonth)),
     [streaks, activeMonth, historico],
@@ -330,26 +329,23 @@ export default function Ranking({
       {/* UM bloco de status (dono, 08/11): quem esta em sequencia e, um toque abaixo, como funciona. */}
       <div className="ini-sec" id="como-funciona-status"><h2>Status</h2></div>
       <div className="ini-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</div>
-      {/* so o maior status DO MES (dono, 17/11): quem chegou mais alto nos plays do mes, mesmo que ja tenha perdido
-          depois; empate = todas. O resto do caminho de cada uma fica no perfil dela. */}
-      {maiorDoMes.map((f) => {
+      {/* so quem esta no status AGORA (dono, 17/11: mudou de ideia sobre o "maior do mes"), cada uma no cartao grande
+          com a foto e o caminho; o selo vai para quem esta no status mais alto alcancado no mes (empate = todas) */}
+      {noStatus.map((f) => {
         const lvl = streakLevel(f.streak)
-        const aindaEsta = (streaks.current.get(f.player_id) ?? 0) === f.streak
         const falta = MAX_STREAK - f.streak
         return (
           <div className={`status-destaque${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
-            <span className="status-selo">🏆 Maior status {historico ? 'de todos os tempos' : 'do mês'}</span>
+            {f.streak >= 2 && f.streak === topoDoMes && <span className="status-selo">🏆 Maior status do mês</span>}
             <div className="status-topo">
               <Avatar player={playerById(f.player_id)} size={76} />
               <div className="g">
                 <b className="ellipsis"><NomeClicavel id={f.player_id}>{nameOf(f.player_id)}</NomeClicavel></b>
                 <span className="status-titulo">{lvl?.emoji} {lvl?.title}</span>
                 <span className="status-falta">
-                  {plural(f.streak, 'pódio seguido', 'pódios seguidos')} · {f.streak >= MAX_STREAK
-                    ? `coroada em ${dateLabel(f.date)}`
-                    : aindaEsta
-                      ? falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`
-                      : `chegou em ${dateLabel(f.date)}`}
+                  {falta <= 0
+                    ? 'no topo: segue Duquesa enquanto estiver no pódio'
+                    : `${plural(f.streak, 'pódio seguido', 'pódios seguidos')} · ${falta === 1 ? 'falta 1 para 👑' : `faltam ${falta} para 👑`}`}
                 </span>
               </div>
             </div>
@@ -358,8 +354,8 @@ export default function Ranking({
         )
       })}
       <div className="ini-grupo">
-        {maiorDoMes.length === 0 && (
-          <div className="ini-linha"><span className="sub">Ninguém chegou a um status {historico ? 'ainda' : 'neste mês ainda'}: dois pódios seguidos já dão o 🔥.</span></div>
+        {noStatus.length === 0 && (
+          <div className="ini-linha"><span className="sub">Ninguém em sequência agora: dois pódios seguidos já dão o 🔥.</span></div>
         )}
         <details className="ini-detalhe">
           <summary className="ini-linha"><span className="g"><b>Como funciona o status</b></span></summary>
@@ -386,7 +382,7 @@ export default function Ranking({
             </ul>
             <div className="premio">
               👑 <strong>Duquesa da V3</strong>: o nome fica dourado com a coroa no app para sempre, e ela ganha um
-              presente misterioso 🎁. O status recomeça.
+              presente misterioso 🎁. Segue Duquesa até sair do pódio ou faltar.
             </div>
           </div>
         </details>

@@ -118,7 +118,7 @@ export type DayTextOpts = {
   /** Sequencia de cada jogadora depois deste play (so quem tem 2 ou mais). */
   streaks?: Map<string, number>
   /** O destaque do texto: a maior sequencia entre as que estao aqui. */
-  award?: { player_id: string; streak: number; value: number }
+  award?: { player_id: string; streak: number; value: number; seguiuDuquesa?: boolean }
 }
 
 export function dayRankingText(opts: DayTextOpts): string {
@@ -199,10 +199,12 @@ export function dayRankingText(opts: DayTextOpts): string {
   const lvl = award ? streakLevel(award.streak) : null
   if (award && lvl) {
     partes.push(
-      award.streak >= MAX_STREAK
+      award.seguiuDuquesa
+        ? `\n👑 *${nameOf(award.player_id)} SEGUE DUQUESA DA V3!*\nMais um pódio: a coroa continua com ela.`
+        : award.streak >= MAX_STREAK
         ? `\n👑 *${nameOf(award.player_id)} VIROU DUQUESA DA V3!*\n` +
             `${award.streak} pódios seguidos: o nome fica dourado com a coroa no app para sempre ` +
-            `e ela ganha um presente misterioso 🎁. O status recomeça.`
+            `e ela ganha um presente misterioso 🎁. Segue Duquesa enquanto estiver no pódio.`
         : `\n${lvl.emoji} *${nameOf(award.player_id)} está ${lvl.title.toUpperCase()}!*\n` +
             `${award.streak} pódios seguidos. ${MAX_STREAK - award.streak === 1 ? 'Falta 1' : `Faltam ${MAX_STREAK - award.streak}`} para virar 👑 Duquesa.`,
     )

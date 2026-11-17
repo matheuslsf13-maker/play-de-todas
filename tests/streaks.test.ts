@@ -47,16 +47,24 @@ test('escada nova: um simbolo e um nome por nivel, Duquesa com 5', () => {
   assert.ok(STATUS_NOVO_DESDE > '2026-10-05')
 })
 
-test('5 podios seguidos: vira Duquesa, entra no Hall e o status recomeca', () => {
+test('5 podios seguidos: vira Duquesa e segue Duquesa enquanto estiver no podio', () => {
   const d = dados(DEPOIS.slice(0, 5).map((dt) => [dt, P]))
   const st = computeStreaks(d)
   assert.deepEqual(st.duquesas.map((x) => [x.player_id, x.date]).filter(([id]) => id === 'p'), [['p', '2026-11-09']])
-  assert.equal(st.current.get('p'), 0)
+  assert.equal(st.current.get('p'), 5)
   const passo = st.steps.find((x) => x.player_id === 'p' && x.date === '2026-11-09')
   assert.equal(passo?.streak, 5)
 
-  const d2 = dados(DEPOIS.map((dt) => [dt, P]))
-  assert.equal(computeStreaks(d2).current.get('p'), 1)
+  // o 6o podio: continua Duquesa, sem virar Duquesa de novo
+  const st2 = computeStreaks(dados(DEPOIS.map((dt) => [dt, P])))
+  assert.equal(st2.current.get('p'), 5)
+  assert.equal(st2.duquesas.filter((x) => x.player_id === 'p').length, 1)
+  const sexto = st2.steps.find((x) => x.player_id === 'p' && x.date === '2026-11-16')
+  assert.equal(sexto?.seguiuDuquesa, true)
+  assert.equal(passo?.seguiuDuquesa, undefined)
+  // fora do podio, cai como qualquer status
+  const st3 = computeStreaks(dados([...DEPOIS.map((dt): [string, string[]] => [dt, P]), ['2026-11-23', SEM_P]]))
+  assert.equal(st3.current.get('p'), 0)
 })
 
 test('fora do podio zera, sem vida, mesmo como Rainha', () => {
@@ -149,9 +157,9 @@ test('avulso que conta no status: mexe no fogo, mas o podio nao entra no mes', (
 })
 
 test('conquistas: quantas vezes chegou em cada nivel e o maior status', () => {
-  const d = dados([...DEPOIS.map((dt): [string, string[]] => [dt, P]), ['2026-11-23', P], ['2026-11-30', SEM_P]])
+  const d = dados([...DEPOIS.map((dt): [string, string[]] => [dt, P]), ['2026-11-23', P], ['2026-11-30', SEM_P], ['2026-12-07', P], ['2026-12-14', P]])
   const c = computeStreaks(d).conquistas.get('p')
-  // 5 seguidos (Duquesa) e depois mais 2 (Em chamas de novo)
+  // 5 seguidos (Duquesa), mais 2 ainda Duquesa (nao conta de novo), cai e volta a Em chamas
   assert.deepEqual(c?.vezes, { 2: 2, 3: 1, 4: 1, 5: 1 })
   assert.equal(c?.melhor, 5)
   assert.deepEqual(c?.duquesas, ['2026-11-09'])

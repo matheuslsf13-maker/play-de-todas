@@ -204,7 +204,8 @@ masculino e o misto descrevem esse código parado.
   V3** (5, `MAX_STREAK`). **Não vale pontos e não tem vida** (desde `STATUS_NOVO_DESDE`
   = 06/10/2026): segue atravessando o mês e zera fora do pódio ou faltando. No 5º pódio
   ela vira Duquesa (`streaks.duquesas`): ganha um **presente misterioso** (não revelar o que é),
-  o status zera e o **nome fica dourado com 👑 para sempre** (`useStore().duquesas` →
+  o **nome fica dourado com 👑 para sempre** e ela **segue Duquesa** até sair do pódio ou faltar (dono, 17/11; antes
+  zerava na hora; o 5 repetido é `seguiuDuquesa` e os textos dizem "segue", sem contar de novo nas conquistas) (`useStore().duquesas` →
   `NomeClicavel`, classe `nome-duquesa`). **Não existe Hall das Duquesas** (o card saiu do Ranking em 03/11/2026): o que fica é o nome dourado. O perfil mostra as conquistas (`conquistas`:
   maior nível e quantas vezes chegou em cada um). Antes da data vale a regra antiga
   (usar = pontos no fechamento, preservar = 1 vida): os +3 de setembro ficam.
@@ -381,7 +382,7 @@ masculino e o misto descrevem esse código parado.
   (`forcaNasPartidas` em `stats.ts`, `forcaDasDuplasNasPartidas` em `forca.ts`). O
   arredondamento é na nota acumulada: as partidas somam o total do play, e o total é a
   mesma variação do gráfico (`tests/forcaNoHistorico.test.ts`). O gráfico, ao tocar num
-  ponto, também mostra "−15 de força em relação ao play anterior".
+  ponto, também mostra "−15 de força em relação ao play anterior" Tocar fora do gráfico tira o balão (`useArrastarNoGrafico`).
 - **🆕 Novata** (`novatas(data, sessionId?)` em `stats.ts`): quem não tem partida jogada fora
   do play. Aparece ao montar o play (chips, grupos, divisão do campeonato) e, com o play
   **aberto**, nos cartões de partida (`Duo`, via contexto `NovatasDoPlay`) e no cartão dos
@@ -842,20 +843,24 @@ masculino e o misto descrevem esse código parado.
   **O conteúdo da aba entra deslizando** do lado para onde a aba andou (`ConteudoQueDesliza`, no mesmo tempo do traço;
   a moldura `.desliza-moldura` corta o que passa para o lado). Vale também para a troca de tela no menu de baixo
   (`App.tsx`). No Ranking ("Força e entrosamento") ficou a barra de
-  antes (👤 Individual / 🤝 Duplas) com a **pílula gelatina** (`SegmentadoGelatina`: a borda da frente sai primeiro e
-  estica, a de trás vem depois e balança). A **barra inferior** tem uma pílula rosa que
+  antes (👤 Individual / 🤝 Duplas) com a **pílula gelatina** (`SegmentadoGelatina`: desliza passando um pouco do ponto e
+  estica no caminho; **só `transform`** — animar left/right deixava rastro embaixo da pílula no iPhone). A **barra inferior** tem uma pílula rosa que
   desliza até a aba tocada (`.tabbar-pilula`, mesmo tempo `--st-anda`; some com a lista de presença aberta).
 - **Trilha de miniaturas do Desempenho** (dono, 17/11): fica parada na ordem da força (escolher não leva a menina para a
   frente; quem veio da busca e não está entre as 16 entra no começo) e o anel da escolhida acende na **cor do nível dela**,
   a mesma do anel do perfil (`--cor-nivel` na `.st-trilha`).
 - **Caminho do status** (dono, 17/11; `components/CaminhoDoStatus.tsx`): 🏅 → 🔥 → ⚡ → 💎 → 👑 em bolas ligadas por um
-  traço de **borda a borda** (nunca por dentro do desenho). O que ela já passou fica aceso e animado (a medalha reluz, o
-  fogo tremula, o raio pisca, o diamante cintila, a coroa flutua), o degrau de agora pulsa e o traço que chega nele tem
+  traço de **borda a borda** (nunca por dentro do desenho). O que ela já passou fica aceso e animado (sempre **dentro do círculo**: a medalha
+  brilha em ouro de leve, a chama mexe, o raio dá choques com clarão, o diamante balança de leve e cintila, a coroa reluz), o degrau de agora pulsa e o traço que chega nele tem
   uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. No **perfil** (Desempenho), embaixo do
   caminho, "Na carreira": quantas vezes chegou em cada status (`conquistas.vezes`), o total e o máximo. Na **tela
-  inicial** só o **maior status do mês** (`maiorDoMes` em Ranking.tsx, pelos `streaks.steps` dos plays do mês: quem
-  chegou mais alto, mesmo que tenha perdido depois; empate = todas; no histórico, de todos os tempos), em cartão grande
-  (`.status-destaque`: foto de 76 px e o caminho).
+  inicial** só **quem está no status agora** (`onFire`, 2+ pódios seguidos; dono, 17/11, no lugar do "maior do mês"),
+  cada uma num cartão grande (`.status-destaque`: foto de 76 px e o caminho); o selo "🏆 Maior status do mês" em quem
+  está agora no status mais alto alcançado no mês (`topoDoMes`; empate = todas; se quem chegou mais alto já perdeu, ninguém leva).
+- **Topo fino que não muda de altura** (dono, 17/11; `App.tsx`, fim do `inicio.css`): o cabeçalho é só logo + botões,
+  altura fixa medida em `--topo-alto` (ResizeObserver), e o "Play de Todas" grande (`.topo-hero`) fica **abaixo** dele e
+  rola com a página; ao rolar, o topo vira vidro e o título pequeno (`.topo-titulo`) aparece. Antes o topo encolhia
+  animando a altura (travava) e as barras grudadas (`.st-topo`) usavam uma altura que pulava, abrindo um vão.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 
