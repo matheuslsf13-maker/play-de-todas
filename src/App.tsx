@@ -166,7 +166,8 @@ export default function App() {
     const olhar = () => {
       quadro = 0
       const y = window.scrollY
-      setCompacto((c) => (c ? y > 16 : y > 80))
+      // o nome pequeno entra quando o titulo grande ja passou por baixo do topo
+      setCompacto((c) => (c ? y > 30 : y > 56))
     }
     const aoRolar = () => {
       if (!quadro) quadro = requestAnimationFrame(olhar)
@@ -177,20 +178,15 @@ export default function App() {
       cancelAnimationFrame(quadro)
     }
   }, [])
-  // altura da linha do topo normal, para o CSS animar a altura e devolver em
-  // margem o que o topo perde: o conteudo nao pula (nem a rolagem, que faria o
-  // topo oscilar). Medida so no topo normal; no compacto a linha encolhe.
+  // a altura do topo (fixa) medida nele mesmo: as barras grudadas embaixo dele (Desempenho, abas do Play) usam
+  // esse numero e ficam coladas, sem vao
   const appRef = useRef<HTMLDivElement>(null)
-  const linhaRef = useRef<HTMLDivElement>(null)
-  const compactoRef = useRef(compacto)
-  compactoRef.current = compacto
+  const topoRef = useRef<HTMLElement>(null)
   useEffect(() => {
-    const linha = linhaRef.current
-    if (!linha || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => {
-      if (!compactoRef.current) appRef.current?.style.setProperty('--topo-linha', `${linha.offsetHeight}px`)
-    })
-    ro.observe(linha)
+    const topo = topoRef.current
+    if (!topo || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => appRef.current?.style.setProperty('--topo-alto', `${topo.offsetHeight}px`))
+    ro.observe(topo)
     return () => ro.disconnect()
   }, [])
   const [tema, setTema] = useState<Tema>(() => temaSalvo())
@@ -204,16 +200,13 @@ export default function App() {
 
   return (
     <div className={compacto ? 'app topo-compacto' : 'app'} ref={appRef}>
-      <header className="topbar">
-        <div className="row spread" ref={linhaRef}>
-          {/* o cabecalho e o antigo cartao do logo da tela inicial (dono, 08/11): um so, em todas as abas.
-              Instalar, Trocar de play e o "tudo salvo" sairam (por enquanto); sem sinal, o aviso de baixo continua */}
-          <Logo size={40} />
+      {/* topo fino de altura fixa (dono, 17/11: recolher travava e abria um vao): logo e botoes; o nome pequeno
+          aparece aos poucos quando o titulo grande, que rola com a pagina, passa por baixo */}
+      <header className="topbar" ref={topoRef}>
+        <div className="row spread">
+          <Logo size={34} />
           <div className="grow">
-            <h1 className="hero-nome">Play de Todas</h1>
-            <div className="sub">
-              <span>Beach Tennis · V3 Arena · <em>mais que um play, uma experiência!</em></span>
-            </div>
+            <span className="topo-titulo" aria-hidden={!compacto}>Play de Todas</span>
           </div>
           <button
             className="bt-tema"
@@ -226,6 +219,12 @@ export default function App() {
           {online && userEmail && <button className="btn ghost sm" onClick={() => void signOut()}>Sair</button>}
         </div>
       </header>
+      <div className="topo-hero">
+        <h1 className="hero-nome">Play de Todas</h1>
+        <div className="sub">
+          <span>Beach Tennis · V3 Arena · <em>mais que um play, uma experiência!</em></span>
+        </div>
+      </div>
 
       {pendingCount > 0 ? (
         <div className="banner warn">

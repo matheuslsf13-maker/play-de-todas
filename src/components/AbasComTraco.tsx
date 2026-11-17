@@ -62,8 +62,8 @@ export function ConteudoQueDesliza({ indice, children }: { indice: number; child
 }
 
 /**
- * A barra de botoes com a pilula pintada que vai ate a opcao tocada como gelatina (dono, 17/11): a borda da
- * frente sai primeiro e estica, a de tras vem depois e balanca ao chegar.
+ * A barra de botoes com a pilula pintada que vai ate a opcao tocada como gelatina (dono, 17/11): desliza e estica
+ * no caminho, voltando ao tamanho ao chegar. So transform (mexer em left/right deixava rastro no iPhone).
  */
 export function SegmentadoGelatina<T extends string>({
   opcoes,
@@ -80,7 +80,10 @@ export function SegmentadoGelatina<T extends string>({
   const lado = useLado(i)
   return (
     <div className={`segmented gelatina ${lado}`} style={{ ...style, '--i': i, '--n': opcoes.length } as CSSProperties}>
-      <span className="gelatina-pilula" aria-hidden="true" />
+      {/* a massa remonta a cada troca (key) para a esticada rodar de novo */}
+      <span className="gelatina-pilula" aria-hidden="true">
+        <span key={i} className="gelatina-massa" />
+      </span>
       {opcoes.map((o) => (
         <button key={o.id} type="button" className={o.id === ativa ? 'on' : ''} aria-pressed={o.id === ativa} onClick={() => onEscolher(o.id)}>
           {o.rotulo}
