@@ -1,4 +1,4 @@
-import { useId, useRef, type MouseEvent, type PointerEvent } from 'react'
+import { useEffect, useId, useRef, type MouseEvent, type PointerEvent } from 'react'
 
 /** Largura extra do desenho para a regua, ao lado do grafico (em unidades do viewBox). */
 export const LARGURA_DA_REGUA = 34
@@ -73,7 +73,18 @@ export function useArrastarNoGrafico(opts: {
     const f = ((px - esq) / (larguraDoDesenho - esq - dir)) * (n - 1)
     return Math.max(0, Math.min(n - 1, Math.round(f)))
   }
+  // tocar fora do grafico tira o balao (dono, 17/11: ficava para sempre na tela)
+  const svg = useRef<SVGSVGElement>(null)
+  useEffect(() => {
+    if (tocado === null) return
+    const fora = (e: Event) => {
+      if (!svg.current?.contains(e.target as Node)) setTocado(null)
+    }
+    document.addEventListener('pointerdown', fora)
+    return () => document.removeEventListener('pointerdown', fora)
+  }, [tocado, setTocado])
   return {
+    ref: svg,
     onPointerDown: (e: PointerEvent<SVGSVGElement>) => {
       const i = indice(e)
       estado.current = { i, moveu: false, eraIgual: tocado === i }

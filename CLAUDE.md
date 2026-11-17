@@ -381,7 +381,7 @@ masculino e o misto descrevem esse código parado.
   (`forcaNasPartidas` em `stats.ts`, `forcaDasDuplasNasPartidas` em `forca.ts`). O
   arredondamento é na nota acumulada: as partidas somam o total do play, e o total é a
   mesma variação do gráfico (`tests/forcaNoHistorico.test.ts`). O gráfico, ao tocar num
-  ponto, também mostra "−15 de força em relação ao play anterior".
+  ponto, também mostra "−15 de força em relação ao play anterior" Tocar fora do gráfico tira o balão (`useArrastarNoGrafico`).
 - **🆕 Novata** (`novatas(data, sessionId?)` em `stats.ts`): quem não tem partida jogada fora
   do play. Aparece ao montar o play (chips, grupos, divisão do campeonato) e, com o play
   **aberto**, nos cartões de partida (`Duo`, via contexto `NovatasDoPlay`) e no cartão dos
