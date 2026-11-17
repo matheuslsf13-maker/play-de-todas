@@ -1,3 +1,4 @@
+import { subirAoConteudo } from './lib/rolagem'
 import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
 import { IconeDaAba } from './components/IconesDeAba'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
@@ -106,55 +107,69 @@ export default function App() {
     // o ?lista= sai do endereco no passo novo do historico (efeito abaixo); voltar devolve a lista
     setLista(null)
     setTab(t)
-    window.scrollTo(0, 0)
+    subirAoConteudo()
   }, [])
   const abrirLista = useCallback((codigo: string) => {
     setLista(codigo)
-    window.scrollTo(0, 0)
+    subirAoConteudo()
   }, [])
   const primeiraRenderizacao = useRef(true)
 
-  // O VOLTAR DO CELULAR (08/11): cada troca de aba (ou a lista aberta) e um passo no historico, e o voltar
-  // devolve a aba anterior em vez de sair do app. Janelas e o play aberto ficam em src/lib/voltar.ts.
+  // O VOLTAR DO CELULAR (08/11): o voltar devolve a aba anterior (ou a lista) em vez de sair do app. As abas visitadas
+  // ficam numa pilha AQUI e o historico do navegador ganha UM passo so (dono, 17/11): um pushState a cada toque numa
+  // aba fazia o Safari do iPhone abrir a barra dele e a tela pular. Janelas e o play aberto: src/lib/voltar.ts.
   const veioDoVoltar = useRef(false)
   const primeiroPasso = useRef(true)
-  const agora = useRef({ tab, lista })
-  agora.current = { tab, lista }
+  const abasAnteriores = useRef<{ tab: Tab; lista: string | null }[]>([])
+  const atual = useRef({ tab, lista })
+  const temPasso = useRef(false)
   useEffect(() => {
-    const estado = { aba: tab, lista }
+    const url = window.location.pathname + (lista ? `?lista=${encodeURIComponent(lista)}` : '')
+    const mudaUrl = url !== window.location.pathname + window.location.search
     if (primeiroPasso.current) {
       primeiroPasso.current = false
-      window.history.replaceState(estado, '', window.location.pathname + window.location.search)
+      atual.current = { tab, lista }
       return
     }
-    if (veioDoVoltar.current) {
-      veioDoVoltar.current = false
-      return
+    if (veioDoVoltar.current) veioDoVoltar.current = false
+    else {
+      abasAnteriores.current.push(atual.current)
+      if (!temPasso.current) {
+        temPasso.current = true
+        window.history.pushState({ ...(window.history.state ?? {}), aba: true }, '', url)
+        atual.current = { tab, lista }
+        return
+      }
     }
-    window.history.pushState(estado, '', lista ? `${window.location.pathname}?lista=${encodeURIComponent(lista)}` : window.location.pathname)
+    atual.current = { tab, lista }
+    // so o ?lista= muda o endereco; sem mudanca nao mexe no historico
+    if (mudaUrl) window.history.replaceState(window.history.state, '', url)
   }, [tab, lista])
   useEffect(
     () =>
-      ouvirVoltarDeAba((e) => {
-        const est = (e ?? {}) as { aba?: Tab; lista?: string | null }
-        const aba = est.aba ?? 'ranking'
-        const l = est.lista ?? null
-        if (aba === agora.current.tab && l === agora.current.lista) return
+      ouvirVoltarDeAba(() => {
+        // o voltar consumiu o nosso passo: volta uma aba e, se ainda houver mais para tras, recria o passo
+        temPasso.current = false
+        const antes = abasAnteriores.current.pop()
+        if (!antes) return
         veioDoVoltar.current = true
-        setTab(aba)
-        setLista(l)
+        if (abasAnteriores.current.length > 0) {
+          temPasso.current = true
+          window.history.pushState({ ...(window.history.state ?? {}), aba: true }, '')
+        }
+        setTab(antes.tab)
+        setLista(antes.lista)
       }),
     [],
   )
 
-  // trocar de aba comeca a leitura do topo; sem isso a pagina "pula" quando a
-  // aba nova e mais curta que a anterior
+  // trocar de aba comeca a leitura do comeco do conteudo; sem isso a pagina "pula" quando a aba nova e mais curta
   useEffect(() => {
     if (primeiraRenderizacao.current) {
       primeiraRenderizacao.current = false
       return
     }
-    window.scrollTo(0, 0)
+    subirAoConteudo()
   }, [tab])
   const [login, setLogin] = useState(false)
 

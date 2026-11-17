@@ -1,3 +1,4 @@
+import { subirAoConteudo } from '../lib/rolagem'
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import CampoDeBusca from '../components/CampoDeBusca'
 import { useVoltar } from '../lib/voltar'
@@ -3879,7 +3880,7 @@ function PlayDetail({
 
       {editable && faltaFase && abaAtiva !== 'quadras' && (
         <div className="ini-grupo pl-aviso-fase" style={{ marginBottom: 14 }}>
-          <button className="ini-linha ini-chev" onClick={() => { setAba('quadras'); window.scrollTo({ top: 0 }) }}>
+          <button className="ini-linha ini-chev" onClick={() => { setAba('quadras'); subirAoConteudo() }}>
             <span className="ini-ic rosa" aria-hidden="true">⏭️</span>
             <span className="g"><b>Falta montar a próxima fase</b><span className="sub">toque para ir montar</span></span>
           </button>
