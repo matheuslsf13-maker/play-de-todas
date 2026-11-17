@@ -9,7 +9,7 @@ const EH_MISTO = LIGA.id === 'misto'
 import { AvisoDoBanco } from '../components/AvisoDoBanco'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import CartaoDoMomento from '../components/CartaoDoMomento'
-import { estaAoVivo } from '../lib/momentoDaInicio'
+import { situacaoDoPlay } from '../lib/momentoDaInicio'
 import type { Montagem } from './ListaDePresenca'
 import { dataDoPlay, type Lista, type ListaCompleta } from '../lib/listaDePresenca'
 import { avisoDoFinanceiro, desfazerDoPlay, diaParaLigar } from '../lib/pagamentoNaLista'
@@ -111,6 +111,7 @@ import {
 } from '../lib/stats'
 import { buildDayPoster, buildDayPosterGrupos, buildPosterComFoto, type PosterRow } from '../lib/poster'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
+import type { Enquadre } from '../lib/enquadre'
 import {
   MODOS,
   REGRA_PADRAO,
@@ -146,7 +147,7 @@ import { EscolherCompensacao, useCompensarFalta } from '../components/FichaDaMen
 import { diaDoPlay, diaJaExiste, prepararPagamento } from '../lib/pagamentoNaLista'
 import { formatarReais, lerValor } from '../lib/checkins'
 import { selosDosPlays } from '../lib/selos'
-import { computeStreaks, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
+import { computeStreaks, contaFalta, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
 import { desempatesDoGrupo, ordenarComDesempates, partidasDoConfronto } from '../lib/desempateDoDia'
 import { chavesDoPlay, formatarMinutos, horaLocal, minutosDaPartida, quadrasDaCategoriaAgora, regrasDoPlay, restanteDaNoite as contaDoRestante, resumoAoVivo, ritmoDaNoite } from '../lib/previsaoDaNoite'
 import { useWakeLock } from '../lib/wakelock'
@@ -526,14 +527,22 @@ function AdiarPlay({ dataAtual, onAdiar, onClose }: { dataAtual: string; onAdiar
   )
 }
 
+/** O texto da opcao "Conta falta" (separada do status desde 16/11). */
+function textoDaFalta(conta: boolean, status: boolean): string {
+  return conta
+    ? `quem não vier leva falta: da 2ª seguida a força cai${status ? ' e perde a sequência 🔥' : ''}`
+    : 'quem não vier não leva falta (nem na força, nem no 🔥); quem vier zera as faltas dela'
+}
+
 function OpcoesDoPlay({ session }: { session: PlaySession }) {
   const { mesclarNoPlay } = useStore()
   const vale = session.ranked !== false
   const status = contaNoStatus(session)
+  const falta = contaFalta(session)
   return (
     <details className="card">
       <summary className="small" style={{ fontWeight: 700, cursor: 'pointer' }}>
-        ⚙️ Vale para o mês e para o 🔥?
+        ⚙️ Vale para o mês, para o 🔥 e conta falta?
       </summary>
       <div className="stack" style={{ marginTop: 10 }}>
         <label className={`toggle-card row${vale ? '' : ' avulso'}`} style={{ gap: 10, cursor: 'pointer' }}>
@@ -545,7 +554,7 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
           <span className="grow">
             <strong>{vale ? '🏆 Vale para o ranking do mês' : '🎈 Play avulso'}</strong>
             <span className="hint" style={{ marginTop: 2 }}>
-              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês e faltar não conta'}
+              {vale ? 'os pontos entram no ranking do mês' : 'não soma pontos no ranking do mês'}
             </span>
           </span>
         </label>
@@ -559,9 +568,20 @@ function OpcoesDoPlay({ session }: { session: PlaySession }) {
             <strong>{status ? '🔥 Conta no status' : '🧊 Play sem status'}</strong>
             <span className="hint" style={{ marginTop: 2 }}>
               {status
-                ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
-                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde; faltar também não conta como falta'}
+                ? 'o pódio soma 🔥; quem joga e fica fora do pódio perde a sequência'
+                : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora não perde'}
             </span>
+          </span>
+        </label>
+        <label className={`toggle-card row${falta ? '' : ' avulso'}`} style={{ gap: 10, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={falta}
+            onChange={(e) => mesclarNoPlay(session.id, { campo: 'conta_falta', valor: e.target.checked })}
+          />
+          <span className="grow">
+            <strong>{falta ? '📉 Conta falta' : '🙈 Não conta falta'}</strong>
+            <span className="hint" style={{ marginTop: 2 }}>{textoDaFalta(falta, status)}</span>
           </span>
         </label>
       </div>
@@ -767,6 +787,7 @@ function NewPlay({
   )
   const [ranked, setRanked] = useState(preset.ranked ?? true)
   const [contaStatus, setContaStatus] = useState(preset.conta_status ?? preset.ranked ?? true)
+  const [comFalta, setComFalta] = useState(preset.id ? contaFalta(preset as PlaySession) : (preset.conta_falta ?? true))
   const [importando, setImportando] = useState(false)
   /** A janela de cadastrar uma atleta nova sem sair da tela. */
   const [cadastrando, setCadastrando] = useState(false)
@@ -1270,6 +1291,7 @@ function NewPlay({
         desempates: comFases ? desempates : null,
         ranked,
         conta_status: contaStatus,
+        conta_falta: comFalta,
       }
       await saveSession(session)
       if (editando) await replaceSessionMatches(session.id, planToMatches(session.id, fila))
@@ -1646,7 +1668,7 @@ function NewPlay({
                 <span className="hint" style={{ marginTop: 2 }}>
                   {ranked
                     ? 'os pontos entram no ranking do mês e as sequências 🔥 correm normalmente'
-                    : 'não soma pontos no ranking do mês e faltar não conta — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
+                    : 'não soma pontos no ranking do mês — mas conta no histórico da jogadora e no equilíbrio das duplas dos próximos plays'}
                 </span>
               </span>
             </label>
@@ -1659,9 +1681,19 @@ function NewPlay({
                 <strong>{contaStatus ? '🔥 Conta no status' : '🧊 Play sem status'}</strong>
                 <span className="hint" style={{ marginTop: 2 }}>
                   {contaStatus
-                    ? 'o pódio soma 🔥; quem fica fora do pódio ou falta perde a sequência'
-                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora ou faltar não perde; faltar também não conta como falta'}
+                    ? 'o pódio soma 🔥; quem joga e fica fora do pódio perde a sequência'
+                    : 'o 🔥 fica como está: quem subir ao pódio não soma, e quem ficar fora não perde'}
                 </span>
+              </span>
+            </label>
+          </div>
+
+          <div className={`toggle-card${comFalta ? '' : ' avulso'}`}>
+            <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={comFalta} onChange={(e) => setComFalta(e.target.checked)} />
+              <span className="grow">
+                <strong>{comFalta ? '📉 Conta falta' : '🙈 Não conta falta'}</strong>
+                <span className="hint" style={{ marginTop: 2 }}>{textoDaFalta(comFalta, contaStatus)}</span>
               </span>
             </label>
           </div>
@@ -2989,7 +3021,7 @@ function PlayDetail({
    */
   const duplasDaFoto = soFase2 ? soComCampea(duplasDoDia) : []
   const podeArteComFoto = soFase2 ? duplasDaFoto.length > 0 : podiosSel.length === 1
-  async function gerarArteComFoto(foto: File) {
+  async function gerarArteComFoto(foto: File, enquadre: Enquadre) {
     const um = podiosSel.length === 1 ? podiosSel[0] : null
     if (!soFase2 && !um) {
       onToast('Escolha um grupo para a arte com foto')
@@ -2997,7 +3029,7 @@ function PlayDetail({
     }
     setGerando(true)
     try {
-      const comum = { data: dateLabel(session.date), foto, logoUrl: URL_DO_LOGO }
+      const comum = { data: dateLabel(session.date), foto, logoUrl: URL_DO_LOGO, enquadre }
       const titulos = ['Campeãs do dia', 'Vice-campeãs', '3º lugar']
       const blob = soFase2
         ? await buildPosterComFoto({
@@ -4653,7 +4685,7 @@ function PlayDetail({
                   <span className="sub">{grupoArte === null ? 'do dia' : `do grupo ${grupoArte}`}</span>
                 </span>
               </button>
-              {podeArteComFoto && <BotoesDeFoto lista gerando={gerando} aoEscolher={(f) => void gerarArteComFoto(f)} />}
+              {podeArteComFoto && <BotoesDeFoto lista gerando={gerando} aoEscolher={(f, enq) => void gerarArteComFoto(f, enq)} />}
               </div>
               {!podeArteComFoto && (!soFase2 || ehCampeonato) && (
                 <div className="ini-legenda">
@@ -5026,11 +5058,15 @@ function MatchCard({
  * acontecendo fica neutro. Antes era tudo amarelo, a mesma cor dos selos da lista (dono, 08/11).
  */
 function BadgeDoPlay({ s, matches }: { s: PlaySession; matches: Match[] }) {
-  if (s.status !== 'open') return <span className="badge finished">finalizado</span>
-  return estaAoVivo(s, matches, new Date()) ? (
-    <span className="badge vivo"><i className="ponto-vivo" aria-hidden="true" />ao vivo</span>
-  ) : (
-    <span className="badge parado"><i className="ponto-vivo vermelho" aria-hidden="true" />em andamento</span>
+  const sit = situacaoDoPlay(s, matches, new Date())
+  if (sit === 'finalizado') return <span className="badge finished">finalizado</span>
+  if (sit === 'ao-vivo') return <span className="badge vivo"><i className="ponto-vivo" aria-hidden="true" />ao vivo</span>
+  if (sit === 'agendado') return <span className="badge agendado">agendado</span>
+  return (
+    <span className="badge parado">
+      <i className="ponto-vivo vermelho" aria-hidden="true" />
+      {sit === 'atrasado' ? 'em atraso' : 'em andamento'}
+    </span>
   )
 }
 

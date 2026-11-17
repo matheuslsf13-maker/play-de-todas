@@ -486,6 +486,8 @@ export function aplicarMescla(s: PlaySession, m: MesclaDoPlay): PlaySession {
       return { ...s, ranked: m.valor }
     case 'conta_status':
       return { ...s, conta_status: m.valor }
+    case 'conta_falta':
+      return { ...s, conta_falta: m.valor }
     case 'ausentes': {
       const sem = (s.ausentes ?? []).filter((id) => id !== m.id)
       return { ...s, ausentes: m.ausente ? [...sem, m.id] : sem }

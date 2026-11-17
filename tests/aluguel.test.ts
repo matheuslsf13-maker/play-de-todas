@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { checkinsNaArena, contaDoAluguel } from '../src/lib/aluguel'
-import { LOCAIS_INICIAIS, economiaDoAluguel, entradasDosEventos, resumoDoCaixa } from '../src/lib/checkins'
+import { LOCAIS_INICIAIS, economiaDoAluguel, entradasDosEventos, resumoDoCaixa, saidasDosEventos, saldoDosEventosEm } from '../src/lib/checkins'
 import { emptyData, type Checkin, type LancamentoDeCaixa } from '../src/lib/types'
 
 test('aluguel de janeiro: check-ins da V3 em dezembro (sem contar o uso do crédito) e o exemplo do dono', () => {
@@ -106,4 +106,25 @@ test('tirar do caixa de eventos: sem o "no lugar de" e sem o plano mensal a entr
   assert.deepEqual(entradasDosEventos(data), [])
   const r = resumoDoCaixa(data)[0]
   assert.deepEqual([r.eventosAcumulado, r.receitasPlay, r.aluguel], [0, 50, 1574])
+})
+
+test('gasto pago com o caixa de eventos: cobre ate o saldo, o resto sai do caixa geral, na ordem do calendario', () => {
+  const data = emptyData()
+  const l = (id: string, date: string, extra: Partial<LancamentoDeCaixa>): LancamentoDeCaixa => ({
+    id, date, descricao: id, categoria: 'brinde', tipo: 'saida', valor: 0, created_at: date, ...extra,
+  })
+  data.caixa = [
+    l('dez', '2026-12-10', { categoria: 'aluguel', valor: 1574, plano_mensal: true, valor_cobrado: 1824 }), // +96
+    l('flores', '2026-12-20', { valor: 60, do_eventos: true }),
+    l('presentes', '2027-01-05', { valor: 100, do_eventos: true }),
+    l('comum', '2027-01-06', { valor: 30 }),
+  ]
+  const s = saidasDosEventos(data)
+  assert.deepEqual(s.map((x) => [x.caixa_id, x.coberto, x.resto]), [['presentes', 36, 64], ['flores', 60, 0]])
+  assert.equal(saldoDosEventosEm(data, '2026-12-31'), 36)
+  assert.equal(saldoDosEventosEm(data, '2027-01-31'), 0)
+  const r = resumoDoCaixa(data)
+  assert.deepEqual(r.map((x) => [x.eventos, x.eventosAcumulado, x.brindes]), [[36, 36, 60], [-36, 0, 130]])
+  // o gasto inteiro continua na despesa (a reserva fica dentro do saldo): nada some nem conta duas vezes
+  assert.equal(r[1].despesaTotal, 130)
 })

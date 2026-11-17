@@ -369,3 +369,8 @@ test('glicko: quem fica semanas sem jogar volta mexendo mais (a incerteza cresce
   const depoisDeDezSemanas = montar('2026-11-15')
   assert.ok(depoisDeDezSemanas > semanaSeguinte * 1.2, `${depoisDeDezSemanas} > ${semanaSeguinte}`)
 })
+
+test('conta falta separado: play que vale tudo mas nao conta falta nao soma falta; avulso que conta, soma', () => {
+  assert.equal(quedaPorFalta(duasFaltasEDepois({ conta_falta: false }, false)).get('x')?.faltas, 2)
+  assert.equal(quedaPorFalta(duasFaltasEDepois({ ranked: false, conta_falta: true }, false)).get('x')?.faltas, 3)
+})

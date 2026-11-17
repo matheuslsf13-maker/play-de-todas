@@ -157,3 +157,17 @@ test('conquistas: quantas vezes chegou em cada nivel e o maior status', () => {
   assert.deepEqual(c?.duquesas, ['2026-11-09'])
   assert.equal(computeStreaks(d).conquistas.get('w')?.melhor ?? 0, 0)
 })
+
+test('conta falta separado do status: sem falta, quem falta nao perde; com falta num play sem status, perde', () => {
+  const semP = (opcoes: Partial<PlaySession>) => {
+    const d = marcar(dados([['2026-10-12', P], ['2026-10-19', P], ['2026-10-26', SEM_P]]), '2026-10-26', opcoes)
+    const s = d.sessions.find((x) => x.date === '2026-10-26')!
+    s.player_ids = s.player_ids.filter((id) => id !== 'p')
+    d.matches = d.matches.filter((m) => m.session_id !== s.id || ![...m.team_a, ...m.team_b].includes('p'))
+    return computeStreaks(d).current.get('p') ?? 0
+  }
+  assert.equal(semP({}), 0) // regra de sempre: faltou, perde
+  assert.equal(semP({ conta_falta: false }), 2) // nao conta falta: segura o 🔥
+  assert.equal(semP({ conta_status: false }), 2) // sem status e sem opcao gravada: como antes
+  assert.equal(semP({ conta_status: false, conta_falta: true }), 0) // sem status, mas conta falta
+})

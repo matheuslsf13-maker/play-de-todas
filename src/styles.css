@@ -339,6 +339,7 @@ label.field { display: block; }
 .badge.vivo .ponto-vivo { width: 7px; height: 7px; background: var(--sempre-claro); }
 /* aberto sem nada acontecendo: vermelho com a bolinha piscando, o mesmo do "Aguardando início" das quadras (dono, 12/11) */
 .badge.parado { display: inline-flex; align-items: center; gap: 6px; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.badge.agendado { background: var(--fundo-2); color: var(--muted); }
 .badge.parado .ponto-vivo { width: 7px; height: 7px; background: var(--danger); }
 /* play avulso: acontece, conta no historico, mas nao vale para o campeonato */
 .badge.avulso { background: var(--purple-suave); color: var(--purple); }
@@ -2927,3 +2928,6 @@ button.st-linha:active { background: var(--pink-suave); }
 .cp-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 84px; justify-content: center; padding: 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--card-2); color: inherit; font-size: 12.5px; cursor: pointer; touch-action: manipulation; }
 .cp-slot.cheio { border-color: var(--pink); }
 @media (hover: hover) and (pointer: fine) { .cp-escolha:hover { background: var(--pink-suave); } }
+
+/* "Ajustar a foto" da arte do podio: a faixa da foto, arrastavel (sem rolar a pagina junto) */
+.ajustar-foto { display: block; width: 100%; height: auto; border-radius: 14px; touch-action: none; cursor: grab; background: #0d0a12; }

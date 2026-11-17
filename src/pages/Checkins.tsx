@@ -41,6 +41,8 @@ import {
   resumoDoCaixa,
   economiaDoAluguel,
   entradasDosEventos,
+  saidasDosEventos,
+  saldoDosEventosEm,
   type EntradaDosEventos,
   rotuloDoDia,
   rotuloDoTipo,
@@ -868,20 +870,43 @@ O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pag
     onToast('Tirado do caixa de eventos')
   }
   const entradas = useMemo(() => entradasDosEventos(data).filter((e) => monthOf(e.date) <= ate), [data, ate])
-  const total = entradas.reduce((t, e) => t + e.valor, 0)
+  const saidas = useMemo(() => saidasDosEventos(data).filter((x) => monthOf(x.date) <= ate && x.coberto > 0), [data, ate])
+  const total = entradas.reduce((t, e) => t + e.valor, 0) - saidas.reduce((t, x) => t + x.coberto, 0)
+  // entradas e gastos juntos, do mais recente ao mais antigo
+  const linhas = [
+    ...entradas.map((e) => ({ date: e.date, entrada: e, saida: null })),
+    ...saidas.map((x) => ({ date: x.date, entrada: null, saida: x })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
+  const rotuloDe = (id: string) => {
+    const l = data.caixa.find((c) => c.id === id)
+    return CATEGORIAS_DE_CAIXA.find((c) => c.valor === l?.categoria)?.rotulo ?? 'despesa'
+  }
   return (
     <Modal title="🎉 Caixa de eventos" onClose={onClose}>
       <div className="stack">
         <div className="row spread">
-          <span className="muted small">Total até {nomeDoMes(ate)}</span>
+          <span className="muted small">Saldo até {nomeDoMes(ate)}</span>
           <strong style={{ fontSize: 20 }}><Reais n={total} /></strong>
         </div>
-        {entradas.length === 0 ? (
+        {linhas.length === 0 ? (
           <Empty icon="🎉">Nada entrou no caixa de eventos ainda.</Empty>
         ) : (
           <table className="table">
             <tbody>
-              {entradas.map((e, i) => (
+              {linhas.map(({ entrada: e, saida: x }, i) => x ? (
+                <tr key={i}>
+                  <td>
+                    <b>🎁 {x.descricao || 'Gasto pago com o caixa de eventos'}</b>
+                    <div className="tiny muted">
+                      {dateLabel(x.date)} · {formatarReais(x.valor)} no total
+                      {x.resto > 0 ? `: ${formatarReais(x.coberto)} do caixa de eventos e ${formatarReais(x.resto)} do caixa geral (${rotuloDe(x.caixa_id)})` : ''}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span className="valor-neg">−{formatarReais(x.coberto)}</span>
+                  </td>
+                </tr>
+              ) : e && (
                 <tr key={i}>
                   <td>
                     {e.origem === 'substituta' ? (
@@ -924,6 +949,8 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
   const [tudo, setTudo] = useState(false)
   /** Aluguel da V3 pago no plano mensal (5% de desconto): ja vem marcado (dono, 07/11). */
   const [planoMensal, setPlanoMensal] = useState(true)
+  /** Gasto pago com o 🎉 caixa de eventos (dono, 16/11). */
+  const [doEventos, setDoEventos] = useState(false)
   // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
   const [aberto, setAberto] = useState<(typeof data.caixa)[number] | null>(null)
   const [verEventos, setVerEventos] = useState(false)
@@ -949,17 +976,25 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
     ? contaDoAluguel({ valorNoPlano: valorLido, desconto: planoMensal ? undefined : 0, checkinsMesAnterior: checkinsAbatidos })
     : null
 
+  // o caixa de eventos paga gastos comuns (presentes, confraternizacao...); o aluguel tem a conta dele
+  const podeEventos = LIGA.id === 'feminino' && tipo === 'saida' && !ehAluguel
+  const temEventos = useMemo(() => entradasDosEventos(data).length > 0, [data])
+  const noEventos = podeEventos && date ? saldoDosEventosEm(data, date) : 0
+  const cobre = podeEventos && doEventos && valorLido ? Math.min(valorLido, Math.max(0, noEventos)) : 0
+
   function lancar() {
     if (valorLido === null || valorLido <= 0 || !date) return
     saveCaixa({
       id: uid(), date, descricao: descricao.trim(), categoria, tipo, created_at: new Date().toISOString(),
+      ...(podeEventos && doEventos ? { do_eventos: true } : {}),
       ...(aluguel
         ? { valor: aluguel.pagarNoPix, plano_mensal: planoMensal, valor_cobrado: valorLido, checkins_abatidos: checkinsAbatidos }
         : { valor: valorLido }),
     })
     setDescricao('')
     setValor('')
-    onToast(tipo === 'entrada' ? 'Receita lançada' : 'Saída lançada')
+    setDoEventos(false)
+    onToast(tipo === 'entrada' ? 'Receita lançada' : podeEventos && doEventos ? 'Gasto lançado no caixa de eventos 🎉' : 'Saída lançada')
   }
 
   const totais = resumo.reduce(
@@ -996,11 +1031,11 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
               <tr><td><strong>Despesa total</strong></td><td><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
               <tr><td><strong>Saldo do mês</strong></td><td><strong><Reais n={linhaDoMes.saldoDoMes} sinal /></strong></td></tr>
               <tr><td><strong>Saldo acumulado</strong></td><td><strong><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong></td></tr>
-              {linhaDoMes.eventosAcumulado > 0 && (
+              {(linhaDoMes.eventosAcumulado !== 0 || temEventos) && (
                 <tr>
                   <td>
                     🎉 Caixa de eventos <span className="tiny muted">(reservado dentro do saldo)</span>
-                    <button className="btn ghost sm" style={{ display: 'block', marginTop: 6 }} onClick={() => setVerEventos(true)}>📜 De onde veio</button>
+                    <button className="btn ghost sm" style={{ display: 'block', marginTop: 6 }} onClick={() => setVerEventos(true)}>📜 Entradas e gastos</button>
                   </td>
                   <td><Reais n={linhaDoMes.eventosAcumulado} /></td>
                 </tr>
@@ -1107,6 +1142,22 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
               </>
             )}
+            {podeEventos && (
+              <label className="toggle-card row">
+                <input type="checkbox" checked={doEventos} onChange={(e) => setDoEventos(e.target.checked)} />
+                <span>
+                  <strong>🎉 Pagar com o caixa de eventos</strong>
+                  <span className="tiny muted" style={{ display: 'block' }}>
+                    {`Tem ${formatarReais(Math.max(0, noEventos))} em ${dateLabel(date)}.`}
+                    {doEventos && valorLido
+                      ? valorLido > cobre
+                        ? ` Saem ${formatarReais(cobre)} do caixa de eventos e ${formatarReais(valorLido - cobre)} do caixa geral, como ${CATEGORIAS_DE_CAIXA.find((c) => c.valor === categoria)?.rotulo}.`
+                        : ` Sai tudo do caixa de eventos; sobram ${formatarReais(noEventos - cobre)}.`
+                      : ''}
+                  </span>
+                </span>
+              </label>
+            )}
             <label className="field">
               <span>Descrição</span>
               <input
@@ -1136,7 +1187,10 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 <span className="fila-num">{dateLabel(l.date).slice(0, 5)}</span>
                 <div className="grow">
                   <span className="fila-time"><b>{l.descricao || CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo}</b></span>
-                  <span className="tiny muted">{CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria}</span>
+                  <span className="tiny muted">
+                    {CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria}
+                    {l.do_eventos ? ' · 🎉 caixa de eventos' : ''}
+                  </span>
                 </div>
                 <span className={l.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'}>
                   {l.tipo === 'entrada' ? '+' : '−'} {formatarReais(l.valor)}
@@ -1165,6 +1219,30 @@ function SecaoCaixa({ mes, podeEditar, onToast }: { mes: string; podeEditar: boo
                 <div>{plural(aberto.checkins_abatidos ?? 0, 'check-in abatido', 'check-ins abatidos')} do mês anterior</div>
               </div>
             ) : null}
+            {aberto.tipo === 'saida' && aberto.categoria !== 'aluguel' && LIGA.id === 'feminino' && (() => {
+              const x = aberto.do_eventos ? saidasDosEventos(data).find((y) => y.caixa_id === aberto.id) : undefined
+              return (
+                <>
+                  {x && (
+                    <div className="conta-aluguel tiny">
+                      <div>🎉 {formatarReais(x.coberto)} saíram do caixa de eventos</div>
+                      {x.resto > 0 && <div>{formatarReais(x.resto)} saíram do caixa geral (o caixa de eventos não tinha mais)</div>}
+                    </div>
+                  )}
+                  <button
+                    className="btn ghost block"
+                    onClick={() => {
+                      const novo = { ...aberto, do_eventos: !aberto.do_eventos }
+                      saveCaixa(novo)
+                      setAberto(novo)
+                      onToast(novo.do_eventos ? 'Pago com o caixa de eventos 🎉' : 'Volta a sair do caixa geral')
+                    }}
+                  >
+                    {aberto.do_eventos ? '↩️ Tirar do caixa de eventos (sai do caixa geral)' : '🎉 Pagar com o caixa de eventos'}
+                  </button>
+                </>
+              )
+            })()}
             <button
               className="btn danger block"
               onClick={() => {

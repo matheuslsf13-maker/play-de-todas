@@ -15,6 +15,7 @@ import {
   centavos,
   contaDoCheckin,
   economiaDoAluguel,
+  saidasDosEventos,
   extratoDaAtleta,
   formatarReais,
   nomeDoTitular,
@@ -248,7 +249,7 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
     nome: 'Resumo',
     linhas: [
       [
-        'Mês', 'Receita dos plays', 'Mensalidades', 'Receitas extras', 'Receita total', 'Aluguel', 'Brindes',
+        'Mês', 'Receita dos plays', 'Mensalidades', 'Receitas extras', 'Receita total', 'Aluguel', 'Brindes e presentes',
         'Confraternização', 'Outras despesas', 'Despesa total', 'Saldo do mês', 'Saldo acumulado',
         'Caixa de eventos (reserva)',
       ],
@@ -262,6 +263,7 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
   }
 
   // ---- Pagamentos: a aba de saidas da planilha (mais as receitas extras), uma por linha
+  const pagoPelosEventos = new Map(saidasDosEventos(data).map((x) => [x.caixa_id, x.coberto]))
   const linhasDoCaixa: { date: string; linha: Celula[] }[] = [
     ...data.caixa
       .filter((l) => !mes || monthOf(l.date) === mes)
@@ -278,6 +280,7 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
           l.categoria === 'aluguel' && l.valor_cobrado ? (l.plano_mensal ? 'Sim' : 'Não') : '',
           l.checkins_abatidos ?? '',
           economiaDoAluguel(l) ? { reais: economiaDoAluguel(l) } : '',
+          pagoPelosEventos.get(l.id) ? { reais: -(pagoPelosEventos.get(l.id) as number) } : '',
         ] as Celula[],
       })),
     // os acertos com dinheiro: a divida paga depois entra, o credito devolvido sai
@@ -291,14 +294,14 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
           'Acerto de atleta',
           a.valor >= 0 ? 'Entrada' : 'Saída',
           { reais: a.valor },
-          '', '', '', '',
+          '', '', '', '', '',
         ] as Celula[],
       })),
   ]
   const pagamentos: Planilha = {
     nome: 'Pagamentos',
     linhas: [
-      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Aluguel: valor cobrado', 'Aluguel: plano mensal', 'Aluguel: check-ins abatidos', 'Para o caixa de eventos'],
+      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Aluguel: valor cobrado', 'Aluguel: plano mensal', 'Aluguel: check-ins abatidos', 'Para o caixa de eventos', 'Pago pelo caixa de eventos'],
       ...linhasDoCaixa.sort((a, b) => a.date.localeCompare(b.date)).map((x) => x.linha),
     ],
   }

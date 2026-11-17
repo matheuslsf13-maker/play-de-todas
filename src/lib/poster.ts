@@ -3,6 +3,7 @@
  * com o podio, as fotos das tres primeiras e a coroa na campea.
  */
 
+import { ALTURA_DA_FOTO, INICIO_DO_SUMICO, enquadrarFoto, type Enquadre } from './enquadre'
 import { LIGA } from '../liga'
 import { enderecoDoSite } from '../../liga.config'
 
@@ -525,6 +526,7 @@ function rodape(c: CanvasRenderingContext2D) {
 
 /* ------------------------------------------------ podio com foto */
 
+
 /**
  * A ARTE DO PODIO COM A FOTO DA NOITE (desde 03/11/2026).
  *
@@ -551,6 +553,8 @@ export async function buildPosterComFoto(opts: {
    * com os dois nomes e o rotulo ("Campeãs do dia"...). Com isso, `rows` nao e usado.
    */
   duplas?: { nomes: [string, string]; rotulo: string }[]
+  /** O enquadramento escolhido em "Ajustar a foto"; sem ele, a foto centrada. */
+  enquadre?: Enquadre
 }): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = W
@@ -567,36 +571,27 @@ export async function buildPosterComFoto(opts: {
   c.fillStyle = ESCURO
   c.fillRect(0, 0, W, H)
 
-  // o fundo e a MESMA foto cobrindo a tela toda, desfocada: e por ela que o vidro dos paineis deixa a foto aparecer
-  const desfocada = desfocar(foto)
+  // a foto nitida em cima, no enquadramento escolhido, e some aos poucos no fundo escuro antes dos paineis:
+  // sem desfoque (o vidro desfocado mostrava as pernas borradas e baixava a qualidade; dono, 16/11)
   c.imageSmoothingQuality = 'high'
-  c.drawImage(desfocada, 0, 0, W, H)
-
-  // a foto nitida cobre a parte de cima (como o object-fit: cover), com o foco um
-  // pouco acima do meio: e onde ficam os rostos numa foto de podio
-  const altFoto = 900
-  const escala = Math.max(W / foto.width, altFoto / foto.height)
-  const fw = foto.width * escala
-  const fh = foto.height * escala
-  const fx = (W - fw) / 2
-  const fy = Math.min(0, (altFoto - fh) * 0.3)
+  const r = enquadrarFoto(foto.width, foto.height, W, ALTURA_DA_FOTO, opts.enquadre)
   const nitida = document.createElement('canvas')
   nitida.width = W
-  nitida.height = altFoto
+  nitida.height = ALTURA_DA_FOTO
   const n = nitida.getContext('2d')
   if (n) {
-    n.drawImage(foto, fx, fy, fw, fh)
-    // embaixo ela some aos poucos sobre o desfoque, sem corte
+    n.imageSmoothingQuality = 'high'
+    n.drawImage(foto, r.x, r.y, r.w, r.h)
     n.globalCompositeOperation = 'destination-in'
-    const mascara = n.createLinearGradient(0, 0, 0, altFoto)
+    const mascara = n.createLinearGradient(0, 0, 0, ALTURA_DA_FOTO)
     mascara.addColorStop(0, '#000')
-    mascara.addColorStop(0.7, '#000')
+    mascara.addColorStop(INICIO_DO_SUMICO, '#000')
     mascara.addColorStop(1, 'rgba(0,0,0,0)')
     n.fillStyle = mascara
-    n.fillRect(0, 0, W, altFoto)
+    n.fillRect(0, 0, W, ALTURA_DA_FOTO)
     c.drawImage(nitida, 0, 0)
   } else {
-    c.drawImage(foto, fx, fy, fw, fh)
+    c.drawImage(foto, r.x, r.y, r.w, r.h)
   }
 
   // escurece em cima (titulo) e, de leve, embaixo (rodape): a foto continua aparecendo por baixo do vidro
@@ -633,7 +628,7 @@ export async function buildPosterComFoto(opts: {
     const alturaLinha = 136
     // o painel termina sempre no mesmo lugar, logo acima do rodape
     const y0 = 1210 - alturaLinha * duplas.length
-    vidro(c, x0, y0, larguraPainel, alturaLinha * duplas.length, 36, desfocada)
+    vidro(c, x0, y0, larguraPainel, alturaLinha * duplas.length, 36)
     duplas.forEach((d, i) => {
       const y = y0 + i * alturaLinha
       if (i > 0) {
@@ -662,7 +657,7 @@ export async function buildPosterComFoto(opts: {
     // o painel desce quando o grupo e pequeno: sem 4a a 6a, sobra o espaco das pilulas
     const y0 = 800 - (opts.rows.length > noPodio ? 0 : 50)
     const alturaPainel = alturaLinha * podio.length
-    vidro(c, x0, y0, larguraPainel, alturaPainel, 36, desfocada)
+    vidro(c, x0, y0, larguraPainel, alturaPainel, 36)
     podio.forEach((r, i) => {
       const y = y0 + i * alturaLinha
       if (i > 0) {
@@ -700,7 +695,7 @@ export async function buildPosterComFoto(opts: {
       const lp = (larguraPainel - gap * 2) / 3
       resto.forEach((r, i) => {
         const xp = x0 + i * (lp + gap)
-        vidro(c, xp, yp, lp, 66, 22, desfocada)
+        vidro(c, xp, yp, lp, 66, 22)
         c.textAlign = 'left'
         c.font = '900 26px system-ui, Segoe UI, Arial, sans-serif'
         c.fillStyle = 'rgba(255,255,255,.75)'
@@ -760,39 +755,6 @@ function carregarFontes(): Promise<void> {
   return fontesProntas
 }
 
-/**
- * A foto reduzida e ampliada duas vezes: um desfoque que funciona em qualquer navegador (o `ctx.filter` do canvas
- * nao existe no Safari antigo). Cobre a tela toda, com o mesmo foco da foto nitida.
- */
-function desfocar(foto: HTMLImageElement): HTMLCanvasElement {
-  const escala = Math.max(W / foto.width, H / foto.height)
-  const fw = foto.width * escala
-  const fh = foto.height * escala
-  const fx = (W - fw) / 2
-  const fy = Math.min(0, (H - fh) * 0.3)
-  const a = document.createElement('canvas')
-  a.width = W / 8
-  a.height = H / 8
-  a.getContext('2d')?.drawImage(foto, fx / 8, fy / 8, fw / 8, fh / 8)
-  const b = document.createElement('canvas')
-  b.width = W / 24
-  b.height = H / 24
-  const bc = b.getContext('2d')
-  if (bc) {
-    bc.imageSmoothingQuality = 'high'
-    bc.drawImage(a, 0, 0, b.width, b.height)
-  }
-  const d = document.createElement('canvas')
-  d.width = W / 6
-  d.height = H / 6
-  const dc = d.getContext('2d')
-  if (dc) {
-    dc.imageSmoothingQuality = 'high'
-    dc.drawImage(b, 0, 0, d.width, d.height)
-  }
-  return d
-}
-
 function caminhoDoVidro(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   c.beginPath()
   c.moveTo(x + r, y)
@@ -804,14 +766,12 @@ function caminhoDoVidro(c: CanvasRenderingContext2D, x: number, y: number, w: nu
 }
 
 /**
- * Painel de vidro fosco: por dentro vai a propria foto desfocada (a foto aparece por baixo), com um tom escuro
- * leve para o texto branco ler bem e a borda fininha.
+ * Painel de vidro sobre o fundo escuro: um tom claro leve e a borda fininha.
  */
-function vidro(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, fundo?: HTMLCanvasElement) {
+function vidro(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   c.save()
   caminhoDoVidro(c, x, y, w, h, r)
   c.clip()
-  if (fundo) c.drawImage(fundo, 0, 0, W, H)
   c.fillStyle = 'rgba(13,10,18,.42)'
   c.fillRect(x, y, w, h)
   c.fillStyle = 'rgba(255,255,255,.07)'
