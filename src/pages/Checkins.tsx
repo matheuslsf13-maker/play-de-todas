@@ -1089,45 +1089,85 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
     { receitasPlay: 0, mensalidades: 0, receitasExtras: 0, receitaTotal: 0, aluguel: 0, brindes: 0, confraternizacao: 0, outras: 0, despesaTotal: 0, saldoDoMes: 0 },
   )
 
+  const rotuloDa = (c: string) => CATEGORIAS_DE_CAIXA.find((x) => x.valor === c)?.rotulo ?? c
+  const doEventosPorId = useMemo(() => new Map(saidasDosEventos(data).map((x) => [x.caixa_id, x])), [data])
+  const excel = async () => {
+    const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
+    const arquivo = new File([gerarXlsx(planilhas)], `controle-${LIGA.prefixo}-${tudo ? 'tudo' : mes}.xlsx`, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const r = await baixarOuCompartilhar(arquivo, `Controle Play de Todas — ${tudo ? 'tudo' : monthLabel(mes)}`)
+    onToast(r === 'baixou' ? 'Planilha salva 📊' : 'Planilha enviada 📊')
+  }
+  const linhaDoExcel = (
+    <button className="ini-linha ini-chev" onClick={excel}>
+      <span className="ini-ic verde" aria-hidden="true">📊</span>
+      <span className="g"><b>Excel completo</b><span className="sub">{tudo ? 'todos os meses' : nomeDoMes(mes)}, com plays, mensalidades e caixa</span></span>
+    </button>
+  )
+  const passa = doEventos && valorLido ? Math.max(0, valorLido - cobre) : 0
+
   return (
     <>
-      <div className="card">
-        <div className="row spread" style={{ marginBottom: 10 }}>
-          <div className="section-title" style={{ margin: 0 }}>📊 Resumo</div>
-          <div className="segmented" style={{ width: 'auto' }}>
-            <button className={!tudo ? 'on' : ''} onClick={() => setTudo(false)}>{nomeDoMes(mes)}</button>
-            <button className={tudo ? 'on' : ''} onClick={() => setTudo(true)}>Tudo</button>
-          </div>
+      <div className="ini-sec" style={{ marginTop: 6 }}>
+        <h2>💰 Caixa</h2>
+        <div className="segmented" style={{ width: 'auto' }}>
+          <button className={!tudo ? 'on' : ''} onClick={() => setTudo(false)}>{nomeDoMes(mes)}</button>
+          <button className={tudo ? 'on' : ''} onClick={() => setTudo(true)}>Tudo</button>
         </div>
-        {!tudo ? (
-          <table className="table">
-            <tbody>
-              <tr><td>Receita dos plays</td><td><Reais n={linhaDoMes.receitasPlay} /></td></tr>
-              {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td><Reais n={linhaDoMes.mensalidades} /></td></tr>}
-              <tr><td>Receitas extras</td><td><Reais n={linhaDoMes.receitasExtras} /></td></tr>
-              <tr><td><strong>Receita total</strong></td><td><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
-              <tr><td>Aluguel</td><td><Reais n={linhaDoMes.aluguel} /></td></tr>
-              <tr><td>Brindes</td><td><Reais n={linhaDoMes.brindes} /></td></tr>
-              <tr><td>Confraternização</td><td><Reais n={linhaDoMes.confraternizacao} /></td></tr>
-              <tr><td>Outras despesas</td><td><Reais n={linhaDoMes.outras} /></td></tr>
-              <tr><td><strong>Despesa total</strong></td><td><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
-              <tr><td><strong>Saldo do mês</strong></td><td><strong><Reais n={linhaDoMes.saldoDoMes} sinal /></strong></td></tr>
-              <tr><td><strong>Saldo acumulado</strong></td><td><strong><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong></td></tr>
-              {(linhaDoMes.eventosAcumulado !== 0 || temEventos) && (
-                <tr>
-                  <td>
-                    🎉 Caixinha de eventos <span className="tiny muted">(reservado dentro do saldo)</span>
-                    <button className="btn ghost sm" style={{ display: 'block', marginTop: 6 }} onClick={() => setVerEventos(true)}>📜 Entradas e gastos</button>
-                  </td>
-                  <td><Reais n={linhaDoMes.eventosAcumulado} /></td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        ) : resumo.length === 0 ? (
-          <Empty icon="💰">Nenhum movimento ainda.</Empty>
-        ) : (
-          <div className="tabela-rolavel">
+      </div>
+      {!tudo ? (
+        <div className="ini-grupo">
+          <div className="caixa-saldo-mes">
+            <span>Saldo de {nomeDoMes(mes)}</span>
+            <strong className={linhaDoMes.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}>
+              <Reais n={linhaDoMes.saldoDoMes} sinal />
+            </strong>
+          </div>
+          <div className="ini-met" style={{ marginTop: 0, borderTop: '.5px solid var(--sep)' }}>
+            <div><strong className="caixa-num valor-pos"><Reais n={linhaDoMes.receitaTotal} /></strong><span>entrou</span></div>
+            <div><strong className="caixa-num valor-neg"><Reais n={linhaDoMes.despesaTotal} /></strong><span>saiu</span></div>
+            <div><strong className="caixa-num"><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong><span>no caixa</span></div>
+          </div>
+          {(linhaDoMes.eventosAcumulado !== 0 || temEventos) && (
+            <button className="ini-linha ini-chev" onClick={() => setVerEventos(true)}>
+              <span className="ini-ic rosa" aria-hidden="true">🎉</span>
+              <span className="g"><b>Caixinha de eventos</b><span className="sub">reservada dentro do caixa · entradas e gastos</span></span>
+              <span className="ini-pts" style={{ fontSize: 17 }}><Reais n={linhaDoMes.eventosAcumulado} /></span>
+            </button>
+          )}
+          <details className="ini-detalhe">
+            <summary className="ini-linha">
+              <span className="ini-ic roxo" aria-hidden="true">🧾</span>
+              <span className="g"><b>De onde veio e para onde foi</b><span className="sub">receitas e despesas por tipo</span></span>
+            </summary>
+            <div className="ini-corpo">
+              <table className="table">
+                <tbody>
+                  <tr><td>Receita dos plays</td><td><Reais n={linhaDoMes.receitasPlay} /></td></tr>
+                  {LIGA.id === 'feminino' && <tr><td>Mensalidades</td><td><Reais n={linhaDoMes.mensalidades} /></td></tr>}
+                  <tr><td>Receitas extras</td><td><Reais n={linhaDoMes.receitasExtras} /></td></tr>
+                  <tr><td><strong>Receita total</strong></td><td><strong><Reais n={linhaDoMes.receitaTotal} /></strong></td></tr>
+                  <tr><td>Aluguel</td><td><Reais n={linhaDoMes.aluguel} /></td></tr>
+                  <tr><td>Brindes e presentes</td><td><Reais n={linhaDoMes.brindes} /></td></tr>
+                  <tr><td>Confraternização</td><td><Reais n={linhaDoMes.confraternizacao} /></td></tr>
+                  <tr><td>Outras despesas</td><td><Reais n={linhaDoMes.outras} /></td></tr>
+                  <tr><td><strong>Despesa total</strong></td><td><strong><Reais n={linhaDoMes.despesaTotal} /></strong></td></tr>
+                </tbody>
+              </table>
+              <p className="tiny muted" style={{ margin: '8px 0 0' }}>
+                A receita dos plays e das mensalidades vem dos lançamentos; aqui embaixo entram só as receitas extras e as saídas.
+                Gasto pago pela caixinha conta inteiro na despesa: a caixinha é uma reserva dentro do caixa.
+              </p>
+            </div>
+          </details>
+          {linhaDoExcel}
+        </div>
+      ) : resumo.length === 0 ? (
+        <div className="card"><Empty icon="💰">Nenhum movimento ainda.</Empty></div>
+      ) : (
+        <div className="ini-grupo">
+          <div className="tabela-rolavel" style={{ padding: '4px 8px' }}>
             <table className="table">
               <thead>
                 <tr>
@@ -1157,131 +1197,147 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
               </tfoot>
             </table>
           </div>
-        )}
-        <p className="tiny muted" style={{ margin: '8px 0 0' }}>
-          A receita dos plays é a soma do que foi pago nos lançamentos dos dias. Aqui entram só as receitas extras e as saídas.
-        </p>
-        <button
-          className="btn teal block"
-          style={{ marginTop: 10 }}
-          onClick={async () => {
-            const planilhas = planilhasCompletas(data, (id) => nomeDoCadastro(data, id, nameOf), tudo ? null : mes)
-            const arquivo = new File([gerarXlsx(planilhas)], `controle-${LIGA.prefixo}-${tudo ? 'tudo' : mes}.xlsx`, {
-              type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            })
-            const r = await baixarOuCompartilhar(arquivo, `Controle Play de Todas — ${tudo ? 'tudo' : monthLabel(mes)}`)
-            onToast(r === 'baixou' ? 'Planilha salva 📊' : 'Planilha enviada 📊')
-          }}
-        >
-          📊 Excel completo ({tudo ? 'tudo' : nomeDoMes(mes)})
-        </button>
-      </div>
+          {linhaDoExcel}
+        </div>
+      )}
 
-      <div className="card">
-        <div className="section-title">💰 Caixa de {nomeDoMes(mes)}</div>
-        {podeEditar && (
-          <div className="stack" style={{ marginBottom: 12 }} ref={formulario}>
-            <div className="chips-scroll">
-              {CATEGORIAS_DE_CAIXA.map((c) => (
-                <button key={c.valor} className={`chip ${categoria === c.valor ? 'on' : ''}`} onClick={() => setCategoria(c.valor)}>
-                  {c.tipo === 'entrada' ? '➕ ' : '➖ '}{c.rotulo}
-                </button>
-              ))}
-            </div>
-            <div className="grid2">
-              <label className="field">
-                <span>Data</span>
-                <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </label>
-              <label className="field">
-                <span>{ehAluguel ? 'Valor que a V3 cobrou' : 'Valor (R$)'}</span>
-                <input className="input valor" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
-              </label>
-            </div>
-            {ehAluguel && (
-              <>
-                <label className="toggle-card row">
-                  <input type="checkbox" checked={planoMensal} onChange={(e) => setPlanoMensal(e.target.checked)} />
-                  <span>
-                    <strong>Pago no plano mensal (5% de desconto)</strong>
-                    <span className="tiny muted" style={{ display: 'block' }}>A economia vai para o 🎉 caixa de eventos.</span>
-                  </span>
+      {podeEditar && (
+        <>
+          <div className="ini-sec"><h2>Novo lançamento</h2></div>
+          <div className="card" ref={formulario}>
+            <div className="stack">
+              <div className="segmented">
+                <button className={tipo === 'saida' ? 'on' : ''} onClick={() => tipo !== 'saida' && setCategoria('brinde')}>➖ Saída</button>
+                <button className={tipo === 'entrada' ? 'on' : ''} onClick={() => setCategoria('extra')}>➕ Receita extra</button>
+              </div>
+              {tipo === 'saida' && (
+                <div className="chips-scroll">
+                  {CATEGORIAS_DE_CAIXA.filter((c) => c.tipo === 'saida').map((c) => (
+                    <button key={c.valor} className={`chip ${categoria === c.valor ? 'on' : ''}`} onClick={() => setCategoria(c.valor)}>
+                      {ICONE_DO_CAIXA[c.valor]} {c.rotulo}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="grid2">
+                <label className="field">
+                  <span>Data</span>
+                  <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </label>
-                {aluguel && (
-                  <div className="conta-aluguel tiny">
-                    {planoMensal && (
-                      <div>Sem o plano seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para o 🎉 caixa de eventos</strong></div>
-                    )}
-                    <div>
-                      Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)} × {formatarReais(25)} ={' '}
-                      {formatarReais(aluguel.credito)}
+                <label className="field">
+                  <span>{ehAluguel ? 'Valor que a V3 cobrou' : 'Valor (R$)'}</span>
+                  <input className="input valor" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} />
+                </label>
+              </div>
+              {ehAluguel && (
+                <>
+                  <label className="toggle-card row">
+                    <input type="checkbox" checked={planoMensal} onChange={(e) => setPlanoMensal(e.target.checked)} />
+                    <span>
+                      <strong>Pago no plano mensal (5% de desconto)</strong>
+                      <span className="tiny muted" style={{ display: 'block' }}>A economia vai para a 🎉 caixinha de eventos.</span>
+                    </span>
+                  </label>
+                  {aluguel && (
+                    <div className="conta-aluguel tiny">
+                      {planoMensal && (
+                        <div>Sem o plano seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para a 🎉 caixinha de eventos</strong></div>
+                      )}
+                      <div>
+                        Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)} × {formatarReais(25)} ={' '}
+                        {formatarReais(aluguel.credito)}
+                      </div>
+                      <div className="pagar">Pagar no Pix: <strong>{formatarReais(aluguel.pagarNoPix)}</strong></div>
+                      {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
                     </div>
-                    <div className="pagar">Pagar no Pix: <strong>{formatarReais(aluguel.pagarNoPix)}</strong></div>
-                    {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
-                  </div>
-                )}
-                {!aluguel && <div className="conta-aluguel vazio tiny">Digite o valor que a V3 cobrou para ver a conta.</div>}
-                {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
-              </>
-            )}
-            {podeEventos && (
-              <label className="toggle-card row">
-                <input type="checkbox" checked={doEventos} onChange={(e) => setDoEventos(e.target.checked)} />
-                <span>
-                  <strong>🎉 Usar o valor da caixinha de eventos?</strong>
-                  <span className="tiny muted" style={{ display: 'block' }}>
-                    {`Tem ${formatarReais(Math.max(0, noEventos))} em ${dateLabel(date)}.`}
-                    {doEventos && valorLido
-                      ? valorLido > cobre
-                        ? ` Saem ${formatarReais(cobre)} da caixinha e ${formatarReais(valorLido - cobre)} do caixa geral, como ${CATEGORIAS_DE_CAIXA.find((c) => c.valor === categoria)?.rotulo}.`
-                        : ` Sai tudo da caixinha; sobram ${formatarReais(noEventos - cobre)}.`
-                      : ''}
+                  )}
+                  {!aluguel && <div className="conta-aluguel vazio tiny">Digite o valor que a V3 cobrou para ver a conta.</div>}
+                  {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
+                </>
+              )}
+              {podeEventos && (
+                <div className={`caixinha-uso${doEventos ? ' on' : ''}`}>
+                  <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={doEventos} onChange={(e) => setDoEventos(e.target.checked)} />
+                    <span className="grow">
+                      <strong>🎉 Usar o valor da caixinha de eventos?</strong>
+                      <span className="tiny muted" style={{ display: 'block' }}>
+                        Tem {formatarReais(Math.max(0, noEventos))} na caixinha em {dateLabel(date)}.
+                      </span>
+                    </span>
+                  </label>
+                  {doEventos && valorLido ? (
+                    <>
+                      <div className="caixinha-barra" role="img" aria-label={`${formatarReais(cobre)} da caixinha e ${formatarReais(passa)} do caixa geral`}>
+                        {cobre > 0 && <span className="da-caixinha" style={{ flexGrow: cobre }} />}
+                        {passa > 0 && <span className="do-caixa" style={{ flexGrow: passa }} />}
+                      </div>
+                      <div className="caixinha-legenda">
+                        <span><i className="da-caixinha" /> {formatarReais(cobre)} da caixinha</span>
+                        {passa > 0 && <span><i className="do-caixa" /> {formatarReais(passa)} do caixa geral</span>}
+                      </div>
+                      <div className="tiny muted">
+                        {passa > 0
+                          ? noEventos > 0
+                            ? `A caixinha só tem ${formatarReais(noEventos)}: ela paga isso e fica zerada. Os ${formatarReais(passa)} que passam saem do caixa geral, como ${rotuloDa(categoria)}. Pode lançar o valor inteiro: o app divide sozinho e guarda a divisão no histórico.`
+                            : `A caixinha está vazia nessa data: sai tudo do caixa geral, como ${rotuloDa(categoria)}.`
+                          : `Sai tudo da caixinha; sobram ${formatarReais(noEventos - cobre)} nela.`}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              )}
+              <label className="field">
+                <span>Descrição</span>
+                <input
+                  className="input"
+                  placeholder={tipo === 'entrada' ? 'Valor avulso do play de sexta' : ehAluguel ? 'Aluguel de dezembro' : 'Brindes Shopee'}
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && lancar()}
+                />
+              </label>
+              <button className={`btn block ${tipo === 'entrada' ? 'teal' : 'pink'}`} disabled={valorLido === null || valorLido <= 0} onClick={lancar}>
+                {tipo === 'entrada' ? '➕ Lançar receita' : `➖ Lançar ${valorLido ? formatarReais(ehAluguel && aluguel ? aluguel.pagarNoPix : valorLido) : 'saída'}`}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="ini-sec">
+        <h2>Lançamentos</h2>
+        <span className="muted small">{doMes.length > 0 ? plural(doMes.length, 'lançamento', 'lançamentos') : ''}</span>
+      </div>
+      {doMes.length === 0 ? (
+        <div className="card"><div className="tiny muted" style={{ textAlign: 'center' }}>Nenhuma receita extra nem saída em {nomeDoMes(mes)}.</div></div>
+      ) : (
+        <div className="ini-grupo">
+          {doMes.map((l) => {
+            const ev = l.do_eventos ? doEventosPorId.get(l.id) : undefined
+            const conteudo = (
+              <>
+                <span className={`ini-ic ${l.tipo === 'entrada' ? 'verde' : l.do_eventos ? 'rosa' : ''}`} aria-hidden="true">{ICONE_DO_CAIXA[l.categoria] ?? '💸'}</span>
+                <span className="g">
+                  <b>{l.descricao || rotuloDa(l.categoria)}</b>
+                  <span className="sub">
+                    {dateLabel(l.date).slice(0, 5)} · {rotuloDa(l.categoria)}
+                    {ev ? ` · 🎉 ${formatarReais(ev.coberto)} da caixinha${ev.resto > 0 ? ` + ${formatarReais(ev.resto)} do caixa` : ''}` : ''}
                   </span>
                 </span>
-              </label>
-            )}
-            <label className="field">
-              <span>Descrição</span>
-              <input
-                className="input"
-                placeholder={tipo === 'entrada' ? 'Valor avulso do play de sexta' : ehAluguel ? 'Aluguel de dezembro' : 'Brindes Shopee'}
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && lancar()}
-              />
-            </label>
-            <button className={`btn block ${tipo === 'entrada' ? 'teal' : 'pink'}`} disabled={valorLido === null || valorLido <= 0} onClick={lancar}>
-              {tipo === 'entrada' ? '➕ Lançar receita' : '➖ Lançar saída'}
-            </button>
-          </div>
-        )}
-        {doMes.length === 0 ? (
-          <div className="tiny muted" style={{ textAlign: 'center' }}>Nenhuma receita extra nem saída em {nomeDoMes(mes)}.</div>
-        ) : (
-          <div className="stack">
-            {doMes.map((l) => (
-              <div
-                key={l.id}
-                className="fila-linha"
-                style={podeEditar ? { cursor: 'pointer', minHeight: 44 } : undefined}
-                {...(podeEditar ? { role: 'button', tabIndex: 0, onClick: () => setAberto(l), onKeyDown: (e: React.KeyboardEvent) => e.key === 'Enter' && setAberto(l) } : {})}
-              >
-                <span className="fila-num">{dateLabel(l.date).slice(0, 5)}</span>
-                <div className="grow">
-                  <span className="fila-time"><b>{l.descricao || CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo}</b></span>
-                  <span className="tiny muted">
-                    {CATEGORIAS_DE_CAIXA.find((c) => c.valor === l.categoria)?.rotulo ?? l.categoria}
-                    {l.do_eventos ? ' · 🎉 caixa de eventos' : ''}
-                  </span>
-                </div>
-                <span className={l.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'}>
+                <span className={l.tipo === 'entrada' ? 'valor-pos' : 'valor-neg'} style={{ flex: 'none' }}>
                   {l.tipo === 'entrada' ? '+' : '−'} {formatarReais(l.valor)}
                 </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              </>
+            )
+            return podeEditar ? (
+              <button key={l.id} className="ini-linha" onClick={() => setAberto(l)}>{conteudo}</button>
+            ) : (
+              <div key={l.id} className="ini-linha">{conteudo}</div>
+            )
+          })}
+        </div>
+      )}
       {verEventos && <HistoricoDosEventos ate={mes} podeEditar={podeEditar} onToast={onToast} onClose={() => setVerEventos(false)} />}
       {aberto && (
         <Modal title="Lançamento do caixa" onClose={() => setAberto(null)}>
@@ -1342,6 +1398,9 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
     </>
   )
 }
+
+/** Um icone por tipo de lancamento do caixa (lista e chips). */
+const ICONE_DO_CAIXA: Record<string, string> = { extra: '💵', aluguel: '🏟️', brinde: '🎁', confraternizacao: '🥂', outra: '🧾' }
 
 /* ================================================================ padroes */
 

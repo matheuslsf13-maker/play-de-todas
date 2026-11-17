@@ -738,6 +738,11 @@ masculino e o misto descrevem esse código parado.
   inteiro continua na despesa (a reserva fica dentro do saldo); o caixa de eventos do mês = entradas − o que cobriu.
   "📜 Entradas e gastos" lista os dois; o lançamento mostra a divisão e liga/desliga; o Excel tem a coluna
   "Pago pelo caixa de eventos". Sem o 37 a marca fica só neste aparelho (`upsertTolerante`).
+- **Aba 💰 Caixa no estilo da tela inicial** (16/11): saldo do mês grande, "entrou / saiu / no caixa", a linha da
+  caixinha, "De onde veio e para onde foi" recolhido e o Excel numa lista agrupada (`ini-grupo`). Novo lançamento com
+  "➖ Saída / ➕ Receita extra" e chips com ícone (`ICONE_DO_CAIXA`). Com a caixinha marcada, uma barra mostra a divisão
+  (R$ X da caixinha + R$ Y do caixa geral) e o texto explica que pode lançar o valor inteiro; a lista mostra a divisão
+  de cada gasto.
 
 ## 🗓️ Cartão do momento na tela inicial (D42)
 
