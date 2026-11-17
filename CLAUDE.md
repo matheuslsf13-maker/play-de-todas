@@ -854,8 +854,8 @@ masculino e o misto descrevem esse código parado.
   uma luz correndo; o resto fica apagado. Parado com `prefers-reduced-motion`. No **perfil** (Desempenho), embaixo do
   caminho, "Na carreira": quantas vezes chegou em cada status (`conquistas.vezes`), o total e o máximo. Na **tela
   inicial** só **quem está no status agora** (`onFire`, 2+ pódios seguidos; dono, 17/11, no lugar do "maior do mês"),
-  cada uma num cartão grande (`.status-destaque`: foto de 76 px e o caminho); o selo "🏆 Maior status agora" só em quem
-  está mais alto (empate = todas).
+  cada uma num cartão grande (`.status-destaque`: foto de 76 px e o caminho); o selo "🏆 Maior status do mês" em quem
+  está agora no status mais alto alcançado no mês (`topoDoMes`; empate = todas; se quem chegou mais alto já perdeu, ninguém leva).
 - **Topo fino que não muda de altura** (dono, 17/11; `App.tsx`, fim do `inicio.css`): o cabeçalho é só logo + botões,
   altura fixa medida em `--topo-alto` (ResizeObserver), e o "Play de Todas" grande (`.topo-hero`) fica **abaixo** dele e
   rola com a página; ao rolar, o topo vira vidro e o título pequeno (`.topo-titulo`) aparece. Antes o topo encolhia

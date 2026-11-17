@@ -97,6 +97,11 @@ export default function Ranking({
 
   /** Quem esta com status agora (2+ podios seguidos), do maior para o menor. */
   const noStatus = useMemo(() => onFire(streaks), [streaks])
+  /** O status mais alto que alguem alcancou nos plays do mes de hoje: quem esta nele agora ganha o selo. */
+  const topoDoMes = useMemo(() => {
+    const mes = monthOf(todayISO())
+    return Math.max(0, ...streaks.steps.filter((x) => monthOf(x.date) === mes).map((x) => x.streak))
+  }, [streaks])
   const decisoes = useMemo(
     () => (historico ? [] : streaks.decisions.filter((d) => d.month === activeMonth)),
     [streaks, activeMonth, historico],
@@ -325,13 +330,13 @@ export default function Ranking({
       <div className="ini-sec" id="como-funciona-status"><h2>Status</h2></div>
       <div className="ini-nota">pódios seguidos sem faltar · o último tem um prêmio secreto</div>
       {/* so quem esta no status AGORA (dono, 17/11: mudou de ideia sobre o "maior do mes"), cada uma no cartao grande
-          com a foto e o caminho; o selo de maior status vai para quem esta mais alto (empate = todas) */}
+          com a foto e o caminho; o selo vai para quem esta no status mais alto alcancado no mes (empate = todas) */}
       {noStatus.map((f) => {
         const lvl = streakLevel(f.streak)
         const falta = MAX_STREAK - f.streak
         return (
           <div className={`status-destaque${f.streak >= MAX_STREAK - 1 ? ' queen' : ''}`} key={f.player_id}>
-            {f.streak === noStatus[0].streak && <span className="status-selo">🏆 Maior status agora</span>}
+            {f.streak >= 2 && f.streak === topoDoMes && <span className="status-selo">🏆 Maior status do mês</span>}
             <div className="status-topo">
               <Avatar player={playerById(f.player_id)} size={76} />
               <div className="g">
