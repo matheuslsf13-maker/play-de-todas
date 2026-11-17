@@ -116,49 +116,30 @@ export default function App() {
   const primeiraRenderizacao = useRef(true)
 
   // O VOLTAR DO CELULAR (08/11): o voltar devolve a aba anterior (ou a lista) em vez de sair do app. As abas visitadas
-  // ficam numa pilha AQUI e o historico do navegador ganha UM passo so (dono, 17/11): um pushState a cada toque numa
-  // aba fazia o Safari do iPhone abrir a barra dele e a tela pular. Janelas e o play aberto: src/lib/voltar.ts.
+  // ficam numa pilha AQUI; o historico do navegador tem um passo so, gravado ao abrir o site (src/lib/voltar.ts), porque
+  // gravar passo durante o uso fazia o Safari do iPhone abrir a barra dele e a tela pular (dono, 17/11).
   const veioDoVoltar = useRef(false)
   const primeiroPasso = useRef(true)
   const abasAnteriores = useRef<{ tab: Tab; lista: string | null }[]>([])
   const atual = useRef({ tab, lista })
-  const temPasso = useRef(false)
   useEffect(() => {
-    const url = window.location.pathname + (lista ? `?lista=${encodeURIComponent(lista)}` : '')
-    const mudaUrl = url !== window.location.pathname + window.location.search
-    if (primeiroPasso.current) {
-      primeiroPasso.current = false
-      atual.current = { tab, lista }
-      return
-    }
-    if (veioDoVoltar.current) veioDoVoltar.current = false
-    else {
-      abasAnteriores.current.push(atual.current)
-      if (!temPasso.current) {
-        temPasso.current = true
-        window.history.pushState({ ...(window.history.state ?? {}), aba: true }, '', url)
-        atual.current = { tab, lista }
-        return
-      }
-    }
+    if (primeiroPasso.current) primeiroPasso.current = false
+    else if (veioDoVoltar.current) veioDoVoltar.current = false
+    else abasAnteriores.current.push(atual.current)
     atual.current = { tab, lista }
     // so o ?lista= muda o endereco; sem mudanca nao mexe no historico
-    if (mudaUrl) window.history.replaceState(window.history.state, '', url)
+    const url = window.location.pathname + (lista ? `?lista=${encodeURIComponent(lista)}` : '')
+    if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url)
   }, [tab, lista])
   useEffect(
     () =>
       ouvirVoltarDeAba(() => {
-        // o voltar consumiu o nosso passo: volta uma aba e, se ainda houver mais para tras, recria o passo
-        temPasso.current = false
         const antes = abasAnteriores.current.pop()
-        if (!antes) return
+        if (!antes) return false
         veioDoVoltar.current = true
-        if (abasAnteriores.current.length > 0) {
-          temPasso.current = true
-          window.history.pushState({ ...(window.history.state ?? {}), aba: true }, '')
-        }
         setTab(antes.tab)
         setLista(antes.lista)
+        return true
       }),
     [],
   )
