@@ -1,6 +1,7 @@
 import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
 import { IconeDaAba } from './components/IconesDeAba'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { ConteudoQueDesliza } from './components/AbasComTraco'
 import { LIGA } from './liga'
 import { Logo, Modal, Toast, useToast } from './components/ui'
 import { useStore } from './lib/store'
@@ -257,6 +258,8 @@ export default function App() {
             />
             </ProvedorDePerfil>
           )}
+          {/* trocar de aba no menu de baixo traz a tela do lado da aba tocada (dono, 17/11) */}
+          <ConteudoQueDesliza indice={abas.findIndex((t) => t.id === abaVisivel)}>
           {!lista && abaVisivel === 'ranking' && (
             <ProvedorDePerfil value={abrirPerfil}>
               <Ranking
@@ -284,6 +287,7 @@ export default function App() {
           {!lista && abaVisivel === 'checkins' && (
             <Checkins onToast={show} />
           )}
+          </ConteudoQueDesliza>
           </Suspense>
         </main>
       )}

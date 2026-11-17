@@ -840,7 +840,8 @@ masculino e o misto descrevem esse código parado.
   traço chega. Parado com `prefers-reduced-motion`.
   A mesma barra no **perfil da dupla** (`DetalheDaDupla`, janela de altura fixa `Modal alta`: trocar de aba não encolhe).
   **O conteúdo da aba entra deslizando** do lado para onde a aba andou (`ConteudoQueDesliza`, no mesmo tempo do traço;
-  a moldura `.desliza-moldura` corta o que passa para o lado). No Ranking ("Força e entrosamento") ficou a barra de
+  a moldura `.desliza-moldura` corta o que passa para o lado). Vale também para a troca de tela no menu de baixo
+  (`App.tsx`). No Ranking ("Força e entrosamento") ficou a barra de
   antes (👤 Individual / 🤝 Duplas) com a **pílula gelatina** (`SegmentadoGelatina`: a borda da frente sai primeiro e
   estica, a de trás vem depois e balança). A **barra inferior** tem uma pílula rosa que
   desliza até a aba tocada (`.tabbar-pilula`, mesmo tempo `--st-anda`; some com a lista de presença aberta).
