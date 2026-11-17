@@ -6280,17 +6280,13 @@ function ArrumarGrupos({
 /** "Todas repetem uma vez": o grupo joga o rodizio duas vezes. So aparece onde o rodizio fecha sem ninguem repetir. */
 export function TodasRepetem({ jogadoras, ligado, onChange }: { jogadoras: number; ligado: boolean; onChange: (v: boolean) => void }) {
   if (!podeRepetirRodizio(jogadoras)) return null
-  const vezes = ligado ? 2 : 1
+  // compacto (dono, 17/11: o cartao ficou grande demais): uma linha so, com quantos jogos vira
   return (
-    <label className="toggle-card row" style={{ gap: 10, cursor: 'pointer', margin: '0 0 8px' }}>
-      <input type="checkbox" checked={ligado} onChange={(e) => onChange(e.target.checked)} />
-      <span className="grow">
+    <label className="row tiny" style={{ gap: 6, cursor: 'pointer', margin: '0 0 6px', alignItems: 'center' }}>
+      <input type="checkbox" checked={ligado} onChange={(e) => onChange(e.target.checked)} style={{ margin: 0 }} />
+      <span>
         <strong>🔁 Todas repetem uma vez</strong>
-        <span className="hint" style={{ marginTop: 2 }}>
-          {ligado
-            ? `cada dupla joga duas vezes, com os adversários pelo equilíbrio de força: ${jogosDoRodizio(jogadoras, false, vezes)} jogos para cada uma, ${partidasDoRodizio(jogadoras, false, vezes)} partidas`
-            : `para o play do grupo durar mais: hoje são ${jogosDoRodizio(jogadoras)} jogos para cada uma; marcado, ${jogosDoRodizio(jogadoras, false, 2)}`}
-        </span>
+        <span className="muted">{` · ${jogosDoRodizio(jogadoras)} → ${jogosDoRodizio(jogadoras, false, 2)} jogos cada`}</span>
       </span>
     </label>
   )
