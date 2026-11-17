@@ -2977,10 +2977,22 @@ function PlayDetail({
     }
     return [...porPar.values()].filter((x) => x.partidas.length > 1)
   }, [matches])
-  const repetem = useMemo(
-    () => new Map(quemRepete.map((x) => [pairKey(x.ids[0], x.ids[1]), x.partidas.every((m) => duplasRepetidas.get(m.id)?.planejada ?? true)])),
-    [quemRepete, duplasRepetidas],
-  )
+  /** Cada dupla que repete: se estava no plano e a ordem das vezes dela (jogadas, em quadra e a fila), para o "repete 1/2". */
+  const repetem = useMemo(() => {
+    const naNoite = new Map(
+      [...emJogo, ...[...proximas.values()].filter((m) => !emJogo.some((x) => x.id === m.id)), ...filaPrevista].map((m, i) => [m.id, i]),
+    )
+    const quando = (m: Match) => (isPlayed(m) ? Date.parse(m.ended_at ?? '') || 0 : Number.MAX_SAFE_INTEGER / 2 + (naNoite.get(m.id) ?? 1e6))
+    return new Map(
+      quemRepete.map((x) => [
+        pairKey(x.ids[0], x.ids[1]),
+        {
+          planejada: x.partidas.every((m) => duplasRepetidas.get(m.id)?.planejada ?? true),
+          ordem: [...x.partidas].sort((a, b) => quando(a) - quando(b)).map((m) => m.id),
+        },
+      ]),
+    )
+  }, [quemRepete, duplasRepetidas, emJogo, proximas, filaPrevista])
 
   function setScore(m: Match, a: number | null, b: number | null, tie?: number | null) {
     // lancar o placar tambem encerra a partida: a quadra fica livre de novo
@@ -5148,7 +5160,7 @@ function ListaDePartidas({
   /** Campeonato: `grupoDe` traz a categoria (1 = A) e a etiqueta mostra a letra. */
   nomesDosGrupos?: string[]
   /** As duplas que jogam mais de uma vez hoje (pairKey -> se estava no plano): o 🔁 vai em TODAS as vezes delas. */
-  repetem?: Map<string, boolean>
+  repetem?: Map<string, { planejada: boolean; ordem: string[] }>
   emQuadra: Set<string>
   /** Para separar as fases na lista: muda o rotulo, entra um divisor (grupos -> duplas fixas). */
   faseDe?: (m: Match) => string
@@ -5322,8 +5334,9 @@ function ListaDePartidas({
                 <span className="grow" style={{ minWidth: 0 }}>
                   {([m.team_a, m.team_b] as [string, string][]).map((t, lado) => {
                     const venceu = jogada && (lado === 0) === aWin
-                    const noPlano = (m.fase ?? 1) < 2 ? repetem?.get(pairKey(t[0], t[1])) : undefined
-                    const repete = noPlano !== undefined
+                    const rep = (m.fase ?? 1) < 2 ? repetem?.get(pairKey(t[0], t[1])) : undefined
+                    const repete = rep !== undefined
+                    const noPlano = rep?.planejada
                     return (
                       <span key={lado} className={`fila-time${venceu ? ' venceu' : ''}`}>
                         {t.map((id, k) => (
@@ -5340,23 +5353,16 @@ function ListaDePartidas({
                             className={`fila-tag repete${noPlano ? '' : ' fora'}`}
                             title={noPlano ? 'é o que deixa todas com o mesmo número de partidas' : 'não estava no plano: veio de uma troca na mão. Refazer a fila compensa.'}
                           >
-                            🔁 {noPlano ? 'repete' : 'repete · troca na mão'}
+                            repete {(rep?.ordem.indexOf(m.id) ?? 0) + 1}/{rep?.ordem.length}{noPlano ? '' : ' · troca na mão'}
                           </span>
                         )}
                       </span>
                     )
                   })}
                   {(() => {
-                    const naQuadra = !jogada ? jogadorasDaPartida(m).filter((id) => emQuadra.has(id)) : []
                     const esperando = ausentes ? jogadorasDaPartida(m).filter((id) => ausentes.has(id)) : []
                     const tags = [
                       m.disputa_3o && <span key="3o" className="fila-tag bronze">🥉 3º lugar</span>,
-                      naQuadra.length > 0 && (
-                        <span key="q" className="fila-tag vivo">
-                          <i className="ponto-vivo rosa" aria-hidden="true" />
-                          {naQuadra.length === 4 ? 'as quatro' : naQuadra.map(nameOf).join(' e ')} em partida agora
-                        </span>
-                      ),
                       esperando.length > 0 && <span key="e" className="fila-tag espera">⏳ espera {esperando.map(nameOf).join(' e ')} chegar</span>,
                       jogada && m.tie != null && desempateDe && (
                         <span key="t" className="fila-tag tie-tag" title="decidida no tie">🎯 {placarDoTie(desempateDe(m), m.tie)}</span>
@@ -5457,7 +5463,7 @@ function QuemRepete({
           </div>
         ))}
         <p className="tiny muted" style={{ margin: '10px 0 0' }}>
-          Na lista da fila, a dupla que repete aparece com 🔁. Procurar o nome na fila também diz com quem ela repete.
+          Na lista da fila, a dupla que repete aparece com "repete 1/2" e "repete 2/2". Procurar o nome na fila também diz com quem ela repete.
         </p>
       </div>
     </details>

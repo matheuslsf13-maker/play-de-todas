@@ -440,8 +440,9 @@ masculino e o misto descrevem esse código parado.
   some no fundo escuro antes dos painéis: o vidro com a foto desfocada saiu (mostrava as pernas borradas).
 - **A fila nova** (dono, 16/11; `ListaDePartidas`, `.fila-item`): posição e grupo à esquerda, nomes que não quebram
   (`fila-nome`), selos em pílula (`fila-tag`). **Quem está em quadra** aparece em rosa com a bolinha pulsando
-  (`ponto-vivo rosa`) e a pílula "em partida agora". **Dupla que repete** leva "🔁 repete" em **todas** as vezes dela
-  (prop `repetem`: pairKey → no plano; "troca na mão" em amarelo). No topo da aba Fila, recolhido, **"🔁 Quem repete
+  (`ponto-vivo rosa`), sem frase (o dono achou que o nome rosa pulsando já diz). **Dupla que repete** leva "repete 1/2",
+  "repete 2/2" em **todas** as vezes dela, na ordem da noite (prop `repetem`: pairKey → `{planejada, ordem}`; "troca na
+  mão" em amarelo). No topo da aba Fila, recolhido, **"🔁 Quem repete
   com quem"** (`QuemRepete`, `quemRepete` no pai): cada dupla, o grupo e onde está cada vez (já jogaram / em partida /
   na fila Nª, o mesmo número da lista); some quando ninguém repete. Procurar o nome na fila diz "repete com X".
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
