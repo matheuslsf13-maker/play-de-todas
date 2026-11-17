@@ -2986,3 +2986,28 @@ button.st-linha:active { background: var(--pink-suave); }
 .repete-nomes { font-size: 14.5px; font-weight: 700; }
 .repete-vez { display: inline-flex; align-items: center; gap: 5px; }
 .repete-vez small { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
+/* ABAS DO DESEMPENHO (dono, 17/11, "D2"): sem caixa em volta; a escolhida ganha a escrita no degrade do titulo
+   e um traco grosso embaixo que desliza ate a aba tocada. A cor da escrita aparece aos poucos: o degrade fica
+   sempre por tras do texto (background-clip) e a cor cinza some, revelando-o. */
+:root { --grad-titulo: linear-gradient(90deg, var(--purple), var(--pink), var(--orange)); }
+.st-seg { position: relative; background: none; border: 0; border-radius: 0; padding: 0 0 7px; }
+.st-seg button, .st-seg button.on, .st-seg button:not(.on):hover {
+  color: var(--muted); font-weight: 800; box-shadow: none;
+  background: var(--grad-titulo); -webkit-background-clip: text; background-clip: text;
+  transition: color 320ms ease-out, transform 140ms var(--ease-out);
+}
+.st-seg button.on { color: transparent; }
+.st-traco {
+  position: absolute; left: 0; bottom: 0; height: 4px; width: calc(100% / var(--n)); pointer-events: none;
+  transform: translateX(calc(var(--i) * 100%)); transition: transform 380ms cubic-bezier(.23, 1, .32, 1);
+}
+/* o traco e uma janela para um degrade do tamanho da barra: andando, a cor muda junto */
+.st-traco::before {
+  content: ''; position: absolute; inset: 0 12%; border-radius: 4px;
+  background: var(--grad-titulo); background-size: calc(var(--n) * 100%) 100%;
+  background-position: calc(var(--i) / (var(--n) - 1) * 100%) 0;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pink) 45%, transparent);
+  transition: background-position 380ms cubic-bezier(.23, 1, .32, 1);
+}
+@media (prefers-reduced-motion: reduce) { .st-traco, .st-traco::before, .st-seg button { transition: none; } }

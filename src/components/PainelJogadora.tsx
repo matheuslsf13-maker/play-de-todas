@@ -256,6 +256,11 @@ export default function PainelJogadora({
             {id === 'resumo' ? 'Resumo' : id === 'partidas' ? 'Partidas' : id === 'parcerias' ? 'Parcerias' : 'Comparar'}
           </button>
         ))}
+        <span
+          className="st-traco"
+          aria-hidden="true"
+          style={{ '--i': ['resumo', 'partidas', 'parcerias', 'comparar'].indexOf(aba), '--n': 4 } as React.CSSProperties}
+        />
       </div>
 
       {aba === 'resumo' && (

@@ -442,7 +442,7 @@ masculino e o misto descrevem esse código parado.
   (`fila-nome`), selos em pílula (`fila-tag`). **Quem está em quadra** aparece em rosa com a bolinha pulsando
   (`ponto-vivo rosa`), sem frase (o dono achou que o nome rosa pulsando já diz). **Dupla que repete** leva "repete 1/2",
   "repete 2/2" em **todas** as vezes dela, na ordem da noite (prop `repetem`: pairKey → `{planejada, ordem}`; "troca na
-  mão" em amarelo). No topo da aba Fila, recolhido, **"🔁 Quem repete
+  mão" em amarelo). Uma bolinha só por dupla: a da 2ª só aparece se a parceira não está em quadra. No topo da aba Fila, recolhido, **"🔁 Quem repete
   com quem"** (`QuemRepete`, `quemRepete` no pai): cada dupla, o grupo e onde está cada vez (já jogaram / em partida /
   na fila Nª, o mesmo número da lista); some quando ninguém repete. Procurar o nome na fila diz "repete com X".
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
@@ -830,6 +830,10 @@ masculino e o misto descrevem esse código parado.
 - **Ações de uma pessoa ficam numa folha** (dono, 12/11/2026): em Meninas e em Financeiro › Atletas a linha mostra só a
   informação e tocar nela abre a folha (`Modal` + `.folha-acoes`). Em Financeiro: Lançar um play, Mensalidade, Extrato,
   Acertar o saldo e, à parte, Forma de pagamento e Contas de check-in. Nada de link ou chip solto no cartão.
+- **Abas do Desempenho** (dono, 17/11, "D2"): as duas barras (`.st-seg`) sem caixa; a escolhida tem a escrita no
+  degradê do título (`--grad-titulo`) e um traço de 4 px que **desliza** até a aba tocada (`.st-traco`, `--i`/`--n`;
+  o traço é uma janela de um degradê do tamanho da barra, então a cor muda andando). A cor da escrita aparece aos
+  poucos: o degradê fica sempre atrás do texto e o cinza some. Parado com `prefers-reduced-motion`.
 - **Stats › Dupla não leva à ficha individual**: na lista e no stats da dupla (também aberto pela tela inicial) os
   nomes são texto (`ProvedorDePerfil value={null}`); tocar na dupla abre só o stats dela.
 

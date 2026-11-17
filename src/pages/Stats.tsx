@@ -123,6 +123,11 @@ export default function Stats({
               {ROTULO_DO_MODO[id]}
             </button>
           ))}
+          <span
+            className="st-traco"
+            aria-hidden="true"
+            style={{ '--i': (Object.keys(ROTULO_DO_MODO) as Modo[]).indexOf(modo), '--n': 3 } as React.CSSProperties}
+          />
         </div>
       </div>
 

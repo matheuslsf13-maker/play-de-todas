@@ -5342,7 +5342,8 @@ function ListaDePartidas({
                         {t.map((id, k) => (
                           <span key={id} className={`fila-nome${!jogada && emQuadra.has(id) ? ' em-partida' : ''}`}>
                             {k > 0 && '+ '}
-                            {!jogada && emQuadra.has(id) && <i className="ponto-vivo rosa" aria-hidden="true" />}
+                            {/* uma bolinha por dupla: a 2a so ganha a dela se a parceira nao esta em quadra (dono, 17/11) */}
+                            {!jogada && emQuadra.has(id) && (k === 0 || !emQuadra.has(t[0])) && <i className="ponto-vivo rosa" aria-hidden="true" />}
                             {nameOf(id)}{' '}
                           </span>
                         ))}
