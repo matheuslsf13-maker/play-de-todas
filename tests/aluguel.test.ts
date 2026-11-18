@@ -63,6 +63,9 @@ test('caixa de eventos: a economia dos alugueis no plano mensal, acumulada no re
   ]
   assert.equal(economiaDoAluguel(data.caixa[0]), 96)
   assert.equal(economiaDoAluguel(data.caixa[1]), 0)
+  // desconto escolhido (script 40): o avulso com desconto manda para a caixinha; o mensal zerado nao manda
+  assert.equal(economiaDoAluguel(aluguel('a', '2027-01-11', { plano_mensal: false, valor_cobrado: 900, desconto: 0.1 })), 100)
+  assert.equal(economiaDoAluguel(aluguel('m', '2027-01-11', { plano_mensal: true, valor_cobrado: 1824, desconto: 0 })), 0)
   const r = resumoDoCaixa(data)
   assert.deepEqual(r.map((x) => [x.eventos, x.eventosAcumulado, x.aluguel]), [[96, 96, 1574], [0, 96, 1574], [96, 192, 1574]])
 })

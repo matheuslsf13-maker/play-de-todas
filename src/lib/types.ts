@@ -514,6 +514,8 @@ export type LancamentoDeCaixa = {
   plano_mensal?: boolean | null
   valor_cobrado?: number | null
   checkins_abatidos?: number | null
+  /** Desconto do aluguel (script 40, fracao: 0.05 = 5%); a economia vai para a caixinha. Nulo = antigo (mensal 5%, avulso 0). */
+  desconto?: number | null
   /**
    * Saida paga com o 🎉 caixa de eventos (script 37, dono 16/11): o caixa cobre ate o que tem na data; o que
    * passar fica como despesa comum da categoria, no caixa geral (`saidasDosEventos` em checkins.ts).

@@ -866,10 +866,16 @@ export type LinhaDoResumo = {
 /** O desconto do aluguel da V3 no plano mensal (dono, 07/11). */
 export const DESCONTO_DO_PLANO = 0.05
 
-/** A economia de um aluguel pago no plano mensal: o que custaria sem o plano menos o cobrado. */
+/** O desconto de um aluguel: o escolhido no lancamento; sem ele (antigo), 5% no plano mensal e 0 no avulso. */
+export function descontoDoAluguel(l: LancamentoDeCaixa): number {
+  return l.desconto ?? (l.plano_mensal ? DESCONTO_DO_PLANO : 0)
+}
+
+/** A economia de um aluguel com desconto: o que custaria sem ele menos o cobrado (vai para a caixinha). */
 export function economiaDoAluguel(l: LancamentoDeCaixa): number {
-  if (l.categoria !== 'aluguel' || !l.plano_mensal || !l.valor_cobrado) return 0
-  return centavos(centavos(l.valor_cobrado / (1 - DESCONTO_DO_PLANO)) - l.valor_cobrado)
+  const d = descontoDoAluguel(l)
+  if (l.categoria !== 'aluguel' || !l.valor_cobrado || !(d > 0 && d < 1)) return 0
+  return centavos(centavos(l.valor_cobrado / (1 - d)) - l.valor_cobrado)
 }
 
 /** Uma entrada do 🎉 caixa de eventos, para o historico de onde veio cada real. */

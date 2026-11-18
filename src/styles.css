@@ -276,6 +276,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 11px 12px;
   outline: none;
 }
+.input::-webkit-date-and-time-value { text-align: left; }
 .input:focus, .select:focus { border-color: var(--pink); background: var(--card-2); }
 label.field { display: block; }
 /* vale para `label.field` e `div.field`: antes so o label pegava estilo, e os
@@ -467,6 +468,8 @@ label.field { display: block; }
 .scroll-x { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* sem isso a coluna nao encolhe abaixo do campo (a data do iPhone tem largura propria) e vaza do cartao */
+.grid2 > * { min-width: 0; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat-box {
   background: var(--card-2);
@@ -1160,6 +1163,10 @@ textarea.input { line-height: 1.45; }
 
 /* a data pedia a linha inteira para mostrar 10 caracteres */
 .input[type="date"] {
+  -webkit-appearance: none; /* no iPhone a data nativa ignora a largura e passa da borda */
+  appearance: none;
+  min-width: 0;
+  display: block;
   font-variant-numeric: tabular-nums;
   min-height: 44px; /* alvo de toque no celular */
 }
@@ -2119,6 +2126,10 @@ details[open] > .lista-resumo { margin-bottom: 10px; }
 .conta-aluguel .pagar { color: var(--text); font-size: 14px; }
 /* o quadro ja ocupa o lugar antes do valor: nada pula sob o dedo ao digitar */
 .conta-aluguel.vazio { min-height: 62px; align-content: center; }
+/* o desconto do aluguel: campo pequeno com o % ao lado e a explicacao (dono, 18/11) */
+.desconto-aluguel { display: flex; align-items: center; gap: 10px; }
+.desconto-campo { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.desconto-campo .input { width: 64px; text-align: center; }
 
 /* ---------- aba Mensalistas: linha inteira tocavel, retorno ao toque (celular) ---------- */
 .lista-mensalistas { display: grid; gap: 8px; }

@@ -747,6 +747,11 @@ masculino e o misto descrevem esse código parado.
   (`src/lib/aluguel.ts`, só cálculo, sem tela): 5% do plano mensal → caixa de eventos; R$ 25 por check-in na V3
   no mês anterior (`checkinsNaArena`: o **uso** de um check-in de crédito não conta de novo).
 - Juntar cadastros leva fichas e itens (`juntar_mensalidades` no 34, atômico).
+- **Aluguel 📅 Mensal × 🎾 Avulso** (dono, 18/11, script 40 `caixa.desconto`): o lançamento de aluguel pergunta qual é.
+  Só o mensal (contratado) abate os check-ins da V3 do mês anterior (todos: plays + fichas da mensalidade, a tela mostra os
+  dois); o avulso (um play a mais, pago em dinheiro) não. O **% de desconto** é editável nos dois (mensal vem com o do último
+  aluguel mensal, sem nenhum 5%; avulso vem 0) e a economia vai para a caixinha (`descontoDoAluguel`/`economiaDoAluguel`;
+  sem `desconto` gravado: mensal 5%, avulso 0).
 - **Script 35**: aluguel no Caixa (`caixa.plano_mensal/valor_cobrado/checkins_abatidos`; o lançamento é o Pix; a
   economia de 5% vai para o 🎉 caixa de eventos, reserva dentro do saldo, `economiaDoAluguel`/`eventosAcumulado`; o "📜 De onde veio" do Resumo lista cada entrada, `entradasDosEventos`, que o resumo soma; o "🗑️ Tirar" desfaz a origem sem apagar nada: a substituta perde o `substitui`, o aluguel perde o `plano_mensal`),
   **substituta** (`checkins.substitui`: metade do valor cheio do dia para o caixa de eventos), **falta avisada** (a

@@ -8,10 +8,16 @@ import { monthOf, type AppData } from './types'
  * USA um check-in de credito aparece no relatorio da arena, mas nao e check-in novo: nao conta.
  */
 export function checkinsNaArena(data: AppData, localId: string, mes: string): number {
+  const { dePlay, daMensalidade } = checkinsNaArenaPorOrigem(data, localId, mes)
+  return dePlay + daMensalidade
+}
+
+/** Os mesmos check-ins, separados: os lancados nos plays e os da ficha da mensalidade (a tela mostra os dois). */
+export function checkinsNaArenaPorOrigem(data: AppData, localId: string, mes: string) {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
   const dePlay = data.checkins.filter((c) => gastaCheckin(c) && c.local_id === localId && monthOf(dias.get(c.dia_id) ?? '') === mes).length
   const daMensalidade = data.mensalidadeItens.filter((i) => i.tipo === 'checkin' && i.mes >= MES_INICIAL && i.local_id === localId && monthOf(i.date) === mes).length
-  return dePlay + daMensalidade
+  return { dePlay, daMensalidade }
 }
 
 type DadosDoAluguel = {

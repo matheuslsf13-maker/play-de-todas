@@ -7,7 +7,7 @@ import { dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } f
 import { ListaDeMensalistas } from '../components/ListaDeMensalistas'
 import { EditarPlanoDaAtleta } from '../components/EditarPlanoDaAtleta'
 import { VagasDeMensalista } from '../components/VagasDeMensalista'
-import { checkinsNaArena, contaDoAluguel } from '../lib/aluguel'
+import { checkinsNaArenaPorOrigem, contaDoAluguel } from '../lib/aluguel'
 import { CATEGORIAS, categoriaDe, type Categoria } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
@@ -40,6 +40,8 @@ import {
   relatorioDasArenas,
   resumoDoCaixa,
   economiaDoAluguel,
+  descontoDoAluguel,
+  DESCONTO_DO_PLANO,
   entradasDosEventos,
   saidasDosEventos,
   saldoDosEventosEm,
@@ -905,7 +907,7 @@ function HistoricoDosEventos({
     onToast('Movimento desfeito')
   }
   /** Tira a entrada desfazendo o que a gerou: a substituta deixa de ser "no lugar de" (o pagamento dela fica);
-   * o aluguel deixa de estar no plano mensal (o valor pago fica). Nada e apagado. */
+   * o desconto do aluguel vai a zero (o valor pago fica). Nada e apagado. */
   function tirar(e: EntradaDosEventos) {
     if (e.origem === 'transferencia' || e.origem === 'externa') {
       const qual = e.origem === 'transferencia' ? 'a transferência' : 'a entrada externa'
@@ -923,8 +925,8 @@ ${nameOf(c.player_id)} deixa de contar como substituta de ${c.substitui ? nameOf
       const l = data.caixa.find((x) => x.id === e.caixa_id)
       if (!l || !confirm(`Tirar ${formatarReais(e.valor)} do caixa de eventos?
 
-O aluguel de ${dateLabel(e.date)} deixa de contar como plano mensal. O valor pago continua lançado.`)) return
-      saveCaixa({ ...l, plano_mensal: false })
+O desconto do aluguel de ${dateLabel(e.date)} vai a zero. O valor pago continua lançado.`)) return
+      saveCaixa({ ...l, desconto: 0 })
     }
     onToast('Tirado do caixa de eventos')
   }
@@ -1169,8 +1171,18 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [tudo, setTudo] = useState(false)
-  /** Aluguel da V3 pago no plano mensal (5% de desconto): ja vem marcado (dono, 07/11). */
+  /** Aluguel da V3 pago no plano mensal: ja vem marcado (dono, 07/11). */
   const [planoMensal, setPlanoMensal] = useState(true)
+  // o desconto do mensal vem do ultimo aluguel mensal lancado (ela troca uma vez e fica); o avulso comeca em 0 (dono, 18/11)
+  const descontoDoMensal = useMemo(() => {
+    const ultimo = data.caixa.filter((l) => l.categoria === 'aluguel' && l.plano_mensal).sort((a, b) => b.date.localeCompare(a.date))[0]
+    return ultimo ? descontoDoAluguel(ultimo) : DESCONTO_DO_PLANO
+  }, [data.caixa])
+  const [descontoTxt, setDescontoTxt] = useState<string | null>(null) // null = o padrao do tipo
+  function escolherAluguel(mensal: boolean) {
+    setPlanoMensal(mensal)
+    setDescontoTxt(null)
+  }
   /** Gasto pago com o 🎉 caixa de eventos (dono, 16/11). */
   const [doEventos, setDoEventos] = useState(comCaixinha)
   // lancamento aberto na janela: apagar so la dentro, nunca direto na lista
@@ -1194,9 +1206,14 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
   const v3 = data.checkinLocais.find((l) => /v3/i.test(l.nome))
   const ehAluguel = categoria === 'aluguel' && LIGA.id === 'feminino'
   const mesDosCheckins = date ? mesAnterior(monthOf(date)) : ''
-  const checkinsAbatidos = ehAluguel && v3 && date ? checkinsNaArena(data, v3.id, mesDosCheckins) : 0
-  const aluguel = ehAluguel && valorLido !== null && valorLido > 0
-    ? contaDoAluguel({ valorNoPlano: valorLido, desconto: planoMensal ? undefined : 0, checkinsMesAnterior: checkinsAbatidos })
+  // o aluguel avulso e pago em dinheiro: os check-ins so abatem o do plano mensal (dono, 18/11)
+  const origemDosCheckins = ehAluguel && planoMensal && v3 && date ? checkinsNaArenaPorOrigem(data, v3.id, mesDosCheckins) : null
+  const checkinsAbatidos = origemDosCheckins ? origemDosCheckins.dePlay + origemDosCheckins.daMensalidade : 0
+  const descontoPadrao = planoMensal ? descontoDoMensal : 0
+  const descontoLido = descontoTxt === null ? descontoPadrao : (lerValor(descontoTxt) ?? 0) / 100
+  const descontoOk = descontoLido >= 0 && descontoLido < 1
+  const aluguel = ehAluguel && descontoOk && valorLido !== null && valorLido > 0
+    ? contaDoAluguel({ valorNoPlano: valorLido, desconto: descontoLido, checkinsMesAnterior: checkinsAbatidos })
     : null
 
   // o caixa de eventos paga gastos comuns (presentes, confraternizacao...); o aluguel tem a conta dele
@@ -1207,16 +1224,17 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
   const cobre = podeEventos && doEventos && valorLido ? Math.min(valorLido, Math.max(0, noEventos)) : 0
 
   function lancar() {
-    if (valorLido === null || valorLido <= 0 || !date) return
+    if (valorLido === null || valorLido <= 0 || !date || (ehAluguel && !aluguel)) return
     saveCaixa({
       id: uid(), date, descricao: descricao.trim(), categoria, tipo, created_at: new Date().toISOString(),
       ...(podeEventos && doEventos ? { do_eventos: true } : {}),
       ...(aluguel
-        ? { valor: aluguel.pagarNoPix, plano_mensal: planoMensal, valor_cobrado: valorLido, checkins_abatidos: checkinsAbatidos }
+        ? { valor: aluguel.pagarNoPix, plano_mensal: planoMensal, valor_cobrado: valorLido, checkins_abatidos: checkinsAbatidos, desconto: descontoLido }
         : { valor: valorLido }),
     })
     setDescricao('')
     setValor('')
+    setDescontoTxt(null)
     setDoEventos(false)
     onToast(tipo === 'entrada' ? 'Receita lançada' : podeEventos && doEventos ? 'Gasto lançado com a caixinha 🎉' : 'Saída lançada')
   }
@@ -1381,6 +1399,20 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
                   ))}
                 </div>
               )}
+              {ehAluguel && (
+                <div className="field">
+                  <span>Qual aluguel?</span>
+                  <div className="segmented">
+                    <button className={planoMensal ? 'on' : ''} onClick={() => escolherAluguel(true)}>📅 Mensal</button>
+                    <button className={!planoMensal ? 'on' : ''} onClick={() => escolherAluguel(false)}>🎾 Avulso</button>
+                  </div>
+                  <div className="tiny muted">
+                    {planoMensal
+                      ? 'O contratado, das quadras garantidas: os check-ins feitos na V3 no mês anterior abatem sozinhos.'
+                      : 'Um play a mais, fora do contrato: pago em dinheiro, sem check-in.'}
+                  </div>
+                </div>
+              )}
               <div className="grid2">
                 <label className="field">
                   <span>Data</span>
@@ -1393,28 +1425,42 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
               </div>
               {ehAluguel && (
                 <>
-                  <label className="toggle-card row">
-                    <input type="checkbox" checked={planoMensal} onChange={(e) => setPlanoMensal(e.target.checked)} />
-                    <span>
-                      <strong>Pago no plano mensal (5% de desconto)</strong>
-                      <span className="tiny muted" style={{ display: 'block' }}>A economia vai para a 🎉 caixinha de eventos.</span>
+                  <label className="desconto-aluguel">
+                    <span className="desconto-campo">
+                      <input
+                        className="input"
+                        inputMode="decimal"
+                        aria-label="Desconto em porcentagem"
+                        value={descontoTxt ?? String(Math.round(descontoPadrao * 10000) / 100).replace('.', ',')}
+                        onChange={(e) => setDescontoTxt(e.target.value)}
+                      />
+                      <b>%</b>
+                    </span>
+                    <span className="tiny muted">
+                      de desconto. {descontoLido > 0 ? 'O que ele economiza vai direto para a 🎉 caixinha de eventos.' : 'Zerado, nada vai para a caixinha.'}
                     </span>
                   </label>
+                  {!descontoOk && <span className="hint aviso">O desconto vai de 0 a 99%.</span>}
                   {aluguel && (
                     <div className="conta-aluguel tiny">
-                      {planoMensal && (
-                        <div>Sem o plano seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para a 🎉 caixinha de eventos</strong></div>
+                      {aluguel.economia > 0 && (
+                        <div>Sem o desconto seria {formatarReais(aluguel.semPlano)} → <strong>{formatarReais(aluguel.economia)} para a 🎉 caixinha de eventos</strong></div>
                       )}
-                      <div>
-                        Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)} × {formatarReais(25)} ={' '}
-                        {formatarReais(aluguel.credito)}
-                      </div>
+                      {planoMensal ? (
+                        <div>
+                          Crédito: {plural(checkinsAbatidos, 'check-in', 'check-ins')} na {v3?.nome ?? 'V3'} em {nomeDoMes(mesDosCheckins)}
+                          {origemDosCheckins && checkinsAbatidos > 0 && ` (${origemDosCheckins.dePlay} dos plays + ${origemDosCheckins.daMensalidade} das mensalidades)`} × {formatarReais(25)} ={' '}
+                          {formatarReais(aluguel.credito)}
+                        </div>
+                      ) : (
+                        <div>Aluguel avulso: os check-ins não abatem.</div>
+                      )}
                       <div className="pagar">Pagar no Pix: <strong>{formatarReais(aluguel.pagarNoPix)}</strong></div>
                       {aluguel.sobraDeCredito ? <div>Sobram {formatarReais(aluguel.sobraDeCredito)} de crédito com a V3.</div> : null}
                     </div>
                   )}
                   {!aluguel && <div className="conta-aluguel vazio tiny">Digite o valor que a V3 cobrou para ver a conta.</div>}
-                  {!v3 && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
+                  {!v3 && planoMensal && <span className="hint aviso">Nenhuma arena com “V3” no nome: o crédito dos check-ins fica zero.</span>}
                 </>
               )}
               {podeEventos && (
@@ -1459,7 +1505,7 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
                   onKeyDown={(e) => e.key === 'Enter' && lancar()}
                 />
               </label>
-              <button className={`btn block ${tipo === 'entrada' ? 'teal' : 'pink'}`} disabled={valorLido === null || valorLido <= 0} onClick={lancar}>
+              <button className={`btn block ${tipo === 'entrada' ? 'teal' : 'pink'}`} disabled={valorLido === null || valorLido <= 0 || (ehAluguel && !aluguel)} onClick={lancar}>
                 {tipo === 'entrada' ? '➕ Lançar receita' : `➖ Lançar ${valorLido ? formatarReais(ehAluguel && aluguel ? aluguel.pagarNoPix : valorLido) : 'saída'}`}
               </button>
             </div>
@@ -1515,9 +1561,13 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
             </div>
             {aberto.valor_cobrado ? (
               <div className="conta-aluguel tiny">
-                <div>A V3 cobrou {formatarReais(aberto.valor_cobrado)}{aberto.plano_mensal ? ' no plano mensal' : ''}</div>
-                {aberto.plano_mensal && <div>🎉 {formatarReais(economiaDoAluguel(aberto))} para o caixa de eventos</div>}
-                <div>{plural(aberto.checkins_abatidos ?? 0, 'check-in abatido', 'check-ins abatidos')} do mês anterior</div>
+                <div>A V3 cobrou {formatarReais(aberto.valor_cobrado)}{aberto.plano_mensal ? ' no plano mensal' : ' · 🎾 aluguel avulso'}</div>
+                {economiaDoAluguel(aberto) > 0 && (
+                  <div>{Math.round(descontoDoAluguel(aberto) * 10000) / 100}% de desconto → 🎉 {formatarReais(economiaDoAluguel(aberto))} para o caixa de eventos</div>
+                )}
+                {(aberto.plano_mensal || !!aberto.checkins_abatidos) && (
+                  <div>{plural(aberto.checkins_abatidos ?? 0, 'check-in abatido', 'check-ins abatidos')} do mês anterior</div>
+                )}
               </div>
             ) : null}
             {LIGA.id === 'feminino' && (aberto.do_eventos || aberto.categoria === 'brinde' || aberto.categoria === 'confraternizacao') && (() => {
