@@ -2586,9 +2586,10 @@ function PlayDetail({
     () => new Set(loadAusentes()[session.id] ?? []),
   )
   const ausentesNoPlay = 'ausentes' in session && avisosDoBanco.colunas.has('sessions.ausentes') === false
+  // so quem ESTA no play: quem saiu pelo Entra / sai ficava "nao chegou" no aviso (17/11)
   const ausentes = useMemo(
-    () => (ausentesNoPlay ? new Set(session.ausentes ?? []) : ausentesLocais),
-    [ausentesNoPlay, session.ausentes, ausentesLocais],
+    () => new Set([...(ausentesNoPlay ? session.ausentes ?? [] : ausentesLocais)].filter((id) => session.player_ids.includes(id))),
+    [ausentesNoPlay, session.ausentes, ausentesLocais, session.player_ids],
   )
   const [marcandoAusentes, setMarcandoAusentes] = useState(false)
   function alternarAusente(id: string) {
@@ -3406,7 +3407,7 @@ function PlayDetail({
       : session.duos
     const quem = sai && entra ? `${nameOf(sai)} saiu, ${nomeDeQuemEntra} entrou` : sai ? `${nameOf(sai)} saiu` : `${nomeDeQuemEntra} entrou`
     const como = onde === 'lugar' ? 'no lugar dela' : onde === 'grupo' ? `no grupo ${grupo + 1}, fila refeita` : 'encaixe automático, fila refeita'
-    const nova: PlaySession = comEvento({ ...session, player_ids, groups, duos }, 'entra-sai', `Entra / sai: ${quem} (${como})`)
+    const nova: PlaySession = comEvento({ ...session, player_ids, groups, duos, ausentes: session.ausentes?.filter((id) => id !== sai) ?? session.ausentes }, 'entra-sai', `Entra / sai: ${quem} (${como})`)
 
     if (onde === 'lugar' && sai && entra) {
       const trocadas = matches
