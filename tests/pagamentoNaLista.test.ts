@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pagoAvulsoDaLista } from '../src/lib/pagamentoNaLista'
+import { contaNoPlay, origemDoSaldo, pagoAvulsoDaLista, saldoDepois } from '../src/lib/pagamentoNaLista'
 import { consumirAvulsos, situacaoDoAtleta } from '../src/lib/mensalidade'
 import { avisoDoFinanceiro, creditosGastos, desfazerDoPlay, idDoLancamento, lancadosPelaLista, contaInicial, diaDaLista, diaJaExiste, diaParaLigar, prepararPagamento, retrato, tipoNaLista, valorInicial } from '../src/lib/pagamentoNaLista'
 import { emptyData, type AppData, type CheckinConta, type CheckinDia, type CheckinLocal, type Player, type PlaySession } from '../src/lib/types'
@@ -228,4 +228,41 @@ test('apagar o play com lista: tambem o 💰 lancado num dia solto da data (que 
   const play = { id: 's1', date: '2026-11-09', status: 'open', player_ids: ['a'] } as unknown as PlaySession
   const r = desfazerDoPlay(d, play, { lista: { ...lista, session_id: 's1' }, playerIds: ['a'] })
   assert.deepEqual(r.checkins, [idDoLancamento(solto.id, 'a')]); assert.deepEqual(r.dias, [solto.id])
+})
+
+test('contaNoPlay: o credito sai primeiro; com divida, a organizadora escolhe so o play ou com o atrasado (dono, 18/11)', () => {
+  // credito parcial: 50 - 25 = cobra 25
+  assert.deepEqual(contaNoPlay(50, 25, 0), { doCredito: 25, soPlay: 25, comAtrasado: 25 })
+  // credito cobre o play inteiro: nada a cobrar, sobra 10
+  assert.deepEqual(contaNoPlay(25, 35, 0), { doCredito: 25, soPlay: 0, comAtrasado: 0 })
+  assert.equal(saldoDepois(35, 0, 25, 0), 10)
+  // devendo 20: so o play = 50, com o atrasado = 70
+  assert.deepEqual(contaNoPlay(50, 0, 20), { doCredito: 0, soPlay: 50, comAtrasado: 70 })
+  assert.equal(saldoDepois(0, 20, 50, 50), -20, 'pagou so o play: continua devendo o de antes')
+  assert.equal(saldoDepois(0, 20, 50, 70), 0, 'pagou com o atrasado: zera')
+  // pagou o play cheio tendo credito: o credito fica para o proximo (o aviso antigo dizia que nao sobrava nada)
+  assert.equal(saldoDepois(25, 0, 50, 50), 25)
+})
+
+test('origemDoSaldo: so os plays cujo credito ou divida ainda vale; o quitado some (dono, 18/11)', () => {
+  const dia = (id: string, date: string): CheckinDia => ({ id, date, valor_cheio: 50, valor_com_checkin: 25 } as CheckinDia)
+  const datas = (d: AppData, sem?: string) => origemDoSaldo(d, 'a', sem).map((o) => [o.date, o.resta])
+  let d = dados()
+  d = gravar(d, dia('d1', '2026-11-02'), 30) // deve 20
+  d = gravar(d, dia('d2', '2026-11-09'), 70) // quitou
+  d = gravar(d, dia('d3', '2026-11-16'), 40) // nova divida de 10: so ela aparece
+  assert.deepEqual(datas(d), [['2026-11-16', -10]])
+  // credito: 01 gera 20, 03 gasta 20, 05 gera 10 -> so o de 05
+  let c = dados()
+  c = gravar(c, dia('c1', '2026-11-01'), 70)
+  c = gravar(c, dia('c2', '2026-11-03'), 30)
+  c = gravar(c, dia('c3', '2026-11-05'), 60)
+  assert.deepEqual(datas(c), [['2026-11-05', 10]])
+  // dois creditos vivos aparecem os dois; gasto parcial tira do mais antigo primeiro
+  c = gravar(c, dia('c4', '2026-11-07'), 70) // +20 -> 10 (05) + 20 (07)
+  c = gravar(c, dia('c5', '2026-11-08'), 35) // gasta 15: 05 some, 07 fica com 15
+  assert.deepEqual(datas(c), [['2026-11-07', 15]])
+  // corrigindo um lancamento: ele fica de fora
+  const r = prepararPagamento(c, dia('c5', '2026-11-08'), 'a', 'integral', 35)
+  assert.deepEqual(datas(c, r.checkin.id), [['2026-11-05', 10], ['2026-11-07', 20]])
 })

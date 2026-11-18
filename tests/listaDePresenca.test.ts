@@ -344,6 +344,17 @@ test('mensagem de atualizacao: confirmadas numeradas com 📅, suplentes, o mesm
   assert.match(fechada, /A lista fechou\. Para conferir:/)
 })
 
+test('aumentou as vagas e entrou mais uma: a mensagem sai com as vagas novas e o nome dela (dono, 18/11)', () => {
+  const url = urlDaLista('https://playdetodas.com.br/', LISTA.codigo)
+  const nomes = [nome(1, { nome: 'Ana Souza' }), nome(2, { nome: 'Bia Lima' }), nome(3, { nome: 'Pamela Rocha' })]
+  const antes = mensagemDeAtualizacao({ ...LISTA, vagas: 2 }, nomes, (id) => id, url, new Date('2026-11-07T12:00:00Z'))
+  assert.match(antes, /Suplentes\*\n1\. Pamela Rocha/)
+  const depois = mensagemDeAtualizacao({ ...LISTA, vagas: 4 }, nomes, (id) => id, url, new Date('2026-11-07T12:00:00Z'))
+  assert.match(depois, /👥 3\/4 · 1 vaga/)
+  assert.match(depois, /3\. Pamela Rocha/)
+  assert.ok(!depois.includes('Suplentes'))
+})
+
 test('sugestao para a organizadora: as duas Bruna aparecem e nenhuma ganha o toque unico', () => {
   const ps = [
     jogadora('b1', { name: 'Bruna' }),

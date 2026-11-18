@@ -1828,6 +1828,10 @@ p .nome-link { padding-block: 0; margin-block: 0; }
 .lista-escolha > .grow { min-width: 0; overflow-wrap: anywhere; }
 .lista-escolha:disabled { opacity: .55; cursor: default; }
 /* o nome como ela escreveu e, embaixo, o cadastro que o app ligou (dono, 18/11) */
+/* a conta do 💰: o que gerou o saldo, o total e o que cobrar, valor na direita (dono, 18/11) */
+.conta-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.conta-linha > :last-child { white-space: nowrap; }
+.conta-total { border-top: 1px solid var(--line); padding-top: 4px; margin-top: 2px; font-weight: 700; }
 .vinculo-quadro { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); overflow-wrap: anywhere; }
 .vinculo-quadro > span.tiny:not(:first-child) { margin-top: 6px; }
 .lista-resumo { cursor: pointer; min-height: 44px; margin: 0; }

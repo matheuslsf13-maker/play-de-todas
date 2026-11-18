@@ -1,6 +1,6 @@
 import { categoriaDe } from './mensalidade'
 import { emDiaNaData } from './fichaDaMensalidade'
-import { centavos, checkinDaAtletaNoDia, creditoDisponivel, formatarReais, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
+import { centavos, checkinDaAtletaNoDia, creditoDisponivel, extratoDaAtleta, formatarReais, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
 import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player, PlaySession } from './types'
 
@@ -150,6 +150,47 @@ export function valorInicial(data: AppData, dia: CheckinDia, playerId: string, m
   if (antes?.pagamento) return antes.pagamento.valor_pago
   return centavos(Math.max(0, devidoNoModo(data, dia, playerId, modo) - creditoDisponivel(data, playerId, antes?.checkin.id)))
 }
+
+/**
+ * A CONTA DO 💰 (dono, 18/11): o play de hoje, o credito que ela tem (sai primeiro) e a divida de antes. A
+ * organizadora escolhe cobrar so o play (`soPlay`) ou o play com o atrasado (`comAtrasado`). Credito e divida
+ * nunca vem juntos: os dois saem do mesmo saldo.
+ */
+export type OrigemDoSaldo = ({ date: string; devido: number; pago: number } | { date: string; acerto: number }) & {
+  /** O que ainda vale desse lancamento (com sinal: + credito, - divida). */
+  resta: number
+}
+
+/**
+ * De onde veio o credito ou a divida de hoje: so os lancamentos que AINDA valem (dono, 18/11). O que entra do outro
+ * lado quita os mais antigos primeiro: credito de 01/11 gasto em 03/11 some, e fica so o de onde veio o credito de agora.
+ * O lancamento que esta sendo corrigido fica de fora, como em `saldoAntesDe`.
+ */
+export function origemDoSaldo(data: AppData, playerId: string, semCheckinId?: string): OrigemDoSaldo[] {
+  let abertos: OrigemDoSaldo[] = []
+  for (const m of extratoDaAtleta(data, playerId)) {
+    if (m.tipo === 'lancamento' && m.checkin.id === semCheckinId) continue
+    let efeito = m.tipo === 'acerto' ? m.acerto.valor : centavos(m.pago - m.devido)
+    // do outro lado: quita os abertos, do mais antigo para o mais novo
+    while (efeito !== 0 && abertos.length > 0 && Math.sign(abertos[0].resta) !== Math.sign(efeito)) {
+      const usa = Math.min(Math.abs(efeito), Math.abs(abertos[0].resta)) * Math.sign(efeito)
+      abertos[0] = { ...abertos[0], resta: centavos(abertos[0].resta + usa) }
+      efeito = centavos(efeito - usa)
+      if (abertos[0].resta === 0) abertos = abertos.slice(1)
+    }
+    if (efeito !== 0) abertos.push(m.tipo === 'acerto' ? { date: m.date, acerto: m.acerto.valor, resta: efeito } : { date: m.date, devido: m.devido, pago: m.pago, resta: efeito })
+  }
+  return abertos
+}
+
+export function contaNoPlay(devido: number, credito: number, divida: number) {
+  const doCredito = centavos(Math.min(credito, devido))
+  const soPlay = centavos(devido - doCredito)
+  return { doCredito, soPlay, comAtrasado: centavos(soPlay + divida) }
+}
+
+/** O saldo dela depois do lancamento: positivo = credito para o proximo play, negativo = fica devendo. */
+export const saldoDepois = (credito: number, divida: number, devido: number, pago: number) => centavos(credito - divida + pago - devido)
 
 // ---------------------------------------------------------------- desfazer (apagar lista ou play)
 

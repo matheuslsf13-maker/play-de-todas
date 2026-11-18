@@ -157,10 +157,16 @@ masculino e o misto descrevem esse código parado.
   marcada, entram um por vez na ordem antiga; as mensalistas que faltam (e não tinham saído) entram
   depois da última garantida (`juntarSemRepetir`).
   Quem veio pelo link perde o "Tirar meu nome" (o código do aparelho ficou na apagada).
+- **As duas mensagens saem da lista de agora** (dono, 18/11): a "🔗 Mensagem do link" lê a lista de novo (`useLista`) e é
+  a mesma da atualização (vagas, datas, confirmadas e suplentes); antes só dizia o total de vagas, sem nomes.
 - **Rótulos**: "🔒 Fechar a lista agora" / "🔓 Reabrir a lista" (linha inteira); "Fechar" sozinho é
   só o das janelas.
 - **Lotada e aberta**: "entre como suplente" no cartão e na página (`soSuplente`). **Datas**: prazo ≤ play
   e play no futuro (`problemaDaLista`), mensagem embaixo das datas e botão travado.
+- **💰 com crédito e dívida** (dono, 18/11; `contaNoPlay`/`saldoDepois` em `pagamentoNaLista.ts`): a linha da lista já
+  mostra "💚 R$ X", "💚 crédito cobre" ou "⚠️ deve R$ X" ao lado do 💰. A janela mostra a conta: o play antigo que gerou o saldo com o "pago" em verde/vermelho
+  (`origemDoSaldo`: só o que ainda vale; o que entra do outro lado quita os mais antigos primeiro, e o parcial diz "resta") , cada um com o valor à direita, "Total de crédito"/"Total devido" e (crédito) "Cobrar"; sem a linha do play de hoje e sem emoji. Lançar mais ou menos que o cobrado (o botão escolhido) pede confirmação: "vai gerar crédito" / "vai gerar dívida" / "não quita a dívida"; sem linha "Cobrar" com dívida (os dois botões já dizem) e, com dívida, "Só o play" × "Play + atrasado"; crédito que cobre tudo = "✅ Confirmar com o crédito" (pago 0).
+  O aviso de baixo é o saldo dela depois (crédito − dívida + pago − devido).
 - **Apagar play/lista desfaz o financeiro** (D45, `desfazerDoPlay`/`lancadosPelaLista` em
   `pagamentoNaLista.ts`): dia do play com lançamentos, o 💰 da lista, o "pago" da avulsa e o crédito gasto
   no Finalizar (diário `creditos`). Play montado pela lista: a janela pergunta manter (volta aberta, sem

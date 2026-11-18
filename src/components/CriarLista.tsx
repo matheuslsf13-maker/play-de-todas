@@ -7,6 +7,7 @@ import {
   horaDoPlay,
   inicioEmSaoPaulo,
   juntarSemRepetir,
+  mensagemDeAtualizacao,
   mensagemDoLink,
   novoCodigo,
   padraoDaLista,
@@ -17,7 +18,7 @@ import {
   type Lista,
 } from '../lib/listaDePresenca'
 import { avisosDoBanco } from '../data/supabaseRepo'
-import { baseDoApp, esquecerCopiaDaApagada, lerCopiaDaApagada } from '../lib/useLista'
+import { baseDoApp, esquecerCopiaDaApagada, lerCopiaDaApagada, useLista } from '../lib/useLista'
 import { useStore } from '../lib/store'
 import { plural, todayISO, uid } from '../lib/types'
 
@@ -235,8 +236,13 @@ export function MensagemDoLink({
   onClose: () => void
   onToast: (m: string) => void
 }) {
-  const url = urlDaLista(baseDoApp(), lista.codigo)
-  const msg = mensagemDoLink(lista, url)
+  // le a lista de novo (e ouve o canal dela): a mensagem sai com as vagas, as datas e os nomes de AGORA, nunca a copia
+  // de quando a tela abriu (dono, 18/11: a Ingryd aumentou as vagas, a Pamela entrou e a mensagem nao mostrava)
+  const { lista: atual } = useLista({ codigo: lista.codigo })
+  const { nameOf } = useStore()
+  const l = atual?.lista ?? lista
+  const url = urlDaLista(baseDoApp(), l.codigo)
+  const msg = atual ? mensagemDeAtualizacao(l, atual.nomes, nameOf, url, new Date()) : mensagemDoLink(l, url)
   return (
     <Modal title={titulo} onClose={onClose}>
       <div className="stack lista-pagina">
