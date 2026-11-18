@@ -1,8 +1,7 @@
-import { emDiaNaData } from './fichaDaMensalidade'
+import { dataDaRenovacao, emDiaNaData } from './fichaDaMensalidade'
 import { categoriaDe } from './mensalidade'
 import { normalizar, semInvisiveis, semelhanca, type Sugestao } from './roster'
-import { notaDeForca } from './forca'
-import { pausaAberta, ratings } from './stats'
+import { pausaAberta } from './stats'
 import { plural, type AppData, type Player } from './types'
 
 /**
@@ -434,15 +433,15 @@ export function grafiaNova(texto: string, p: Player): boolean {
 
 /**
  * As mensalistas que entram garantidas quando a lista e criada: em dia para o
- * dia do play, ativas e sem pausa aberta. Ordem: da mais forte para a mais
- * fraca (dono, 06/11); empate pelo nome.
+ * dia do play, ativas e sem pausa aberta. Ordem: quem renovou primeiro (dono,
+ * 18/11; era pela forca, e a lista entregava quem e mais forte); sem data de
+ * renovacao (transicao de novembro) depois, e empate pelo nome.
  */
 export function preIncluidas(data: AppData, dataDoPlay: string): string[] {
-  const forca = ratings(data)
   return data.players
     .filter((p) => p.active && emDiaNaData(data, p, dataDoPlay) && !pausaAberta(data, p))
-    .map((p) => ({ p, nota: notaDeForca(forca.get(p.id) ?? 2) }))
-    .sort((a, b) => b.nota - a.nota || a.p.name.localeCompare(b.p.name, 'pt-BR'))
+    .map((p) => ({ p, quando: dataDaRenovacao(data, p.id, dataDoPlay) ?? '9999' }))
+    .sort((a, b) => a.quando.localeCompare(b.quando) || a.p.name.localeCompare(b.p.name, 'pt-BR'))
     .map((x) => x.p.id)
 }
 

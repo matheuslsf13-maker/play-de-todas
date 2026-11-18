@@ -233,6 +233,23 @@ export function emDiaNaData(data: AppData, p: Player, date: string): boolean {
 }
 
 /**
+ * O dia em que ela renovou a mensalidade que vale no play (a do mes dele; ate o dia 5, a do anterior): a data do
+ * item que fez a ficha virar renovada. Nulo na transicao de novembro (o `pago_mes` nao tem data) ou sem renovar.
+ * A lista de presenca poe as mensalistas nessa ordem (dono, 18/11).
+ */
+export function dataDaRenovacao(data: AppData, playerId: string, dataDoPlay: string): string | null {
+  const mes = monthOf(dataDoPlay)
+  for (const m of [mes, mesAnterior(mes)]) {
+    if (m < MES_INICIAL) continue
+    const f = fichaDe(data, playerId, m, dataDoPlay)
+    const datas = [...new Set(f.itens.map((i) => i.date))].filter((d) => d <= dataDoPlay).sort()
+    const d = datas.find((x) => renovada(f, x))
+    if (d) return d
+  }
+  return null
+}
+
+/**
  * PAGOU SO A MENSALIDADE DO MES SEGUINTE (ex.: virou mensalista depois do dia 5, quando a ficha ja nao aceita
  * o Pix deste mes): segura a vaga (`perdeuAVaga`) e joga este mes como avulsa, sem divida (dono, 08/11). Serve
  * para a tela dizer "mensalista a partir de janeiro" em vez de "atrasada".

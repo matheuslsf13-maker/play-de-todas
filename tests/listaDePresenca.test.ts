@@ -203,28 +203,33 @@ test('mensalistaEmDiaNoPlay: pago no mes, ou ate o dia 5 com o mes anterior pago
   assert.equal(mensalistaEmDiaNoPlay(m('2026-11', 'avulsa'), '2026-11-09'), false)
 })
 
-test('preIncluidas: mensalistas em dia, ativas e sem pausa, da mais forte para a mais fraca', () => {
+test('preIncluidas: mensalistas em dia, ativas e sem pausa; sem data de renovacao (novembro), pelo nome', () => {
   const d = emptyData()
   d.players = [
-    jogadora('fraca', { name: 'Zélia', pago_mes: '2026-11', forca_inicial: 1440 }),
-    jogadora('forte', { name: 'Ana', pago_mes: '2026-11', forca_inicial: 1560 }),
-    jogadora('media', { name: 'Bia', pago_mes: '2026-11', forca_inicial: 1500 }),
+    jogadora('z', { name: 'Zélia', pago_mes: '2026-11', forca_inicial: 1560 }),
+    jogadora('a', { name: 'Ana', pago_mes: '2026-11', forca_inicial: 1440 }),
     jogadora('inativa', { pago_mes: '2026-11', active: false }),
     jogadora('pausada', { pago_mes: '2026-11', pausas: [{ de: '2026-11-01', ate: null }] }),
     jogadora('devendo', { pago_mes: '2026-09' }),
     jogadora('avulsa', { categoria: 'avulsa', pago_avulso: true }),
   ]
-  assert.deepEqual(preIncluidas(d, '2026-11-09'), ['forte', 'media', 'fraca'])
+  // a forca nao entra mais: a lista entregaria quem e mais forte
+  assert.deepEqual(preIncluidas(d, '2026-11-09'), ['a', 'z'])
 })
 
-test('preIncluidas: empate na forca fica pelo nome', () => {
+test('preIncluidas: quem renovou primeiro vem primeiro (dono, 18/11)', () => {
   const d = emptyData()
-  d.players = [jogadora('z', { name: 'Zuleica', pago_mes: '2026-11' }), jogadora('a', { name: 'Amanda', pago_mes: '2026-11' })]
-  // um play qualquer, so para a forca existir
-  const s: PlaySession = { id: 's', date: '2026-10-01', title: '', courts: 1, rounds: 0, target: 4, player_ids: [], status: 'finished', created_at: '', format: 'todas' }
-  d.sessions = [s]
-  d.matches = [] as Match[]
-  assert.deepEqual(preIncluidas(d, '2026-11-09'), ['a', 'z'])
+  d.players = [
+    jogadora('cedo', { name: 'Zuleica', categoria: 'mensalista' }),
+    jogadora('tarde', { name: 'Amanda', categoria: 'mensalista' }),
+    jogadora('meio', { name: 'Bia', categoria: 'mensalista' }),
+  ]
+  const pix = (id: string, date: string) => ({
+    id: `p-${id}`, player_id: id, mes: '2026-12', tipo: 'dinheiro' as const, date, valor: 80,
+    conta_id: null, local_id: null, confirmado: true, observacao: null, created_at: date,
+  })
+  d.mensalidadeItens = [pix('tarde', '2026-12-04'), pix('cedo', '2026-11-25'), pix('meio', '2026-12-01')]
+  assert.deepEqual(preIncluidas(d, '2026-12-08'), ['cedo', 'meio', 'tarde'])
 })
 
 test('ordemParaGarantir: logo depois da ultima garantida', () => {

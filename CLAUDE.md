@@ -133,18 +133,21 @@ masculino e o misto descrevem esse código parado.
 - **A atleta escreve nome e sobrenome** (`validarNomeDaAtleta`: 2+ palavras de 2+ letras; pedido do dono
   em 06/11). A organizadora ainda adiciona um nome só; o banco aceita uma palavra (burlar a tela só
   perde o vínculo automático).
-- **Cada nome**: vinculado = foto + 💪 força (em avaliação: `🔍 n/3` para visitante); sem vínculo = só
-  o texto. **Vínculo automático** (banco e `vinculoAutomatico`): grafia = nome/apelido/alias de **um**
-  cadastro só (as duas "Bruna" não vinculam). Ao vincular, a grafia vai para `players.aliases`.
+- **Cada nome**: vinculado = foto + 💪 força **só para a organização** (dono, 18/11: vendo a lista forte, a atleta
+  podia desistir; o nome também não abre o perfil para visitante); sem vínculo = só o texto. **Vínculo automático** (banco e `vinculoAutomatico`): grafia = nome/apelido/alias de **um**
+  cadastro só (as duas "Bruna" não vinculam). Ao vincular, a grafia vai para `players.aliases`. O menu do nome mostra "✍️ Ela escreveu" e, embaixo,
+  "🔗 Cadastro vinculado"; o "🔁 Não é ela? Trocar" tira a grafia dos `aliases` do cadastro errado (senão a próxima
+  lista vincularia nele de novo; dono, 18/11).
   Botão de um toque na linha só com `sugestaoSegura` (≥ 0,93, sem empate, nome de 2+ palavras); o
   menu do nome mostra até 4 palpites.
 - **Organizadora** (mesma página, `canEdit`): copiar atualização, mensagem do link, adicionar à mão,
-  ⭐ garantir vaga (só nome adicionado à mão), ⇅ trocar de lugar, tirar (mensalista: "avisou com
+  ⭐ garantir vaga (só nome adicionado à mão; "☆ Tirar a vaga garantida" volta à ordem de chegada), ⇅ trocar de lugar, tirar (mensalista: "avisou com
   24h?" → `avisou_24h`), editar, fechar/reabrir (prazo vencido pede prazo novo), **montar play**
   (fecha a lista; confirmadas sem vínculo travam; o Novo Play abre com elas pelo portão da lista
   colada e grava `listas.session_id`). Criar: "📋 Criar lista de presença por link" no Novo Play;
   as **mensalistas em dia** (`mensalistaEmDiaNoPlay`: pagou o mês do play, ou play até o dia 5 com o
-  mês anterior pago; ativas, sem pausa) entram garantidas, **por força**.
+  mês anterior pago; ativas, sem pausa) entram garantidas, **na ordem de quem renovou primeiro** (`dataDaRenovacao`;
+  dono, 18/11: por força a lista entregava quem é mais forte; sem data, a transição de novembro, vão depois, pelo nome).
 - **Apagar lista** (D39): só lista sem play (`podeApagar`); a janela mostra os avisos (`avisosAoApagar`)
   e o banco leva nomes e códigos de aparelho pela cascata do 31 (`repo.apagarLista` confere 1 linha e
   `session_id` nulo). `salvarLista` só cria com `nova`; sem ela é update por id (nunca recria apagada).

@@ -94,10 +94,13 @@ export function EscolherAtleta({
   perto = '',
   ocupadas,
   nomeLivre,
+  atual,
   onEscolher,
   onClose,
 }: {
   titulo: string
+  /** O cadastro vinculado hoje (trocar de cadastro): aparece em cima, para comparar. */
+  atual?: Player
   /** O nome digitado: sem busca, as mais parecidas aparecem primeiro. */
   perto?: string
   /** Quem ja esta ativa na lista (aparece marcada, sem toque). */
@@ -118,6 +121,11 @@ export function EscolherAtleta({
   return (
     <Modal title={titulo} onClose={onClose}>
       <div className="stack lista-pagina">
+        {atual && (
+          <p className="small muted" style={{ margin: 0 }}>
+            Hoje está vinculado a <strong>{atual.name}</strong>. Escolha o cadastro certo:
+          </p>
+        )}
         <label className="field">
           <span>Procurar pelo nome</span>
           <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="nome, apelido…" />
@@ -164,6 +172,12 @@ export function useVincular(lc: ListaCompleta, recarregar: () => Promise<void>, 
     const ok = await escrever(() => repo.mexerNoNome(n.id, { player_id: p.id }), 'Vinculado ✓')
     // o app aprende a grafia: na proxima lista ela vincula sozinha (se for de uma atleta so)
     if (ok && grafiaNova(n.nome, p)) savePlayer({ ...p, aliases: [...(p.aliases ?? []), n.nome] })
+    // trocou de cadastro: o errado esquece essa grafia, senao a proxima lista vincularia nele de novo (dono, 18/11)
+    const errada = ok && n.player_id && n.player_id !== p.id ? playerById(n.player_id) : undefined
+    const alvo = normalizar(n.nome)
+    if (errada?.aliases?.some((a) => normalizar(a) === alvo)) {
+      savePlayer({ ...errada, aliases: errada.aliases.filter((a) => normalizar(a) !== alvo) })
+    }
     return ok
   }
 
@@ -263,6 +277,7 @@ export function OpcoesDoNome({
         titulo={`Quem é “${n.nome}”?`}
         perto={n.nome}
         ocupadas={ocupadas}
+        atual={player}
         onEscolher={(p) => void vincularEFechar(p)}
         onClose={() => setTela('menu')}
       />
@@ -350,8 +365,25 @@ export function OpcoesDoNome({
       <div className="stack lista-pagina">
         <p className="small muted" style={{ margin: 0 }}>
           {posicao}ª da lista · {ORIGEM[n.origem]} · entrou {quandoComData(n.entrou_em)}
-          {player && n.nome !== player.name && <> · digitou “{n.nome}”</>}
         </p>
+        {n.origem !== 'mensalista' && (
+          <div className="vinculo-quadro">
+            <span className="tiny muted">✍️ {n.origem === 'link' ? 'Ela escreveu' : 'Escrito na lista'}</span>
+            <strong>“{n.nome}”</strong>
+            <span className="tiny muted">🔗 Cadastro vinculado</span>
+            {player ? (
+              <span className="row" style={{ gap: 8 }}>
+                <Avatar player={player} size={28} />
+                <span className="grow">
+                  <strong>{player.name}</strong>
+                  {player.nickname?.trim() && <span className="tiny muted"> · {player.nickname}</span>}
+                </span>
+              </span>
+            ) : (
+              <span className="small muted">Nenhum ainda: escolha abaixo quem é.</span>
+            )}
+          </div>
+        )}
         {!player && (
           <>
             <div className="section-title" style={{ margin: '4px 0 0' }}>Quem é?</div>
@@ -377,7 +409,7 @@ export function OpcoesDoNome({
         )}
         <div className="lista-acoes">
           <button className="btn ghost" onClick={() => { onTrocar(n); onClose() }}>⇅ Trocar de lugar</button>
-          {player && <button className="btn ghost" onClick={() => setTela('outra')}>🔁 Outro cadastro</button>}
+          {player && <button className="btn ghost" onClick={() => setTela('outra')}>🔁 Não é ela? Trocar</button>}
           {n.origem === 'organizadora' && !n.garantida && (
             <button
               className="btn ghost"
@@ -391,6 +423,19 @@ export function OpcoesDoNome({
               }}
             >
               ⭐ Garantir vaga
+            </button>
+          )}
+          {n.garantida && n.origem === 'organizadora' && (
+            <button
+              className="btn ghost"
+              disabled={ocupada}
+              onClick={async () => {
+                // volta para o lugar da ordem de chegada, como se a estrela nunca tivesse existido
+                const ok = await escrever(() => repo.mexerNoNome(n.id, { garantida: false, ordem: null }), 'Vaga garantida tirada')
+                if (ok) onClose()
+              }}
+            >
+              ☆ Tirar a vaga garantida
             </button>
           )}
           <button className="btn danger" onClick={() => setTela('tirar')}>✕ Tirar da lista</button>

@@ -208,7 +208,7 @@ export default function CriarLista({
             <span className="grow">
               <strong>Já incluir as mensalistas em dia ({mensalistas.length})</strong>
               <span className="tiny muted" style={{ display: 'block' }}>
-                Entram no topo, com a vaga garantida, da mais forte para a mais fraca. Quem não pagou a tempo coloca o nome pelo link.
+                Entram no topo, com a vaga garantida, na ordem de quem renovou primeiro. Quem não pagou a tempo coloca o nome pelo link.
               </span>
             </span>
           </label>

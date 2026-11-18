@@ -11,8 +11,8 @@ import {
   useVincular,
 } from '../components/GestaoDaLista'
 import { Avatar, Modal, initials, shareOrCopy } from '../components/ui'
-import { NomeClicavel } from '../components/NomeClicavel'
-import { avaliacaoCurta, emAvaliacao, notaDeForca } from '../lib/forca'
+import { NomeClicavel, ProvedorDePerfil } from '../components/NomeClicavel'
+import { emAvaliacao, notaDeForca } from '../lib/forca'
 import {
   MENSAGEM_DO_MOTIVO,
   dividir,
@@ -241,7 +241,7 @@ function Pagina({
               Se não puder ir, abra o mesmo link neste celular e toque em <strong>Tirar meu nome</strong>.
             </p>
             <p className="small" style={{ margin: 0 }}>
-              Enquanto isso, dá uma explorada no app: ranking do mês, sua força e as estatísticas de cada play. 🎾
+              Enquanto isso, dá uma explorada no app: ranking do mês e as estatísticas de cada play. 🎾
             </p>
             <button className="btn pink block" onClick={onSair}>Voltar para o app</button>
           </div>
@@ -298,12 +298,11 @@ function LinhaDaLista({
   )
   const { vincular, ocupada, avisoDeDuplicada } = useVincular(lc, recarregar, onToast)
 
+  // a forca na lista so a organizacao ve: vendo a lista forte, a atleta podia desistir de ir (dono, 18/11)
   let detalhe: string | null = null
-  if (player) {
-    const plays = avaliacao.get(player.id)
+  if (player && gestao) {
     const nota = notaDeForca(forca.get(player.id) ?? 2)
-    // a forca de quem esta em avaliacao so a organizadora ve (com a 🔍)
-    detalhe = plays === undefined ? `💪 ${nota}` : gestao ? `💪 ${nota} 🔍` : avaliacaoCurta(plays)
+    detalhe = avaliacao.has(player.id) ? `💪 ${nota} 🔍` : `💪 ${nota}`
   }
 
   return (
@@ -319,7 +318,8 @@ function LinhaDaLista({
       {player ? <Avatar player={player} size={34} /> : <span className="avatar" style={{ width: 34, height: 34, fontSize: 13 }} aria-hidden>{initials(n.nome)}</span>}
       <span className="grow" style={{ minWidth: 0 }}>
         <span className="lista-nome">
-          {player && !gestao ? <NomeClicavel id={player.id}>{nameOf(player.id)}</NomeClicavel> : player ? nameOf(player.id) : n.nome}
+          {/* o nome nao abre o perfil daqui (ele mostra a forca); o dourado da Duquesa fica */}
+          {player ? <ProvedorDePerfil value={null}><NomeClicavel id={player.id}>{nameOf(player.id)}</NomeClicavel></ProvedorDePerfil> : n.nome}
           {n.origem === 'mensalista' && <span title="mensalista"> 📅</span>}
           {n.garantida && n.origem === 'organizadora' && <span title="vaga garantida pela organização"> ⭐</span>}
           {eu && <span className="badge open" style={{ marginLeft: 6 }}>você</span>}
@@ -399,7 +399,7 @@ function ColocarNome({
       <div className="section-title">{suplente ? '✍️ Entrar como suplente' : '✍️ Colocar meu nome'}</div>
       <div className="stack">
         <label className="field">
-          <span>Seu nome e sobrenome</span>
+          <span>Seu nome e sobrenome completos</span>
           <input
             className="input"
             value={texto}
@@ -411,7 +411,9 @@ function ColocarNome({
             onKeyDown={(e) => e.key === 'Enter' && void colocar()}
           />
         </label>
-        <p className="tiny muted" style={{ margin: '-4px 0 0' }}>Nome e sobrenome, como a organização conhece você.</p>
+        <p className="tiny muted" style={{ margin: '-4px 0 0' }}>
+          Escreva <strong>nome e sobrenome de verdade, sem apelidos</strong>.
+        </p>
         {erro && <div className="banner err" style={{ margin: 0 }}>{erro}</div>}
         <button className="btn pink block" disabled={busy || !texto.trim()} onClick={() => void colocar()}>
           {busy ? 'Colocando…' : suplente ? 'Entrar como suplente' : 'Colocar meu nome'}
