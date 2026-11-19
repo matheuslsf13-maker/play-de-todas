@@ -765,7 +765,7 @@ masculino e o misto descrevem esse código parado.
 - **⚠️ Check-in apertado** (`alertaDosCheckins`: faltam N check-ins e restam ≤ N+1 dias até o prazo; um check-in por dia):
   triângulo vermelho na aba Financeiro (`.aba-alerta`), cartão no topo de Atletas e Mensalistas (`AlertasDeCheckin`), filtro
   e linha em cada uma. **Atletas** tem filtros (alerta, devendo, crédito, check-in de crédito, só os que têm alguém).
-  **Dias**: "verificar" primeiro, filtro e busca; o lançamento de quem a lista pôs no lugar de mensalista já vem marcado
+  **Dias**: "verificar" primeiro, filtro e busca; "➕ Lançar" e "✏️ Editar" (o dia) no topo, na linha dos filtros (dono, 18/11: no fim da lista grande era preciso descer tudo); o lançamento de quem a lista pôs no lugar de mensalista já vem marcado
   (lê `lista_nomes.substitui`) e a linha mostra "🔁 entrou no lugar de X (mensalista), pela lista do play de DD/MM" ou ", inserido manualmente" (lê a lista do play do dia aberto; dia sem play fica sem a origem). **Criar lista** explica o dia de cobrança
   (`AvisoDoDiaDeCobranca`: criado no 1º 💰 ou vincula o dia solto que já existe).
 - **Dívida paga com check-in no 💰** (script 41: `checkin_acertos.conta_id/local_id/credito_de`): cada check-in vira um acerto

@@ -821,10 +821,21 @@ function SecaoDias({
                     {lanc.length > 4 && (
                       <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar pelo nome" />
                     )}
-                    {aVerificar > 0 && aVerificar < lanc.length && (
-                      <div className="chips-scroll" style={{ paddingInline: 0 }}>
-                        <button className={`chip ${!soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(false)}>Todas <strong>{lanc.length}</strong></button>
-                        <button className={`chip ${soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(true)}>Verificar <strong>{aVerificar}</strong></button>
+                    {/* filtros e acoes do dia no topo (dono, 18/11): no fim da lista grande era preciso descer tudo para lancar */}
+                    {((aVerificar > 0 && aVerificar < lanc.length) || podeEditar) && (
+                      <div className="dia-topo">
+                        {aVerificar > 0 && aVerificar < lanc.length && (
+                          <>
+                            <button className={`chip ${!soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(false)}>Todas <strong>{lanc.length}</strong></button>
+                            <button className={`chip ${soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(true)}>Verificar <strong>{aVerificar}</strong></button>
+                          </>
+                        )}
+                        {podeEditar && (
+                          <span className="dia-acoes">
+                            <button className="btn pink sm" onClick={() => onLancar({ diaId: d.id })}>➕ Lançar</button>
+                            <button className="btn ghost sm" onClick={() => onEditarDia(d)} aria-label="Editar o dia">✏️ Editar</button>
+                          </span>
+                        )}
                       </div>
                     )}
                     {lanc.length === 0 ? (
@@ -841,12 +852,6 @@ function SecaoDias({
                           substituiNaLista={trocasDaLista?.diaId === d.id ? trocasDaLista.porAtleta.get(c.player_id) ?? null : undefined}
                         />
                       ))
-                    )}
-                    {podeEditar && (
-                      <div className="row" style={{ gap: 6, marginTop: 4 }}>
-                        <button className="btn pink sm" onClick={() => onLancar({ diaId: d.id })}>➕ Lançar</button>
-                        <button className="btn ghost sm" onClick={() => onEditarDia(d)}>✏️ Editar o dia</button>
-                      </div>
                     )}
                   </div>
                 )}
