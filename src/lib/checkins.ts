@@ -187,6 +187,25 @@ function itensDeCheckin(data: AppData): { id: string; player_id: string; conta_i
 }
 
 /**
+ * O que fica pendurado ao apagar estes lancamentos (18/11): o check-in de credito que ja foi usado (num play ou para
+ * pagar divida) e os check-ins de divida que o 💰 gravou junto com o lancamento (ficam: aconteceram). Frase pronta
+ * para o confirmar; vazia quando nao ha nada.
+ */
+export function avisoAoApagarLancamentos(data: AppData, checkinIds: string[]): string {
+  const ids = new Set(checkinIds)
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
+  const partes: string[] = []
+  const usosDoCredito = [
+    ...data.checkins.filter((c) => c.credito_de && ids.has(c.credito_de) && !ids.has(c.id)).map((c) => `no play de ${dateLabel(dias.get(c.dia_id) ?? '')}`),
+    ...(data.checkinAcertos ?? []).filter((a) => a.credito_de && ids.has(a.credito_de)).map(() => "para pagar dívida"),
+  ]
+  if (usosDoCredito.length) partes.push(`O check-in de crédito deste lançamento já foi usado ${usosDoCredito.join(' e ')}: esse uso fica sem a origem. Confira se não é melhor corrigir em vez de apagar.`)
+  const daDivida = (data.checkinAcertos ?? []).filter((a) => checkinIds.some((id) => a.id.startsWith(`divida:${id}:`))).length
+  if (daDivida) partes.push(`${daDivida === 1 ? 'O check-in que pagou dívida' : `Os ${daDivida} check-ins que pagaram dívida`} junto com ele ${daDivida === 1 ? 'fica' : 'ficam'} no saldo (apague no Extrato, se for o caso).`)
+  return partes.join('\n\n')
+}
+
+/**
  * UM CHECK-IN POR CONTA POR DIA (dono, 18/11): onde esta conta ja fez check-in nesta data -- play (inclusive o
  * "nao veio" que virou credito), ficha da mensalidade ou divida paga com check-in. `ignorar`: ids que estao sendo
  * editados. O texto diz onde, para a tela travar. Nulo = livre.
@@ -217,7 +236,7 @@ export function checkinJaFeito(
   return null
 }
 
-function contaDoItem(data: AppData, item: Pick<Checkin, 'player_id' | 'conta_id'>) {
+export function contaDoItem(data: AppData, item: Pick<Checkin, 'player_id' | 'conta_id'>) {
   const dono = item.conta_id?.startsWith('principal:') ? item.conta_id.slice('principal:'.length) : item.player_id
   return contaDoCheckin(data, { conta_id: item.conta_id, player_id: dono })
 }
@@ -310,7 +329,7 @@ export function acertosDaMensalidade(data: AppData, playerId: string, hoje = tod
 }
 
 /** Os acertos da atleta: os gravados, o credito da mensalidade e o credito que cobriu a divida (negativo). */
-const acertosDe = (data: AppData, playerId: string): Acerto[] => [
+export const acertosDe = (data: AppData, playerId: string): Acerto[] => [
   ...data.checkinAcertos.filter((a) => a.player_id === playerId),
   ...acertosDaMensalidade(data, playerId),
   ...usosDoCreditoNaDivida(data, playerId).map((u) => ({
@@ -830,7 +849,8 @@ export function relatorioDasArenas(
       .concat(itens.filter((i) => i.local_id === localId).map((i): LinhaDoRelatorio => {
         const conta = contaDoItem(data, i)
         const atleta = nameOf(i.player_id)
-        const descricao = i.descricao
+        // a arena nao ve o financeiro da organizacao (dono, 18/11): o check-in que pagou divida sai como "fora do play"
+        const descricao = i.id.startsWith('divida:') ? 'check-in fora do play' : i.descricao
         return {
           date: i.date, dia: descricao,
           local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',
@@ -839,6 +859,22 @@ export function relatorioDasArenas(
           app: `${rotuloDoTipo(appDaConta(data, conta))} · ${descricao}`,
           modo: 'checkin', compareceu: true, confirmado: i.confirmado,
         }
+      }))
+      // divida paga com um check-in de credito (script 41): nao gasta cota, mas a arena precisa saber, como no play
+      .concat((data.checkinAcertos ?? []).flatMap((a): LinhaDoRelatorio[] => {
+        const orig = a.credito_de ? data.checkins.find((c) => c.id === a.credito_de) : undefined
+        if (!orig || (orig.local_id ?? null) !== localId) return []
+        if (f.de && f.ate ? a.date < f.de || a.date > f.ate : f.mes && monthOf(a.date) !== f.mes) return []
+        const conta = contaDoCheckin(data, orig)
+        const atleta = nameOf(a.player_id)
+        return [{
+          date: a.date, dia: 'fora do play (uso do crédito)',
+          local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',
+          atleta: atleta === '—' ? '(atleta removida)' : atleta,
+          titular: nomeDoTitular(conta, atleta),
+          app: `crédito do check-in de ${dataDoCredito(data, orig.id)} · fora do play`,
+          modo: 'checkin', compareceu: true, confirmado: orig.checkin_confirmado,
+        }]
       }))
       .sort((a, b) => a.date.localeCompare(b.date) || a.titular.localeCompare(b.titular, 'pt-BR'))
   for (const l of locais) {

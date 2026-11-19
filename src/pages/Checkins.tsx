@@ -60,8 +60,9 @@ import {
   type UsoNoLocal,
   creditosDeCheckin,
   gastaCheckin,
+  avisoAoApagarLancamentos,
 } from '../lib/checkins'
-import { planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
+import { mesesDoFiltro, planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
 import {
@@ -601,6 +602,16 @@ function SecaoAtletas({
                         : <>✅ Check-ins usados nos plays: {feitos.map((f) => `${dateLabel(f.dia.date).slice(0, 5)} ${nomeCurto(data.checkinLocais.find((l) => l.id === f.c.local_id)?.nome ?? '')}${!f.c.compareceu ? ' (não veio)' : f.c.credito_de ? ' (crédito)' : ''}`).join(' · ')}</>}
                     </div>
                     {(() => {
+                      // os check-ins que pagaram divida (script 41) tambem gastam a cota: sem esta linha os livres caiam sem explicacao
+                      const daDivida = data.checkinAcertos.filter((a) => a.player_id === p.id && (a.local_id || a.credito_de) && monthOf(a.date) === mes)
+                      if (!daDivida.length) return null
+                      return (
+                        <div className="tiny muted" style={{ marginTop: 4 }}>
+                          💸 Check-ins que pagaram dívida: {daDivida.sort((a, b) => a.date.localeCompare(b.date)).map((a) => `${dateLabel(a.date).slice(0, 5)} ${a.credito_de ? '(crédito)' : nomeCurto(data.checkinLocais.find((l) => l.id === a.local_id)?.nome ?? '')}`).join(' · ')}
+                        </div>
+                      )
+                    })()}
+                    {(() => {
                       const cred = creditosDeCheckin(data, p.id)
                       if (cred.length === 0) return null
                       return (
@@ -894,7 +905,10 @@ function SecaoArenas({ mes, onToast }: { mes: string; onToast: (m: string) => vo
     <div className="card">
       <div className="section-title">📤 Check-ins para as arenas</div>
       <p className="tiny muted" style={{ margin: '0 0 10px' }}>
-        O que cada arena recebe no fim do mês, com o <strong>titular da conta</strong>. Sem valores.
+        O que cada arena recebe no fim do mês, com o <strong>titular da conta</strong>. Escolha uma ou mais arenas: o Excel
+        sai num arquivo só, uma aba por arena, com os check-ins (confirmados e pendentes) e, na V3, os aluguéis com os
+        check-ins que cada um abateu. <strong>Nada do seu financeiro</strong> (quem pagou, quem deve): esse fica no
+        Excel completo, no Caixa.
       </p>
       <div className="segmented" style={{ marginBottom: 10 }}>
         <button className={!porPeriodo ? 'on' : ''} onClick={() => setPorPeriodo(false)}>{monthLabel(mes)}</button>
@@ -958,14 +972,14 @@ function SecaoArenas({ mes, onToast }: { mes: string; onToast: (m: string) => vo
               className="btn teal"
               onClick={async () => {
                 const sufixo = porPeriodo ? `${de}_a_${ate}` : mes
-                const arquivo = new File([gerarXlsx(planilhasDasArenas(rel))], `checkins-arenas-${sufixo}.xlsx`, {
+                const arquivo = new File([gerarXlsx(planilhasDasArenas(rel, data, mesesDoFiltro(filtro)))], `checkins-arenas-${sufixo}.xlsx`, {
                   type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 })
                 const r = await baixarOuCompartilhar(arquivo, `Check-ins — ${rel.periodo}`)
                 onToast(r === 'baixou' ? 'Planilha salva 📄' : 'Planilha enviada 📄')
               }}
             >
-              📄 Excel
+              📄 Excel da arena
             </button>
           </div>
         </div>
@@ -1391,7 +1405,7 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
   const linhaDoExcel = (
     <button className="ini-linha ini-chev" onClick={excel}>
       <span className="ini-ic verde" aria-hidden="true">📊</span>
-      <span className="g"><b>Excel completo</b><span className="sub">{tudo ? 'todos os meses' : nomeDoMes(mes)}, com plays, mensalidades e caixa</span></span>
+      <span className="g"><b>Excel completo (o seu controle)</b><span className="sub">{tudo ? 'todos os meses' : nomeDoMes(mes)}, com plays, mensalidades e caixa · o da arena fica em Arenas</span></span>
     </button>
   )
   const passa = doEventos && valorLido ? Math.max(0, valorLido - cobre) : 0
@@ -2684,7 +2698,8 @@ function EditarDiaModal({
           <button
             className="btn danger block"
             onClick={() => {
-              const aviso = lancamentos > 0 ? `\n\nSomem também ${plural(lancamentos, 'lançamento')} e os pagamentos deles.` : ''
+              const pendurado = avisoAoApagarLancamentos(data, checkinsDoDia(data, dia.id).map((c) => c.id))
+              const aviso = (lancamentos > 0 ? `\n\nSomem também ${plural(lancamentos, 'lançamento')} e os pagamentos deles.` : '') + (pendurado ? `\n\n${pendurado}` : '')
               if (!confirm(`Apagar o dia ${dateLabel(dia.date)}?${aviso}`)) return
               deleteCheckinDia(dia.id)
               onToast('Dia apagado')
@@ -3122,7 +3137,8 @@ function LancarModal({
               <button
                 className="btn danger block"
                 onClick={() => {
-                  if (!confirm(`Apagar o lançamento de ${nameOf(existente.player_id)}?`)) return
+                  const pendurado = avisoAoApagarLancamentos(data, [existente.id])
+                  if (!confirm(`Apagar o lançamento de ${nameOf(existente.player_id)}?${pendurado ? `\n\n${pendurado}` : ''}`)) return
                   deleteCheckin(existente.id)
                   onToast('Lançamento apagado')
                   onClose()

@@ -752,7 +752,8 @@ masculino e o misto descrevem esse código parado.
 - **Check-in da ficha gasta a cota do mês da DATA** e entra no relatório da arena ("mensalidade de …")
   (`disponibilidade`, `relatorioDasArenas` em `checkins.ts`). No dia do play, as mensalistas em dia aparecem
   "📅 … sem cobrança" (derivado) e o Lançar avisa para não cobrar (dívida falsa).
-- **Excel**: aba Mensalidades e o Pix no Resumo pelo mês do Pix (`exportarCheckins.ts`). **Aluguel da V3**
+- **Dois Excels** (dono, 18/11): o **completo** (Caixa, "o seu controle", com todo o financeiro) e o **da arena** (Financeiro › Arenas, `planilhasDasArenas(rel, data, meses)`): escolhe uma ou mais arenas, um arquivo com uma aba por arena; check-ins com "Sim"/"Pendente" e o total de pendentes; na V3, os aluguéis com valor cobrado, desconto, check-ins abatidos (de qual mês), abatido em R$, Pix e "Confere" contra os check-ins da lista. **Nada do financeiro da organização** (o check-in que pagou dívida sai "fora do play"). Aluguel só entra com `valor_cobrado` e na arena com "V3" no nome (o caixa não guarda a arena).
+- **Excel**: aba Mensalidades e o Pix no Resumo pelo mês do Pix (`exportarCheckins.ts`). Aba **Acertos** (18/11): cada mexida no saldo fora de um play, inclusive a dívida paga com check-in (arena, titular, "Check-in de crédito de DD/MM") e os acertos calculados (`acertosDe`); Pagamentos tem "Aluguel: desconto (%)". O relatório das arenas lista também a dívida paga com check-in de crédito. **Aluguel da V3**
   (`src/lib/aluguel.ts`, só cálculo, sem tela): 5% do plano mensal → caixa de eventos; R$ 25 por check-in na V3
   no mês anterior (`checkinsNaArena`: o **uso** de um check-in de crédito não conta de novo).
 - Juntar cadastros leva fichas e itens (`juntar_mensalidades` no 34, atômico).
@@ -773,7 +774,7 @@ masculino e o misto descrevem esse código parado.
   crédito também paga (não gasta cota). **Um check-in por conta por dia em todos os tipos** (`checkinJaFeito`). A dívida da
   mensalidade (ex-mensalista, depois do prazo dos check-ins) aparece no 💰 e é paga primeiro. Com check-in de crédito livre, o 💰 já abre com eles pagando a dívida (quantos ela pedir) e o valor pago já deduzido; "Valor a ser cobrado em dinheiro" fica em vermelho. O 💰 também escolhe o
   check-in de crédito para o próprio play. Desfazer o 💰/lista/play apaga esses acertos; apagar o lançamento no Financeiro
-  não. Sem o 41 só a mensalidade aceita check-in no 💰 (`avisosDoBanco.colunas` 'checkin_acertos.local_id').
+  não, mas o confirmar avisa (`avisoAoApagarLancamentos`: os check-ins de dívida que ficam e o check-in de crédito já usado). Atletas lista "💸 Check-ins que pagaram dívida" (gastam cota). `tests/jornadaFinanceira.test.ts` cruza tudo: dívida, crédito, 💰, cota, aluguel, caixa, Excel e apagar o play. Sem o 41 só a mensalidade aceita check-in no 💰 (`avisosDoBanco.colunas` 'checkin_acertos.local_id').
 - **Aluguel 📅 Mensal × 🎾 Avulso** (dono, 18/11, script 40 `caixa.desconto`): o lançamento de aluguel pergunta qual é.
   Só o mensal (contratado) abate os check-ins da V3 do mês anterior (todos: plays + fichas da mensalidade, a tela mostra os
   dois); o avulso (um play a mais, pago em dinheiro) não. O **% de desconto** é editável nos dois (mensal vem com o do último

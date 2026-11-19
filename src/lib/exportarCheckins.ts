@@ -11,6 +11,9 @@ import { dateLabel, monthLabel, monthOf, todayISO } from './types'
 import {
   CATEGORIAS_DE_CAIXA,
   acertosDaMensalidade,
+  acertosDe,
+  contaDoItem,
+  descontoDoAluguel,
   appDaConta,
   centavos,
   contaDoCheckin,
@@ -34,25 +37,83 @@ import { categoriaDe, CATEGORIAS } from './mensalidade'
 import { filaDeEspera, limiteDeMensalistas, mensalistasAtivas, geridaNaAbaMensalistas } from './vagasDeMensalista'
 import {
   MES_INICIAL, checkinsDaFicha, creditoDaMensalidade, dividaDaMensalidade, dinheiroDaFicha, faltaDaFicha, fichaDe, idDaFicha,
-  mensalidadeDaData, prazoDosCheckins, quitada, renovada, usosDoCreditoNaDivida, valorDaFicha, vencimento,
+  mensalidadeDaData, mesAnterior, proximoMes, prazoDosCheckins, quitada, renovada, usosDoCreditoNaDivida, valorDaFicha, vencimento,
 } from './fichaDaMensalidade'
 import type { Celula, Planilha } from './xlsx'
+import { checkinsNaArena } from './aluguel'
 
 const SIM_NAO = (v: boolean) => (v ? 'Sim' : 'Não')
 
-/** Uma aba por arena: data, titular (o nome que a arena tem), app, a menina e se ja foi confirmado. */
-export function planilhasDasArenas(rel: Relatorio): Planilha[] {
+/**
+ * O EXCEL DA ARENA (dono, 18/11): o que a funcionaria da arena precisa para conferir, sem nada do financeiro da
+ * organizacao (quem deve, quem pagou o que). Uma aba por arena escolhida, no mesmo arquivo: os check-ins (dia, titular
+ * da conta, app, atleta, confirmado ou pendente), o total com os pendentes e, na arena dos alugueis (a V3, a unica que
+ * abate check-in), cada aluguel: o que ela cobrou, o desconto, quantos check-ins abateram (e de que mes), o que foi
+ * pago no Pix, e se os check-ins abatidos batem com os listados na aba. `data` e `meses` (os meses do relatorio)
+ * ligam os alugueis; sem eles sai so a lista de check-ins.
+ */
+export function planilhasDasArenas(rel: Relatorio, data?: AppData, meses: string[] = []): Planilha[] {
   const abas: Planilha[] = rel.blocos
-    .filter((b) => b.linhas.length > 0)
-    .map((b) => ({
-      nome: b.local?.nome ?? 'Sem arena',
-      linhas: [
+    .filter((b) => b.linhas.length > 0 || (data && b.local && alugueisDaArena(data, b.local.nome, meses).length > 0))
+    .map((b) => {
+      const pendentes = b.linhas.filter((l) => !l.confirmado).length
+      const linhas: Celula[][] = [
         ['Data', 'Dia', 'Titular da conta', 'App', 'Atleta', 'Check-in confirmado'],
-        ...b.linhas.map((l) => [dateLabel(l.date), l.dia, l.titular, l.app, l.atleta, SIM_NAO(l.confirmado)]),
-      ],
-    }))
+        ...b.linhas.map((l) => [dateLabel(l.date), l.dia, l.titular, l.app, l.atleta, l.confirmado ? 'Sim' : 'Pendente']),
+        [],
+        ['Total de check-ins', b.linhas.length],
+        ['Confirmados', b.linhas.length - pendentes],
+        ['Pendentes (ainda a confirmar)', pendentes],
+      ]
+      const alugueis = data && b.local ? alugueisDaArena(data, b.local.nome, meses) : []
+      if (data && b.local && alugueis.length > 0) {
+        linhas.push([], ['ALUGUÉIS'], [
+          'Data do pagamento', 'Descrição', 'Tipo', 'Valor cobrado', 'Desconto (%)', 'Check-ins de', 'Check-ins abatidos',
+          'Abatido em check-ins', 'Pago no Pix', 'Check-ins feitos aqui nesse mês', 'Confere',
+        ])
+        for (const l of alugueis) {
+          const mesDosCheckins = mesAnterior(monthOf(l.date))
+          const abatidos = l.plano_mensal ? l.checkins_abatidos ?? 0 : 0
+          const feitos = checkinsNaArena(data, b.local.id, mesDosCheckins)
+          linhas.push([
+            dateLabel(l.date), l.descricao, l.plano_mensal ? 'Mensal (contratado)' : 'Avulso',
+            { reais: l.valor_cobrado ?? l.valor }, Math.round(descontoDoAluguel(l) * 1000) / 10,
+            l.plano_mensal ? monthLabel(mesDosCheckins) : '', l.plano_mensal ? abatidos : '',
+            { reais: centavos((l.valor_cobrado ?? l.valor) - l.valor) }, { reais: l.valor },
+            l.plano_mensal ? feitos : '',
+            // o abatido foi gravado no dia do aluguel; check-in lancado ou apagado depois faz a conta mudar
+            l.plano_mensal ? (feitos === abatidos ? 'Sim' : `Não: ${feitos > abatidos ? `${feitos - abatidos} a mais` : `${abatidos - feitos} a menos`} na lista`) : '',
+          ])
+        }
+      }
+      return { nome: b.local?.nome ?? 'Sem arena', linhas }
+    })
   if (abas.length === 0) abas.push({ nome: 'Check-ins', linhas: [['Nenhum check-in em ' + rel.periodo]] })
   return abas
+}
+
+/**
+ * Os alugueis lancados com o valor que a arena cobrou: hoje so a V3 (o mesmo nome que o Caixa usa, /v3/), porque o
+ * lancamento do caixa nao guarda a arena. Entra o aluguel pago num dos meses do relatorio ou o que abateu os check-ins
+ * de um deles (o de dezembro paga os check-ins de novembro).
+ * shortcut: arena do aluguel pelo nome "V3", trocar por uma coluna caixa.local_id quando houver aluguel de outra arena.
+ */
+function alugueisDaArena(data: AppData, nomeDaArena: string, meses: string[]) {
+  if (!/v3/i.test(nomeDaArena)) return []
+  const set = new Set(meses)
+  return data.caixa
+    .filter((l) => l.categoria === 'aluguel' && l.tipo === 'saida' && l.valor_cobrado)
+    .filter((l) => set.size === 0 || set.has(monthOf(l.date)) || set.has(mesAnterior(monthOf(l.date))))
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/** Os meses (AAAA-MM) de um relatorio por mes ou por periodo. */
+export function mesesDoFiltro(f: { mes: string | null; de?: string | null; ate?: string | null }): string[] {
+  if (f.mes) return [f.mes]
+  if (!f.de || !f.ate) return []
+  const out: string[] = []
+  for (let m = monthOf(f.de); m <= monthOf(f.ate); m = proximoMes(m)) out.push(m)
+  return out
 }
 
 function planilhaMensalidades(data: AppData, nome: (id: string) => string, mes: string | null, hoje: string): Planilha | null {
@@ -280,6 +341,8 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
           // aluguel da V3: o que ela cobrou, se foi no plano mensal, os check-ins abatidos e a economia que foi para o caixa de eventos
           l.valor_cobrado ? { reais: l.valor_cobrado } : '',
           l.categoria === 'aluguel' && l.valor_cobrado ? (l.plano_mensal ? 'Sim' : 'Não') : '',
+          // o % de desconto e editavel nos dois tipos (script 40): a economia sai dele
+          l.categoria === 'aluguel' && l.valor_cobrado ? Math.round(descontoDoAluguel(l) * 1000) / 10 : '',
           l.checkins_abatidos ?? '',
           economiaDoAluguel(l) ? { reais: economiaDoAluguel(l) } : '',
           pagoPelosEventos.get(l.id) ? { reais: -(pagoPelosEventos.get(l.id) as number) } : '',
@@ -296,19 +359,46 @@ export function planilhasCompletas(data: AppData, nameOf: (id: string) => string
           'Acerto de atleta',
           a.valor >= 0 ? 'Entrada' : 'Saída',
           { reais: a.valor },
-          '', '', '', '', '',
+          '', '', '', '', '', '',
         ] as Celula[],
       })),
   ]
   const pagamentos: Planilha = {
     nome: 'Pagamentos',
     linhas: [
-      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Aluguel: valor cobrado', 'Aluguel: plano mensal', 'Aluguel: check-ins abatidos', 'Para o caixa de eventos', 'Pago pelo caixa de eventos'],
+      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Aluguel: valor cobrado', 'Aluguel: plano mensal', 'Aluguel: desconto (%)', 'Aluguel: check-ins abatidos', 'Para o caixa de eventos', 'Pago pelo caixa de eventos'],
       ...linhasDoCaixa.sort((a, b) => a.date.localeCompare(b.date)).map((x) => x.linha),
     ],
   }
 
-  const abas = [controle, pagamentos, resumo, saldos]
+  // ---- Acertos: cada mexida no saldo fora de um play, uma por linha (o Saldos so mostra a soma). Inclui a divida
+  // paga com check-in (script 41), o credito da mensalidade e o credito que cobriu a divida, que sao calculados.
+  const linhasDeAcerto = data.players
+    .flatMap((p) => acertosDe(data, p.id))
+    .concat(data.checkinAcertos.filter((a) => !data.players.some((p) => p.id === a.player_id)))
+    .filter((a) => !mes || monthOf(a.date) === mes)
+    .sort((a, b) => a.date.localeCompare(b.date) || nome(a.player_id).localeCompare(nome(b.player_id), 'pt-BR'))
+  const acertos: Planilha = {
+    nome: 'Acertos',
+    linhas: [
+      ['Data', 'Atleta', 'Descrição', 'Efeito no saldo', 'Dinheiro de verdade', 'Pago com check-in', 'Arena', 'Titular da conta'],
+      ...linhasDeAcerto.map((a): Celula[] => {
+        const orig = a.credito_de ? data.checkins.find((c) => c.id === a.credito_de) : undefined
+        const localId = orig ? orig.local_id : a.local_id
+        const comCheckin = Boolean(orig || a.local_id)
+        const conta = orig ? contaDoCheckin(data, orig) : comCheckin ? contaDoItem(data, { player_id: a.player_id, conta_id: a.conta_id ?? null }) : null
+        const dataDoOrig = orig ? data.checkinDias.find((d) => d.id === orig.dia_id)?.date : undefined
+        return [
+          dateLabel(a.date), nome(a.player_id), a.descricao, { reais: a.valor }, SIM_NAO(a.dinheiro),
+          orig ? `Check-in de crédito${dataDoOrig ? ` de ${dateLabel(dataDoOrig)}` : ''}` : comCheckin ? 'Sim' : '',
+          comCheckin ? data.checkinLocais.find((l) => l.id === localId)?.nome ?? '' : '',
+          conta ? nomeDoTitular(conta, nome(a.player_id)) : '',
+        ]
+      }),
+    ],
+  }
+
+  const abas = [controle, pagamentos, resumo, saldos, acertos]
   const dados = { ...data, mensalidades: data.mensalidades ?? [], mensalidadeItens: data.mensalidadeItens ?? [] }
   if (!mes || mes >= MES_INICIAL) {
     const mensalidades = planilhaMensalidades(dados, nome, mes, hoje)
