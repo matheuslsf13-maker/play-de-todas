@@ -3261,9 +3261,10 @@ button.st-linha:active { background: var(--pink-suave); }
 /* "Valor a ser cobrado em dinheiro" do 💰 em vermelho (dono, 18/11) */
 .conta-linha.a-cobrar, .conta-linha.a-cobrar strong { color: var(--danger); font-weight: 700; }
 
-/* topo do dia aberto em Financeiro > Dias: chips a esquerda, Lancar/Editar a direita (quebra de linha se nao couber) */
-.dia-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.dia-topo .chip { flex: none; }
-.dia-acoes { display: flex; gap: 6px; margin-left: auto; }
-.dia-topo .chip { padding-inline: 10px; }
-.dia-topo .btn.sm { padding-inline: 10px; }
+/* topo do dia aberto em Financeiro > Dias: chips a esquerda (rolam de lado se nao couberem), Lancar/Editar a direita, sempre numa linha */
+.dia-topo { display: flex; align-items: center; gap: 6px; }
+.dia-filtros { display: flex; gap: 6px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.dia-filtros::-webkit-scrollbar { display: none; }
+.dia-filtros .chip { flex: none; padding-inline: 10px; }
+.dia-acoes { display: flex; gap: 6px; flex: none; }
+.dia-acoes .btn.sm { padding-inline: 10px; }
