@@ -256,7 +256,7 @@ export const supabaseRepo: Repo = {
     const sb = client()
     // o misto nao tem check-ins (o dinheiro e de cada campeonato): nem pergunta
     const semCheckins = EH_MISTO ? Promise.resolve({ data: [], error: null }) : null
-    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens, ajustes, colunaTransferencia] =
+    const [players, sessions, matches, choices, closures, locais, contas, dias, checkins, pagamentos, caixa, acertos, planos, fichas, itens, ajustes, colunaTransferencia, colunaDoCheckinNaDivida] =
       await Promise.all([
         EH_MISTO
           ? jogadoresDosDoisCampeonatos().then((data) => ({ data, error: null }), (error) => ({ data: null, error }))
@@ -279,7 +279,11 @@ export const supabaseRepo: Repo = {
         TEM_MENSALIDADE ? sb.from('ajustes').select('*') : { data: [], error: null },
         // a coluna do script 38: sem ela, transferir para a caixinha fica desligado (ver saveCaixa)
         semCheckins ?? sb.from('caixa').select('transferencia').limit(1),
+        // as do script 41: sem elas, pagar divida de play com check-in fica desligado (a arena nao seria gravada)
+        semCheckins ?? sb.from('checkin_acertos').select('local_id, conta_id, credito_de').limit(1),
       ])
+    if (colunaDoCheckinNaDivida.error) avisosDoBanco.colunas.add('checkin_acertos.local_id')
+    else avisosDoBanco.colunas.delete('checkin_acertos.local_id')
     if (colunaTransferencia.error) avisosDoBanco.colunas.add('caixa.transferencia')
     else avisosDoBanco.colunas.delete('caixa.transferencia')
     const err = players.error || sessions.error || matches.error

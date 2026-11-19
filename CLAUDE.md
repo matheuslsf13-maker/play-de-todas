@@ -163,9 +163,9 @@ masculino e o misto descrevem esse código parado.
   só o das janelas.
 - **Lotada e aberta**: "entre como suplente" no cartão e na página (`soSuplente`). **Datas**: prazo ≤ play
   e play no futuro (`problemaDaLista`), mensagem embaixo das datas e botão travado.
-- **💰 com crédito e dívida** (dono, 18/11; `contaNoPlay`/`saldoDepois` em `pagamentoNaLista.ts`): a linha da lista já
-  mostra "💚 R$ X", "💚 crédito cobre" ou "⚠️ deve R$ X" ao lado do 💰. A janela mostra a conta: o play antigo que gerou o saldo com o "pago" em verde/vermelho
-  (`origemDoSaldo`: só o que ainda vale; o que entra do outro lado quita os mais antigos primeiro, e o parcial diz "resta") , cada um com o valor à direita, "Total de crédito"/"Total devido" e (crédito) "Cobrar"; sem a linha do play de hoje e sem emoji. Lançar mais ou menos que o cobrado (o botão escolhido) pede confirmação: "vai gerar crédito" / "vai gerar dívida" / "não quita a dívida"; sem linha "Cobrar" com dívida (os dois botões já dizem) e, com dívida, "Só o play" × "Play + atrasado"; crédito que cobre tudo = "✅ Confirmar com o crédito" (pago 0).
+- **💰 com crédito e dívida** (dono, 18/11; `contaNoPlay`/`saldoDepois` em `pagamentoNaLista.ts`): a linha da lista só
+  sinaliza com um selo "Crédito" (verde) ou "Dívida" (vermelho) ao lado do 💰 (`.saldo-selo`); o valor fica na janela. A janela mostra a conta: o play antigo que gerou o saldo com o "pago" em verde/vermelho
+  (`origemDoSaldo`: só o que ainda vale; o que entra do outro lado quita os mais antigos primeiro, e o parcial diz "resta") , cada um com o valor à direita, "Total de crédito"/"Total devido" e (crédito) "Cobrar"; sem a linha do play de hoje e sem emoji. Com dívida, a conta mostra "Play de hoje" e "Valor total (play + atrasado)" e o valor pago abre com o total; embaixo do campo, "Valor a cobrar em dinheiro" (baixa com os check-ins da dívida; dono, 18/11: os botões "Só o play" × "Play + atrasado" saíram). Lançar mais ou menos que o cobrado pede confirmação: "vai gerar crédito" / "vai gerar dívida" / "não quita a dívida"; crédito que cobre tudo = "✅ Confirmar com o crédito" (pago 0).
   O aviso de baixo é o saldo dela depois (crédito − dívida + pago − devido).
 - **Apagar play/lista desfaz o financeiro** (D45, `desfazerDoPlay`/`lancadosPelaLista` em
   `pagamentoNaLista.ts`): dia do play com lançamentos, o 💰 da lista, o "pago" da avulsa e o crédito gasto
@@ -756,6 +756,24 @@ masculino e o misto descrevem esse código parado.
   (`src/lib/aluguel.ts`, só cálculo, sem tela): 5% do plano mensal → caixa de eventos; R$ 25 por check-in na V3
   no mês anterior (`checkinsNaArena`: o **uso** de um check-in de crédito não conta de novo).
 - Juntar cadastros leva fichas e itens (`juntar_mensalidades` no 34, atômico).
+- **Renovar com check-in faltando** (dono, 18/11; `pendenteDaAnterior`, `idDaFaltaPassada` em `fichaDaMensalidade.ts`):
+  o ➕ Pix de um mês com check-ins faltando no anterior (prazo ainda aberto) pergunta "Renovar e passar falta para
+  <mês>" (abatimento `passou:<atleta>:<de>:<para>` na antiga; a nova ganha 25 a mais por check-in no cheio e no máximo;
+  apagar o item desfaz) × "Quitar primeiro" (Pix de 80 + o que falta, ou check-ins com dia/conta/arena,
+  `CheckinsParaPagar`) × Cancelar. Renovada passando a falta não é devedora. O "Topou e pagou" e renovar com crédito
+  não passam por essa pergunta. `tests/renovarMesmoAssim.test.ts`.
+- **⚠️ Check-in apertado** (`alertaDosCheckins`: faltam N check-ins e restam ≤ N+1 dias até o prazo; um check-in por dia):
+  triângulo vermelho na aba Financeiro (`.aba-alerta`), cartão no topo de Atletas e Mensalistas (`AlertasDeCheckin`), filtro
+  e linha em cada uma. **Atletas** tem filtros (alerta, devendo, crédito, check-in de crédito, só os que têm alguém).
+  **Dias**: "verificar" primeiro, filtro e busca; o lançamento de quem a lista pôs no lugar de mensalista já vem marcado
+  (lê `lista_nomes.substitui`) e a linha mostra "🔁 entrou no lugar de X (mensalista), pela lista do play de DD/MM" ou ", inserido manualmente" (lê a lista do play do dia aberto; dia sem play fica sem a origem). **Criar lista** explica o dia de cobrança
+  (`AvisoDoDiaDeCobranca`: criado no 1º 💰 ou vincula o dia solto que já existe).
+- **Dívida paga com check-in no 💰** (script 41: `checkin_acertos.conta_id/local_id/credito_de`): cada check-in vira um acerto
+  +25 (`divida:<checkinId>:…`, `pagarDividas` em `pagamentoNaLista.ts`), entra na cota e no relatório pela data; o check-in de
+  crédito também paga (não gasta cota). **Um check-in por conta por dia em todos os tipos** (`checkinJaFeito`). A dívida da
+  mensalidade (ex-mensalista, depois do prazo dos check-ins) aparece no 💰 e é paga primeiro. Com check-in de crédito livre, o 💰 já abre com eles pagando a dívida (quantos ela pedir) e o valor pago já deduzido; "Valor a ser cobrado em dinheiro" fica em vermelho. O 💰 também escolhe o
+  check-in de crédito para o próprio play. Desfazer o 💰/lista/play apaga esses acertos; apagar o lançamento no Financeiro
+  não. Sem o 41 só a mensalidade aceita check-in no 💰 (`avisosDoBanco.colunas` 'checkin_acertos.local_id').
 - **Aluguel 📅 Mensal × 🎾 Avulso** (dono, 18/11, script 40 `caixa.desconto`): o lançamento de aluguel pergunta qual é.
   Só o mensal (contratado) abate os check-ins da V3 do mês anterior (todos: plays + fichas da mensalidade, a tela mostra os
   dois); o avulso (um play a mais, pago em dinheiro) não. O **% de desconto** é editável nos dois (mensal vem com o do último
@@ -769,7 +787,7 @@ masculino e o misto descrevem esse código parado.
   **lista de espera** (`players.espera_mensalista`, ordem do pedido; `vagasDeMensalista.ts`).
 - **🎉 Caixinha de eventos** (script 37, `caixa.do_eventos`, dono 16/11): aba **🎉 Eventos** do Financeiro (no lugar
   do ⚙️, que foi para o lado do mês) com o saldo em destaque, "🎁 Usar a caixinha num gasto" (abre o Caixa já marcado)
-  e o histórico. No Caixa, só **Brindes e presentes** e **Confraternização** têm "🎉 Usar o valor da caixinha de eventos?" O caixa cobre até o que tem na data, na ordem do calendário
+  e o histórico. No Caixa, só **Brindes e presentes**, **Confraternização** e **Outras despesas** (dono, 18/11) têm "🎉 Usar o valor da caixinha de eventos?" O caixa cobre até o que tem na data, na ordem do calendário
   (`saidasDosEventos`); o que passar sai do caixa geral como despesa da categoria (Brindes e presentes...). O gasto
   inteiro continua na despesa (a reserva fica dentro do saldo); o caixa de eventos do mês = entradas − o que cobriu.
   "📜 Entradas e gastos" lista os dois; o lançamento mostra a divisão e liga/desliga; o Excel tem a coluna

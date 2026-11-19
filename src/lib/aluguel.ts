@@ -15,7 +15,9 @@ export function checkinsNaArena(data: AppData, localId: string, mes: string): nu
 /** Os mesmos check-ins, separados: os lancados nos plays e os da ficha da mensalidade (a tela mostra os dois). */
 export function checkinsNaArenaPorOrigem(data: AppData, localId: string, mes: string) {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
-  const dePlay = data.checkins.filter((c) => gastaCheckin(c) && c.local_id === localId && monthOf(dias.get(c.dia_id) ?? '') === mes).length
+  // os check-ins que pagaram divida de play (script 41) contam com os de play
+  const dePlay = data.checkins.filter((c) => gastaCheckin(c) && c.local_id === localId && monthOf(dias.get(c.dia_id) ?? '') === mes).length +
+    (data.checkinAcertos ?? []).filter((a) => a.local_id === localId && !a.credito_de && monthOf(a.date) === mes).length
   const daMensalidade = data.mensalidadeItens.filter((i) => i.tipo === 'checkin' && i.mes >= MES_INICIAL && i.local_id === localId && monthOf(i.date) === mes).length
   return { dePlay, daMensalidade }
 }

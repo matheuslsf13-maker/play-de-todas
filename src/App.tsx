@@ -1,4 +1,5 @@
 import { subirAoConteudo } from './lib/rolagem'
+import { alertasDosCheckins } from './lib/fichaDaMensalidade'
 import { vigiarFileirasRolaveis } from './lib/fadeRolavel'
 import { IconeDaAba } from './components/IconesDeAba'
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
@@ -68,7 +69,9 @@ function abaSalva(): Tab {
 }
 
 export default function App() {
-  const { loading, error, online, canEdit, userEmail, signIn, signOut, pendingCount } = useStore()
+  const { loading, error, online, canEdit, userEmail, signIn, signOut, pendingCount, data } = useStore()
+  // ⚠️ na aba Financeiro: mensalista com mais check-ins faltando que dias ate o prazo (dono, 18/11)
+  const alertas = canEdit && LIGA.id === 'feminino' ? alertasDosCheckins(data).length : 0
   const [tab, setTab] = useState<Tab>(abaSalva)
   const abas = TABS.filter((t) => !t.soAdmin || canEdit)
   // depois que a tela inicial apareceu (sem disputar a rede com ela), baixa o resto
@@ -324,7 +327,7 @@ export default function App() {
         {!lista && abas.some((t) => t.id === abaVisivel) && <span className="tabbar-pilula" aria-hidden="true" />}
         {abas.map((t) => (
           <button key={t.id} className={!lista && abaVisivel === t.id ? 'active' : ''} onClick={() => irParaAba(t.id)}>
-            <span className="ic"><IconeDaAba id={t.id} /></span>
+            <span className="ic"><IconeDaAba id={t.id} />{t.id === 'checkins' && alertas > 0 && <span className="aba-alerta-onde alerta-vivo" aria-label={`${alertas} alerta${alertas > 1 ? 's' : ''} de check-in`}><span className="aba-alerta">!</span></span>}</span>
             {t.label}
           </button>
         ))}

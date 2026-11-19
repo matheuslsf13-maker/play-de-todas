@@ -623,6 +623,7 @@ export function aplicarDesfazer(store: ReturnType<typeof useStore>, d: Desfazer)
   // o dia leva junto os lancamentos e pagamentos dele (cascata no banco e na store)
   for (const id of d.dias) store.deleteCheckinDia(id)
   for (const id of d.itens ?? []) store.deleteItemDaMensalidade(id)
+  for (const id of d.acertos ?? []) store.deleteAcerto(id)
 }
 
 /**

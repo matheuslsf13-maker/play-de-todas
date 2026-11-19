@@ -1,6 +1,6 @@
 import { categoriaDe, mensalistaEmDiaNoPlay } from './mensalidade'
 import { saldoDosPlaysAntesDe } from './checkins'
-import { monthOf, todayISO, type AppData, type ItemDaMensalidade, type Player } from './types'
+import { monthLabel, monthOf, todayISO, type AppData, type ItemDaMensalidade, type Player } from './types'
 
 /*
  * A MENSALIDADE NOVA (dono, 07/11/2026; D47). Tudo derivado das fichas e dos itens: nada e
@@ -61,7 +61,7 @@ export function fichaDe(data: AppData, playerId: string, mes: string, hoje?: str
 /** So os itens gravados (sem o credito automatico): a base das contas do credito, sem dar voltas. */
 export function fichaBruta(data: AppData, playerId: string, mes: string): Ficha {
   const cab = data.mensalidades.find((m) => m.player_id === playerId && m.mes === mes)
-  return {
+  const f: Ficha = {
     player_id: playerId,
     mes,
     valor_cheio: cab?.valor_cheio ?? MENSALIDADE_PADRAO.valor_cheio,
@@ -69,6 +69,63 @@ export function fichaBruta(data: AppData, playerId: string, mes: string): Ficha 
     max_checkins: cab?.max_checkins ?? MENSALIDADE_PADRAO.max_checkins,
     itens: data.mensalidadeItens.filter((i) => i.player_id === playerId && i.mes === mes),
   }
+  // a falta que outra ficha passou para esta (renovar mesmo assim): mais check-ins aqui, calculado do item de la
+  for (const i of data.mensalidadeItens) {
+    const destino = i.player_id === playerId ? destinoDaFaltaPassada(i) : null
+    if (destino !== mes) continue
+    const n = Math.ceil(centavos((i.valor ?? 0) / f.valor_checkin))
+    f.valor_cheio = centavos(f.valor_cheio + n * f.valor_checkin)
+    f.max_checkins += n
+    const resto = centavos(n * f.valor_checkin - (i.valor ?? 0))
+    // falta quebrada (pagou parte de um check-in em dinheiro): o que ja tinha pago vira abatimento aqui
+    if (resto > 0) f.itens = [...f.itens, { ...i, id: `${i.id}:resto`, mes, valor: resto, observacao: `parte já paga da falta de ${monthLabel(i.mes).toLowerCase()}` }]
+  }
+  return f
+}
+
+/*
+ * RENOVAR MESMO ASSIM (dono, 18/11): no dia 5 ela paga os 80 mas ainda falta check-in da mensalidade anterior.
+ * A Ingryd pode deixar renovar: a anterior fecha com um abatimento "falta passada para <mes>" (id
+ * `passou:<atleta>:<de>:<para>`) e a ficha nova ganha os check-ins que faltavam (5 = 1 + 4). Ela nao fica
+ * devedora; se nao fechar a nova no prazo, a divida e da nova, com tudo. Apagar o abatimento desfaz.
+ */
+export const idDaFaltaPassada = (playerId: string, de: string, para: string) => `passou:${playerId}:${de}:${para}`
+export function destinoDaFaltaPassada(i: Pick<ItemDaMensalidade, 'id' | 'tipo'>): string | null {
+  const m = i.tipo === 'abatimento' ? /^passou:.+:(\d{4}-\d{2}):(\d{4}-\d{2})$/.exec(i.id) : null
+  return m ? m[2] : null
+}
+
+/**
+ * O QUE FALTA DAS ANTERIORES AINDA NO PRAZO (renovou, nao fechou os check-ins, e o dia 5 ainda nao passou):
+ * o que impede de "renovar limpa". Depois do prazo vira divida (`dividaDaMensalidade`).
+ */
+export function pendenteDaAnterior(data: AppData, playerId: string, mes: string, date: string): { mes: string; falta: number; checkins: number }[] {
+  return mesesDaAtleta(data, playerId)
+    .filter((m) => m < mes && prazoDosCheckins(m) >= date)
+    .flatMap((m) => {
+      const f = fichaDe(data, playerId, m, date)
+      const falta = renovada(f, date) ? faltaDaFicha(f, date) : 0
+      return falta > 0 ? [{ mes: m, falta, checkins: Math.ceil(centavos(falta / f.valor_checkin)) }] : []
+    })
+}
+
+/**
+ * ALERTA DOS CHECK-INS (dono, 18/11): um check-in por dia, entao faltar 3 check-ins com 4 dias ate o prazo
+ * ja e aperto. Alerta quando os dias que sobram (hoje ate o prazo, contando os dois) sao no maximo os
+ * check-ins que faltam + 1. So ficha renovada (a que nao renovou nao gera divida).
+ */
+export function alertaDosCheckins(data: AppData, playerId: string, hoje = todayISO()): { mes: string; checkins: number; dias: number; falta: number } | null {
+  for (const mes of mesesDaAtleta(data, playerId)) {
+    const prazo = prazoDosCheckins(mes)
+    if (prazo < hoje) continue
+    const f = fichaDe(data, playerId, mes, hoje)
+    if (!renovada(f, hoje)) continue
+    const falta = centavos(faltaDaFicha(f, hoje))
+    const checkins = Math.ceil(centavos(falta / f.valor_checkin))
+    const dias = Math.round((Date.parse(prazo) - Date.parse(hoje)) / 86400000) + 1
+    if (checkins > 0 && dias <= checkins + 1) return { mes, checkins, dias, falta }
+  }
+  return null
 }
 
 const ate = (f: Ficha, data?: string) => (data ? f.itens.filter((i) => i.date <= data) : f.itens)
@@ -160,13 +217,15 @@ export function contaDaRenovacao(f: Ficha, credito: number, divida: number, hoje
  * UM PIX DE QUEM DEVE (dono, 07/11): primeiro quita a divida (a mais antiga primeiro), o resto vai
  * para a mensalidade escolhida.
  */
-export function dividirPix(data: AppData, playerId: string, mes: string, valor: number, hoje: string): ItemNovo[] {
+export function dividirPix(data: AppData, playerId: string, mes: string, valor: number, hoje: string, quitarPendente = false): ItemNovo[] {
   const out: ItemNovo[] = []
   let resta = centavos(valor)
-  for (const d of dividaDaMensalidade(data, playerId, hoje).porMes) {
+  // "quitar primeiro" (dono, 18/11): a falta da anterior ainda no prazo entra na frente, como a divida
+  const pendente = quitarPendente ? pendenteDaAnterior(data, playerId, mes, hoje) : []
+  for (const d of [...dividaDaMensalidade(data, playerId, hoje).porMes, ...pendente]) {
     if (resta <= 0 || d.mes === mes) continue
     const v = Math.min(resta, d.falta)
-    out.push({ mes: d.mes, tipo: 'dinheiro', valor: v, observacao: 'quitou a dívida' })
+    out.push({ mes: d.mes, tipo: 'dinheiro', valor: v, observacao: 'checkins' in d ? 'completou a falta antes de renovar' : 'quitou a dívida' })
     resta = centavos(resta - v)
   }
   if (resta > 0) out.push({ mes, tipo: 'dinheiro', valor: resta, observacao: null })
@@ -307,3 +366,15 @@ export function marcasDaMensalista(f: Ficha, devendoAntes: number): MarcaDaMensa
   if (dinheiro === 0 && !renovada(f)) marcas.push('sem-pagamento')
   return marcas
 }
+
+/** Quem esta com o alerta dos check-ins agora (ativas e mensalistas): o ⚠️ da aba Financeiro e o topo da aba Mensalistas. */
+export function alertasDosCheckins(data: AppData, hoje = todayISO()): { player: Player; mes: string; checkins: number; dias: number; falta: number }[] {
+  return data.players.flatMap((p) => {
+    const a = p.active && categoriaDe(p) === 'mensalista' ? alertaDosCheckins(data, p.id, hoje) : null
+    return a ? [{ player: p, ...a }] : []
+  })
+}
+
+/** "Faltam 3 check-ins e 4 dias para o prazo" (a mesma frase em todo lugar). */
+export const textoDoAlerta = (a: { checkins: number; dias: number }) =>
+  `${a.checkins === 1 ? 'Falta 1 check-in' : `Faltam ${a.checkins} check-ins`} e ${a.dias === 1 ? 'só hoje' : `${a.dias} dias`} para o prazo`

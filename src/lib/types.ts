@@ -545,6 +545,14 @@ export type Acerto = {
   dinheiro: boolean
   descricao: string
   created_at: string
+  /**
+   * CHECK-IN QUE PAGOU DIVIDA DE PLAY (script 41, dono 18/11): a conta e a arena do check-in feito para
+   * quitar; entra na cota e no relatorio da arena pela data. Nulos = acerto comum.
+   */
+  conta_id?: string | null
+  local_id?: string | null
+  /** O check-in de credito (um `Checkin` de "nao veio") usado para pagar a divida: nao gasta cota. */
+  credito_de?: string | null
 }
 
 /**

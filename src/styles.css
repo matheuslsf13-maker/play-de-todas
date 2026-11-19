@@ -1829,6 +1829,9 @@ p .nome-link { padding-block: 0; margin-block: 0; }
 .lista-escolha:disabled { opacity: .55; cursor: default; }
 /* o nome como ela escreveu e, embaixo, o cadastro que o app ligou (dono, 18/11) */
 /* a conta do 💰: o que gerou o saldo, o total e o que cobrar, valor na direita (dono, 18/11) */
+.saldo-selo { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; font-size: 11px; font-weight: 700; line-height: 1; height: 20px; padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; margin-right: 6px; vertical-align: middle; }
+.saldo-selo.pos { color: var(--teal); background: var(--teal-suave); }
+.saldo-selo.neg { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .conta-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .conta-linha > :last-child { white-space: nowrap; }
 .conta-total { border-top: 1px solid var(--line); padding-top: 4px; margin-top: 2px; font-weight: 700; }
@@ -3197,3 +3200,63 @@ button.st-linha:active { background: var(--pink-suave); }
 .opcao-mov b { font-size: 15px; }
 .opcao-mov span { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
 .opcao-mov.on { border-color: var(--pink); background: var(--pink-suave); }
+
+/* um check-in para pagar divida ou falta (dono, 18/11) */
+.checkin-pagar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; }
+
+/* ⚠️ alerta de check-ins na aba Financeiro: triangulo vermelho no canto do icone (dono, 18/11) */
+.tabbar button .ic { position: relative; }
+.aba-alerta-onde { position: absolute; top: -6px; right: -12px; width: 20px; height: 18px; display: grid; place-items: center; }
+.aba-alerta {
+  display: block; width: 16px; height: 14px;
+  background: var(--danger); color: #fff; font-size: 10px; font-weight: 800; line-height: 15px; text-align: center;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.alerta-checkin { color: var(--danger); font-weight: 700; }
+.alerta-card { border: 1.5px solid var(--danger); }
+.selo-substituta { display: block; font-size: 12px; font-weight: 700; color: var(--teal); }
+.divida-checkins { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.divida-checkins > summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; gap: 4px; }
+.divida-checkins[open] > summary { margin-bottom: 10px; }
+
+/* total do "De onde veio e para onde foi": separa o saldo do mes e o caixa total das linhas de cima */
+.table tr.linha-total td { border-top: 2px solid var(--sep); padding-top: 12px; }
+
+/* check-ins da atleta (Financeiro › Atletas) */
+.atleta-checkins { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+.atleta-rotulo { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.aviso-conta {
+  margin-top: 8px; padding: 8px 10px; border-radius: 12px; font-size: 12.5px; line-height: 1.4; font-weight: 600;
+  color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, transparent);
+}
+
+/* alerta que chama atencao (dono, 18/11): balanca de um lado para o outro e solta tracinhos em volta */
+.alerta-vivo { --cor-alerta: var(--danger); position: relative; display: inline-block; transform-origin: 50% 85%; animation: alerta-balanca 1.8s ease-in-out infinite; }
+.alerta-vivo.laranja { --cor-alerta: var(--orange); }
+.alerta-vivo::after {
+  content: ''; position: absolute; inset: -7px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: repeating-conic-gradient(from -8deg, var(--cor-alerta) 0 14deg, transparent 14deg 45deg);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 54%, #000 70%, transparent 72%);
+  mask: radial-gradient(circle, transparent 52%, #000 54%, #000 70%, transparent 72%);
+  animation: alerta-tracos 1.8s ease-out infinite;
+}
+@keyframes alerta-balanca {
+  0%, 55%, 100% { transform: rotate(0); }
+  10% { transform: rotate(-14deg); } 20% { transform: rotate(13deg); }
+  30% { transform: rotate(-9deg); } 40% { transform: rotate(6deg); } 48% { transform: rotate(-2deg); }
+}
+@keyframes alerta-tracos {
+  0%, 6% { opacity: 0; transform: scale(.7); }
+  16% { opacity: 1; }
+  48%, 100% { opacity: 0; transform: scale(1.3); }
+}
+@media (prefers-reduced-motion: reduce) { .alerta-vivo, .alerta-vivo::after { animation: none; } }
+
+/* filtros de situacao em Financeiro › Atletas: devendo em vermelho, credito em verde (dono, 18/11) */
+.chip.sit-devendo:not(.on), .chip.sit-alerta:not(.on) { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.chip.sit-credito:not(.on) { color: var(--verde); border-color: color-mix(in srgb, var(--verde) 45%, transparent); }
+/* bolinha desenhada: o emoji 🔴 saia escuro, quase preto, em alguns celulares */
+.chip.sit-devendo::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); display: inline-block; margin-right: 6px; vertical-align: 1px; }
+
+/* "Valor a ser cobrado em dinheiro" do 💰 em vermelho (dono, 18/11) */
+.conta-linha.a-cobrar, .conta-linha.a-cobrar strong { color: var(--danger); font-weight: 700; }

@@ -3,7 +3,8 @@ import CampoDeBusca from '../components/CampoDeBusca'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { LIGA } from '../liga'
 import { FichaDaMensalidade, mensalidadeDeHoje, resumoDaMensalidade } from '../components/FichaDaMensalidade'
-import { dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
+import { alertaDosCheckins, alertasDosCheckins, textoDoAlerta, dividaDaMensalidade, emDiaNaData, fichaDe, MES_INICIAL, mesAnterior } from '../lib/fichaDaMensalidade'
+import { AlertasDeCheckin } from '../components/ListaDeMensalistas'
 import { ListaDeMensalistas } from '../components/ListaDeMensalistas'
 import { EditarPlanoDaAtleta } from '../components/EditarPlanoDaAtleta'
 import { VagasDeMensalista } from '../components/VagasDeMensalista'
@@ -166,9 +167,10 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
   /** O "Usar a caixinha" da aba Eventos abre o Caixa ja com a opcao marcada. */
   const [gastoDaCaixinha, setGastoDaCaixinha] = useState(0)
 
+  const alertas = temMensalistas ? alertasDosCheckins(data) : []
   const secoes: { id: Secao; rotulo: string }[] = [
     { id: 'atletas', rotulo: '👯 Atletas' },
-    ...(temMensalistas ? [{ id: 'mensalistas' as const, rotulo: '📅 Mensalistas' }] : []),
+    ...(temMensalistas ? [{ id: 'mensalistas' as const, rotulo: `📅 Mensalistas${alertas.length ? ' ⚠️' : ''}` }] : []),
     { id: 'dias', rotulo: '📅 Dias' },
     { id: 'arenas', rotulo: '📤 Arenas' },
     ...(veDinheiro ? [{ id: 'caixa' as const, rotulo: '💰 Caixa' }] : []),
@@ -220,6 +222,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
         </div>
       </div>
 
+      {secaoAtiva === 'atletas' && <AlertasDeCheckin alertas={alertas} onAbrir={setFichaDe} />}
       {secaoAtiva === 'atletas' && (
         <SecaoAtletas
           mes={mes}
@@ -233,6 +236,7 @@ export default function Checkins({ onToast }: { onToast: (m: string) => void }) 
       )}
       {secaoAtiva === 'mensalistas' && (
         <>
+          <AlertasDeCheckin alertas={alertas} onAbrir={setFichaDe} />
           <VagasDeMensalista onToast={onToast} />
           <ListaDeMensalistas onAbrir={setFichaDe} />
         </>
@@ -370,6 +374,14 @@ function BadgeSaldo({ saldo }: { saldo: number }) {
   return <span className="badge zerado">em dia</span>
 }
 
+type SituacaoDaAtleta = 'alerta' | 'devendo' | 'credito' | 'checkin-credito'
+const SITUACOES: { id: SituacaoDaAtleta; rotulo: string }[] = [
+  { id: 'alerta', rotulo: '⚠️ Check-in apertado' },
+  { id: 'devendo', rotulo: 'Devendo' },
+  { id: 'credito', rotulo: '💚 Crédito em dinheiro' },
+  { id: 'checkin-credito', rotulo: '🎟️ Check-in de crédito' },
+]
+
 function SecaoAtletas({
   mes,
   veDinheiro,
@@ -395,6 +407,8 @@ function SecaoAtletas({
   const temMensalidade = (p: Player) => LIGA.id === 'feminino' && veDinheiro && categoriaDe(p) === 'mensalista'
   const [busca, setBusca] = useState('')
   const [cat, setCat] = useState<Categoria | null>(null)
+  /** A situacao do dinheiro (dono, 18/11): ver de cara quem deve, quem tem credito e quem esta com alerta. */
+  const [situacao, setSituacao] = useState<SituacaoDaAtleta | null>(null)
   /** A atleta com a folha de acoes aberta (tocou na linha), como na aba Meninas. */
   const [aberta, setAberta] = useState<string | null>(null)
   const termo = normalizar(busca)
@@ -405,17 +419,32 @@ function SecaoAtletas({
       dividaDaMensalidade(data, id, hoje).porMes.filter((x) => x.mes < mesDaMensalidade).reduce((t, x) => t + x.falta, 0),
     )
 
+  const situacoes = new Map(data.players.map((p) => [p.id, situacoesDaAtleta(p)]))
   const lista = [...data.players]
     .filter(
       (p) =>
         // por categoria so as ativas, como conta a vaga de mensalista; as inativas ficam em "Todas"
         (cat === null || (p.active && categoriaDe(p) === cat)) &&
+        (situacao === null || situacoes.get(p.id)!.includes(situacao)) &&
         (!termo ||
         normalizar(p.name).includes(termo) ||
         normalizar(p.nickname ?? '').includes(termo) ||
         (p.aliases ?? []).some((a) => normalizar(a).includes(termo))),
     )
-    .sort((a, b) => Number(b.active) - Number(a.active) || nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR'))
+    // quem tem alerta vem em cima (dono, 18/11): a lista e comprida e o aviso embaixo ninguem ve
+    .sort((a, b) => Number(situacoes.get(b.id)!.includes('alerta')) - Number(situacoes.get(a.id)!.includes('alerta')) ||
+      Number(b.active) - Number(a.active) || nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR'))
+
+  function situacoesDaAtleta(p: Player): SituacaoDaAtleta[] {
+    if (!veDinheiro) return []
+    const out: SituacaoDaAtleta[] = []
+    const saldo = saldoDaAtleta(data, p.id).saldo
+    if (temMensalidade(p) && p.active && alertaDosCheckins(data, p.id, hoje)) out.push('alerta')
+    if (saldo < 0 || (LIGA.id === 'feminino' && dividaDaMensalidade(data, p.id, hoje).total > 0)) out.push('devendo')
+    if (saldo > 0) out.push('credito')
+    if (creditosDeCheckin(data, p.id).length > 0) out.push('checkin-credito')
+    return out
+  }
 
   // o mes em numeros: dias, check-ins e integrais
   const dias = diasDoMes(data, mes)
@@ -489,6 +518,20 @@ function SecaoAtletas({
           ))}
         </div>
       )}
+      {veDinheiro && (
+        <div className="chips-scroll" style={{ paddingInline: 0, marginBottom: 10 }}>
+          {SITUACOES.map((s) => {
+            const n = data.players.filter((p) => situacoes.get(p.id)!.includes(s.id)).length
+            // a contagem fica sempre na tela (dono, 18/11), so o alerta some quando nao tem ninguem
+            if (s.id === 'alerta' && n === 0 && situacao !== s.id) return null
+            return (
+              <button key={s.id} className={`chip sit-${s.id} ${situacao === s.id ? 'on' : ''}`} onClick={() => setSituacao(situacao === s.id ? null : s.id)}>
+                {s.rotulo} <strong>{n}</strong>
+              </button>
+            )
+          })}
+        </div>
+      )}
       {lista.length === 0 ? (
         termo ? (
           <Empty icon="🔎">Nenhuma jogadora com “{busca.trim()}”.</Empty>
@@ -535,21 +578,27 @@ function SecaoAtletas({
                       {veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0) && <BadgeSaldo saldo={saldo.saldo} />}
                     </div>
                     <div className="tiny muted">{CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo}</div>
-                    <div className="chips-scroll" style={{ marginTop: 1, paddingInline: 0 }}>
-                      {arenas.length === 0 ? (
-                        <span className="tiny muted">sem check-in disponível em {nomeDoMes(mes)}</span>
+                    {/* check-ins do mes (dono, 18/11): rotulo claro; sem conta preenchida nao inventa os 12 de cada arena */}
+                    <div className="atleta-checkins">
+                      <span className="atleta-rotulo">Check-ins livres em {nomeDoMes(mes)}</span>
+                      {!data.checkinContas.some((c) => c.player_id === p.id) ? (
+                        <span className="tiny muted">conta de check-in não preenchida</span>
+                      ) : arenas.length === 0 ? (
+                        <span className="tiny muted">o plano não aceita nenhuma arena</span>
                       ) : (
-                        arenas.map((l) => (
-                          <span key={l.local.id} className={`chip disponivel ${l.disponiveis <= 0 ? 'zerado' : ''}`} title={`check-ins livres para o play em ${l.local.nome}`}>
-                            <strong>{l.disponiveis}</strong> {nomeCurto(l.local.nome)}
-                          </span>
-                        ))
+                        <div className="row wrap" style={{ gap: 6 }}>
+                          {arenas.map((l) => (
+                            <span key={l.local.id} className={`chip disponivel ${l.disponiveis <= 0 ? 'zerado' : ''}`} title={`check-ins livres para o play em ${l.local.nome}`}>
+                              <strong>{Math.max(0, l.disponiveis)}</strong> {nomeCurto(l.local.nome)}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <div className="tiny muted" style={{ marginTop: 4 }}>
+                    <div className="tiny muted" style={{ marginTop: 6 }}>
                       {feitos.length === 0
-                        ? `nenhum check-in em ${nomeDoMes(mes)}`
-                        : <>✅ {feitos.map((f) => `${dateLabel(f.dia.date).slice(0, 5)} ${nomeCurto(data.checkinLocais.find((l) => l.id === f.c.local_id)?.nome ?? '')}${!f.c.compareceu ? ' (não veio)' : f.c.credito_de ? ' (crédito)' : ''}`).join(' · ')}</>}
+                        ? `Nenhum check-in usado nos plays de ${nomeDoMes(mes)}`
+                        : <>✅ Check-ins usados nos plays: {feitos.map((f) => `${dateLabel(f.dia.date).slice(0, 5)} ${nomeCurto(data.checkinLocais.find((l) => l.id === f.c.local_id)?.nome ?? '')}${!f.c.compareceu ? ' (não veio)' : f.c.credito_de ? ' (crédito)' : ''}`).join(' · ')}</>}
                     </div>
                     {(() => {
                       const cred = creditosDeCheckin(data, p.id)
@@ -561,6 +610,10 @@ function SecaoAtletas({
                         </div>
                       )
                     })()}
+                    {temMensalidade(p) && p.active && (() => {
+                      const a = alertaDosCheckins(data, p.id, hoje)
+                      return a ? <div className="tiny alerta-checkin" style={{ marginTop: 2 }}><span className="alerta-vivo" aria-hidden>⚠️</span> {textoDoAlerta(a)} ({nomeDoMes(a.mes)})</div> : null
+                    })()}
                     {temMensalidade(p) && (() => {
                       const r = mensalidadeDe(p.id)
                       return (
@@ -570,7 +623,7 @@ function SecaoAtletas({
                       )
                     })()}
                     {podeEditar && disp.avisos.map((a) => (
-                      <span key={a} className="hint aviso">⚠️ {a}</span>
+                      <div key={a} className="aviso-conta"><span className="alerta-vivo laranja" aria-hidden>⚠️</span> {a}</div>
                     ))}
                   </div>
                 </div>
@@ -598,12 +651,15 @@ function LinhaDeLancamento({
   veDinheiro,
   podeEditar,
   onEditar,
+  substituiNaLista,
 }: {
   checkin: Checkin
   dia: CheckinDia
   veDinheiro: boolean
   podeEditar: boolean
   onEditar: () => void
+  /** A troca que a lista do play deste dia fez para ela (undefined = sem lista lida; null = a lista nao trocou ninguem por ela). */
+  substituiNaLista?: string | null
 }) {
   const { data, nameOf, playerById } = useStore()
   const nome = nameOf(checkin.player_id)
@@ -635,6 +691,13 @@ function LinhaDeLancamento({
         <span className="fila-time">
           <b>{nome === '—' ? '(atleta removida)' : nome}</b>
         </span>
+        {checkin.substitui && checkin.compareceu && (
+          // de onde veio a troca (dono, 18/11): da lista do play (o 💰 ou o Lançar puxaram de la) ou posta na mao
+          <span className="selo-substituta">
+            🔁 entrou no lugar de {nameOf(checkin.substitui)} (mensalista)
+            {substituiNaLista === checkin.substitui ? `, pela lista do play de ${dateLabel(dia.date).slice(0, 5)}` : substituiNaLista !== undefined ? ', inserido manualmente' : ''}
+          </span>
+        )}
         <span className="tiny muted">
           {!checkin.compareceu
             ? checkin.credito_checkin
@@ -682,7 +745,24 @@ function SecaoDias({
 }) {
   const { data, nameOf } = useStore()
   const [aberto, setAberto] = useState<string | null>(null)
+  /** Dentro do dia: so quem falta verificar, e a busca pelo nome (dono, 18/11). */
+  const [soVerificar, setSoVerificar] = useState(false)
+  const [busca, setBusca] = useState('')
   const dias = diasDoMes(data, mes)
+  // a lista do play do dia aberto: diz se a substituta veio dela ou foi posta na mao
+  const { repo } = useStore()
+  const [trocasDaLista, setTrocasDaLista] = useState<{ diaId: string; porAtleta: Map<string, string> } | null>(null)
+  const sessaoDoAberto = dias.find((d) => d.id === aberto)?.session_id ?? null
+  useEffect(() => {
+    if (!aberto || !sessaoDoAberto || LIGA.id !== 'feminino') return
+    let vivo = true
+    repo.carregarLista({ sessionId: sessaoDoAberto }).then((l) => {
+      if (!vivo) return
+      const porAtleta = new Map((l?.nomes ?? []).filter((n) => n.player_id && n.substitui && !n.saiu_em).map((n) => [n.player_id!, n.substitui!]))
+      setTrocasDaLista({ diaId: aberto, porAtleta })
+    }).catch(() => {})
+    return () => { vivo = false }
+  }, [aberto, sessaoDoAberto, repo])
 
   return (
     <div className="card">
@@ -698,7 +778,9 @@ function SecaoDias({
       ) : (
         <div className="stack">
           {dias.map((d) => {
-            const lanc = checkinsDoDia(data, d.id).sort((a, b) => nameOf(a.player_id).localeCompare(nameOf(b.player_id), 'pt-BR'))
+            const verificar = (c: Checkin) => statusDoCheckin(c, pagamentoDoCheckin(data, c.id), veDinheiro) === 'verificar'
+            // quem falta verificar vem em cima; as ja confirmadas embaixo
+            const lanc = checkinsDoDia(data, d.id).sort((a, b) => Number(verificar(b)) - Number(verificar(a)) || nameOf(a.player_id).localeCompare(nameOf(b.player_id), 'pt-BR'))
             const vieram = lanc.filter((c) => c.compareceu)
             const comCheckin = vieram.filter((c) => c.modo === 'checkin').length
             const recebido = lanc.reduce((t, c) => t + (pagamentoDoCheckin(data, c.id)?.valor_pago ?? 0), 0)
@@ -706,7 +788,7 @@ function SecaoDias({
             const estaAberto = aberto === d.id
             return (
               <div key={d.id}>
-                <button className={`duo-row dia-linha ${estaAberto ? 'on' : ''}`} onClick={() => setAberto(estaAberto ? null : d.id)}>
+                <button className={`duo-row dia-linha ${estaAberto ? 'on' : ''}`} onClick={() => { setAberto(estaAberto ? null : d.id); setBusca(''); setSoVerificar(false) }}>
                   <span className="row spread" style={{ gap: 8 }}>
                     <span className="duo-nomes">{dateLabel(d.date)} · {rotuloDoDia(d, data.sessions)}</span>
                     {aVerificar > 0 && <span className="badge verificar">{aVerificar}</span>}
@@ -736,10 +818,19 @@ function SecaoDias({
                         </div>
                       )
                     })()}
+                    {lanc.length > 4 && (
+                      <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar pelo nome" />
+                    )}
+                    {aVerificar > 0 && aVerificar < lanc.length && (
+                      <div className="chips-scroll" style={{ paddingInline: 0 }}>
+                        <button className={`chip ${!soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(false)}>Todas <strong>{lanc.length}</strong></button>
+                        <button className={`chip ${soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(true)}>Verificar <strong>{aVerificar}</strong></button>
+                      </div>
+                    )}
                     {lanc.length === 0 ? (
                       <div className="tiny muted" style={{ textAlign: 'center' }}>Ninguém lançada ainda.</div>
                     ) : (
-                      lanc.map((c) => (
+                      lanc.filter((c) => (!soVerificar || verificar(c)) && (!busca.trim() || normalizar(nameOf(c.player_id)).includes(normalizar(busca)))).map((c) => (
                         <LinhaDeLancamento
                           key={c.id}
                           checkin={c}
@@ -747,6 +838,7 @@ function SecaoDias({
                           veDinheiro={veDinheiro}
                           podeEditar={podeEditar}
                           onEditar={() => onLancar({ checkin: c })}
+                          substituiNaLista={trocasDaLista?.diaId === d.id ? trocasDaLista.porAtleta.get(c.player_id) ?? null : undefined}
                         />
                       ))
                     )}
@@ -1217,8 +1309,8 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
     : null
 
   // o caixa de eventos paga gastos comuns (presentes, confraternizacao...); o aluguel tem a conta dele
-  // so nos gastos de evento: presentes e confraternizacao (dono, 16/11)
-  const podeEventos = LIGA.id === 'feminino' && (categoria === 'brinde' || categoria === 'confraternizacao')
+  // so nos gastos de evento: presentes, confraternizacao e outras despesas (dono, 16/11 e 18/11)
+  const podeEventos = LIGA.id === 'feminino' && (categoria === 'brinde' || categoria === 'confraternizacao' || categoria === 'outra')
   const temEventos = useMemo(() => entradasDosEventos(data).length > 0, [data])
   const noEventos = podeEventos && date ? saldoDosEventosEm(data, date) : 0
   const cobre = podeEventos && doEventos && valorLido ? Math.min(valorLido, Math.max(0, noEventos)) : 0
@@ -1332,6 +1424,14 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
                       </td>
                     </tr>
                   )}
+                  <tr className="linha-total">
+                    <td><strong>Saldo de {nomeDoMes(mes)}</strong></td>
+                    <td className={linhaDoMes.saldoDoMes < 0 ? 'valor-neg' : 'valor-pos'}><strong><Reais n={linhaDoMes.saldoDoMes} sinal /></strong></td>
+                  </tr>
+                  <tr>
+                    <td><strong>Caixa total</strong> <span className="tiny muted">(todos os meses)</span></td>
+                    <td className={linhaDoMes.saldoAcumulado < 0 ? 'valor-neg' : 'valor-pos'}><strong><Reais n={linhaDoMes.saldoAcumulado} sinal /></strong></td>
+                  </tr>
                 </tbody>
               </table>
               <p className="tiny muted" style={{ margin: '8px 0 0' }}>
@@ -1570,7 +1670,7 @@ function SecaoCaixa({ mes, podeEditar, onToast, comCaixinha = false }: { mes: st
                 )}
               </div>
             ) : null}
-            {LIGA.id === 'feminino' && (aberto.do_eventos || aberto.categoria === 'brinde' || aberto.categoria === 'confraternizacao') && (() => {
+            {LIGA.id === 'feminino' && (aberto.do_eventos || aberto.categoria === 'brinde' || aberto.categoria === 'confraternizacao' || aberto.categoria === 'outra') && (() => {
               const x = aberto.do_eventos ? saidasDosEventos(data).find((y) => y.caixa_id === aberto.id) : undefined
               return (
                 <>
@@ -2607,6 +2707,17 @@ function LancarModal({
 
   const dias = [...data.checkinDias].sort((a, b) => b.date.localeCompare(a.date))
   const dia = dias.find((d) => d.id === diaId)
+  // entrou no lugar de uma mensalista na lista de presenca do play: o lancamento ja vem marcado (dono, 18/11)
+  const { repo } = useStore()
+  useEffect(() => {
+    if (existente || !playerId || !dia?.session_id || LIGA.id !== 'feminino') return
+    let vivo = true
+    repo.carregarLista({ sessionId: dia.session_id }).then((l) => {
+      const n = l?.nomes.find((x) => x.player_id === playerId && !x.saiu_em && x.substitui)
+      if (vivo && n?.substitui) setSubstitui((atual) => atual ?? n.substitui!)
+    }).catch(() => {})
+    return () => { vivo = false }
+  }, [existente, playerId, dia?.session_id, repo])
   const mes = dia ? monthOf(dia.date) : monthOf(todayISO())
   const jogadoras = [...data.players].sort((a, b) => Number(b.active) - Number(a.active) || nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR'))
   const contas = playerId ? contasDaAtleta(data, playerId) : []

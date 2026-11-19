@@ -171,10 +171,50 @@ export function contaDoCheckin(data: AppData, c: Pick<Checkin, 'player_id' | 'co
   return data.checkinContas.find((x) => x.player_id === c.player_id && x.principal) ?? contaPrincipalVirtual(c.player_id)
 }
 
-function itensDeCheckin(data: AppData) {
-  return (data.mensalidadeItens ?? []).filter((i) =>
+/**
+ * Os check-ins feitos fora de um lancamento de play, pela data: os da ficha da mensalidade e os que pagaram
+ * divida de play (acerto com arena, script 41). Gastam a cota e vao para o relatorio da arena.
+ */
+function itensDeCheckin(data: AppData): { id: string; player_id: string; conta_id: string | null; local_id: string | null; date: string; confirmado: boolean; descricao: string }[] {
+  const daFicha = (data.mensalidadeItens ?? [])
     // a ficha e da regra nova; o check-in conta no mes da DATA (o ciclo de dezembro comeca em 06/11)
-    i.tipo === 'checkin' && i.mes >= MES_INICIAL)
+    .filter((i) => i.tipo === 'checkin' && i.mes >= MES_INICIAL)
+    .map((i) => ({ id: i.id, player_id: i.player_id, conta_id: i.conta_id, local_id: i.local_id, date: i.date, confirmado: i.confirmado, descricao: `mensalidade de ${monthLabel(i.mes).toLowerCase()}` }))
+  const daDivida = (data.checkinAcertos ?? [])
+    .filter((a) => a.local_id && !a.credito_de)
+    .map((a) => ({ id: a.id, player_id: a.player_id, conta_id: a.conta_id ?? null, local_id: a.local_id ?? null, date: a.date, confirmado: true, descricao: 'pagou dívida de play' }))
+  return [...daFicha, ...daDivida]
+}
+
+/**
+ * UM CHECK-IN POR CONTA POR DIA (dono, 18/11): onde esta conta ja fez check-in nesta data -- play (inclusive o
+ * "nao veio" que virou credito), ficha da mensalidade ou divida paga com check-in. `ignorar`: ids que estao sendo
+ * editados. O texto diz onde, para a tela travar. Nulo = livre.
+ */
+export function checkinJaFeito(
+  data: AppData,
+  playerId: string,
+  contaId: string | null,
+  date: string,
+  ignorar: string[] = [],
+): { texto: string; credito?: Checkin } | null {
+  const conta = contaDoItem(data, { player_id: playerId, conta_id: contaId }).id
+  const mesma = (x: Pick<Checkin, 'player_id' | 'conta_id'>) => x.player_id === playerId && contaDoItem(data, x).id === conta
+  const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
+  const usados = new Set([...data.checkins, ...(data.checkinAcertos ?? [])].filter((x) => !ignorar.includes(x.id)).map((x) => x.credito_de).filter(Boolean))
+  for (const c of data.checkins) {
+    if (ignorar.includes(c.id) || !gastaCheckin(c) || dias.get(c.dia_id) !== date || !mesma(c)) continue
+    if (!c.compareceu) {
+      return usados.has(c.id)
+        ? { texto: 'já foi usado: virou check-in de crédito e esse crédito já foi gasto' }
+        : { texto: 'virou check-in de crédito (ela não veio ao play)', credito: c }
+    }
+    return { texto: 'já foi usado no play deste dia' }
+  }
+  for (const i of itensDeCheckin(data)) {
+    if (!ignorar.includes(i.id) && i.date === date && mesma(i)) return { texto: `já foi usado (${i.descricao})` }
+  }
+  return null
 }
 
 function contaDoItem(data: AppData, item: Pick<Checkin, 'player_id' | 'conta_id'>) {
@@ -440,9 +480,11 @@ export type CreditoDeCheckin = { checkin: Checkin; dia: CheckinDia | undefined }
  * credito que ele usa volta a aparecer para ele).
  */
 export function creditosDeCheckin(data: AppData, playerId: string, semCheckinId?: string): CreditoDeCheckin[] {
-  const usados = new Set(
-    data.checkins.filter((c) => c.credito_de && c.id !== semCheckinId).map((c) => c.credito_de as string),
-  )
+  const usados = new Set([
+    ...data.checkins.filter((c) => c.credito_de && c.id !== semCheckinId).map((c) => c.credito_de as string),
+    // usado para pagar divida (script 41): some daqui tambem
+    ...(data.checkinAcertos ?? []).filter((a) => a.credito_de && !a.id.startsWith(`divida:${semCheckinId}:`)).map((a) => a.credito_de as string),
+  ])
   return data.checkins
     .filter((c) => c.player_id === playerId && c.modo === 'checkin' && !c.compareceu && c.credito_checkin && !usados.has(c.id))
     .map((c) => ({ checkin: c, dia: data.checkinDias.find((d) => d.id === c.dia_id) }))
@@ -622,8 +664,8 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
       if (excesso && excesso.destino === null) {
         avisos.push(
           aceita
-            ? `${aulasPorSemana} aula${s(aulasPorSemana)} por semana em ${local.nome} cobram ${consumoBruto} e sobravam ${Math.max(0, cota - complemento - usados)} nesta conta: os ${excesso.quanto} que faltam precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`
-            : `${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} das aulas de lá precisam de outra conta${arenasAfiliadas(local, locais).length > 0 ? ', de outra arena' : ''} ou ficam em dinheiro.`,
+            ? `As aulas passam da cota: ${aulasPorSemana} por semana em ${local.nome} gastam ${consumoBruto} check-ins no mês e ${nomeDaConta(conta).replace(/^A /, 'a ')} só tem ${Math.max(0, cota - complemento - usados)} livres lá. Os ${excesso.quanto} que faltam precisam ir para outra conta${arenasAfiliadas(local, locais).length > 0 ? ', outra arena' : ''} ou ser pagos em dinheiro (em Contas de check-in).`
+            : `O ${plano.nome} não aceita ${local.nome}: os ${excesso.quanto} check-ins das aulas de lá precisam ir para outra conta${arenasAfiliadas(local, locais).length > 0 ? ', outra arena' : ''} ou ser pagos em dinheiro (em Contas de check-in).`,
         )
       } else if (excesso?.destino?.tipo === 'local') {
         notas.push(`${excesso.quanto} das aulas em ${local.nome} usam ${excesso.destino.local.nome}.`)
@@ -788,7 +830,7 @@ export function relatorioDasArenas(
       .concat(itens.filter((i) => i.local_id === localId).map((i): LinhaDoRelatorio => {
         const conta = contaDoItem(data, i)
         const atleta = nameOf(i.player_id)
-        const descricao = `mensalidade de ${monthLabel(i.mes).toLowerCase()}`
+        const descricao = i.descricao
         return {
           date: i.date, dia: descricao,
           local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',

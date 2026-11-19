@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal } from './ui'
 import { HistoricoFinanceiro } from './HistoricoFinanceiro'
+import { CheckinsParaPagar, problemasDosCheckins, type CheckinParaPagar } from './CheckinsParaPagar'
 import { useStore } from '../lib/store'
 import { categoriaDe } from '../lib/mensalidade'
 import { contasDaAtleta, creditoDisponivel, formatarReais, lerValor, nomeDoTitular } from '../lib/checkins'
@@ -11,6 +12,7 @@ import {
   dividirPix,
   faltaDaFicha,
   fichaDe,
+  idDaFaltaPassada,
   idDaFicha,
   MENSALIDADE_PADRAO,
   mensalidadeDaData,
@@ -18,6 +20,7 @@ import {
   mesDaCompensacao,
   MES_INICIAL,
   mesSugeridoDoCheckin,
+  pendenteDaAnterior,
   prazoDosCheckins,
   proximoMes,
   quitada,
@@ -26,7 +29,7 @@ import {
   valorParaRenovar,
   vencimento,
 } from '../lib/fichaDaMensalidade'
-import { dateLabel, monthLabel, todayISO, uid, type ItemDaMensalidade } from '../lib/types'
+import { dateLabel, monthLabel, plural, todayISO, uid, type ItemDaMensalidade } from '../lib/types'
 
 /*
  * 📅 A FICHA DA MENSALIDADE (dono, 07/11): a Ingryd registra o que chega pelo
@@ -245,7 +248,7 @@ export function FichaDaMensalidade({ playerId, mesInicial, onClose, onToast }: {
                   ? <>check-in {data.checkinLocais.find((l) => l.id === i.local_id)?.nome ?? 'sem arena'} · <span className="muted">{tituloDaConta(i)}</span></>
                   : <>{i.tipo === 'dinheiro' ? 'Pix' : 'abatimento'} {formatarReais(i.valor ?? 0)}{i.observacao ? <span className="muted"> · {i.observacao}</span> : null}</>}
               </span>
-              {i.id.startsWith('credito-na-divida:') ? null : <button
+              {i.id.startsWith('credito-na-divida:') || i.id.endsWith(':resto') ? null : <button
                 className="btn ghost sm"
                 aria-label="Apagar"
                 onClick={() => {
@@ -351,14 +354,84 @@ function NovoPix({ playerId, mes, sugestao, novoItem, onCancelar, onGravar }: {
   const [date, setDate] = useState(todayISO())
   const [texto, setTexto] = useState(sugestao > 0 ? String(sugestao) : '')
   const valor = lerValor(texto)
-  // quem deve: o Pix quita a divida primeiro (dono, 07/11)
-  const partes = valor && valor > 0 && date ? dividirPix(data, playerId, mes, valor, date) : []
+  // RENOVAR COM CHECK-IN FALTANDO (dono, 18/11): a anterior ainda no prazo e sem os check-ins todos
+  const pend = date && !renovada(fichaDe(data, playerId, mes, date), date) ? pendenteDaAnterior(data, playerId, mes, date) : []
+  const [escolha, setEscolha] = useState<null | 'passar' | 'quitar'>(null)
+  const [como, setComo] = useState<'pix' | 'checkins'>('pix')
+  const [checkins, setCheckins] = useState<CheckinParaPagar[]>([])
+  const faltaPend = pend.reduce((t, p) => t + p.falta, 0)
+  const nPend = pend.reduce((t, p) => t + p.checkins, 0)
+  const vc = MENSALIDADE_PADRAO.valor_checkin
+  const mesNovo = monthLabel(mes).split(' ')[0].toLowerCase()
+  const mesesPend = pend.map((p) => monthLabel(p.mes).split(' ')[0].toLowerCase()).join(' e ')
+  // cada check-in vai para a anterior que ainda tem vaga, na ordem
+  const itensDeCheckin: ItemDaMensalidade[] = escolha === 'quitar' && como === 'checkins'
+    ? checkins.map((c, i) => {
+        let k = i
+        const p = pend.find((x) => (k -= x.checkins) < 0) ?? pend[pend.length - 1]
+        return { id: uid(), player_id: playerId, mes: p.mes, tipo: 'checkin', date: c.date, valor: null, conta_id: c.contaId, local_id: c.localId, confirmado: true, observacao: 'completou a falta antes de renovar', created_at: new Date().toISOString() }
+      })
+    : []
+  const problemas = escolha === 'quitar' && como === 'checkins' ? problemasDosCheckins(data, playerId, checkins) : []
+  const comCheckins = { ...data, mensalidadeItens: [...data.mensalidadeItens, ...itensDeCheckin] }
+  // quem deve: o Pix quita a divida primeiro (dono, 07/11); no "quitar primeiro", tambem a falta da anterior
+  const partes = valor && valor > 0 && date ? dividirPix(comCheckins, playerId, mes, valor, date, escolha === 'quitar') : []
+  const valorDoPix = (falta: number) => String(Math.max(0, sugestao) + Math.max(0, Math.round(falta * 100) / 100))
   const dividido = partes.some((p) => p.mes !== mes)
   // Pix acima do que falta nao vira credito: avisa antes de gravar
   const doMes = partes.filter((p) => p.mes === mes).reduce((t, p) => t + (p.valor ?? 0), 0)
   const excesso = valor && valor > 0 ? Math.max(0, Math.round((doMes - sugestao) * 100) / 100) : 0
+  if (pend.length > 0 && escolha === null) {
+    return (
+      <div className="stack" style={{ gap: 10 }}>
+        <div className="banner warn" role="alert" style={{ margin: 0 }}>
+          Não consegue renovar porque falta <strong>{plural(nPend, 'check-in', 'check-ins')}</strong> da mensalidade de {mesesPend} ({formatarReais(faltaPend)}). Deseja renovar mesmo assim?
+        </div>
+        <button className="btn teal block" onClick={() => setEscolha('passar')}>Renovar e passar falta para {mesNovo}</button>
+        <span className="tiny muted" style={{ marginTop: -4 }}>
+          A de {mesesPend} fecha e a de {mesNovo} fica com {nPend + MENSALIDADE_PADRAO.max_checkins} check-ins. Ela não fica devedora.
+        </span>
+        <button className="btn block" onClick={() => { setEscolha('quitar'); setTexto(valorDoPix(faltaPend)) }}>Quitar primeiro</button>
+        <span className="tiny muted" style={{ marginTop: -4 }}>Ela paga o que falta (check-in ou {formatarReais(vc)} cada) junto com a renovação, até o dia 5.</span>
+        <button className="btn ghost block" onClick={onCancelar}>Cancelar</button>
+      </div>
+    )
+  }
+  const salvar = () => {
+    // passar a falta: a anterior fecha com um abatimento; a ficha nova ganha os check-ins (calculado em fichaBruta)
+    const passadas = escolha === 'passar'
+      ? pend.map((p) => ({ ...novoItem({ mes: p.mes, tipo: 'abatimento', valor: p.falta, observacao: `falta passada para ${mesNovo}` }, date), id: idDaFaltaPassada(playerId, p.mes, mes) }))
+      : []
+    onGravar([...passadas, ...itensDeCheckin, ...partes.map((p) => novoItem(p, date))])
+  }
   return (
     <div className="stack" style={{ gap: 10 }}>
+      {escolha === 'passar' && (
+        <div className="banner info" style={{ margin: 0 }}>
+          Renova e passa {plural(nPend, 'check-in', 'check-ins')} de {mesesPend} para {mesNovo} ({nPend + MENSALIDADE_PADRAO.max_checkins} no total).
+          <button className="linkish" style={{ display: 'block', marginTop: 6 }} onClick={() => setEscolha(null)}>↩ Prefere quitar primeiro? Voltar</button>
+        </div>
+      )}
+      {escolha === 'quitar' && (
+        <>
+          <div className="banner info" style={{ margin: 0 }}>
+            {nPend === 1 ? 'Falta' : 'Faltam'} {plural(nPend, 'check-in', 'check-ins')} de {mesesPend} ({formatarReais(faltaPend)}). Escolha abaixo como ela paga: no Pix (junto com a renovação) ou com check-in.
+            <button className="linkish" style={{ display: 'block', marginTop: 6 }} onClick={() => { setEscolha(null); setCheckins([]); setComo('pix'); setTexto(valorDoPix(0)) }}>↩ Prefere passar a falta para {mesNovo}? Voltar</button>
+          </div>
+          <div className="segmented" role="group" aria-label="Quitar com">
+            {(['pix', 'checkins'] as const).map((c) => (
+              <button key={c} className={como === c ? 'on' : ''} aria-pressed={como === c} style={{ minHeight: 44 }}
+                onClick={() => { setComo(c); setCheckins([]); setTexto(valorDoPix(faltaPend)) }}>
+                {c === 'pix' ? `Pix ${formatarReais(Number(valorDoPix(faltaPend)))}` : 'Check-ins'}
+              </button>
+            ))}
+          </div>
+          {como === 'checkins' && (
+            <CheckinsParaPagar playerId={playerId} linhas={checkins} max={nPend} valorDeCada={vc}
+              onMudar={(l) => { setCheckins(l); setTexto(valorDoPix(faltaPend - l.length * vc)) }} />
+          )}
+        </>
+      )}
       <div className="row wrap" style={{ gap: 6 }}>
         {[80, 180, 25].map((v) => (
           <button key={v} className={`chip ${valor === v ? 'on' : ''}`} onClick={() => setTexto(String(v))}>{formatarReais(v)}</button>
@@ -384,8 +457,8 @@ function NovoPix({ playerId, mes, sugestao, novoItem, onCancelar, onGravar }: {
       )}
       <div className="row" style={{ gap: 8 }}>
         <button className="btn ghost grow" onClick={onCancelar}>Cancelar</button>
-        <button className="btn grow" disabled={!valor || valor <= 0 || !date} onClick={() => onGravar(partes.map((p) => novoItem(p, date)))}>
-          Salvar Pix
+        <button className="btn grow" disabled={valor === null || (valor <= 0 && itensDeCheckin.length === 0) || !date || problemas.some(Boolean)} onClick={salvar}>
+          {escolha === 'passar' ? 'Renovar e passar falta' : itensDeCheckin.length > 0 && !valor ? 'Salvar check-ins' : 'Salvar Pix'}
         </button>
       </div>
     </div>

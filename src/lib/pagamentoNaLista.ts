@@ -1,8 +1,8 @@
 import { categoriaDe } from './mensalidade'
-import { emDiaNaData } from './fichaDaMensalidade'
+import { checkinsDaFicha, dividaDaMensalidade, emDiaNaData, fichaDe } from './fichaDaMensalidade'
 import { centavos, checkinDaAtletaNoDia, creditoDisponivel, extratoDaAtleta, formatarReais, pagamentoDoCheckin, palpiteDaConta, valorDevido } from './checkins'
 import { dataDoPlay, type Lista } from './listaDePresenca'
-import type { AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, Player, PlaySession } from './types'
+import type { Acerto, AppData, Checkin, CheckinDia, CheckinModo, CheckinPagamento, ItemDaMensalidade, Player, PlaySession } from './types'
 
 /*
  * 💰 NA LISTA: a organizadora lanca o pagamento da avulsa direto da lista de
@@ -95,7 +95,12 @@ export function palpiteDaLista(data: AppData, playerId: string): CheckinModo {
   return data.checkinContas.some((c) => c.player_id === playerId && c.ativo) ? 'checkin' : 'integral'
 }
 
-export type ContaDoCheckin = { contaId: string | null; localId: string | null }
+export type ContaDoCheckin = {
+  contaId: string | null
+  localId: string | null
+  /** O play de hoje pago com um check-in de credito (dono, 18/11): leva conta e arena dele, sem gastar cota. Nulo tira; ausente mantem. */
+  creditoDe?: string | null
+}
 
 /**
  * A conta e a arena que a janela mostra marcadas: as do lancamento que ja
@@ -124,6 +129,10 @@ export function prepararPagamento(
     conta_id: null, local_id: null, credito_checkin: false, credito_de: null, compareceu: true, created_at: new Date().toISOString(),
     ...antes?.checkin,
     modo, checkin_confirmado: modo === 'checkin',
+  }
+  if (conta.creditoDe !== undefined && modo === 'checkin') {
+    const cred = conta.creditoDe ? data.checkins.find((c) => c.id === conta.creditoDe) : undefined
+    Object.assign(checkin, cred ? { credito_de: cred.id, conta_id: cred.conta_id, local_id: cred.local_id } : { credito_de: null })
   }
   // integral nao tem arena nem check-in de credito (igual ao Lancar da aba Financeiro)
   if (modo === 'integral') Object.assign(checkin, { local_id: null, credito_de: null, credito_checkin: false })
@@ -192,18 +201,84 @@ export function contaNoPlay(devido: number, credito: number, divida: number) {
 /** O saldo dela depois do lancamento: positivo = credito para o proximo play, negativo = fica devendo. */
 export const saldoDepois = (credito: number, divida: number, devido: number, pago: number) => centavos(credito - divida + pago - devido)
 
+// ---------------------------------------------------------------- dividas pagas no 💰 (dono, 18/11)
+
+/** Um check-in que paga divida: dia, conta e arena; ou um check-in de credito (`credito`). */
+export type CheckinDaDivida = { date: string; contaId: string | null; localId: string | null; credito?: string }
+
+/** Tudo o que o 💰 gravou para pagar dividas junto com este lancamento: o id comeca com `divida:<lancamento>:`. */
+export const prefixoDaDivida = (checkinId: string) => `divida:${checkinId}:`
+export function gravadosDaDivida(data: AppData, checkinId: string) {
+  const p = prefixoDaDivida(checkinId)
+  return {
+    itens: data.mensalidadeItens.filter((i) => i.id.startsWith(p)),
+    acertos: (data.checkinAcertos ?? []).filter((a) => a.id.startsWith(p)),
+  }
+}
+
+/**
+ * PAGAR DIVIDAS NO 💰 (dono, 18/11). A divida da mensalidade (ex-mensalista que nao fechou os check-ins) vem
+ * primeiro, a mais antiga antes: cada check-in vira um check-in daquela ficha, e o dinheiro (`pixDaMensalidade`)
+ * um Pix nela. O que sobra dos check-ins paga a divida dos plays: um acerto de `valorDoCheckin` cada, com conta e
+ * arena (entra na cota e no relatorio da arena). O check-in de credito so paga divida de play (a ficha nao guarda
+ * credito) e nao gasta cota. `semCheckinId`: o lancamento sendo corrigido (o que ele ja gravou nao conta).
+ */
+export function pagarDividas(
+  data: AppData, playerId: string, checkinId: string, date: string,
+  checkins: CheckinDaDivida[], valorDoCheckin: number, pixDaMensalidade: number,
+): { itens: ItemDaMensalidade[]; acertos: Acerto[] } {
+  const p = prefixoDaDivida(checkinId)
+  const semAntigos = { ...data, mensalidadeItens: data.mensalidadeItens.filter((i) => !i.id.startsWith(p)), checkinAcertos: (data.checkinAcertos ?? []).filter((a) => !a.id.startsWith(p)) }
+  const agora = new Date().toISOString()
+  const itens: ItemDaMensalidade[] = []
+  const acertos: Acerto[] = []
+  const fila = [...checkins.filter((c) => !c.credito), ...checkins.filter((c) => c.credito)]
+  let pix = centavos(pixDaMensalidade)
+  for (const d of dividaDaMensalidade(semAntigos, playerId, date).porMes) {
+    const f = fichaDe(semAntigos, playerId, d.mes, date)
+    let falta = d.falta
+    let vagas = Math.max(0, f.max_checkins - checkinsDaFicha(f))
+    while (falta > 0 && vagas > 0 && fila[0] && !fila[0].credito) {
+      const c = fila.shift()!
+      itens.push({ id: `${p}m${itens.length}`, player_id: playerId, mes: d.mes, tipo: 'checkin', date: c.date, valor: null, conta_id: c.contaId, local_id: c.localId, confirmado: true, observacao: 'dívida paga no 💰 da lista', created_at: agora })
+      falta = centavos(falta - f.valor_checkin)
+      vagas--
+    }
+    const v = centavos(Math.min(pix, Math.max(0, falta)))
+    if (v > 0) {
+      itens.push({ id: `${p}pix:${d.mes}`, player_id: playerId, mes: d.mes, tipo: 'dinheiro', date, valor: v, conta_id: null, local_id: null, confirmado: true, observacao: 'dívida paga no 💰 da lista', created_at: agora })
+      pix = centavos(pix - v)
+    }
+  }
+  fila.forEach((c, i) => {
+    acertos.push({
+      id: `${p}${i}`, player_id: playerId, date: c.date, valor: centavos(valorDoCheckin), dinheiro: false,
+      descricao: c.credito ? 'check-in de crédito para a dívida' : 'check-in para a dívida', created_at: agora,
+      conta_id: c.credito ? null : c.contaId, local_id: c.credito ? null : c.localId, credito_de: c.credito ?? null,
+    })
+  })
+  return { itens, acertos }
+}
+
 // ---------------------------------------------------------------- desfazer (apagar lista ou play)
 
 /** O que sai da aba Financeiro e do cadastro ao apagar a lista ou o play (nada disso e gravado aqui). */
 /** `itens`: itens da ficha da mensalidade (a compensacao da falta avisada, `falta:...`) que saem junto. */
-export type Desfazer = { checkins: string[]; dias: string[]; players: Player[]; itens?: string[] }
+export type Desfazer = { checkins: string[]; dias: string[]; players: Player[]; itens?: string[]; acertos?: string[] }
 
 const somar = (a: Desfazer, b: Desfazer): Desfazer => ({
   checkins: [...new Set([...a.checkins, ...b.checkins])],
   dias: [...new Set([...a.dias, ...b.dias])],
   players: [...a.players, ...b.players.filter((p) => !a.players.some((x) => x.id === p.id))],
   itens: [...new Set([...(a.itens ?? []), ...(b.itens ?? [])])],
+  acertos: [...new Set([...(a.acertos ?? []), ...(b.acertos ?? [])])],
 })
+
+/** As dividas pagas no 💰 por estes lancamentos (check-ins e Pix da mensalidade, acertos) saem junto. */
+function dividasDosLancamentos(data: AppData, checkinIds: string[]) {
+  const g = checkinIds.map((id) => gravadosDaDivida(data, id))
+  return { itens: g.flatMap((x) => x.itens.map((i) => i.id)), acertos: g.flatMap((x) => x.acertos.map((a) => a.id)) }
+}
 
 /**
  * O que o 💰 desta lista lancou: os lancamentos com o id do 💰 (`idDoLancamento`;
@@ -222,7 +297,8 @@ export function lancadosPelaLista(data: AppData, lista: Lista, playerIds: string
   const criadosPeloCofre = [`dia:${date}`, `dia:${date}:${lista.id}`]
   return {
     // a compensacao da falta avisada nesta lista (R$ 25 de credito ou um check-in a menos) some com ela
-    itens: data.mensalidadeItens.filter((i) => i.id.startsWith(`falta:${lista.id}:`)).map((i) => i.id),
+    itens: [...data.mensalidadeItens.filter((i) => i.id.startsWith(`falta:${lista.id}:`)).map((i) => i.id), ...dividasDosLancamentos(data, checkins.map((c) => c.id)).itens],
+    acertos: dividasDosLancamentos(data, checkins.map((c) => c.id)).acertos,
     checkins: checkins.map((c) => c.id),
     dias: dias
       // o 💰 cria sem titulo: dia com titulo foi feito (ou editado) na aba Financeiro e fica
@@ -267,7 +343,8 @@ export function desfazerDoPlay(data: AppData, s: PlaySession, lista?: { lista: L
     return gastos.has(p.id) && !p.pago_avulso && !jogouDepois(p.id) ? [{ ...p, pago_avulso: true }] : []
   })
   const itens = data.mensalidadeItens.filter((i) => i.id.startsWith(`falta:play:${s.id}:`)).map((i) => i.id)
-  const doPlay: Desfazer = { checkins: doDia.map((c) => c.id), dias: dias.map((d) => d.id), players, itens }
+  const dividas = dividasDosLancamentos(data, doDia.map((c) => c.id))
+  const doPlay: Desfazer = { checkins: doDia.map((c) => c.id), dias: dias.map((d) => d.id), players, itens: [...itens, ...dividas.itens], acertos: dividas.acertos }
   // o 💰 lancado num dia ainda sem play que nao foi ligado ao montar (havia dois dias soltos na data)
   return lista ? somar(doPlay, lancadosPelaLista(data, { ...lista.lista, session_id: null }, lista.playerIds)) : doPlay
 }

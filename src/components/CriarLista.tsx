@@ -189,6 +189,7 @@ export default function CriarLista({
             <input className="input" type="time" value={fechaHora} onChange={(e) => { setMexeuNoPrazo(true); setFechaHora(e.target.value) }} />
           </label>
         </div>
+        <AvisoDoDiaDeCobranca dia={dia} />
         {problema && (
           <div className="banner err" role="alert" style={{ margin: 0 }}>
             {problema}
@@ -257,4 +258,24 @@ export function MensagemDoLink({
       </div>
     </Modal>
   )
+}
+
+/**
+ * O DIA DE COBRANCA DA LISTA (dono, 18/11): a Ingryd nao sabia que a lista cria o dia sozinha e criava antes em
+ * Financeiro › Dias. O 💰 usa o dia solto da data (`diaDaLista`) ou cria um no primeiro lancamento; isto diz qual.
+ */
+function AvisoDoDiaDeCobranca({ dia }: { dia: string }) {
+  const { data } = useStore()
+  if (!dia) return null
+  const dm = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`
+  const naData = data.checkinDias.filter((d) => d.date === dia)
+  const soltos = naData.filter((d) => !d.session_id)
+  if (soltos.length > 1) {
+    return <div className="banner warn" style={{ margin: 0 }}>Há {soltos.length} dias de cobrança em {dm} no Financeiro e o 💰 não sabe qual usar. Apague o que sobra em Financeiro › Dias antes de cobrar.</div>
+  }
+  if (soltos.length === 1) return <div className="banner info" style={{ margin: 0 }}>📅 Os pagamentos desta lista vão para o dia {dm} que já existe no Financeiro.</div>
+  if (naData.length > 0) {
+    return <div className="banner warn" style={{ margin: 0 }}>O dia {dm} do Financeiro já é de um play criado. Os pagamentos desta lista vão para um dia de cobrança novo, só dela.</div>
+  }
+  return <div className="banner info" style={{ margin: 0 }}>📅 Não precisa criar o dia no Financeiro: o dia de cobrança de {dm} é criado sozinho no primeiro 💰 da lista.</div>
 }
