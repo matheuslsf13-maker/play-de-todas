@@ -780,7 +780,7 @@ masculino e o misto descrevem esse código parado.
   aluguel mensal, sem nenhum 5%; avulso vem 0) e a economia vai para a caixinha (`descontoDoAluguel`/`economiaDoAluguel`;
   sem `desconto` gravado: mensal 5%, avulso 0).
 - **Script 35**: aluguel no Caixa (`caixa.plano_mensal/valor_cobrado/checkins_abatidos`; o lançamento é o Pix; a
-  economia de 5% vai para o 🎉 caixa de eventos, reserva dentro do saldo, `economiaDoAluguel`/`eventosAcumulado`; o "📜 De onde veio" do Resumo lista cada entrada, `entradasDosEventos`, que o resumo soma; o "🗑️ Tirar" desfaz a origem sem apagar nada: a substituta perde o `substitui`, o aluguel perde o `plano_mensal`),
+  economia de 5% vai para o 🎉 caixa de eventos, reserva dentro do saldo, `economiaDoAluguel`/`eventosAcumulado`; o "📜 De onde veio" do Resumo lista cada entrada, `entradasDosEventos`, que o resumo soma; cada substituta diz "inserido pela lista de presença" (o `substitui` está na lista do play) ou "inserido manualmente"; o "🗑️ Tirar" desfaz a origem sem apagar nada: a substituta perde o `substitui`, o aluguel perde o `plano_mensal`),
   **substituta** (`checkins.substitui`: metade do valor cheio do dia para o caixa de eventos), **falta avisada** (a
   lista pergunta: R$ 25 de crédito na mensalidade do mês seguinte ou um check-in a menos na que ela está fechando —
   abatimento na ficha, `mesDaCompensacao`), **limite de mensalistas** (`ajustes.limite_mensalistas`, padrão 12) e

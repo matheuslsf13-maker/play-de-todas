@@ -995,7 +995,7 @@ function HistoricoDosEventos({
   /** "Usar a caixinha": vai para o Caixa com a opcao marcada. */
   onUsar?: () => void
 }) {
-  const { data, nameOf, saveCheckin, saveCaixa, deleteCaixa } = useStore()
+  const { data, nameOf, saveCheckin, saveCaixa, deleteCaixa, repo } = useStore()
   const [movimentar, setMovimentar] = useState(false)
   /** Transferencia, entrada externa e devolucao sao lancamentos feitos na mao: tirar = apagar o lancamento. */
   function apagarMovimento(caixaId: string, texto: string) {
@@ -1028,6 +1028,32 @@ O desconto do aluguel de ${dateLabel(e.date)} vai a zero. O valor pago continua 
     onToast('Tirado do caixa de eventos')
   }
   const entradas = useMemo(() => entradasDosEventos(data).filter((e) => monthOf(e.date) <= ate), [data, ate])
+  // de onde veio cada substituta (dono, 18/11): da lista de presenca do play ou posta na mao.
+  // Chave "atleta|mensalista" por sessao; undefined = ainda lendo (a linha fica sem a origem)
+  const sessoesDasSubstitutas = useMemo(() => {
+    const dias = new Map(data.checkinDias.map((d) => [d.id, d.session_id]))
+    const porCheckin = new Map(data.checkins.map((c) => [c.id, dias.get(c.dia_id) ?? null]))
+    return porCheckin
+  }, [data.checkinDias, data.checkins])
+  const chaveSessoes = [...new Set(entradas.filter((e) => e.origem === 'substituta').map((e) => sessoesDasSubstitutas.get(e.checkin_id ?? '')).filter(Boolean) as string[])].sort().join(',')
+  const [trocasNasListas, setTrocasNasListas] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    if (LIGA.id !== 'feminino') return
+    let vivo = true
+    const ids = chaveSessoes ? chaveSessoes.split(',') : []
+    Promise.all(ids.map((id) => repo.carregarLista({ sessionId: id }).catch(() => null))).then((listas) => {
+      if (!vivo) return
+      const set = new Set<string>()
+      listas.forEach((l, i) => (l?.nomes ?? []).forEach((n) => { if (n.player_id && n.substitui && !n.saiu_em) set.add(`${ids[i]}|${n.player_id}|${n.substitui}`) }))
+      setTrocasNasListas(set)
+    })
+    return () => { vivo = false }
+  }, [chaveSessoes, repo])
+  function origemDaSubstituta(e: EntradaDosEventos) {
+    if (!trocasNasListas || LIGA.id !== 'feminino') return ''
+    const sessao = sessoesDasSubstitutas.get(e.checkin_id ?? '')
+    return sessao && trocasNasListas.has(`${sessao}|${e.player_id}|${e.substitui}`) ? ' · inserido pela lista de presença' : ' · inserido manualmente'
+  }
   const saidas = useMemo(() => saidasDosEventos(data).filter((x) => monthOf(x.date) <= ate && x.coberto > 0), [data, ate])
   const total = entradas.reduce((t, e) => t + e.valor, 0) - saidas.reduce((t, x) => t + x.coberto, 0)
   // entradas e gastos juntos, do mais recente ao mais antigo
@@ -1113,6 +1139,7 @@ O desconto do aluguel de ${dateLabel(e.date)} vai a zero. O valor pago continua 
                         <div className="tiny muted">
                           {dateLabel(e.date)} · metade de {formatarReais((e.pix ?? 0) + (e.doCheckin ?? 0))}
                           {e.doCheckin ? ` (${formatarReais(e.pix ?? 0)} pagos + ${formatarReais(e.doCheckin)} do check-in)` : ' pagos'}
+                          {origemDaSubstituta(e)}
                         </div>
                       </>
                     ) : e.origem === 'transferencia' || e.origem === 'externa' ? (
