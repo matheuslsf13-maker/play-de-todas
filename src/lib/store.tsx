@@ -36,6 +36,8 @@ export type SyncState = 'saved' | 'saving' | 'pending'
 type Ctx = {
   data: AppData
   loading: boolean
+  /** Ja leu o banco nesta abertura (o cache pode estar velho): so entao o app grava sozinho (dia da lista). */
+  atualizado: boolean
   error: string | null
   online: boolean
   canEdit: boolean
@@ -101,6 +103,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // com dados em cache a tela ja aparece; a atualizacao vem em segundo plano
   const [loading, setLoading] = useState(cached === null)
   const [error, setError] = useState<string | null>(null)
+  const [atualizado, setAtualizado] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [queue, setQueue] = useState<WriteOp[]>(() => (hasSupabase ? loadQueue() : []))
   const [syncing, setSyncing] = useState(false)
@@ -125,6 +128,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData(d)
       if (repo.kind === 'supabase') saveCache(d)
       setError(null)
+      setAtualizado(true)
     } catch (e) {
       setError(messageOf(e))
     } finally {
@@ -270,6 +274,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return {
       data,
       loading,
+      atualizado,
       error,
       repo,
       online: repo.kind === 'supabase',
@@ -361,7 +366,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       duquesas,
     }
-  }, [data, loading, error, repo, userEmail, reload, push, queue.length, syncing, duquesas])
+  }, [data, loading, atualizado, error, repo, userEmail, reload, push, queue.length, syncing, duquesas])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

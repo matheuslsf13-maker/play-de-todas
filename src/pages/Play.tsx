@@ -150,7 +150,7 @@ import {
 } from '../lib/mensalidade'
 import { emDiaNaData } from '../lib/fichaDaMensalidade'
 import { EscolherCompensacao, useCompensarFalta } from '../components/FichaDaMensalidade'
-import { diaDoPlay, diaJaExiste, prepararPagamento } from '../lib/pagamentoNaLista'
+import { diaDoPlay, diaJaExiste, pendentesNoPlay, prepararPagamento } from '../lib/pagamentoNaLista'
 import { formatarReais, lerValor } from '../lib/checkins'
 import { selosDosPlays } from '../lib/selos'
 import { computeStreaks, contaFalta, contaNoStatus, empatesNoPodio, MAX_STREAK, mesFechado, podiosDoDia, streakLevel, vagasDoPodio } from '../lib/streaks'
@@ -763,7 +763,7 @@ function NewPlay({
   onCreated: (id: string) => void
   onToast: (m: string) => void
 }) {
-  const { data, saveSession, saveMatches, savePlayer, playerById, nameOf, replaceSessionMatches } = useStore()
+  const { data, saveSession, saveMatches, savePlayer, playerById, nameOf, replaceSessionMatches, saveCheckinDia, saveCheckin } = useStore()
   /**
    * RECONFIGURAR: o preset e o proprio play (tem id). Salvar regrava ESTE play
    * em vez de criar outro, entao o dia dos check-ins e a lista (ligados pelo id),
@@ -1168,6 +1168,32 @@ function NewPlay({
     setSelected((cur) => (cur.includes(p.id) ? cur : [...cur, p.id]))
   }
 
+  /**
+   * O PAGAMENTO NAO TRAVA O PLAY (dono, 19/11): o aviso so informa. Quem entra sem pagar fica pendente no dia de
+   * cobranca do play (`pendentesNoDia`, ao criar) e aparece "não pago" em Financeiro › Dias.
+   */
+  function liberarComoPendencia(ids: string[]) {
+    setBarradas((cur) => cur.filter((id) => !ids.includes(id)))
+    setSelected((cur) => [...cur, ...ids.filter((id) => !cur.includes(id))])
+  }
+
+  /** Quem entrou no play sem pagar vai para o dia do play como pendente (sem pagamento = "não pago"). */
+  function pendentesNoDia(sessionId: string, date: string, ids: string[]) {
+    if (LIGA.id !== 'feminino') return
+    const devendo = ids.filter((id) => {
+      const p = data.players.find((x) => x.id === id)
+      return !!p && !liberada(p)
+    })
+    if (devendo.length === 0) return
+    try {
+      const r = pendentesNoPlay(data, sessionId, date, devendo)
+      if (r.dia) saveCheckinDia(r.dia)
+      r.gravar.forEach(saveCheckin)
+    } catch (e) {
+      onToast(`O play foi criado, mas as pendentes não foram para o Financeiro: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   // as confirmadas da lista de presenca entram UMA vez, pelo portao da lista
   // colada (pausa e pagamento); o ref segura o efeito duplo do StrictMode
   const listaAplicada = useRef(false)
@@ -1316,6 +1342,7 @@ function NewPlay({
         conta_falta: comFalta,
       }
       await saveSession(session)
+      pendentesNoDia(session.id, session.date, selected)
       if (editando) await replaceSessionMatches(session.id, planToMatches(session.id, fila))
       else await saveMatches(planToMatches(session.id, fila))
       for (const id of despausadas) {
@@ -1376,10 +1403,11 @@ function NewPlay({
           <div className="banner warn" style={{ marginTop: 10 }}>
             <strong>
               {barradas.length === 1
-                ? '1 da lista ficou de fora'
-                : `${barradas.length} da lista ficaram de fora`}
+                ? '1 da lista ainda não pagou'
+                : `${barradas.length} da lista ainda não pagaram`}
             </strong>{' '}
-            — cadastro a acertar. Toque no nome para confirmar o pagamento ou trocar a categoria.
+            — sem pagamento confirmado. Toque no nome para confirmar o pagamento ou trocar a categoria, ou libere e o
+            pagamento fica pendente no Financeiro.
             <div className="row wrap" style={{ gap: 6, marginTop: 8 }}>
               {barradas.map((id) => {
                 const p = data.players.find((x) => x.id === id)
@@ -1400,9 +1428,14 @@ function NewPlay({
                 )
               })}
             </div>
-            <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setBarradas([])}>
-              Deixar todas de fora deste play
-            </button>
+            <div className="row wrap" style={{ gap: 6, marginTop: 8 }}>
+              <button className="btn pink sm" onClick={() => liberarComoPendencia(barradas)}>
+                Liberar todas e anotar o pagamento como pendência
+              </button>
+              <button className="btn ghost sm" onClick={() => setBarradas([])}>
+                Deixar todas de fora deste play
+              </button>
+            </div>
           </div>
         )}
 
@@ -1854,6 +1887,7 @@ function NewPlay({
             setPendente(null)
             liberar(p)
           }}
+          onPendencia={LIGA.id === 'feminino' ? (p) => { setPendente(null); liberarComoPendencia([p.id]) } : undefined}
         />
       )}
 
@@ -3319,6 +3353,19 @@ function PlayDetail({
    *
    * Quem esta em quadra agora nao sai: a partida iniciada precisa terminar.
    */
+  /** Quem entra pelo Entra / sai sem pagamento confirmado vai para o dia do play como "não pago" (dono, 19/11). */
+  function anotarPendente(entraId: string | null, substitui: string | null = null) {
+    const p = entraId ? data.players.find((x) => x.id === entraId) : undefined
+    if (LIGA.id !== 'feminino' || !p || situacaoDoAtleta(p, data, session.date).liberado) return
+    try {
+      const r = pendentesNoPlay(data, session.id, session.date, [p.id], substitui)
+      if (r.dia) saveCheckinDia(r.dia)
+      r.gravar.forEach(saveCheckin)
+    } catch (e) {
+      onToast(`${nameOf(p.id)} entrou, mas não foi para o Financeiro: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   async function substituir(p: {
     sai: string | null
     entra: { id: string } | { nome: string } | null
@@ -3407,7 +3454,7 @@ function PlayDetail({
       : session.duos
     const quem = sai && entra ? `${nameOf(sai)} saiu, ${nomeDeQuemEntra} entrou` : sai ? `${nameOf(sai)} saiu` : `${nomeDeQuemEntra} entrou`
     const como = onde === 'lugar' ? 'no lugar dela' : onde === 'grupo' ? `no grupo ${grupo + 1}, fila refeita` : 'encaixe automático, fila refeita'
-    const nova: PlaySession = comEvento({ ...session, player_ids, groups, duos, ausentes: session.ausentes?.filter((id) => id !== sai) ?? session.ausentes }, 'entra-sai', `Entra / sai: ${quem} (${como})`)
+    const nova: PlaySession = comEvento({ ...session, player_ids, groups, duos, ausentes: session.ausentes?.filter((id) => id !== sai) ?? session.ausentes }, 'entra-sai', `Entra / sai: ${quem} (${como})`, entra ? { entra } : undefined)
 
     if (onde === 'lugar' && sai && entra) {
       const trocadas = matches
@@ -3720,8 +3767,8 @@ function PlayDetail({
     onToast(`Play adiado para ${dateLabel(novaData)} 📅`)
   }
 
-  function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string): PlaySession {
-    return { ...sessao, eventos: [...(sessao.eventos ?? []), novoEvento(tipo, texto)] }
+  function comEvento(sessao: PlaySession, tipo: EventoDoPlay['tipo'], texto: string, extra?: Pick<EventoDoPlay, 'entra'>): PlaySession {
+    return { ...sessao, eventos: [...(sessao.eventos ?? []), novoEvento(tipo, texto, extra)] }
   }
 
   /** Troca as ocupadas por quem esta livre, mantendo equilibrio e duplas novas. */
@@ -4507,6 +4554,7 @@ function PlayDetail({
               return
             }
             await substituir(p)
+            anotarPendente(p.entra && 'id' in p.entra ? p.entra.id : null)
           }}
         />
       )}
@@ -4532,6 +4580,8 @@ function PlayDetail({
             }
             // a substituta pagou: o lancamento dela ja sai ligado a mensalista (metade do pago vai para o caixa de eventos)
             const entraId = p.entra && 'id' in p.entra ? p.entra.id : null
+            // nao pagou na hora: fica pendente no dia (com a mensalista, se ela avisou: o caixa de eventos sai quando pagar)
+            if (pagou === null || !avisou) anotarPendente(entraId, avisou ? sai : null)
             if (pagou !== null && avisou) {
               if (!entraId) {
                 onToast('Lance o 💰 da substituta na aba Financeiro (cadastro novo) e marque "Entrou no lugar de uma mensalista"')
@@ -5802,10 +5852,13 @@ function ResolverCadastro({
   jogadora,
   onClose,
   onLiberada,
+  onPendencia,
 }: {
   jogadora: Player
   onClose: () => void
   onLiberada: (p: Player) => void
+  /** Entra no play sem pagar: o pagamento fica pendente no Financeiro (dono, 19/11). */
+  onPendencia?: (p: Player) => void
 }) {
   const { data, savePlayer } = useStore()
   const sit = situacaoDoAtleta(jogadora, data)
@@ -5840,6 +5893,14 @@ function ResolverCadastro({
           ? 'Vale para este play; depois ela volta a aparecer como devendo.'
           : 'Vale até o fim do mês; na virada ela volta a aparecer como devendo.'}
       </p>
+      {onPendencia && (
+        <>
+          <button className="btn ghost block" style={{ marginTop: 8 }} onClick={() => onPendencia(jogadora)}>
+            ⏳ Escalar e anotar o pagamento como pendência
+          </button>
+          <p className="tiny muted" style={{ marginTop: 6 }}>Ela joga e aparece "não pago" no dia do play em Financeiro › Dias.</p>
+        </>
+      )}
 
       <div className="section-title" style={{ fontSize: 13, marginTop: 14 }}>
         Ou corrija a categoria

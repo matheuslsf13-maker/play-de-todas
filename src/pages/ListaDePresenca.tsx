@@ -1,4 +1,4 @@
-import PagamentoNaLista from '../components/PagamentoNaLista'
+import PagamentoNaLista, { useDiaDaLista } from '../components/PagamentoNaLista'
 import { useMemo, useRef, useState } from 'react'
 import CriarLista, { MensagemDoLink } from '../components/CriarLista'
 import {
@@ -103,6 +103,7 @@ function Pagina({
   const { lista } = lc
   const aberta = estaAberta(lista, new Date())
   const { titulares, suplentes } = dividir(lista, lc.nomes)
+  useDiaDaLista(lista, lc.nomes)
   // lotada e aberta: quem chega entra como suplente (o 16/16 parecia "nao da mais", dono 06/11)
   const suplente = soSuplente(lista, lc.nomes, new Date())
   const meu = meuNome(lista.id)

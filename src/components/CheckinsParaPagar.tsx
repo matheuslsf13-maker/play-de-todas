@@ -50,7 +50,7 @@ export function CheckinsParaPagar({ playerId, linhas, onMudar, max, valorDeCada,
   const nova = (): CheckinParaPagar => {
     // o check-in de credito livre ja vem preenchido (dono, 18/11): mostra o dia que ela tem; tocar em Trocar solta
     const livre = creditos.find((c) => !linhas.some((x) => x.credito === c.checkin.id))
-    if (livre?.dia) return { date: livre.dia.date, contaId: null, localId: null, credito: livre.checkin.id }
+    if (livre?.quando) return { date: livre.quando, contaId: null, localId: null, credito: livre.checkin.id }
     const ultima = linhas[linhas.length - 1]
     const principal = contas.find((c) => c.principal) ?? contas[0]
     return { date: '', contaId: ultima?.contaId ?? null, localId: ultima?.localId ?? principal?.local_padrao_id ?? locais[0]?.id ?? null }
@@ -73,7 +73,7 @@ export function CheckinsParaPagar({ playerId, linhas, onMudar, max, valorDeCada,
             <div className="tiny muted" style={{ fontWeight: 700 }}>Check-in {i + 1} de {linhas.length}</div>
             {l.credito ? (
               <div className="row spread" style={{ gap: 8 }}>
-                <span className="small valor-pos">Usa o check-in de crédito de {dateLabel(l.date).slice(0, 5)} (não gasta cota)</span>
+                <span className="small valor-pos">Usa o check-in do dia {dateLabel(l.date).slice(0, 5)} (crédito, não gasta cota)</span>
                 <button className="btn ghost sm" onClick={() => mudar(i, { credito: undefined, date: '' })}>Trocar</button>
               </div>
             ) : (
@@ -104,10 +104,10 @@ export function CheckinsParaPagar({ playerId, linhas, onMudar, max, valorDeCada,
                   if (livres.length === 0) return null
                   return (
                     <div className="row wrap" style={{ gap: 6, alignItems: 'center' }}>
-                      <span className="tiny muted">ou usar o check-in de crédito de</span>
+                      <span className="tiny muted">ou usar o check-in do dia</span>
                       {livres.map((c) => (
-                        <button key={c.checkin.id} className={`chip ${ja?.credito?.id === c.checkin.id ? 'on' : ''}`} onClick={() => mudar(i, { credito: c.checkin.id, date: c.dia?.date ?? l.date })}>
-                          {c.dia ? dateLabel(c.dia.date).slice(0, 5) : '?'}
+                        <button key={c.checkin.id} className={`chip ${ja?.credito?.id === c.checkin.id ? 'on' : ''}`} onClick={() => mudar(i, { credito: c.checkin.id, date: c.quando ?? l.date })}>
+                          {c.quando ? dateLabel(c.quando).slice(0, 5) : '?'}
                         </button>
                       ))}
                     </div>

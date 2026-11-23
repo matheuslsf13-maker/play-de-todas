@@ -1,4 +1,4 @@
-import { centavos, DESCONTO_DO_PLANO, gastaCheckin } from './checkins'
+import { centavos, DESCONTO_DO_PLANO, dataDoCheckin, gastaCheckin } from './checkins'
 import { MES_INICIAL } from './fichaDaMensalidade'
 import { monthOf, type AppData } from './types'
 
@@ -16,7 +16,7 @@ export function checkinsNaArena(data: AppData, localId: string, mes: string): nu
 export function checkinsNaArenaPorOrigem(data: AppData, localId: string, mes: string) {
   const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
   // os check-ins que pagaram divida de play (script 41) contam com os de play
-  const dePlay = data.checkins.filter((c) => gastaCheckin(c) && c.local_id === localId && monthOf(dias.get(c.dia_id) ?? '') === mes).length +
+  const dePlay = data.checkins.filter((c) => gastaCheckin(c) && c.local_id === localId && monthOf(dataDoCheckin(c, dias) ?? '') === mes).length +
     (data.checkinAcertos ?? []).filter((a) => a.local_id === localId && !a.credito_de && monthOf(a.date) === mes).length
   const daMensalidade = data.mensalidadeItens.filter((i) => i.tipo === 'checkin' && i.mes >= MES_INICIAL && i.local_id === localId && monthOf(i.date) === mes).length
   return { dePlay, daMensalidade }

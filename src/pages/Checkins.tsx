@@ -1,4 +1,4 @@
-import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento } from '../lib/pagamentoNaLista'
+import { VALOR_CHEIO_INICIAL, VALOR_COM_CHECKIN_INICIAL, idDoLancamento, naoPago } from '../lib/pagamentoNaLista'
 import CampoDeBusca from '../components/CampoDeBusca'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { LIGA } from '../liga'
@@ -61,6 +61,7 @@ import {
   creditosDeCheckin,
   gastaCheckin,
   avisoAoApagarLancamentos,
+  checkinJaFeito,
 } from '../lib/checkins'
 import { mesesDoFiltro, planilhasCompletas, planilhasDasArenas } from '../lib/exportarCheckins'
 import { normalizar } from '../lib/roster'
@@ -617,7 +618,7 @@ function SecaoAtletas({
                       return (
                         <div className="tiny" style={{ marginTop: 2, color: 'var(--verde)', fontWeight: 700 }}>
                           🎟️ {plural(cred.length, 'check-in de crédito', 'check-ins de crédito')}:{' '}
-                          {cred.map((c) => `${c.dia ? dateLabel(c.dia.date).slice(0, 5) : '?'} ${nomeCurto(data.checkinLocais.find((l) => l.id === c.checkin.local_id)?.nome ?? '')}`).join(' · ')}
+                          {cred.map((c) => `${c.quando ? dateLabel(c.quando).slice(0, 5) : '?'} ${nomeCurto(data.checkinLocais.find((l) => l.id === c.checkin.local_id)?.nome ?? '')}`).join(' · ')}
                         </div>
                       )
                     })()}
@@ -649,7 +650,8 @@ function SecaoAtletas({
 
 /* =================================================================== dias */
 
-function BadgeStatus({ status }: { status: 'regularizado' | 'verificar' }) {
+function BadgeStatus({ status }: { status: 'regularizado' | 'verificar' | 'nao-pago' }) {
+  if (status === 'nao-pago') return <span className="badge nao-pago">não pago</span>
   return status === 'regularizado'
     ? <span className="badge regularizado">✓ ok</span>
     : <span className="badge verificar">verificar</span>
@@ -663,6 +665,7 @@ function LinhaDeLancamento({
   podeEditar,
   onEditar,
   substituiNaLista,
+  origem,
 }: {
   checkin: Checkin
   dia: CheckinDia
@@ -671,6 +674,7 @@ function LinhaDeLancamento({
   onEditar: () => void
   /** A troca que a lista do play deste dia fez para ela (undefined = sem lista lida; null = a lista nao trocou ninguem por ela). */
   substituiNaLista?: string | null
+  origem?: string
 }) {
   const { data, nameOf, playerById } = useStore()
   const nome = nameOf(checkin.player_id)
@@ -733,8 +737,10 @@ function LinhaDeLancamento({
           </span>
         )}
         {pag?.observacao && <span className="tiny muted">📝 {pag.observacao}</span>}
+        {origem && <span className="tiny muted">{origem}</span>}
       </div>
-      <BadgeStatus status={status} />
+      {/* sem pagamento nenhum (a pendente da lista ou do play): vermelho; lancado sem confirmar: verificar */}
+      <BadgeStatus status={veDinheiro && naoPago(data, checkin) ? 'nao-pago' : status} />
     </div>
   )
 }
@@ -757,12 +763,12 @@ function SecaoDias({
   const { data, nameOf } = useStore()
   const [aberto, setAberto] = useState<string | null>(null)
   /** Dentro do dia: so quem falta verificar, e a busca pelo nome (dono, 18/11). */
-  const [soVerificar, setSoVerificar] = useState(false)
+  const [soVerificar, setSoVerificar] = useState<false | 'verificar' | 'nao-pago'>(false)
   const [busca, setBusca] = useState('')
   const dias = diasDoMes(data, mes)
   // a lista do play do dia aberto: diz se a substituta veio dela ou foi posta na mao
   const { repo } = useStore()
-  const [trocasDaLista, setTrocasDaLista] = useState<{ diaId: string; porAtleta: Map<string, string> } | null>(null)
+  const [trocasDaLista, setTrocasDaLista] = useState<{ diaId: string; porAtleta: Map<string, string>; naLista: Set<string> } | null>(null)
   const sessaoDoAberto = dias.find((d) => d.id === aberto)?.session_id ?? null
   useEffect(() => {
     if (!aberto || !sessaoDoAberto || LIGA.id !== 'feminino') return
@@ -770,10 +776,20 @@ function SecaoDias({
     repo.carregarLista({ sessionId: sessaoDoAberto }).then((l) => {
       if (!vivo) return
       const porAtleta = new Map((l?.nomes ?? []).filter((n) => n.player_id && n.substitui && !n.saiu_em).map((n) => [n.player_id!, n.substitui!]))
-      setTrocasDaLista({ diaId: aberto, porAtleta })
+      const naLista = new Set((l?.nomes ?? []).filter((n) => n.player_id && !n.saiu_em).map((n) => n.player_id!))
+      setTrocasDaLista({ diaId: aberto, porAtleta, naLista })
     }).catch(() => {})
     return () => { vivo = false }
   }, [aberto, sessaoDoAberto, repo])
+
+  /** De onde ela veio para o dia do play (dono, 19/11): lista, Entra / sai ou na mao. Sem play ou lista ainda lendo: nada. */
+  function origemDoLancamento(d: CheckinDia, c: Checkin): string | undefined {
+    if (!d.session_id) return undefined
+    const s = data.sessions.find((x) => x.id === d.session_id)
+    if (s?.eventos?.some((e) => e.tipo === 'entra-sai' && e.entra === c.player_id)) return 'adicionada pelo Entra / sai, dentro do play'
+    if (trocasDaLista?.diaId !== d.id) return undefined
+    return trocasDaLista.naLista.has(c.player_id) ? 'adicionada pela lista de presença' : 'adicionada manualmente'
+  }
 
   return (
     <div className="card">
@@ -789,20 +805,26 @@ function SecaoDias({
       ) : (
         <div className="stack">
           {dias.map((d) => {
-            const verificar = (c: Checkin) => statusDoCheckin(c, pagamentoDoCheckin(data, c.id), veDinheiro) === 'verificar'
+            // tres estados (dono, 19/11): ok, verificar (lancado sem confirmar) e nao pago (nada lancado)
+            const semPagar = (c: Checkin) => veDinheiro && naoPago(data, c)
+            const verificar = (c: Checkin) => !semPagar(c) && statusDoCheckin(c, pagamentoDoCheckin(data, c.id), veDinheiro) === 'verificar'
             // quem falta verificar vem em cima; as ja confirmadas embaixo
-            const lanc = checkinsDoDia(data, d.id).sort((a, b) => Number(verificar(b)) - Number(verificar(a)) || nameOf(a.player_id).localeCompare(nameOf(b.player_id), 'pt-BR'))
+            const lanc = checkinsDoDia(data, d.id).sort((a, b) => Number(semPagar(b)) - Number(semPagar(a)) || Number(verificar(b)) - Number(verificar(a)) || nameOf(a.player_id).localeCompare(nameOf(b.player_id), 'pt-BR'))
             const vieram = lanc.filter((c) => c.compareceu)
             const comCheckin = vieram.filter((c) => c.modo === 'checkin').length
             const recebido = lanc.reduce((t, c) => t + (pagamentoDoCheckin(data, c.id)?.valor_pago ?? 0), 0)
-            const aVerificar = lanc.filter((c) => statusDoCheckin(c, pagamentoDoCheckin(data, c.id), veDinheiro) === 'verificar').length
+            const aVerificar = lanc.filter(verificar).length
+            const naoPagos = lanc.filter(semPagar).length
             const estaAberto = aberto === d.id
             return (
               <div key={d.id}>
                 <button className={`duo-row dia-linha ${estaAberto ? 'on' : ''}`} onClick={() => { setAberto(estaAberto ? null : d.id); setBusca(''); setSoVerificar(false) }}>
                   <span className="row spread" style={{ gap: 8 }}>
                     <span className="duo-nomes">{dateLabel(d.date)} · {rotuloDoDia(d, data.sessions)}</span>
-                    {aVerificar > 0 && <span className="badge verificar">{aVerificar}</span>}
+                    <span className="row" style={{ gap: 4 }}>
+                      {aVerificar > 0 && <span className="badge verificar" aria-label={`${aVerificar} para verificar`}>{aVerificar}</span>}
+                      {naoPagos > 0 && <span className="badge nao-pago" aria-label={`${naoPagos} sem pagamento`}>{naoPagos}</span>}
+                    </span>
                   </span>
                   <span className="tiny muted" style={{ display: 'block', marginTop: 2 }}>
                     {plural(lanc.length, 'lançamento')} · {comCheckin} com check-in · {plural(vieram.length - comCheckin, 'integral', 'integrais')}
@@ -833,13 +855,14 @@ function SecaoDias({
                       <CampoDeBusca valor={busca} onMudar={setBusca} placeholder="Buscar pelo nome" />
                     )}
                     {/* filtros e acoes do dia no topo (dono, 18/11): no fim da lista grande era preciso descer tudo para lancar */}
-                    {((aVerificar > 0 && aVerificar < lanc.length) || podeEditar) && (
+                    {((aVerificar + naoPagos > 0 && aVerificar + naoPagos < lanc.length) || podeEditar) && (
                       <div className="dia-topo">
                         <span className="dia-filtros">
-                          {aVerificar > 0 && aVerificar < lanc.length && (
+                          {aVerificar + naoPagos > 0 && aVerificar + naoPagos < lanc.length && (
                             <>
                               <button className={`chip ${!soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(false)}>Todas <strong>{lanc.length}</strong></button>
-                              <button className={`chip ${soVerificar ? 'on' : ''}`} onClick={() => setSoVerificar(true)}>Verificar <strong>{aVerificar}</strong></button>
+                              {aVerificar > 0 && <button className={`chip ${soVerificar === 'verificar' ? 'on' : ''}`} onClick={() => setSoVerificar('verificar')}>Verificar <strong>{aVerificar}</strong></button>}
+                              {naoPagos > 0 && <button className={`chip ${soVerificar === 'nao-pago' ? 'on' : ''}`} onClick={() => setSoVerificar('nao-pago')}>Não pago <strong>{naoPagos}</strong></button>}
                             </>
                           )}
                         </span>
@@ -854,7 +877,7 @@ function SecaoDias({
                     {lanc.length === 0 ? (
                       <div className="tiny muted" style={{ textAlign: 'center' }}>Ninguém lançada ainda.</div>
                     ) : (
-                      lanc.filter((c) => (!soVerificar || verificar(c)) && (!busca.trim() || normalizar(nameOf(c.player_id)).includes(normalizar(busca)))).map((c) => (
+                      lanc.filter((c) => (!soVerificar || (soVerificar === 'verificar' ? verificar(c) : semPagar(c))) && (!busca.trim() || normalizar(nameOf(c.player_id)).includes(normalizar(busca)))).map((c) => (
                         <LinhaDeLancamento
                           key={c.id}
                           checkin={c}
@@ -863,6 +886,7 @@ function SecaoDias({
                           podeEditar={podeEditar}
                           onEditar={() => onLancar({ checkin: c })}
                           substituiNaLista={trocasDaLista?.diaId === d.id ? trocasDaLista.porAtleta.get(c.player_id) ?? null : undefined}
+                          origem={origemDoLancamento(d, c)}
                         />
                       ))
                     )}
@@ -2736,11 +2760,10 @@ function LancarModal({
   const [diaId, setDiaId] = useState(existente?.dia_id ?? pedido.diaId ?? '')
   const [contaId, setContaId] = useState<string | null>(existente?.conta_id ?? null)
   const [localId, setLocalId] = useState<string | null>(existente?.local_id ?? null)
-  const [modo, setModo] = useState<CheckinModo>(existente?.modo ?? 'checkin')
+  // check-in sem vir e sem o credito (antes do dono juntar as duas, 19/11) = nao veio e nao fez nada: abre como integral
+  const [modo, setModo] = useState<CheckinModo>(existente?.modo === 'checkin' && !existente.compareceu && !existente.credito_checkin ? 'integral' : existente?.modo ?? 'checkin')
   const [compareceu, setCompareceu] = useState(existente?.compareceu ?? true)
   const [checkinConfirmado, setCheckinConfirmado] = useState(existente?.checkin_confirmado ?? false)
-  /** Nao veio, mas fez o check-in no app: vira um check-in de credito. */
-  const [creditoCheckin, setCreditoCheckin] = useState(existente?.credito_checkin ?? false)
   /** Veio pelo check-in de credito deste lancamento. */
   const [creditoDe, setCreditoDe] = useState<string | null>(existente?.credito_de ?? null)
   const [pagamentoConfirmado, setPagamentoConfirmado] = useState(pagExistente?.pagamento_confirmado ?? false)
@@ -2753,6 +2776,8 @@ function LancarModal({
   /** A mensalista que ela substituiu (a avulsa que entrou no lugar de quem avisou com 24h). */
   const [substitui, setSubstitui] = useState<string | null>(existente?.substitui ?? null)
   const [prefeito, setPrefeito] = useState(Boolean(existente))
+  /** O dia em que ela fez o check-in no app (script 42): vazio = o dia do play. */
+  const [dataCheckin, setDataCheckin] = useState(existente?.data_checkin ?? '')
 
   const dias = [...data.checkinDias].sort((a, b) => b.date.localeCompare(a.date))
   const dia = dias.find((d) => d.id === diaId)
@@ -2767,7 +2792,9 @@ function LancarModal({
     }).catch(() => {})
     return () => { vivo = false }
   }, [existente, playerId, dia?.session_id, repo])
-  const mes = dia ? monthOf(dia.date) : monthOf(todayISO())
+  const dataDoCk = dataCheckin || dia?.date || ''
+  // a cota e a do mes em que o check-in foi feito
+  const mes = dia ? monthOf(dataDoCk) : monthOf(todayISO())
   const jogadoras = [...data.players].sort((a, b) => Number(b.active) - Number(a.active) || nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR'))
   const contas = playerId ? contasDaAtleta(data, playerId) : []
   const disp = playerId ? disponibilidade(data, playerId, mes) : null
@@ -2785,8 +2812,11 @@ function LancarModal({
   const creditos = playerId ? creditosDeCheckin(data, playerId, existente?.id) : []
   const usandoCredito = modo === 'checkin' && compareceu && creditoDe !== null
   const creditoUsado = creditos.find((c) => c.checkin.id === creditoDe)
-  const contaAgora = modo === 'checkin' && (compareceu ? !usandoCredito : creditoCheckin)
+  // check-in + nao compareceu = fez o check-in e nao veio: gasta a cota e vira check-in de credito
+  const contaAgora = modo === 'checkin' && (compareceu ? !usandoCredito : true)
   const livresDepois = noLocal ? noLocal.disponiveis + (jaContado ? 1 : 0) - (contaAgora ? 1 : 0) : null
+  // um check-in por conta por dia, em qualquer data (passada ou futura)
+  const jaFeito = contaAgora && playerId && dataDoCk ? checkinJaFeito(data, playerId, contaId, dataDoCk, existente ? [existente.id] : []) : null
 
   // o palpite: a conta com check-ins livres, a arena padrao dela, e o modo
   // que a cota permite. So no lancamento novo, e so uma vez por atleta/dia.
@@ -2835,6 +2865,8 @@ function LancarModal({
   }, [devido, cobertoPeloCredito, pagoEditado, existente])
   const vPago = valorPago.trim() ? lerValor(valorPago) : 0
   const usaDoCredito = vPago === null ? 0 : Math.min(credito, Math.max(0, Math.round((devido - vPago) * 100) / 100))
+  const totalComDivida = Math.round((dividaAntes + devido) * 100) / 100
+  const pagouTudo = dividaAntes > 0 && vPago === totalComDivida
   // o saldo deste play; o que passar do devido quita a divida de antes primeiro
   const saldo = vPago === null ? null : Math.round((vPago + usaDoCredito - devido) * 100) / 100
   const quitaDeAntes = Math.min(dividaAntes, Math.max(0, saldo ?? 0))
@@ -2855,8 +2887,9 @@ function LancarModal({
       modo,
       compareceu,
       checkin_confirmado: modo === 'checkin' ? checkinConfirmado : false,
-      credito_checkin: modo === 'checkin' && !compareceu ? creditoCheckin : false,
+      credito_checkin: modo === 'checkin' && !compareceu,
       credito_de: usandoCredito ? creditoDe : null,
+      data_checkin: contaAgora && dataCheckin && dataCheckin !== dia.date ? dataCheckin : null,
       substitui: compareceu ? substitui : null,
       created_at: existente?.created_at ?? new Date().toISOString(),
     })
@@ -2958,14 +2991,14 @@ function LancarModal({
                       className={`chip ${creditoDe === c.checkin.id ? 'on' : ''}`}
                       onClick={() => usarCredito(c.checkin.id)}
                     >
-                      Usar o de {c.dia ? dateLabel(c.dia.date).slice(0, 5) : '?'} ·{' '}
+                      Usar o check-in do dia {c.quando ? dateLabel(c.quando).slice(0, 5) : '?'} ·{' '}
                       {nomeCurto(data.checkinLocais.find((l) => l.id === c.checkin.local_id)?.nome ?? '')}
                     </button>
                   ))}
                 </div>
                 <p className="tiny muted" style={{ margin: '4px 0 0' }}>
                   {usandoCredito
-                    ? `Ela fez o check-in em ${creditoUsado?.dia ? dateLabel(creditoUsado.dia.date) : 'outro dia'} e não foi: hoje vem por ele, sem check-in novo (não gasta cota). A parte em dinheiro continua.`
+                    ? `Ela fez o check-in em ${creditoUsado?.quando ? dateLabel(creditoUsado.quando) : 'outro dia'} e não foi: hoje vem por ele, sem check-in novo (não gasta cota). A parte em dinheiro continua.`
                     : `Ela tem ${plural(creditos.length, 'check-in de crédito', 'check-ins de crédito')} (fez o check-in e não foi). Toque para usar e não gastar um novo.`}
                 </p>
               </div>
@@ -2973,6 +3006,13 @@ function LancarModal({
 
             {modo === 'checkin' && !usandoCredito && (
               <>
+                <label className="field">
+                  <span>Dia do check-in</span>
+                  <input className="input" type="date" value={dataDoCk} onChange={(e) => setDataCheckin(e.target.value === dia.date ? '' : e.target.value)} />
+                  {jaFeito
+                    ? <span className="hint aviso" role="alert">⚠️ O check-in desta conta em {dateLabel(dataDoCk).slice(0, 5)} {jaFeito.texto}. Escolha outro dia ou outra conta.</span>
+                    : <span className="hint">só se ela fez em outro dia</span>}
+                </label>
                 <div className="field">
                   <span>Conta usada</span>
                   {/* quebra em vez de rolar: a faixa sem barra escondia a 2a/3a conta e no PC nao rolava (dono, 06/11) */}
@@ -3032,19 +3072,12 @@ function LancarModal({
 
             <label className="toggle-card row" style={compareceu ? { borderColor: 'var(--line)', background: 'var(--card-2)' } : undefined}>
               <input type="checkbox" checked={!compareceu} onChange={(e) => setCompareceu(!e.target.checked)} />
-              <span className="grow"><strong>Não compareceu</strong><span className="tiny muted" style={{ display: 'block' }}>não deve nada; o que pagou vira crédito</span></span>
+              <span className="grow"><strong>Não compareceu</strong><span className="tiny muted" style={{ display: 'block' }}>
+                {modo === 'checkin'
+                  ? 'mas fez o check-in: vira 1 check-in de crédito (no próximo 💰 paga a dívida ou um play); o que pagou vira crédito'
+                  : 'não deve nada; o que pagou vira crédito'}
+              </span></span>
             </label>
-            {!compareceu && modo === 'checkin' && (
-              <label className="toggle-card row" style={creditoCheckin ? undefined : { borderColor: 'var(--line)', background: 'var(--card-2)' }}>
-                <input type="checkbox" checked={creditoCheckin} onChange={(e) => setCreditoCheckin(e.target.checked)} />
-                <span className="grow">
-                  <strong>🎟️ Fez o check-in no app</strong>
-                  <span className="tiny muted" style={{ display: 'block' }}>
-                    a arena recebeu por ele: vira 1 check-in de crédito para o próximo play (gasta a cota deste mês)
-                  </span>
-                </span>
-              </label>
-            )}
 
             <div className="grid2">
               <label className="field">
@@ -3074,8 +3107,16 @@ function LancarModal({
                 ⚠️ {nameOf(playerId)} <strong>deve {formatarReais(dividaAntes)}</strong> de antes.
                 {devido > 0 && <> Para quitar tudo hoje: <strong>{formatarReais(dividaAntes + devido)}</strong> ({formatarReais(devido)} deste play + {formatarReais(dividaAntes)}).</>}
                 {' '}
-                <button className="linkish" onClick={() => { setValorPago(textoDoValor(Math.round((dividaAntes + devido) * 100) / 100)); setPagoEditado(true) }}>
-                  Pagou tudo
+                {/* marcavel (dono, 19/11): como link parecia so informacao; marcado, o campo Pagou vem com o total */}
+                <button
+                  className={`chip chip-marca ${pagouTudo ? 'on' : ''}`}
+                  aria-pressed={pagouTudo}
+                  onClick={() => {
+                    if (pagouTudo) { setPagoEditado(false); return }
+                    setValorPago(textoDoValor(totalComDivida)); setPagoEditado(true)
+                  }}
+                >
+                  {pagouTudo ? '☑' : '☐'} Pagou tudo
                 </button>
               </div>
             )}
@@ -3130,7 +3171,7 @@ function LancarModal({
               <input className="input" placeholder="pagou junto com a Bia" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
             </label>
 
-            <button className="btn pink block" disabled={vPago === null || (precoDiferente.trim() !== '' && vPreco === null) || substitui === ''} onClick={salvar}>
+            <button className="btn pink block" disabled={vPago === null || (precoDiferente.trim() !== '' && vPreco === null) || substitui === '' || !!jaFeito || (contaAgora && !dataDoCk)} onClick={salvar}>
               {existente ? 'Salvar' : 'Lançar'}
             </button>
             {existente && (

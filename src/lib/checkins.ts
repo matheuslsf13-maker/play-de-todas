@@ -222,7 +222,7 @@ export function checkinJaFeito(
   const dias = new Map(data.checkinDias.map((d) => [d.id, d.date]))
   const usados = new Set([...data.checkins, ...(data.checkinAcertos ?? [])].filter((x) => !ignorar.includes(x.id)).map((x) => x.credito_de).filter(Boolean))
   for (const c of data.checkins) {
-    if (ignorar.includes(c.id) || !gastaCheckin(c) || dias.get(c.dia_id) !== date || !mesma(c)) continue
+    if (ignorar.includes(c.id) || !gastaCheckin(c) || dataDoCheckin(c, dias) !== date || !mesma(c)) continue
     if (!c.compareceu) {
       return usados.has(c.id)
         ? { texto: 'já foi usado: virou check-in de crédito e esse crédito já foi gasto' }
@@ -491,7 +491,11 @@ export function gastaCheckin(c: Checkin): boolean {
   return c.compareceu ? !c.credito_de : Boolean(c.credito_checkin)
 }
 
-export type CreditoDeCheckin = { checkin: Checkin; dia: CheckinDia | undefined }
+/** O dia em que o check-in foi feito: o gravado (script 42, a atrasada faz noutro dia) ou o do play. `dias`: id → data. */
+export const dataDoCheckin = (c: Pick<Checkin, 'dia_id' | 'data_checkin'>, dias: Map<string, string>) => c.data_checkin ?? dias.get(c.dia_id)
+
+/** `quando`: o dia em que ela fez o check-in (script 42), que o botao mostra (dono, 19/11). */
+export type CreditoDeCheckin = { checkin: Checkin; dia: CheckinDia | undefined; quando: string | undefined }
 
 /**
  * Os check-ins de credito que a menina ainda tem: fez o check-in, nao foi, e
@@ -506,8 +510,11 @@ export function creditosDeCheckin(data: AppData, playerId: string, semCheckinId?
   ])
   return data.checkins
     .filter((c) => c.player_id === playerId && c.modo === 'checkin' && !c.compareceu && c.credito_checkin && !usados.has(c.id))
-    .map((c) => ({ checkin: c, dia: data.checkinDias.find((d) => d.id === c.dia_id) }))
-    .sort((a, b) => (a.dia?.date ?? '').localeCompare(b.dia?.date ?? ''))
+    .map((c) => {
+      const dia = data.checkinDias.find((d) => d.id === c.dia_id)
+      return { checkin: c, dia, quando: c.data_checkin ?? dia?.date }
+    })
+    .sort((a, b) => (a.quando ?? '').localeCompare(b.quando ?? ''))
 }
 
 /* --------------------------------------------------------- disponibilidade */
@@ -604,9 +611,9 @@ export function disponibilidade(data: AppData, playerId: string, mes: string): D
   const somaPorSemana = (c: CheckinConta, l: CheckinLocal) =>
     aulasDaConta(c).filter((a) => a.local_id === l.id).reduce((t, a) => t + a.por_semana, 0)
   const plays = data.checkins.flatMap((c) => {
-    const dia = dias.get(c.dia_id)
-    return gastaCheckin(c) && dia && monthOf(dia.date) === mes
-      ? [{ conta: contaDoCheckin(data, c).id, local: c.local_id, date: dia.date }]
+    const date = c.data_checkin ?? dias.get(c.dia_id)?.date
+    return gastaCheckin(c) && date && monthOf(date) === mes
+      ? [{ conta: contaDoCheckin(data, c).id, local: c.local_id, date }]
       : []
   })
   const itens = itensDeCheckin(data).filter((i) => monthOf(i.date) === mes)
@@ -813,8 +820,10 @@ export function relatorioDasArenas(
   f: FiltroDoRelatorio,
   nameOf: (id: string) => string,
 ): Relatorio {
-  const dias = (f.de && f.ate ? diasNoIntervalo(data, f.de, f.ate) : f.mes ? diasDoMes(data, f.mes) : data.checkinDias)
-  const porId = new Map(dias.map((d) => [d.id, d]))
+  const porId = new Map(data.checkinDias.map((d) => [d.id, d]))
+  const noPeriodo = (date: string) => (f.de && f.ate ? date >= f.de && date <= f.ate : !f.mes || monthOf(date) === f.mes)
+  // a linha vai pela data do check-in (script 42); o uso do credito, pelo dia do play
+  const dataDaLinha = (c: Checkin, dia: CheckinDia) => (gastaCheckin(c) ? c.data_checkin ?? dia.date : dia.date)
   const locais = [...data.checkinLocais].sort((a, b) => a.ordem - b.ordem)
   const escolhidos = f.locais ? new Set(f.locais) : null
   const blocos: BlocoDoRelatorio[] = []
@@ -825,13 +834,14 @@ export function relatorioDasArenas(
     data.checkins
       // o check-in que virou credito foi feito na arena; e o dia em que ela usa o
       // credito a arena precisa saber, porque nao ha check-in novo
-      .filter((c) => (gastaCheckin(c) || (c.compareceu && c.credito_de)) && (c.local_id ?? null) === localId && porId.has(c.dia_id))
+      .filter((c) => (gastaCheckin(c) || (c.compareceu && c.credito_de)) && (c.local_id ?? null) === localId && porId.has(c.dia_id) &&
+        noPeriodo(dataDaLinha(c, porId.get(c.dia_id) as CheckinDia)))
       .map((c): LinhaDoRelatorio => {
         const dia = porId.get(c.dia_id) as CheckinDia
         const conta = contaDoCheckin(data, c)
         const atleta = nameOf(c.player_id)
         return {
-          date: dia.date,
+          date: dataDaLinha(c, dia),
           dia: rotuloDoDia(dia, data.sessions),
           local: locais.find((l) => l.id === localId)?.nome ?? 'Sem local',
           atleta: atleta === '—' ? '(atleta removida)' : atleta,
@@ -892,7 +902,8 @@ export function relatorioDasArenas(
 function dataDoCredito(data: AppData, checkinId: string): string {
   const c = data.checkins.find((x) => x.id === checkinId)
   const dia = c ? data.checkinDias.find((d) => d.id === c.dia_id) : undefined
-  return dia ? dateLabel(dia.date) : 'outro dia'
+  const date = c?.data_checkin ?? dia?.date
+  return date ? dateLabel(date) : 'outro dia'
 }
 
 /** Texto para o WhatsApp: so *negrito* e _italico_, uma linha por check-in. */

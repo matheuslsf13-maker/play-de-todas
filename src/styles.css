@@ -1396,6 +1396,10 @@ label.fase-box input[type='radio'] { margin-top: 3px; flex: none; }
 /* o status da planilha: "Regularizado" so com check-in E pagamento confirmados */
 .badge.regularizado { background: var(--teal-suave); color: var(--teal); }
 .badge.verificar { background: var(--orange-suave); color: var(--orange); }
+.badge.nao-pago { background: var(--danger-suave); color: var(--danger); }
+/* os numeros da linha do dia (dono, 19/11): laranja = verificar, vermelho = nao pago, cheios para se distinguir de longe */
+.dia-linha .badge.verificar { background: var(--orange); color: #fff; }
+.dia-linha .badge.nao-pago { background: var(--danger); color: #fff; }
 .input.valor { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
 /* a conta que passou dos 12 no mes */
 .mini-barra i.estourou { background: var(--danger); }
@@ -3268,3 +3272,6 @@ button.st-linha:active { background: var(--pink-suave); }
 .dia-filtros .chip { flex: none; padding-inline: 10px; }
 .dia-acoes { display: flex; gap: 6px; flex: none; }
 .dia-acoes .btn.sm { padding-inline: 10px; }
+
+/* chip que liga e desliga (o "Pagou tudo" do Lancar): contorno rosa mesmo desligado, para ler como botao */
+.chip.chip-marca { border: 1.5px solid var(--pink); }

@@ -39,6 +39,8 @@ import {
   sugestaoSegura,
   AVISO_DE_SAIDA,
   AVISO_DAS_MENSALISTAS,
+  AVISO_DE_SUPLENTE,
+  mensalistasDeFora,
   type Lista,
   type NomeNaLista,
 } from '../src/lib/listaDePresenca'
@@ -342,6 +344,23 @@ test('mensagem de atualizacao: confirmadas numeradas com 📅, suplentes, o mesm
   assert.ok(!fechada.includes('Lista aberta'))
   assert.match(fechada, /📋 Lista fechada\n👥 2\/2 · 1 suplente/)
   assert.match(fechada, /A lista fechou\. Para conferir:/)
+})
+
+test('lista cheia: as duas mensagens dizem para colocar o nome mesmo assim, curto; fechada não (dono, 20/11)', () => {
+  const url = urlDaLista('https://playdetodas.com.br/', LISTA.codigo)
+  assert.ok(AVISO_DE_SUPLENTE.length < 140)
+  assert.match(AVISO_DE_SUPLENTE, /suplente.*ordem de chegada.*automaticamente/)
+  assert.ok(mensagemDoLink(LISTA, url).includes(AVISO_DE_SUPLENTE))
+  const agora = new Date('2026-11-07T12:00:00Z')
+  assert.ok(mensagemDeAtualizacao(LISTA, [], (id) => id, url, agora).includes(AVISO_DE_SUPLENTE))
+  assert.ok(!mensagemDeAtualizacao({ ...LISTA, fechada: true }, [], (id) => id, url, agora).includes(AVISO_DE_SUPLENTE))
+})
+
+test('mensalistas de fora: a sem novembro pago aparece com o motivo; a paga e a avulsa não (Pamella, 20/11)', () => {
+  const d = emptyData()
+  const p = (id: string, extra: Partial<Player>) => ({ id, name: id, active: true, categoria: 'mensalista', ...extra }) as Player
+  d.players = [p('paga', { pago_mes: '2026-11' }), p('pamella', { pago_mes: null }), p('avulsa', { categoria: 'avulsa' }), p('inativa', { active: false })]
+  assert.deepEqual(mensalistasDeFora(d, '2026-11-23'), [{ id: 'pamella', motivo: 'novembro não está pago no cadastro' }])
 })
 
 test('aumentou as vagas e entrou mais uma: a mensagem sai com as vagas novas e o nome dela (dono, 18/11)', () => {

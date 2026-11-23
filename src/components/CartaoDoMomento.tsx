@@ -17,6 +17,7 @@ import { isPlayed } from '../lib/scoring'
 import { useStore } from '../lib/store'
 import { dateLabel, plural, type PlaySession } from '../lib/types'
 import { TEM_LISTA, meuNome, useLista } from '../lib/useLista'
+import { useDiaDaLista } from './PagamentoNaLista'
 
 /**
  * O CARTAO DO MOMENTO (D42), acima do ranking na tela inicial: lista aberta ->
@@ -32,6 +33,8 @@ export default function CartaoDoMomento({
 }) {
   const { data } = useStore()
   const { lista, recarregar } = useLista(TEM_LISTA ? 'momento' : null)
+  // o dia de cobranca acompanha a lista (so faz algo logada)
+  useDiaDaLista(lista?.lista, lista?.nomes)
   // play criado ou apagado: a lista do momento pode mudar (montada vira play; play apagado devolve a lista) e,
   // sem lista na tela, nao ha canal de lista para avisar
   const nPlays = data.sessions.length

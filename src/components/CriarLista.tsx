@@ -12,6 +12,7 @@ import {
   novoCodigo,
   padraoDaLista,
   preIncluidas,
+  mensalistasDeFora,
   previaDosNomes,
   problemaDaLista,
   urlDaLista,
@@ -42,7 +43,7 @@ export default function CriarLista({
   onPronta: (l: Lista) => void
   onToast: (m: string) => void
 }) {
-  const { data, repo, playerById } = useStore()
+  const { data, repo, playerById, nameOf } = useStore()
   const padrao = padraoDaLista(todayISO())
   const [titulo, setTitulo] = useState(editar?.titulo ?? 'Play de Todas')
   const [dia, setDia] = useState(editar ? dataEmSaoPaulo(editar.play_em) : padrao.data)
@@ -59,6 +60,7 @@ export default function CriarLista({
   const [trazer, setTrazer] = useState(false)
   const [busy, setBusy] = useState(false)
   const mensalistas = useMemo(() => (editar ? [] : preIncluidas(data, dia)), [data, dia, editar])
+  const deFora = useMemo(() => (editar ? [] : mensalistasDeFora(data, dia)), [data, dia, editar])
 
   // a hora do play mudou: o prazo padrao acompanha so enquanto ninguem mexeu nele
   const [mexeuNoPrazo, setMexeuNoPrazo] = useState(!!editar)
@@ -212,6 +214,12 @@ export default function CriarLista({
               <span className="tiny muted" style={{ display: 'block' }}>
                 Entram no topo, com a vaga garantida, na ordem de quem renovou primeiro. Quem não pagou a tempo coloca o nome pelo link.
               </span>
+              {/* quem e mensalista e nao entrou, com o motivo: sem isso parecia que a lista tinha falhado (dono, 20/11) */}
+              {deFora.length > 0 && (
+                <span className="tiny" style={{ display: 'block', marginTop: 6, color: 'var(--orange)' }}>
+                  Não entram: {deFora.map((x) => `${nameOf(x.id)} (${x.motivo})`).join(', ')}. Acerte no Financeiro ou adicione à mão depois.
+                </span>
+              )}
             </span>
           </label>
         )}
@@ -277,5 +285,5 @@ function AvisoDoDiaDeCobranca({ dia }: { dia: string }) {
   if (naData.length > 0) {
     return <div className="banner warn" style={{ margin: 0 }}>O dia {dm} do Financeiro já é de um play criado. Os pagamentos desta lista vão para um dia de cobrança novo, só dela.</div>
   }
-  return <div className="banner info" style={{ margin: 0 }}>📅 Não precisa criar o dia no Financeiro: o dia de cobrança de {dm} é criado sozinho no primeiro 💰 da lista.</div>
+  return <div className="banner info" style={{ margin: 0 }}>📅 Não precisa criar o dia no Financeiro: o dia de cobrança de {dm} é criado sozinho quando a 1ª avulsa entrar nas confirmadas, e cada avulsa já aparece lá como "não pago" até o 💰.</div>
 }

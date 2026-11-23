@@ -161,7 +161,7 @@ test('conta: arena padrao entra no palpite; a escolhida (conta do marido) e grav
   assert.equal(r.checkin.conta_id, 'marido'); assert.equal(r.checkin.local_id, 'v3')
   const salvo = gravar(d, dia, 25, 'checkin')
   const editado = { ...salvo, checkins: salvo.checkins.map((c) => ({ ...c, conta_id: 'marido', local_id: 'v3' })) }
-  assert.deepEqual(contaInicial(editado, dia, atleta.id), { contaId: 'marido', localId: 'v3' }) // reabrir mostra a gravada
+  assert.deepEqual(contaInicial(editado, dia, atleta.id), { contaId: 'marido', localId: 'v3', dataCheckin: null }) // reabrir mostra a gravada
   const integral = prepararPagamento(d, dia, atleta.id, 'integral', 50, { contaId: 'marido', localId: 'v3' })
   assert.equal(integral.checkin.local_id, null); assert.equal(integral.checkin.checkin_confirmado, false)
 })
@@ -265,4 +265,22 @@ test('origemDoSaldo: so os plays cujo credito ou divida ainda vale; o quitado so
   // corrigindo um lancamento: ele fica de fora
   const r = prepararPagamento(c, dia('c5', '2026-11-08'), 'a', 'integral', 35)
   assert.deepEqual(datas(c, r.checkin.id), [['2026-11-05', 10], ['2026-11-07', 20]])
+})
+
+/* DATA DO CHECK-IN (script 42, dono 19/11): a atrasada faz o check-in noutro dia; a trava, a cota e o relatorio vao por ela */
+test('data do check-in: grava a data escolhida; a trava, a cota do mes e a arena seguem ela', async () => {
+  const { checkinJaFeito, disponibilidade, relatorioDasArenas } = await import('../src/lib/checkins')
+  const d = comContas(); const dia = diaDaLista(d, lista) // play em 09/11
+  const r = prepararPagamento(d, dia, atleta.id, 'checkin', 25, { contaId: null, localId: 'v3', dataCheckin: '2026-12-02' })
+  assert.equal(r.checkin.data_checkin, '2026-12-02')
+  assert.equal(prepararPagamento(d, dia, atleta.id, 'checkin', 25, { contaId: null, localId: 'v3', dataCheckin: dia.date }).checkin.data_checkin, null)
+  assert.equal(prepararPagamento(d, dia, atleta.id, 'integral', 50, { contaId: null, localId: 'v3', dataCheckin: '2026-12-02' }).checkin.data_checkin, null)
+  const s: AppData = { ...d, checkinDias: [dia], checkins: [r.checkin], checkinPagamentos: [r.pagamento] }
+  assert.ok(checkinJaFeito(s, atleta.id, null, '2026-12-02'))
+  assert.equal(checkinJaFeito(s, atleta.id, null, dia.date), null) // o dia do play ficou livre
+  const usados = (mes: string) => disponibilidade(s, atleta.id, mes).contas[0].locais.find((l) => l.local.id === 'v3')!.usadosEmPlays
+  assert.equal(usados('2026-11'), 0); assert.equal(usados('2026-12'), 1)
+  const rel = relatorioDasArenas(s, { mes: '2026-12' }, (id) => id)
+  assert.deepEqual(rel.blocos.flatMap((b) => b.linhas.map((l) => l.date)), ['2026-12-02'])
+  assert.equal(relatorioDasArenas(s, { mes: '2026-11' }, (id) => id).blocos.flatMap((b) => b.linhas).length, 0)
 })

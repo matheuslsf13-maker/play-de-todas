@@ -157,6 +157,10 @@ masculino e o misto descrevem esse código parado.
   marcada, entram um por vez na ordem antiga; as mensalistas que faltam (e não tinham saído) entram
   depois da última garantida (`juntarSemRepetir`).
   Quem veio pelo link perde o "Tirar meu nome" (o código do aparelho ficou na apagada).
+- **Lista cheia não é "não dá mais"** (dono, 20/11; `AVISO_DE_SUPLENTE`): as duas mensagens (link e atualização, só com a
+  lista aberta) dizem em uma linha, logo abaixo do link, para colocar o nome mesmo cheia (suplente, ordem de chegada, entra sozinha
+  se alguém sair). **Criar lista mostra quem é mensalista e não entrou, com o motivo** (`mensalistasDeFora`: pausada, mês não
+  pago no cadastro na transição de novembro, deve check-ins, não renovou): a Pamella estava sem novembro pago e parecia falha da lista.
 - **As duas mensagens saem da lista de agora** (dono, 18/11): a "🔗 Mensagem do link" lê a lista de novo (`useLista`) e é
   a mesma da atualização (vagas, datas, confirmadas e suplentes); antes só dizia o total de vagas, sem nomes.
 - **Rótulos**: "🔒 Fechar a lista agora" / "🔓 Reabrir a lista" (linha inteira); "Fechar" sozinho é
@@ -769,6 +773,25 @@ masculino e o misto descrevem esse código parado.
   **Dias**: "verificar" primeiro, filtro e busca; "➕ Lançar" e o ✏️ (editar o dia) no topo, na mesma linha dos filtros (os chips rolam de lado se não couberem) (dono, 18/11: no fim da lista grande era preciso descer tudo); o lançamento de quem a lista pôs no lugar de mensalista já vem marcado
   (lê `lista_nomes.substitui`) e a linha mostra "🔁 entrou no lugar de X (mensalista), pela lista do play de DD/MM" ou ", inserido manualmente" (lê a lista do play do dia aberto; dia sem play fica sem a origem). **Criar lista** explica o dia de cobrança
   (`AvisoDoDiaDeCobranca`: criado no 1º 💰 ou vincula o dia solto que já existe).
+- **O pagamento não trava o play; a lista enche o dia** (dono, 19/11; `pendentesDaLista`, `lancamentoPendente`, `naoPago` em
+  `pagamentoNaLista.ts`, `useDiaDaLista` em `PagamentoNaLista.tsx`): a 1ª avulsa (ou mensalista atrasada) nas confirmadas cria o
+  dia de cobrança e cada uma entra **pendente** (id do 💰, integral, sem pagamento: com check-in gastaria cota e iria para o Excel
+  da arena). Só mensalistas = nenhum dia. Quem sai das confirmadas sai do dia se não pagou nada; a avulsa com o "pago" de Meninas
+  não entra (pagou por fora). Roda onde a organizadora vê a lista (página e cartão da tela inicial), logada, **só depois da 1ª
+  carga do banco** (`atualizado` na store: o cache pode estar velho) e só antes do play montado. No Novo Play o aviso de quem não
+  pagou só informa: "Liberar todas e anotar o pagamento como pendência" (e "⏳ Escalar e anotar…" na janela da atleta); ao criar,
+  as liberadas sem pagar entram pendentes no dia do play (`pendentesNoDia`, o dia solto da data passa a ser do play). O 💰 tem
+  **Pagamento confirmado** e **Check-in confirmado** (desmarcados no lançamento novo; o que não marcar fica "verificar"); a linha
+  mostra ✅ / ⏳ (lançado a confirmar) / 💰, e "Desfazer lançamento" volta à pendente. **Dias**: na linha do dia o número laranja
+  (verificar) e o vermelho (não pago), o chip "Não pago" e o selo vermelho na atleta. `tests/pendentesDaLista.test.ts`.
+- **Data do check-in** (dono, 19/11; script 42, `checkins.data_checkin`, `dataDoCheckin` em `checkins.ts`): a atrasada faz o check-in
+  noutro dia. O Lançar e o 💰 têm "Dia do check-in" (vazio/nulo = o dia do play); a trava de um por conta por dia, a cota do mês,
+  o relatório/Excel da arena e o aluguel da V3 vão por essa data. Sem o 42 a coluna é descartada (`upsertTolerante`).
+  **Entra / sai** (`anotarPendente` em Play.tsx, `pendentesNoPlay`): quem entra sem pagamento confirmado vai ao dia do play como
+  "não pago" (no lugar de mensalista que avisou, com o `substitui`); o evento guarda `entra`. A linha do dia diz a origem
+  (`origemDoLancamento`: "pelo Entra / sai, dentro do play", "pela lista de presença" ou "manualmente"). No Lançar, o "Pagou tudo"
+  é um chip que liga e desliga (`.chip-marca`), e check-in + "Não compareceu" já é o check-in de crédito (o "Fez o check-in no
+  app" saiu; check-in antigo sem crédito abre como integral).
 - **Dívida paga com check-in no 💰** (script 41: `checkin_acertos.conta_id/local_id/credito_de`): cada check-in vira um acerto
   +25 (`divida:<checkinId>:…`, `pagarDividas` em `pagamentoNaLista.ts`), entra na cota e no relatório pela data; o check-in de
   crédito também paga (não gasta cota). **Um check-in por conta por dia em todos os tipos** (`checkinJaFeito`). A dívida da

@@ -1,8 +1,8 @@
-import { dataDaRenovacao, emDiaNaData } from './fichaDaMensalidade'
+import { MES_INICIAL, dataDaRenovacao, dividaDaMensalidade, emDiaNaData } from './fichaDaMensalidade'
 import { categoriaDe } from './mensalidade'
 import { normalizar, semInvisiveis, semelhanca, type Sugestao } from './roster'
 import { pausaAberta } from './stats'
-import { plural, type AppData, type Player } from './types'
+import { monthLabel, monthOf, plural, type AppData, type Player } from './types'
 
 /**
  * LISTA DE PRESENCA POR LINK (so o Play de Todas; script 31).
@@ -92,6 +92,9 @@ export const MENSAGEM_DO_MOTIVO: Record<MotivoDaLista, string> = {
 /** Os dois avisos das mensagens do WhatsApp (texto do dono, 06/11); *assim* e negrito no WhatsApp. */
 export const AVISO_DE_SAIDA =
   '*Não mensalistas: para sair da lista*, abra o mesmo link e toque em Tirar meu nome. Mensalistas: avisem a organização.'
+/** Lista cheia nao e "nao da mais" (dono, 20/11): curto, para a mensagem nao crescer. */
+export const AVISO_DE_SUPLENTE =
+  '*Lista cheia? Coloque o nome mesmo assim:* você entra como suplente, na ordem de chegada, e se alguém sair a vaga é sua automaticamente.'
 export const AVISO_DAS_MENSALISTAS =
   '*Mensalistas não precisam colocar o nome na lista, só abram o link para conferir.* Se o seu nome não estiver, fale com a organização.'
 
@@ -337,6 +340,7 @@ export function mensagemDoLink(lista: Lista, url: string): string {
     '',
     '👉 Coloque seu nome e sobrenome pelo link:',
     url,
+    AVISO_DE_SUPLENTE,
     '',
     AVISO_DAS_MENSALISTAS,
     '',
@@ -365,6 +369,7 @@ export function mensagemDeAtualizacao(
     '',
     aberta ? '👉 Coloque seu nome e sobrenome pelo link:' : 'A lista fechou. Para conferir:',
     url,
+    ...(aberta ? [AVISO_DE_SUPLENTE] : []),
     '',
     AVISO_DAS_MENSALISTAS,
     '',
@@ -443,6 +448,29 @@ export function preIncluidas(data: AppData, dataDoPlay: string): string[] {
     .map((p) => ({ p, quando: dataDaRenovacao(data, p.id, dataDoPlay) ?? '9999' }))
     .sort((a, b) => a.quando.localeCompare(b.quando) || a.p.name.localeCompare(b.p.name, 'pt-BR'))
     .map((x) => x.p.id)
+}
+
+/**
+ * AS MENSALISTAS QUE A LISTA NAO PUXOU, E POR QUE (dono, 20/11): a Pamella estava como mensalista sem novembro pago
+ * e a Ingryd achou que a lista tinha falhado. Ativas, cadastradas como mensalista, fora de `preIncluidas`.
+ */
+export function mensalistasDeFora(data: AppData, dataDoPlay: string): { id: string; motivo: string }[] {
+  const dentro = new Set(preIncluidas(data, dataDoPlay))
+  const mes = monthOf(dataDoPlay)
+  const nomeDoMes = (m: string) => monthLabel(m).split(' ')[0].toLowerCase()
+  return data.players
+    .filter((p) => p.active && categoriaDe(p) === 'mensalista' && !dentro.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      motivo: pausaAberta(data, p)
+        ? 'está pausada'
+        : mes < MES_INICIAL
+          ? `${nomeDoMes(mes)} não está pago no cadastro`
+          : dividaDaMensalidade(data, p.id, dataDoPlay).total > 0
+            ? 'deve check-ins da mensalidade'
+            : `não renovou ${nomeDoMes(mes)}`,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id))
 }
 
 /**

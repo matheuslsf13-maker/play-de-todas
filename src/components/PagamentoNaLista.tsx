@@ -3,18 +3,37 @@ import { createPortal } from 'react-dom'
 import { Modal } from './ui'
 import { useStore } from '../lib/store'
 import { LIGA } from '../liga'
-import { contaInicial, contaNoPlay, gravadosDaDivida, idDoLancamento, pagarDividas, origemDoSaldo, saldoDepois, devidoNoModo, pagoAvulsoDaLista, diaDaLista, diaJaExiste, palpiteDaLista, prepararPagamento, retrato, tipoNaLista, valorInicial, type ContaDoCheckin, type RetratoPagamento } from '../lib/pagamentoNaLista'
+import { lancamentoPendente, pendentesDaLista, contaInicial, contaNoPlay, gravadosDaDivida, idDoLancamento, pagarDividas, origemDoSaldo, saldoDepois, devidoNoModo, pagoAvulsoDaLista, diaDaLista, diaJaExiste, palpiteDaLista, prepararPagamento, retrato, tipoNaLista, valorInicial, type ContaDoCheckin, type RetratoPagamento } from '../lib/pagamentoNaLista'
 import { checkinJaFeito, creditoDisponivel, creditosDeCheckin, disponibilidade, formatarReais, lerValor, livresNoLocal, nomeDoTitular, rotuloDoTipo, saldoAntesDe } from '../lib/checkins'
 import { CheckinsParaPagar, problemasDosCheckins, type CheckinParaPagar } from './CheckinsParaPagar'
 import { useGravarNaFicha } from './FichaDaMensalidade'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import { monthLabel, monthOf, plural } from '../lib/types'
 import { checkinsDaFicha, comecaNoMesSeguinte, dividaDaMensalidade, fichaDe, proximoMes } from '../lib/fichaDaMensalidade'
-import type { Lista, NomeNaLista } from '../lib/listaDePresenca'
+import { dividir, type Lista, type NomeNaLista } from '../lib/listaDePresenca'
 import type { Acerto, CheckinDia, CheckinModo, ItemDaMensalidade } from '../lib/types'
 
-type Dividas = { itens: ItemDaMensalidade[]; acertos: Acerto[] }
-type Edicao = { dia: CheckinDia; modo: CheckinModo; conta: ContaDoCheckin; valor: string; confirmar: boolean }
+/**
+ * O dia de cobranca acompanha a lista (dono, 19/11; `pendentesDaLista`): roda onde a organizadora ve a lista (a
+ * pagina e o cartao da tela inicial). Ids fixos: dois celulares gravam o mesmo lancamento.
+ * shortcut: so sincroniza com a lista aberta num aparelho logado; quem entra pelo link com ninguem olhando entra no dia na proxima vez que a organizadora abrir o app.
+ */
+export function useDiaDaLista(lista: Lista | null | undefined, nomes: NomeNaLista[] | undefined) {
+  const { data, canEdit, atualizado, saveCheckinDia, saveCheckin, deleteCheckin } = useStore()
+  const ativo = !!lista && !!nomes && canEdit && atualizado && LIGA.id === 'feminino'
+  const plano = ativo ? pendentesDaLista(data, lista!, dividir(lista!, nomes!).titulares) : null
+  const chave = plano ? `${plano.dia?.id ?? ''}|${plano.gravar.map((c) => c.id).join(',')}|${plano.apagar.join(',')}` : ''
+  useEffect(() => {
+    if (!plano || (!plano.dia && !plano.gravar.length && !plano.apagar.length)) return
+    if (plano.dia) saveCheckinDia(plano.dia)
+    for (const c of plano.gravar) saveCheckin(c)
+    for (const id of plano.apagar) deleteCheckin(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chave])
+}
+
+type Dividas ={ itens: ItemDaMensalidade[]; acertos: Acerto[] }
+type Edicao = { dia: CheckinDia; modo: CheckinModo; conta: ContaDoCheckin; valor: string; confirmar: boolean; confPag: boolean; confCheckin: boolean }
 const diaCurto = (date: string) => date.slice(8, 10) + '/' + date.slice(5, 7)
 const textoValor = (n: number) => n.toFixed(2).replace('.', ',')
 
@@ -56,13 +75,16 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
   if (categoria === 'convidada' || categoria === 'isenta') return null
   const quem = player ? nameOf(player.id) : nome.nome
   let pago = false
+  /** Lancado (Pix ou check-in) mas sem confirmar: fica "verificar" no Financeiro (dono, 19/11). */
+  let aConfirmar = false
   // a previa da linha: credito ou divida dela, antes de abrir o 💰 (dono, 18/11)
   let previa: { texto: string; classe: string } | null = null
   try {
     const dia = player ? diaDaLista(data, lista) : null
     const r = player && dia ? retrato(data, dia.id, player.id) : null
-    pago = !!r?.pagamento?.pagamento_confirmado
-    if (player && dia && !pago) {
+    aConfirmar = !!r?.pagamento && (!r.pagamento.pagamento_confirmado || (r.checkin.modo === 'checkin' && !r.checkin.checkin_confirmado))
+    pago = !!r?.pagamento && !aConfirmar
+    if (player && dia && !r?.pagamento) {
       const saldo = saldoAntesDe(data, player.id, r?.checkin.id)
       // so o sinal: o valor ela ve ao tocar no 💰 (dono, 18/11)
       if (saldo > 0) previa = { texto: 'Crédito', classe: 'pos' }
@@ -75,8 +97,12 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
     if (!player) { setSemVinculo(true); return }
     try {
       const dia = diaDaLista(data, lista)
-      const modo = retrato(data, dia.id, player.id)?.checkin.modo ?? palpiteDaLista(data, player.id)
-      setEdicao({ dia, modo, conta: contaInicial(data, dia, player.id), valor: textoValor(valorInicial(data, dia, player.id, modo)), confirmar: false })
+      const r = retrato(data, dia.id, player.id)
+      // a pendente automatica (sem pagamento) e "ainda nao lancado": o modo vem do palpite, nao do integral dela
+      const modo = r?.pagamento ? r.checkin.modo : palpiteDaLista(data, player.id)
+      // confirmar e um passo da organizadora (dono, 19/11): sem marcar, fica "verificar" no Financeiro
+      setEdicao({ dia, modo, conta: contaInicial(data, dia, player.id), valor: textoValor(valorInicial(data, dia, player.id, modo)), confirmar: false,
+        confPag: !!r?.pagamento?.pagamento_confirmado, confCheckin: !!r?.pagamento && r.checkin.checkin_confirmado })
     } catch (e) { setErro(e instanceof Error ? e.message : String(e)) }
   }
 
@@ -117,7 +143,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
     try {
       const antes = retrato(data, edicao.dia.id, player.id)
       const dividasAntes = gravadosDaDivida(data, checkinId)
-      const depois = prepararPagamento(data, edicao.dia, player.id, edicao.modo, valor, edicao.conta)
+      const depois = prepararPagamento(data, edicao.dia, player.id, edicao.modo, valor, edicao.conta, { pagamento: edicao.confPag, checkin: edicao.confCheckin })
       // entrou no lugar de uma mensalista (troca ou tirada com aviso de 24h): o lancamento ja sai como substituta
       if (nome.substitui && !depois.checkin.substitui) depois.checkin.substitui = nome.substitui
       // marcada agora no 💰: o lancamento sai como substituta e a lista guarda a ligacao (sem o script 36: so nao liga)
@@ -140,6 +166,8 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
   const fechar = () => { setEdicao(null); setErro(''); setDividaCheckins([]) }
   const devido = edicao && player ? devidoNoModo(data, edicao.dia, player.id, edicao.modo) : 0
   const existente = edicao && player ? retrato(data, edicao.dia.id, player.id) : null
+  /** Ja tem pagamento lancado (a pendente automatica ainda nao). */
+  const lancado = !!existente?.pagamento
   // o que este lancamento ja gravou para pagar dividas nao conta como pago (corrigir refaz)
   const checkinId = edicao && player ? existente?.checkin.id ?? idDoLancamento(edicao.dia.id, player.id) : ''
   const antigos = checkinId ? gravadosDaDivida(data, checkinId) : { itens: [], acertos: [] }
@@ -163,11 +191,14 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
   const creditosLivres = edicao && player && edicao.modo === 'checkin' ? creditosDeCheckin(base, player.id, existente?.checkin.id).filter((c) => !dividaCheckins.some((x) => x.credito === c.checkin.id)) : []
   // a mesma conta do Lançar da aba Financeiro: o crédito cobre o que faltar; o resto é sobra ou dívida
   // as contas dela (principal, secundárias como a do marido) com os livres na arena escolhida
-  const contas = edicao && player && edicao.modo === 'checkin' && !creditoDoPlay ? disponibilidade(data, player.id, monthOf(edicao.dia.date)).contas : []
+  // o dia em que ela fez o check-in do play (script 42): a cota e a trava sao dessa data
+  const dataDoCk = edicao ? edicao.conta.dataCheckin || edicao.dia.date : ''
+  const contas = edicao && player && edicao.modo === 'checkin' && !creditoDoPlay ? disponibilidade(data, player.id, monthOf(dataDoCk)).contas : []
   const arenas = data.checkinLocais.filter((l) => l.ativo || l.id === edicao?.conta.localId).sort((a, b) => a.ordem - b.ordem)
   const usoEscolhido = contas.find((u) => (edicao?.conta.contaId === null ? u.conta.principal : u.conta.id === edicao?.conta.contaId))
   const naArena = usoEscolhido ? livresNoLocal(usoEscolhido, edicao?.conta.localId ?? null) : undefined
-  const confirmado = edicao?.modo === 'checkin' ? 'com o pagamento e o check-in já CONFIRMADOS' : 'com o pagamento já CONFIRMADO'
+  const comCheckinNoPlay = edicao?.modo === 'checkin'
+  const tudoConfirmado = !!edicao && edicao.confPag && (!comCheckinNoPlay || edicao.confCheckin)
   const conta = contaNoPlay(devido, credito, divida)
   const origem = player && (credito > 0 || divida > 0) ? origemDoSaldo(base, player.id, existente?.checkin.id) : []
   const temAtrasado = divida > 0 || dividaMens.total > 0
@@ -197,21 +228,21 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
       ? creditosDeCheckin(base, player.id, existente?.checkin.id).filter((c) => c.dia && c.checkin.id !== creditoDoPlay)
       : []
     const n = Math.min(creditos.length, Math.ceil(divida / (valorDoCheckin || 1)), maxCheckins)
-    const linhas: CheckinParaPagar[] = creditos.slice(0, n).map((c) => ({ date: c.dia!.date, contaId: null, localId: null, credito: c.checkin.id }))
+    const linhas: CheckinParaPagar[] = creditos.slice(0, n).map((c) => ({ date: c.quando!, contaId: null, localId: null, credito: c.checkin.id }))
     setDividaCheckins(linhas)
     setEdicao({ ...edicao, valor: textoValor(Math.max(0, Math.round((conta.comAtrasado + dividaMens.total - valorDoCheckin * n) * 100) / 100)) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberturas, temAtrasado])
   const problemas = edicao && player ? problemasDosCheckins(base, player.id, dividaCheckins,
-    edicao.modo === 'checkin' && !creditoDoPlay ? [{ date: edicao.dia.date, contaId: edicao.conta.contaId }] : [], [checkinId]) : []
+    edicao.modo === 'checkin' && !creditoDoPlay ? [{ date: dataDoCk, contaId: edicao.conta.contaId }] : [], [checkinId]) : []
   // o check-in do proprio play tambem: um por conta por dia, em todos os tipos
-  const jaFeitoNoPlay = edicao && player && edicao.modo === 'checkin' && !creditoDoPlay ? checkinJaFeito(base, player.id, edicao.conta.contaId, edicao.dia.date, [checkinId]) : null
+  const jaFeitoNoPlay = edicao && player && edicao.modo === 'checkin' && !creditoDoPlay ? checkinJaFeito(base, player.id, edicao.conta.contaId, dataDoCk, [checkinId]) : null
   const foraDoCobrado = vPago === null ? 0 : Math.round((vPago - cobrado) * 100) / 100
   const ficaComo = depois > 0 ? `fica com ${formatarReais(depois)} de crédito` : depois < 0 ? `fica devendo ${formatarReais(-depois)}` : 'fica sem crédito e sem dívida'
 
   return <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
     {previa && <span className={`saldo-selo ${previa.classe}`}>{previa.texto}</span>}
-    <button className="btn ghost sm" style={{ minWidth: 44, minHeight: 44 }} aria-label={`Pagamento de ${quem}${pago ? ' (lançado)' : ''}${previa ? ` (${previa.texto})` : ''}`} onClick={abrir}>{pago ? '✅' : '💰'}</button>
+    <button className="btn ghost sm" style={{ minWidth: 44, minHeight: 44 }} aria-label={`Pagamento de ${quem}${pago ? ' (lançado)' : aConfirmar ? ' (lançado, a confirmar)' : ''}${previa ? ` (${previa.texto})` : ''}`} onClick={abrir}>{pago ? '✅' : aConfirmar ? '⏳' : '💰'}</button>
     {erro && !edicao && <Modal title="Não foi possível lançar" onClose={() => setErro('')}><p role="alert">{erro}</p></Modal>}
     {semVinculo && <Modal title="Ligue o nome a uma atleta" onClose={() => setSemVinculo(false)}>
       <p>Antes de lançar o pagamento, ligue “{nome.nome}” ao cadastro de uma atleta.</p>
@@ -220,10 +251,12 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
     {edicao && player && <Modal title={edicao.confirmar ? 'Lançar na aba Financeiro?' : `💰 ${quem}`} onClose={fechar}>
       <div className="stack">
         {edicao.confirmar ? <>
-          <p style={{ margin: 0 }}>Isso vai preencher a aba <strong>Financeiro</strong>, no dia {diaCurto(edicao.dia.date)}: {quem}, {edicao.modo === 'checkin' ? `check-in${usoEscolhido ? ` pela conta ${nomeDoTitular(usoEscolhido.conta, quem)}` : ''}${naArena ? ` na ${naArena.local.nome}` : ''}` : 'integral'}, {vPago === 0 && soCredito ? 'pago com o crédito dela' : `pagou ${formatarReais(vPago ?? 0)}`}.</p>
+          <p style={{ margin: 0 }}>Isso vai preencher a aba <strong>Financeiro</strong>, no dia {diaCurto(edicao.dia.date)}: {quem}, {edicao.modo === 'checkin' ? `check-in${usoEscolhido ? ` pela conta ${nomeDoTitular(usoEscolhido.conta, quem)}` : ''}${naArena ? ` na ${naArena.local.nome}` : ''}${dataDoCk !== edicao.dia.date && !creditoDoPlay ? ` feito em ${diaCurto(dataDoCk)}` : ''}` : 'integral'}, {vPago === 0 && soCredito ? 'pago com o crédito dela' : `pagou ${formatarReais(vPago ?? 0)}`}.</p>
           {foraDoCobrado > 0 && <p className="banner saldo-credito" role="alert" style={{ margin: 0 }}>Isso vai gerar crédito: você está lançando <strong>{formatarReais(foraDoCobrado)} a mais</strong> do que o cobrado ({formatarReais(cobrado)}). Ela {ficaComo}.</p>}
           {foraDoCobrado < 0 && <p className="banner saldo-divida" role="alert" style={{ margin: 0 }}>{-depois > divida ? 'Isso vai gerar dívida' : 'Isso não quita a dívida'}: você está lançando <strong>{formatarReais(-foraDoCobrado)} a menos</strong> do que o cobrado ({formatarReais(cobrado)}). Ela {ficaComo}.</p>}
-          <p className="banner info" style={{ margin: 0 }}>✅ Vai {confirmado}. Na aba Financeiro isso costuma ser um passo à parte; aqui já fica feito.</p>
+          {tudoConfirmado
+            ? <p className="banner info" style={{ margin: 0 }}>✅ Vai {comCheckinNoPlay ? 'com o pagamento e o check-in confirmados' : 'com o pagamento confirmado'}.</p>
+            : <p className="banner warn" style={{ margin: 0 }}>🟠 Vai como pendente: {!edicao.confPag ? 'o pagamento' : ''}{!edicao.confPag && comCheckinNoPlay && !edicao.confCheckin ? ' e ' : ''}{comCheckinNoPlay && !edicao.confCheckin ? 'o check-in' : ''} {!edicao.confPag && comCheckinNoPlay && !edicao.confCheckin ? 'ficam' : 'fica'} para verificar no Financeiro.</p>}
           {!diaJaExiste(data, edicao.dia) && <p className="banner warn" style={{ margin: 0 }}>O dia {diaCurto(edicao.dia.date)} ainda não existe na parte 📅 Dias e vai ser criado, ligado a este play{lista.session_id ? '' : ' (a ligação é feita quando o play for montado)'}.</p>}
           <button className="btn pink block" onClick={lancar}>Confirmar lançamento</button>
           <button className="btn ghost block" onClick={() => setEdicao({ ...edicao, confirmar: false })}>Voltar</button>
@@ -238,6 +271,12 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
             </button>)}
           </div>
           {contas.length > 0 && <>
+            <label className="field">
+              <span>Dia do check-in</span>
+              <input className="input" type="date" value={dataDoCk}
+                onChange={(e) => setEdicao({ ...edicao, conta: { ...edicao.conta, dataCheckin: e.target.value === edicao.dia.date ? null : e.target.value } })} />
+              <span className="hint">só se ela fez em outro dia (quem paga atrasada)</span>
+            </label>
             <div className="field">
               <span>Conta do check-in</span>
               <div className="stack" style={{ gap: 6 }}>
@@ -245,7 +284,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
                   const on = usoEscolhido?.conta.id === u.conta.id
                   const aqui = livresNoLocal(u, edicao.conta.localId)
                   return <button key={u.conta.id} className={`opcao ${on ? 'on' : ''}`} aria-pressed={on}
-                    onClick={() => setEdicao({ ...edicao, conta: { contaId: u.conta.principal ? null : u.conta.id, localId: u.conta.local_padrao_id ?? edicao.conta.localId } })}>
+                    onClick={() => setEdicao({ ...edicao, conta: { contaId: u.conta.principal ? null : u.conta.id, localId: u.conta.local_padrao_id ?? edicao.conta.localId, dataCheckin: edicao.conta.dataCheckin } })}>
                     <span className="opcao-marca">{on ? '●' : '○'}</span>
                     <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
                       <strong>{nomeDoTitular(u.conta, quem)}</strong>
@@ -262,7 +301,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
                   onClick={() => setEdicao({ ...edicao, conta: { ...edicao.conta, localId: l.id } })}>{l.nome}</button>)}
               </div>
               {naArena && !naArena.aceita && <span className="hint aviso">O plano desta conta não aceita {naArena.local.nome}. Confira a arena ou a conta.</span>}
-              {jaFeitoNoPlay && <span className="hint aviso" role="alert">⚠️ O check-in desta conta em {diaCurto(edicao.dia.date)} {jaFeitoNoPlay.texto}. Escolha outra conta{jaFeitoNoPlay.credito ? ' ou use o check-in de crédito' : ''}.</span>}
+              {jaFeitoNoPlay && <span className="hint aviso" role="alert">⚠️ O check-in desta conta em {diaCurto(dataDoCk)} {jaFeitoNoPlay.texto}. Escolha outro dia, outra conta{jaFeitoNoPlay.credito ? ' ou use o check-in de crédito' : ''}.</span>}
             </div>
           </>}
           {/* o play de hoje pago com um check-in de credito: vale para o play OU para a divida, nunca os dois (dono, 18/11) */}
@@ -271,15 +310,15 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
               <span>Check-in de crédito</span>
               {creditoDoPlay ? (
                 <div className="row spread" style={{ gap: 8 }}>
-                  <span className="small valor-pos">Usa o check-in de crédito de {(() => { const c = data.checkins.find((x) => x.id === creditoDoPlay); const d = c && data.checkinDias.find((x) => x.id === c.dia_id); return d ? diaCurto(d.date) : '?' })()} (não gasta cota)</span>
+                  <span className="small valor-pos">Usa o check-in do dia {(() => { const c = data.checkins.find((x) => x.id === creditoDoPlay); const d = c?.data_checkin ?? (c && data.checkinDias.find((x) => x.id === c.dia_id)?.date); return d ? diaCurto(d) : '?' })()} (crédito, não gasta cota)</span>
                   <button className="btn ghost sm" onClick={() => setEdicao({ ...edicao, conta: { ...contaInicial(data, edicao.dia, player.id), creditoDe: null } })}>Não usar</button>
                 </div>
               ) : (
                 <div className="row wrap" style={{ gap: 6, alignItems: 'center' }}>
-                  <span className="tiny muted">Usar o de</span>
+                  <span className="tiny muted">Usar o check-in do dia</span>
                   {creditosLivres.map((c) => (
                     <button key={c.checkin.id} className="chip" onClick={() => setEdicao({ ...edicao, conta: { ...edicao.conta, creditoDe: c.checkin.id } })}>
-                      {c.dia ? diaCurto(c.dia.date) : '?'}
+                      {c.quando ? diaCurto(c.quando) : '?'}
                     </button>
                   ))}
                 </div>
@@ -339,7 +378,7 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
               <summary className="small"><strong>Pagar a dívida com check-ins</strong></summary>
               <CheckinsParaPagar playerId={player.id} linhas={dividaCheckins} max={maxCheckins} valorDeCada={valorDoCheckin}
                 aceitaCredito={!semColuna41 && divida > 0} creditoOcupado={creditoDoPlay}
-                outros={edicao.modo === 'checkin' && !creditoDoPlay ? [{ date: edicao.dia.date, contaId: edicao.conta.contaId }] : []}
+                outros={edicao.modo === 'checkin' && !creditoDoPlay ? [{ date: dataDoCk, contaId: edicao.conta.contaId }] : []}
                 ignorar={[checkinId]}
                 onMudar={(l) => {
                   setDividaCheckins(l)
@@ -358,9 +397,23 @@ export default function PagamentoNaLista({ lista, nome, onVincular, semSubstitut
           {vPago !== null && depois > 0 && <p className="banner saldo-credito" role="status">Fica com <strong>{formatarReais(depois)}</strong> de crédito para o próximo play</p>}
           {vPago !== null && depois < 0 && <p className="banner saldo-divida" role="status">Fica devendo <strong>{formatarReais(-depois)}</strong>{divida > 0 && -depois === divida ? ' (é o que já devia)' : divida > 0 && -depois > divida ? ` (${formatarReais(divida)} de antes)` : ''}</p>}
           {vPago !== null && depois === 0 && (credito > 0 || divida > 0) && <p className="banner saldo-credito" role="status">Fica sem crédito e sem dívida</p>}
-          <p className="tiny muted" style={{ margin: 0 }}>✅ Lança já {edicao.modo === 'checkin' ? 'com pagamento e check-in confirmados' : 'com o pagamento confirmado'}.</p>
-          <button className="btn pink block" disabled={vPago === null || problemas.some(Boolean) || !!jaFeitoNoPlay} onClick={lancar}>{existente ? 'Salvar correção' : soCredito && vPago === 0 ? 'Confirmar com o crédito' : 'Lançar'}</button>
-          {existente && <button className="btn danger block" onClick={() => { restaurar(player.id, edicao.dia.id, null); marcarPago(false); setEdicao(null) }}>Desfazer lançamento</button>}
+          {/* confirmar e um passo (dono, 19/11): o que nao for marcado fica "verificar" no Financeiro */}
+          <label className="toggle-card row">
+            <input type="checkbox" checked={edicao.confPag} onChange={(e) => setEdicao({ ...edicao, confPag: e.target.checked })} />
+            <span className="grow"><strong>Pagamento confirmado</strong><span className="tiny muted" style={{ display: 'block' }}>o Pix (ou o dinheiro) já caiu</span></span>
+          </label>
+          {edicao.modo === 'checkin' && (
+            <label className="toggle-card row">
+              <input type="checkbox" checked={edicao.confCheckin} onChange={(e) => setEdicao({ ...edicao, confCheckin: e.target.checked })} />
+              <span className="grow"><strong>Check-in confirmado</strong><span className="tiny muted" style={{ display: 'block' }}>o check-in apareceu no app da arena</span></span>
+            </label>
+          )}
+          <button className="btn pink block" disabled={vPago === null || problemas.some(Boolean) || !!jaFeitoNoPlay} onClick={lancar}>{lancado ? 'Salvar correção' : soCredito && vPago === 0 ? 'Confirmar com o crédito' : 'Lançar'}</button>
+          {lancado && <button className="btn danger block" onClick={() => {
+            // volta a pendente (ela esta no play e nao pagou), sem o pagamento e sem as dividas pagas por ele
+            restaurar(player.id, edicao.dia.id, { checkin: lancamentoPendente(edicao.dia, player.id, existente!.checkin.substitui ?? null), pagamento: null })
+            marcarPago(false); setEdicao(null)
+          }}>Desfazer lançamento</button>}
         </>}
         {erro && <p className="small" role="alert">{erro}</p>}
       </div>

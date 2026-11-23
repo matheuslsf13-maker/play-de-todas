@@ -85,6 +85,63 @@ export function diaParaLigar(data: AppData, lista: Lista, sessionId: string): Ch
   return soltos.length === 1 ? { ...soltos[0], session_id: sessionId } : null
 }
 
+/**
+ * PENDENTE (dono, 19/11): a avulsa que esta no play (ou na lista) e ainda nao pagou entra no dia sem pagamento,
+ * como quando a Ingryd criava o dia e punha as meninas. Integral: com check-in gastaria cota e iria para o Excel
+ * da arena um check-in que ninguem fez. O 💰 (ou o Lancar) troca o modo quando ela pagar.
+ */
+export function lancamentoPendente(dia: CheckinDia, playerId: string, substitui: string | null = null): Checkin {
+  return {
+    id: idDoLancamento(dia.id, playerId), dia_id: dia.id, player_id: playerId, conta_id: null, local_id: null,
+    modo: 'integral', compareceu: true, checkin_confirmado: false, credito_checkin: false, credito_de: null,
+    ...(substitui ? { substitui } : {}), created_at: new Date().toISOString(),
+  }
+}
+
+/** Pendente automatica que ainda pode sair sozinha: id do 💰, veio, sem pagamento e sem divida paga por ele. */
+const pendenteSolta = (data: AppData, c: Checkin) =>
+  c.id === idDoLancamento(c.dia_id, c.player_id) && c.compareceu && !pagamentoDoCheckin(data, c.id) &&
+  !(data.checkinAcertos ?? []).some((a) => a.id.startsWith(`divida:${c.id}:`))
+
+/**
+ * O DIA DA LISTA ANDA COM ELA (dono, 19/11): a 1a avulsa confirmada cria o dia de cobranca (so mensalistas, nada a
+ * cobrar, nenhum dia) e cada avulsa confirmada entra pendente. Quem sai das confirmadas (saiu, virou suplente,
+ * renovou a mensalidade) sai do dia se ainda nao pagou nada. So antes do play montado: dali o play manda.
+ * A avulsa com o "pago" de Meninas marcado pagou por fora e nao entra como devedora.
+ */
+export function pendentesDaLista(data: AppData, lista: Lista, confirmadas: { player_id: string | null; substitui?: string | null }[]): { dia: CheckinDia | null; gravar: Checkin[]; apagar: string[] } {
+  const nada = { dia: null, gravar: [], apagar: [] }
+  if (lista.session_id) return nada
+  let dia: CheckinDia
+  try { dia = diaDaLista(data, lista) } catch { return nada }
+  const cobra = new Map<string, string | null>()
+  for (const n of confirmadas) {
+    const p = n.player_id ? data.players.find((x) => x.id === n.player_id) : undefined
+    const t = tipoNaLista(data, p, lista)
+    if (p && (t === 'avulsa' || t === 'mensalista-atrasada')) cobra.set(p.id, n.substitui ?? null)
+  }
+  const existe = diaJaExiste(data, dia)
+  const gravar = [...cobra].filter(([id]) => !checkinDaAtletaNoDia(data, dia.id, id) && !data.players.find((p) => p.id === id)?.pago_avulso)
+    .map(([id, sub]) => lancamentoPendente(dia, id, sub))
+  const apagar = existe ? data.checkins.filter((c) => c.dia_id === dia.id && !cobra.has(c.player_id) && pendenteSolta(data, c)).map((c) => c.id) : []
+  return { dia: !existe && gravar.length ? dia : null, gravar, apagar }
+}
+
+/**
+ * Quem joga o play sem pagamento confirmado (criar o play ou o Entra / sai) entra no dia do play como pendente
+ * (dono, 19/11). O dia solto da data (o da lista, ou um feito na mao) passa a ser deste play. `ids` = so quem deve.
+ */
+export function pendentesNoPlay(data: AppData, sessionId: string, date: string, ids: string[], substitui: string | null = null): { dia: CheckinDia | null; gravar: Checkin[] } {
+  if (ids.length === 0) return { dia: null, gravar: [] }
+  const achado = diaDoPlay(data, sessionId, date)
+  const dia = achado.session_id ? achado : { ...achado, session_id: sessionId }
+  const gravar = ids.filter((id) => !checkinDaAtletaNoDia(data, dia.id, id)).map((id) => lancamentoPendente(dia, id, substitui))
+  return { dia: !diaJaExiste(data, achado) || dia !== achado ? dia : null, gravar }
+}
+
+/** Na lista do dia (Financeiro › Dias): sem pagamento nenhum = nao pago (vermelho); lancado sem confirmar = verificar. */
+export const naoPago = (data: AppData, c: Checkin) => c.compareceu && !pagamentoDoCheckin(data, c.id)
+
 export function retrato(data: AppData, diaId: string, playerId: string): RetratoPagamento | null {
   const c = checkinDaAtletaNoDia(data, diaId, playerId)
   return c ? { checkin: c, pagamento: pagamentoDoCheckin(data, c.id) ?? null } : null
@@ -100,6 +157,8 @@ export type ContaDoCheckin = {
   localId: string | null
   /** O play de hoje pago com um check-in de credito (dono, 18/11): leva conta e arena dele, sem gastar cota. Nulo tira; ausente mantem. */
   creditoDe?: string | null
+  /** O dia em que ela fez o check-in (script 42): vazio/nulo = o dia do play. */
+  dataCheckin?: string | null
 }
 
 /**
@@ -108,7 +167,7 @@ export type ContaDoCheckin = {
  */
 export function contaInicial(data: AppData, dia: CheckinDia, playerId: string): ContaDoCheckin {
   const c = retrato(data, dia.id, playerId)?.checkin
-  if (c?.modo === 'checkin' && c.local_id) return { contaId: c.conta_id, localId: c.local_id }
+  if (c?.modo === 'checkin' && c.local_id) return { contaId: c.conta_id, localId: c.local_id, dataCheckin: c.data_checkin ?? null }
   const p = palpiteDaConta(data, playerId, dia)
   return { contaId: p.contaId, localId: p.localId }
 }
@@ -121,6 +180,8 @@ export function contaInicial(data: AppData, dia: CheckinDia, playerId: string): 
 export function prepararPagamento(
   data: AppData, dia: CheckinDia, playerId: string, modo: CheckinModo, pago: number,
   conta: ContaDoCheckin = contaInicial(data, dia, playerId),
+  /** O que a organizadora marcou como confirmado (dono, 19/11); ausente = tudo confirmado, como antes. */
+  confirmado: { pagamento: boolean; checkin: boolean } = { pagamento: true, checkin: true },
 ): RetratoPagamento & { pagamento: CheckinPagamento } {
   if (!Number.isFinite(pago) || pago < 0 || pago >= 100000) throw new Error('Confira o valor pago.')
   const antes = retrato(data, dia.id, playerId)
@@ -128,19 +189,21 @@ export function prepararPagamento(
     id: idDoLancamento(dia.id, playerId), dia_id: dia.id, player_id: playerId,
     conta_id: null, local_id: null, credito_checkin: false, credito_de: null, compareceu: true, created_at: new Date().toISOString(),
     ...antes?.checkin,
-    modo, checkin_confirmado: modo === 'checkin',
+    modo, checkin_confirmado: modo === 'checkin' && confirmado.checkin,
   }
   if (conta.creditoDe !== undefined && modo === 'checkin') {
     const cred = conta.creditoDe ? data.checkins.find((c) => c.id === conta.creditoDe) : undefined
     Object.assign(checkin, cred ? { credito_de: cred.id, conta_id: cred.conta_id, local_id: cred.local_id } : { credito_de: null })
   }
   // integral nao tem arena nem check-in de credito (igual ao Lancar da aba Financeiro)
-  if (modo === 'integral') Object.assign(checkin, { local_id: null, credito_de: null, credito_checkin: false })
-  // check-in de credito leva a conta e a arena do credito; senao vale a escolhida
-  else if (!checkin.credito_de) Object.assign(checkin, { conta_id: conta.contaId, local_id: conta.localId })
+  if (modo === 'integral') Object.assign(checkin, { local_id: null, credito_de: null, credito_checkin: false, data_checkin: null })
+  // check-in de credito leva a conta e a arena do credito (sem check-in novo, sem data); senao vale a escolhida
+  else if (checkin.credito_de) checkin.data_checkin = null
+  else if (conta.dataCheckin !== undefined) Object.assign(checkin, { conta_id: conta.contaId, local_id: conta.localId, data_checkin: conta.dataCheckin && conta.dataCheckin !== dia.date ? conta.dataCheckin : null })
+  else Object.assign(checkin, { conta_id: conta.contaId, local_id: conta.localId })
   return {
     checkin,
-    pagamento: { checkin_id: checkin.id, valor_devido: null, observacao: null, ...antes?.pagamento, valor_pago: centavos(pago), pagamento_confirmado: true },
+    pagamento: { checkin_id: checkin.id, valor_devido: null, observacao: null, ...antes?.pagamento, valor_pago: centavos(pago), pagamento_confirmado: confirmado.pagamento },
   }
 }
 
