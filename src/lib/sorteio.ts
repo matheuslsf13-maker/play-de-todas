@@ -40,18 +40,19 @@ export function concorrentes(escolhidas: string[], ganhadoras: string[], repetir
 }
 
 /**
- * A fita da roleta: `total` cartoes sorteados entre as concorrentes (so para encher), com a
- * vencedora na posicao `alvo`. Evita a mesma pessoa em dois cartoes vizinhos quando da.
+ * A fita da roleta: as concorrentes num CICLO (dono, 24/11: a mesma foto aparecia logo depois de passar).
+ * Uma ordem embaralhada que se repete, girada para a vencedora cair na posicao `alvo`: entre duas vezes
+ * da mesma pessoa passam todas as outras.
  */
 export function fitaDaRoleta(ids: string[], vencedora: string, total = 64, alvo = 54, rnd = Math.random): string[] {
-  const fita: string[] = []
-  for (let i = 0; i < total; i++) {
-    if (i === alvo) { fita.push(vencedora); continue }
-    let id = ids[Math.floor(rnd() * ids.length)]
-    for (let t = 0; t < 4 && ids.length > 1 && (id === fita[i - 1] || (i + 1 === alvo && id === vencedora)); t++) id = ids[Math.floor(rnd() * ids.length)]
-    fita.push(id)
+  const ordem = [...ids]
+  for (let i = ordem.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1))
+    ;[ordem[i], ordem[j]] = [ordem[j], ordem[i]]
   }
-  return fita
+  const n = ordem.length
+  const desloca = (((ordem.indexOf(vencedora) - alvo) % n) + n) % n
+  return Array.from({ length: total }, (_, i) => ordem[(i + desloca) % n])
 }
 
 export const entre = (a: number, b: number) => a + Math.random() * (b - a)
@@ -135,7 +136,99 @@ export const FREADAS: { nome: string; trechos: () => Trecho[] }[] = [
     { ate: -230, ms: 3400, curva: sai(1.5) },
     { ate: qualquer(), ms: 3200, curva: sai(4) },
   ] },
+  // 🙂 normais
+  { nome: 'giro-curto', trechos: () => [{ ate: qualquer(), ms: 3200, curva: sai(2) }] },
+  { nome: 'normal-rapida', trechos: () => [{ ate: qualquer(), ms: 4600, curva: sai(2.6) }] },
+  { nome: 'normal', trechos: () => [{ ate: qualquer(), ms: 6000, curva: sai(3) }] },
+  { nome: 'normal-lenta', trechos: () => [{ ate: qualquer(), ms: 7600, curva: sai(3) }] },
+  { nome: 'partida-lenta', trechos: () => [{ ate: qualquer(), ms: 6800, curva: suave }] },
+  // 😂 engracadas
+  { nome: 'soluco', trechos: () => [
+    { ate: -360, ms: 5000, curva: sai(3) },
+    ...soluco(-360, qualquer(), 3),
+  ] },
+  { nome: 'preguica', trechos: () => [
+    { ate: -830, ms: 4400, curva: sai(3) },
+    { ate: -824, ms: 1400, curva: reto }, // cochilou
+    { ate: qualquer(), ms: 4000, curva: sai(1.4) }, // acordou sem pressa
+  ] },
+  { nome: 'turbo-no-fim', trechos: () => [
+    { ate: -520, ms: 5000, curva: sai(3) },
+    { ate: -515, ms: 700, curva: reto },
+    { ate: qualquer(), ms: 900, curva: sai(5) }, // ZUUUM e para
+  ] },
+  { nome: 'gaguejo', trechos: () => [
+    { ate: -572, ms: 4600, curva: sai(2.6) },
+    ...degraus(-572, qualquer(), 6, 380, 0),
+  ] },
+  { nome: 'elevador', trechos: () => [
+    { ate: -470, ms: 4600, curva: sai(2.8) },
+    ...degraus(-470, qualquer(), 4, 520, 420), // para em cada andar
+  ] },
+  { nome: 'bebada', trechos: () => [
+    { ate: -1300, ms: 2600, curva: sai(1.6) },
+    { ate: qualquer(), ms: 6200, curva: (p) => sai(2)(cambaleia(p)) }, // acelera e freia sem rumo
+  ] },
+  { nome: 'lebre-e-tartaruga', trechos: () => [
+    { ate: -1400, ms: 2500, curva: sai(1.6) },
+    { ate: -1330, ms: 1200, curva: reto },
+    { ate: -420, ms: 1200, curva: sai(2) },
+    { ate: -385, ms: 1000, curva: reto },
+    { ate: qualquer(), ms: 1700, curva: sai(3) },
+  ] },
+  { nome: 'engasgou', trechos: () => [
+    { ate: -560, ms: 4800, curva: sai(3) },
+    { ate: -549, ms: 1000, curva: reto },
+    { ate: qualquer(), ms: 3000, curva: sai(3) },
+  ] },
+  // 😱 aflitas
+  { nome: 'agonia', trechos: () => [{ ate: entre(-44, -40), ms: 11000, curva: sai(4) }] },
+  { nome: 'coracao-na-mao', trechos: () => [
+    { ate: -276, ms: 5400, curva: sai(3) },
+    { ate: -270, ms: 500, curva: reto },
+    { ate: -172, ms: 1200, curva: suave },
+    { ate: -166, ms: 600, curva: reto },
+    { ate: -66, ms: 1300, curva: suave },
+    { ate: -60, ms: 800, curva: reto },
+    { ate: entre(-42, -25), ms: 1200, curva: suave },
+  ] },
+  { nome: 'milimetro', trechos: () => [
+    { ate: -90, ms: 6800, curva: sai(3) },
+    { ate: entre(-45, -41), ms: 3200, curva: reto }, // anda o ultimo pedaco quase parada
+  ] },
+  { nome: 'quase-quase', trechos: () => [
+    { ate: -60, ms: 7200, curva: sai(3.4) },
+    { ate: -57, ms: 1500, curva: reto },
+    { ate: entre(-44, -38), ms: 900, curva: suave },
+  ] },
+  { nome: 'sem-fim', trechos: () => [
+    { ate: -478, ms: 4600, curva: sai(2.8) },
+    ...degraus(-478, entre(-30, 30), 5, 900, 250),
+  ] },
 ]
+
+/** Pulinhos: `n` saltos rapidos de `de` ate `ate`, com uma paradinha antes de cada. */
+function soluco(de: number, ate: number, n: number): Trecho[] {
+  const passo = (ate - de) / n
+  return Array.from({ length: n }, (_, i) => [
+    { ate: de + passo * i + 3, ms: 320, curva: reto },
+    { ate: de + passo * (i + 1), ms: 360, curva: sai(4) },
+  ]).flat()
+}
+/** `n` degraus iguais de `de` ate `ate` (cada um sai e chega devagar), com `pausa` ms quase parada entre eles. */
+function degraus(de: number, ate: number, n: number, ms: number, pausa: number): Trecho[] {
+  const passo = (ate - de) / n
+  const t: Trecho[] = []
+  for (let i = 0; i < n; i++) {
+    const ini = de + passo * i
+    if (pausa && i > 0) t.push({ ate: ini + 3, ms: pausa, curva: reto })
+    t.push({ ate: de + passo * (i + 1), ms, curva: suave })
+  }
+  return t
+}
+/** Anda para frente com a velocidade indo e vindo (a derivada nunca fica negativa). */
+const cambaleia = (p: number) => p + (0.85 * Math.sin(2 * Math.PI * 3 * p)) / (2 * Math.PI * 3)
+
 
 /** A freada inteira, em `c` (posicao do ponteiro) pelo tempo: devolve a posicao em `ms` e se ja acabou. */
 export function posicaoNaFreada(c0: number, trechos: Trecho[], ms: number): { c: number; acabou: boolean } {
