@@ -438,7 +438,7 @@ masculino e o misto descrevem esse código parado.
   dia (prop `acao` do `Modal`). Escolhe quem concorre (todas, um grupo/categoria, toque em cada uma, nomes de fora digitados),
   se quem ganhou pode sair de novo (padrão: não) e o bônus do pódio (opcional, +25/50/100%: 1ª +b, 2ª +2/3, 3ª +1/3; pódio do
   grupo, ou a medalha da dupla no grupos + duplas, `colocacaoNoSorteio`). Roleta de fotos em **ciclo** (`fitaDaRoleta`: uma ordem embaralhada
-  que se repete, ninguém reaparece logo depois de passar) e `FREADAS` em `sorteio.ts`: 37 freadas (rápidas, normais, tensas,
+  que se repete, ninguém reaparece logo depois de passar) e `FREADAS` em `sorteio.ts`: 77 freadas (rápidas, normais, super demoradas, tensas,
   engraçadas — soluço, preguiça, turbo, gaguejo, elevador, bêbada… — e aflitas), uma sorteada por giro; **só anda para frente**: o "passa e volta" saiu, dono 24/11, "dá briga"; testado em `sorteio.test.ts`) com "tic", vibração, fanfarra e
   confete (canvas). **📜 Histórico** (Sorteio N · hora · ganhadora) no banco (script 43, `public.sorteios`, `data.sorteios`, chave
   `play:<id>` | `mes:AAAA-MM` | `historico`; só logada): quem está nele não concorre (sem "pode ganhar de novo"); "Apagar" zera.

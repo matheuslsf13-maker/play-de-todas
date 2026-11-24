@@ -44,7 +44,8 @@ test('quem ganhou sai, salvo se pode repetir; a fita tem a vencedora no alvo', (
 
 test('freadas: só andam para frente, nunca voltam, e param dentro da sorteada (longe da borda)', async () => {
   const { FREADAS, posicaoNaFreada } = await import('../src/lib/sorteio')
-  assert.ok(FREADAS.length >= 35)
+  assert.ok(FREADAS.length >= 75)
+  assert.equal(new Set(FREADAS.map((f) => f.nome)).size, FREADAS.length)
   assert.ok(!FREADAS.some((f) => f.nome.includes('volta')))
   const c0 = -52 * 104
   for (const f of FREADAS) {
@@ -59,7 +60,7 @@ test('freadas: só andam para frente, nunca voltam, e param dentro da sorteada (
       }
       assert.ok(antes >= -45 && antes <= 45, `${f.nome} parou em ${antes.toFixed(1)}`)
       const total = trechos.reduce((s, t) => s + t.ms, 0)
-      assert.ok(total >= 2500 && total <= 11500, `${f.nome} dura ${total} ms`)
+      assert.ok(total >= 2000 && total <= 16500, `${f.nome} dura ${total} ms`)
     }
   }
 })

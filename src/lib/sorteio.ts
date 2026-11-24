@@ -205,7 +205,137 @@ export const FREADAS: { nome: string; trechos: () => Trecho[] }[] = [
     { ate: -478, ms: 4600, curva: sai(2.8) },
     ...degraus(-478, entre(-30, 30), 5, 900, 250),
   ] },
+  // ⚡ mais rapidas
+  { nome: 'flash', trechos: () => [{ ate: qualquer(), ms: 2200, curva: sai(2) }] },
+  { nome: 'tiro', trechos: () => [{ ate: entre(-44, -36), ms: 2500, curva: sai(3) }] },
+  { nome: 'zap', trechos: () => [{ ate: entre(36, 44), ms: 2600, curva: sai(2.4) }] },
+  { nome: 'rapidinha-no-meio', trechos: () => [{ ate: entre(-10, 10), ms: 3000, curva: sai(2.6) }] },
+  { nome: 'pique', trechos: () => [{ ate: -300, ms: 1800, curva: sai(1.4) }, { ate: qualquer(), ms: 900, curva: sai(4) }] },
+  { nome: 'estalo', trechos: () => [{ ate: qualquer(), ms: 3400, curva: sai(3.5) }] },
+  { nome: 'tapa', trechos: () => [{ ate: -600, ms: 1500, curva: sai(1.2) }, { ate: qualquer(), ms: 1300, curva: sai(5) }] },
+  { nome: 'vapt-vupt', trechos: () => [{ ate: qualquer(), ms: 2400, curva: sai(2.8) }] },
+  { nome: 'curtinha-tensa', trechos: () => [{ ate: entre(-44, -40), ms: 4400, curva: sai(3.4) }] },
+  { nome: 'rapida-com-pulo', trechos: () => [{ ate: -260, ms: 2600, curva: sai(2.6) }, ...soluco(-260, qualquer(), 2)] },
+  // 🐢 super demoradas
+  { nome: 'maratona', trechos: () => [{ ate: qualquer(), ms: 14000, curva: sai(4) }] },
+  { nome: 'eterna', trechos: () => [{ ate: entre(-44, -38), ms: 15500, curva: sai(4.4) }] },
+  { nome: 'suspense-maximo', trechos: () => [{ ate: entre(38, 44), ms: 16000, curva: sai(5) }] },
+  { nome: 'novela', trechos: () => [
+    { ate: -1200, ms: 6000, curva: sai(2.6) },
+    { ate: -400, ms: 4000, curva: sai(1.6) },
+    { ate: qualquer(), ms: 5000, curva: sai(2) },
+  ] },
+  { nome: 'capitulo-final', trechos: () => [{ ate: -900, ms: 4000, curva: sai(2.6) }, ...degraus(-900, qualquer(), 8, 900, 300)] },
+  { nome: 'devagar-quase-parando', trechos: () => [{ ate: -200, ms: 7000, curva: sai(3) }, { ate: qualquer(), ms: 6500, curva: reto }] },
+  { nome: 'paciencia', trechos: () => [
+    { ate: -1000, ms: 5000, curva: sai(3) },
+    { ate: -990, ms: 1500, curva: reto },
+    { ate: -150, ms: 4000, curva: suave },
+    { ate: -145, ms: 1200, curva: reto },
+    { ate: qualquer(), ms: 2000, curva: suave },
+  ] },
+  { nome: 'tartaruga', trechos: () => [{ ate: -600, ms: 5000, curva: sai(2.6) }, { ate: qualquer(), ms: 9000, curva: reto }] },
+  { nome: 'contagem-longa', trechos: () => [{ ate: -686, ms: 4500, curva: sai(2.8) }, ...degraus(-686, qualquer(), 7, 1100, 300)] },
+  { nome: 'prende-a-respiracao', trechos: () => [
+    { ate: -380, ms: 5000, curva: sai(3) },
+    { ate: -374, ms: 900, curva: reto },
+    { ate: -276, ms: 1100, curva: suave },
+    { ate: -270, ms: 900, curva: reto },
+    { ate: -172, ms: 1100, curva: suave },
+    { ate: -166, ms: 900, curva: reto },
+    { ate: -66, ms: 1200, curva: suave },
+    { ate: -60, ms: 1000, curva: reto },
+    { ate: entre(-42, -20), ms: 1300, curva: suave },
+  ] },
+  // 😂 mais engracadas
+  { nome: 'sapinho', trechos: () => [{ ate: -620, ms: 4200, curva: sai(2.8) }, ...soluco(-620, qualquer(), 6)] },
+  { nome: 'freio-quebrado', trechos: () => [
+    { ate: -700, ms: 4600, curva: sai(3) },
+    { ate: -690, ms: 1000, curva: reto },
+    { ate: -100, ms: 1200, curva: suave }, // o freio soltou!
+    { ate: qualquer(), ms: 1300, curva: sai(4) },
+  ] },
+  { nome: 'soneca-dupla', trechos: () => [
+    { ate: -900, ms: 4200, curva: sai(3) },
+    { ate: -894, ms: 1100, curva: reto },
+    { ate: -330, ms: 1800, curva: suave },
+    { ate: -325, ms: 1100, curva: reto },
+    { ate: qualquer(), ms: 2200, curva: sai(1.8) },
+  ] },
+  { nome: 'pula-corda', trechos: () => [{ ate: -1040, ms: 3800, curva: sai(2.4) }, ...degraus(-1040, qualquer(), 10, 260, 0)] },
+  { nome: 'patinete', trechos: () => [{ ate: -900, ms: 3800, curva: sai(2.4) }, ...empurroes(-900, qualquer(), 4, 800)] },
+  { nome: 'tropecou', trechos: () => [
+    { ate: -480, ms: 4600, curva: sai(3) },
+    { ate: -474, ms: 500, curva: reto },
+    { ate: -160, ms: 600, curva: sai(3) }, // levantou correndo
+    { ate: -155, ms: 600, curva: reto },
+    { ate: qualquer(), ms: 1600, curva: sai(3) },
+  ] },
+  { nome: 'minhoca', trechos: () => [
+    { ate: -1400, ms: 2600, curva: sai(1.6) },
+    { ate: qualquer(), ms: 7000, curva: (p) => sai(1.8)(p + (0.85 * Math.sin(2 * Math.PI * 5 * p)) / (2 * Math.PI * 5)) },
+  ] },
+  { nome: 'gangorra', trechos: () => [
+    { ate: -1500, ms: 2400, curva: sai(1.6) },
+    { ate: -1440, ms: 900, curva: reto },
+    { ate: -800, ms: 900, curva: suave },
+    { ate: -760, ms: 900, curva: reto },
+    { ate: -260, ms: 900, curva: suave },
+    { ate: -235, ms: 900, curva: reto },
+    { ate: qualquer(), ms: 1400, curva: sai(3) },
+  ] },
+  { nome: 'carro-velho', trechos: () => [
+    { ate: -820, ms: 4000, curva: sai(3) },
+    { ate: -812, ms: 700, curva: reto },
+    { ate: -560, ms: 500, curva: sai(2) },
+    { ate: -553, ms: 700, curva: reto },
+    { ate: -300, ms: 500, curva: sai(2) },
+    { ate: -294, ms: 700, curva: reto },
+    { ate: qualquer(), ms: 1800, curva: sai(3) },
+  ] },
+  { nome: 'tique-taque', trechos: () => [{ ate: -832, ms: 4000, curva: sai(2.8) }, ...degraus(-832, qualquer(), 8, 300, 300)] },
+  // 😬 mais tensas
+  { nome: 'fio-de-cabelo', trechos: () => [{ ate: entre(-45, -43), ms: 10000, curva: sai(3.8) }] },
+  { nome: 'beira-do-abismo', trechos: () => [{ ate: entre(43, 45), ms: 10000, curva: sai(3.8) }] },
+  { nome: 'quase-a-anterior', trechos: () => [
+    { ate: -58, ms: 8000, curva: sai(3.6) },
+    { ate: -56.5, ms: 1400, curva: reto },
+    { ate: entre(-44, -40), ms: 1000, curva: suave },
+  ] },
+  { nome: 'tremedeira', trechos: () => [{ ate: -150, ms: 6500, curva: sai(3) }, ...soluco(-150, entre(-30, 20), 4)] },
+  { nome: 'ultimo-suspiro', trechos: () => [
+    { ate: -104, ms: 7000, curva: sai(3.2) },
+    { ate: -60, ms: 2000, curva: sai(2) },
+    { ate: entre(-44, -38), ms: 1500, curva: reto },
+  ] },
+  { nome: 'pressao', trechos: () => [{ ate: qualquer(), ms: 9500, curva: sai(4.2) }] },
+  { nome: 'ansiedade', trechos: () => [
+    { ate: -270, ms: 5600, curva: sai(3) },
+    { ate: -266, ms: 700, curva: reto },
+    { ate: -166, ms: 1100, curva: suave },
+    { ate: -162, ms: 700, curva: reto },
+    { ate: -62, ms: 1100, curva: suave },
+    { ate: -58, ms: 800, curva: reto },
+    { ate: entre(-44, -30), ms: 900, curva: suave },
+  ] },
+  { nome: 'roer-unha', trechos: () => [{ ate: -70, ms: 7600, curva: sai(3.4) }, { ate: entre(-45, -42), ms: 2600, curva: reto }] },
+  { nome: 'empate-tecnico', trechos: () => [
+    { ate: -54, ms: 8000, curva: sai(3.6) },
+    { ate: -50, ms: 1200, curva: reto }, // bem na emenda entre as duas
+    { ate: entre(-44, -38), ms: 800, curva: suave },
+  ] },
+  { nome: 'tudo-ou-nada', trechos: () => [
+    { ate: -300, ms: 6000, curva: sai(3) },
+    { ate: -120, ms: 2500, curva: sai(2) },
+    { ate: qualquer(), ms: 1500, curva: sai(3) },
+  ] },
 ]
+
+/** Empurroes de patinete: `n` impulsos iguais de `de` ate `ate`, cada um sai rapido e desliza ate quase parar. */
+function empurroes(de: number, ate: number, n: number, ms: number): Trecho[] {
+  const passo = (ate - de) / n
+  return Array.from({ length: n }, (_, i) => ({ ate: de + passo * (i + 1), ms, curva: sai(2.2) }))
+}
 
 /** Pulinhos: `n` saltos rapidos de `de` ate `ate`, com uma paradinha antes de cada. */
 function soluco(de: number, ate: number, n: number): Trecho[] {
