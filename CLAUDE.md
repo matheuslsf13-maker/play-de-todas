@@ -437,8 +437,9 @@ masculino e o misto descrevem esse código parado.
 - **🎲 Sorteio** (dono, 24/11; `components/Sorteador.tsx`, `src/lib/sorteio.ts`, `tests/sorteio.test.ts`): no ⋯ do ranking do
   dia (prop `acao` do `Modal`). Escolhe quem concorre (todas, um grupo/categoria, toque em cada uma, nomes de fora digitados),
   se quem ganhou pode sair de novo (padrão: não) e o bônus do pódio (opcional, +25/50/100%: 1ª +b, 2ª +2/3, 3ª +1/3; pódio do
-  grupo, ou a medalha da dupla no grupos + duplas, `colocacaoNoSorteio`). Roleta de fotos (rAF, `FREADAS`: freada longa que
-  rasteja no fim e para por um fio, quase passando, no meio, ou passa para a próxima e volta; sorteada uma das quatro) com "tic", vibração, fanfarra e
+  grupo, ou a medalha da dupla no grupos + duplas, `colocacaoNoSorteio`). Roleta de fotos (rAF, `FREADAS` em `sorteio.ts`: 19
+  freadas, 4 rápidas e o resto tenso — por um fio, na beiradinha, falso fim, rastejando, respira, contagem, tranco… —, uma
+  sorteada por giro; **só anda para frente**: o "passa e volta" saiu, dono 24/11, "dá briga"; testado em `sorteio.test.ts`) com "tic", vibração, fanfarra e
   confete (canvas). **📜 Histórico** (Sorteio N · hora · ganhadora) no banco (script 43, `public.sorteios`, `data.sorteios`, chave
   `play:<id>` | `mes:AAAA-MM` | `historico`; só logada): quem está nele não concorre (sem "pode ganhar de novo"); "Apagar" zera.
   Sem o 43 fica no aparelho (`play-de-todas:sorteios:<chave>`) e sobe ao abrir o sorteio com o banco pronto. Só quem organiza vê o ⋯. **No ranking do mês** também (⋯ ao lado do seletor do mês):

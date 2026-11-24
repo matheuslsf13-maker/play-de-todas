@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Avatar, Modal } from './ui'
 import { plural, uid, type Player, type Sorteado } from '../lib/types'
 import { useStore } from '../lib/store'
-import { chances, concorrentes, fitaDaRoleta, sortear, type Participante } from '../lib/sorteio'
+import { chances, concorrentes, entre, fitaDaRoleta, FREADAS, posicaoNaFreada, sai, sortear, type Participante } from '../lib/sorteio'
 
 /*
  * 🎲 SORTEIO (dono, 24/11): aberto no ⋯ do ranking do dia e do ranking do mês. Escolhe quem concorre (todas, um
@@ -14,20 +14,6 @@ import { chances, concorrentes, fitaDaRoleta, sortear, type Participante } from 
 
 const PASSO = 104 // largura do cartao (96) + vao (8)
 const ALVO = 54
-const entre = (a: number, b: number) => a + Math.random() * (b - a)
-/**
- * As freadas (dono, 24/11: "vai para, para, para"): rapida no comeco e uma cauda longa que rasteja no fim.
- * `cauda` = o expoente do freio (maior = mais tempo quase parada); `para` = onde o ponteiro fica dentro da
- * sorteada (-48 = entrou por um fio, 48 = quase passou para a proxima).
- */
-const FREADAS: { dur: number; cauda: number; para: () => number; volta?: { passa: () => number } }[] = [
-  { dur: 8600, cauda: 3.2, para: () => entre(-44, -36) }, // entra por um fio: a anterior quase ganhou
-  { dur: 8600, cauda: 3.2, para: () => entre(36, 44) }, // quase passa para a proxima
-  { dur: 7600, cauda: 2.8, para: () => entre(-12, 12) }, // no meio
-  { dur: 7800, cauda: 3, para: () => entre(10, 30), volta: { passa: () => entre(58, 72) } }, // passa e volta
-]
-/** 0..1 -> 0..1: a velocidade cai como (1-p)^(cauda-1): o fim dura muito andando pouco. */
-const freio = (p: number, cauda: number) => 1 - Math.pow(1 - p, cauda)
 const BONUS = [25, 50, 100]
 
 const semMovimento = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -293,45 +279,32 @@ function Roleta({ fita, foto, nome, som, venceu, onFim }: {
     const j = janela.current, t = trilho.current
     if (!j || !t) return
     const meio = j.clientWidth / 2
-    const inicio = meio - 48 - 2 * PASSO
-    // x em que o centro da sorteada fica no ponteiro; `c` = onde o ponteiro para dentro dela (-48 a 48)
+    // x em que o centro da sorteada fica no ponteiro; `c` = onde o ponteiro esta dentro dela
     const centro = meio - ALVO * PASSO - 48
-    const xDe = (c: number) => centro - c
-    const curto = semMovimento()
-    const d = curto ? FREADAS[2] : FREADAS[Math.floor(Math.random() * FREADAS.length)]
-    const parada = d.para()
-    const ida = curto ? 700 : d.dur
+    const c0 = -(ALVO - 2) * PASSO // comeca com o 3o cartao no ponteiro
+    const trechos = semMovimento()
+      ? [{ ate: entre(-20, 20), ms: 700, curva: sai(2) }]
+      : FREADAS[Math.floor(Math.random() * FREADAS.length)].trechos()
     t.style.transition = 'none'
 
-    let ultimo = Math.floor((meio - inicio) / PASSO), raf = 0, acabou = 0
-    const por = (x: number) => {
+    let ultimo = NaN, raf = 0, acabou = 0
+    const por = (c: number) => {
+      const x = centro - c
       t.style.transform = `translate3d(${x}px,0,0)`
       // o "tic" a cada cartao que passa pelo ponteiro
       const i = Math.floor((meio - x) / PASSO)
       if (i !== ultimo) {
+        if (!Number.isNaN(ultimo) && somRef.current) tic(somRef.current)
         ultimo = i
-        if (somRef.current) tic(somRef.current)
       }
     }
-    por(inicio)
+    por(c0)
     const ini = performance.now()
-    const alvo1 = xDe(d.volta ? d.volta.passa() : parada)
     const quadro = (agora: number) => {
-      const p = Math.min(1, (agora - ini) / ida)
-      por(inicio + (alvo1 - inicio) * freio(p, d.cauda))
-      if (p < 1) { raf = requestAnimationFrame(quadro); return }
-      if (!d.volta || curto) { acabou = window.setTimeout(() => fim.current(), 160); return }
-      // passou da conta, segura... e volta devagar para a sorteada
-      acabou = window.setTimeout(() => {
-        const ini2 = performance.now()
-        const volta = (agora2: number) => {
-          const q = Math.min(1, (agora2 - ini2) / 900)
-          por(alvo1 + (xDe(parada) - alvo1) * (1 - Math.pow(1 - q, 3)))
-          if (q < 1) raf = requestAnimationFrame(volta)
-          else acabou = window.setTimeout(() => fim.current(), 160)
-        }
-        raf = requestAnimationFrame(volta)
-      }, 450)
+      const r = posicaoNaFreada(c0, trechos, agora - ini)
+      por(r.c)
+      if (r.acabou) acabou = window.setTimeout(() => fim.current(), 160)
+      else raf = requestAnimationFrame(quadro)
     }
     raf = requestAnimationFrame(quadro)
     return () => { cancelAnimationFrame(raf); clearTimeout(acabou) }

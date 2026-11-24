@@ -34,3 +34,25 @@ test('quem ganhou sai, salvo se pode repetir; a fita tem a vencedora no alvo', (
   assert.equal(f[25], 'c')
   assert.deepEqual(fitaDaRoleta(['x'], 'x', 5, 3), ['x', 'x', 'x', 'x', 'x'])
 })
+
+test('freadas: só andam para frente, nunca voltam, e param dentro da sorteada (longe da borda)', async () => {
+  const { FREADAS, posicaoNaFreada } = await import('../src/lib/sorteio')
+  assert.ok(FREADAS.length >= 15)
+  assert.ok(!FREADAS.some((f) => f.nome.includes('volta')))
+  const c0 = -52 * 104
+  for (const f of FREADAS) {
+    for (let k = 0; k < 40; k++) {
+      const trechos = f.trechos()
+      let antes = c0
+      for (let ms = 0; ; ms += 16) {
+        const r = posicaoNaFreada(c0, trechos, ms)
+        assert.ok(r.c >= antes - 1e-9, `${f.nome} voltou em ${ms} ms`)
+        antes = r.c
+        if (r.acabou) break
+      }
+      assert.ok(antes >= -45 && antes <= 45, `${f.nome} parou em ${antes.toFixed(1)}`)
+      const total = trechos.reduce((s, t) => s + t.ms, 0)
+      assert.ok(total >= 2500 && total <= 11000, `${f.nome} dura ${total} ms`)
+    }
+  }
+})
