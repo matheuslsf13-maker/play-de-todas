@@ -206,7 +206,7 @@ function useTravarFundo() {
   }, [])
 }
 
-export function Modal({ title, onClose, children, semFechar, alta }: { title: string; onClose: () => void; children: React.ReactNode; /** sem o "Fechar" do canto: a janela tem o proprio botao de saida */ semFechar?: boolean; /** altura fixa: janela com abas de tamanhos diferentes nao encolhe ao trocar (perfil da dupla, 17/11) */ alta?: boolean }) {
+export function Modal({ title, onClose, children, semFechar, alta, acao }: { title: string; onClose: () => void; children: React.ReactNode; /** botao entre o titulo e o Fechar (o ⋯ do ranking do dia) */ acao?: React.ReactNode; /** sem o "Fechar" do canto: a janela tem o proprio botao de saida */ semFechar?: boolean; /** altura fixa: janela com abas de tamanhos diferentes nao encolhe ao trocar (perfil da dupla, 17/11) */ alta?: boolean }) {
   useTravarFundo()
   // o voltar do celular fecha a janela, em vez de sair do app (08/11)
   useVoltar(true, onClose)
@@ -218,7 +218,12 @@ export function Modal({ title, onClose, children, semFechar, alta }: { title: st
       <div className={`modal${alta ? ' alta' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="row spread" style={{ marginBottom: 12 }}>
           <strong>{title}</strong>
-          {!semFechar && <button className="btn ghost sm" onClick={onClose}>Fechar</button>}
+          {acao || !semFechar ? (
+            <span className="row" style={{ gap: 6, flex: 'none' }}>
+              {acao}
+              {!semFechar && <button className="btn ghost sm" onClick={onClose}>Fechar</button>}
+            </span>
+          ) : null}
         </div>
         {children}
       </div>

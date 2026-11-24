@@ -1,4 +1,5 @@
 import { subirAoConteudo } from '../lib/rolagem'
+import { Sorteador } from '../components/Sorteador'
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import CampoDeBusca from '../components/CampoDeBusca'
 import { useVoltar } from '../lib/voltar'
@@ -2141,6 +2142,9 @@ function PlayDetail({
     useStore()
   const compensarFalta = useCompensarFalta()
   const [showRank, setShowRank] = useState(false)
+  /** ⋯ do ranking do dia e o sorteio aberto dele (dono, 24/11) */
+  const [menuRank, setMenuRank] = useState(false)
+  const [sorteando, setSorteando] = useState(false)
   /** Aba aberta dentro do play (nula = a primeira que existe) e a folha "Gerenciar" da organizadora. */
   const [aba, setAba] = useState<'quadras' | 'fila' | 'jogadas' | 'grupos' | null>(null)
   const [gerenciando, setGerenciando] = useState(false)
@@ -2471,6 +2475,16 @@ function PlayDetail({
     () => podiosDoDia(dayRows, soFase2 ? null : session.groups, criterioDoDia, desempatesDoDia, partidasConfronto),
     [dayRows, session.groups, soFase2, criterioDoDia, desempatesDoDia, partidasConfronto],
   )
+  /** O lugar no podio de cada uma (1, 2, 3), para o bonus do sorteio: nas duplas, a medalha da dupla. */
+  const colocacaoNoSorteio = useMemo(() => {
+    const m = new Map<string, number>()
+    if (soFase2) {
+      for (const d of duplasPorCategoria.flat()) if (d.medalha > 0) { m.set(d.a, 4 - d.medalha); m.set(d.b, 4 - d.medalha) }
+    } else {
+      for (const p of podios) p.rows.forEach((r, i) => m.set(r.player_id, i + 1))
+    }
+    return m
+  }, [soFase2, duplasPorCategoria, podios])
 
   /**
    * EMPATE NO PODIO (todas e grupos): empatadas em tudo que mexem no podio,
@@ -4647,8 +4661,35 @@ function PlayDetail({
         </Modal>
       )}
 
+      {menuRank && (
+        <Modal title="Ranking do dia" onClose={() => setMenuRank(false)}>
+          <div className="folha-acoes">
+            <button onClick={() => { setMenuRank(false); setSorteando(true) }}>
+              🎲 Fazer um sorteio
+              <small>Entre as atletas do play (ou um grupo), com nomes de fora se quiser</small>
+            </button>
+          </div>
+        </Modal>
+      )}
+      {sorteando && (
+        <Sorteador
+          participantes={session.player_ids.map((id) => ({ id, nome: nameOf(id), foto: data.players.find((p) => p.id === id)?.photo_url }))}
+          recortes={
+            ehCampeonato
+              ? cats.map((c, ci) => ({ nome: `Categoria ${c.nome}`, ids: session.player_ids.filter((id) => categoriaDaJogadora(cats, session.groups, id) === ci) }))
+              : (session.groups?.length ?? 0) > 1 ? session.groups!.map((g, gi) => ({ nome: `Grupo ${gi + 1}`, ids: g })) : []
+          }
+          colocacao={colocacaoNoSorteio}
+          porGrupo={!soFase2 && (session.groups?.length ?? 0) > 1}
+          onClose={() => setSorteando(false)}
+        />
+      )}
       {showRank && (
-        <Modal title={`Ranking do dia — ${dateLabel(session.date)}`} onClose={() => setShowRank(false)}>
+        <Modal
+          title={`Ranking do dia — ${dateLabel(session.date)}`}
+          onClose={() => setShowRank(false)}
+          acao={<button className="btn ghost sm" aria-label="Mais opções do ranking do dia" onClick={() => setMenuRank(true)}>⋯</button>}
+        >
           {empatesAbertos.length > 0 && (
             <div className="banner warn" style={{ marginBottom: 10 }}>
               ⚖️ <strong>Empate no pódio</strong>: {empatesAbertos.map((e) => e.ids.map(nameOf).join(' × ')).join('; ')}.

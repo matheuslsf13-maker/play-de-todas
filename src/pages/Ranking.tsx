@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { LIGA, URL_DO_LOGO } from '../liga'
 import { Avatar, Empty, Modal, atrasoDoSurge, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { BotoesDeFoto } from '../components/BotoesDeFoto'
+import { Sorteador } from '../components/Sorteador'
 import type { Enquadre } from '../lib/enquadre'
 import { monthRankingText } from '../lib/share'
 import { POINTS_TABLE } from '../lib/scoring'
@@ -68,6 +69,8 @@ export default function Ranking({
   const [poster, setPoster] = useState<{ url: string; blob: Blob } | null>(null)
   const [gerando, setGerando] = useState(false)
   const [fechando, setFechando] = useState(false)
+  /** 🎲 sorteio entre quem esta no ranking (dono, 24/11) */
+  const [sorteando, setSorteando] = useState(false)
   const periodo = month === HISTORICO || months.includes(month) ? month : months[0]
   const historico = periodo === HISTORICO
   // no historico nao existe "mes ativo"; as partes que so fazem sentido por mes
@@ -178,6 +181,15 @@ export default function Ranking({
     <>
       {/* lista aberta -> lista fechada e o proximo play -> ao vivo -> podio da noite (D42) */}
       <CartaoDoMomento onAbrirPlay={onAbrirPlay} onAbrirLista={onAbrirLista} />
+      {sorteando && (
+        <Sorteador
+          participantes={rows.map((r) => ({ id: r.player_id, nome: nameOf(r.player_id), foto: playerById(r.player_id)?.photo_url }))}
+          recortes={[3, 5, 10].filter((n) => rows.length > n).map((n) => ({ nome: `Top ${n}`, ids: rows.slice(0, n).map((r) => r.player_id) }))}
+          colocacao={new Map(rows.map((r, i) => [r.player_id, posicoes[i]]))}
+          podio={historico ? 'Pódio do ranking geral' : 'Pódio do mês'}
+          onClose={() => setSorteando(false)}
+        />
+      )}
 
       <div className="ini-sec">
         <h2>{historico ? 'Ranking geral' : 'Ranking do mês'}</h2>
@@ -189,6 +201,9 @@ export default function Ranking({
           ))}
           <option value={HISTORICO}>🏅 Histórico</option>
         </select>
+        {rows.length > 1 && (
+          <button className="pl-mais" style={{ alignSelf: 'center' }} aria-label="Fazer um sorteio entre as atletas do ranking" onClick={() => setSorteando(true)}>⋯</button>
+        )}
       </div>
       {/* a palavra leva ao cartao que explica (dono, 06/11) */}
       <div className="ini-nota">
