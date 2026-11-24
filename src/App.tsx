@@ -13,6 +13,7 @@ import { ProvedorDePerfil } from './components/NomeClicavel'
 import type { Montagem } from './pages/ListaDePresenca'
 import { codigoDaUrl } from './lib/useLista'
 import { ouvirVoltarDeAba } from './lib/voltar'
+import { useQuemNaoRenovou } from './lib/useQuemNaoRenovou'
 
 // SO A TELA INICIAL VEM NO PACOTE PRINCIPAL (08/11): Play, Stats e a lista de presenca carregam a parte e
 // sao baixados em segundo plano logo depois que o app abre (o service worker guarda: abrem sem sinal na
@@ -70,6 +71,7 @@ function abaSalva(): Tab {
 
 export default function App() {
   const { loading, error, online, canEdit, userEmail, signIn, signOut, pendingCount, data } = useStore()
+  useQuemNaoRenovou()
   // ⚠️ na aba Financeiro: mensalista com mais check-ins faltando que dias ate o prazo (dono, 18/11)
   const alertas = canEdit && LIGA.id === 'feminino' ? alertasDosCheckins(data).length : 0
   const [tab, setTab] = useState<Tab>(abaSalva)

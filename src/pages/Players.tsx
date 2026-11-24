@@ -11,8 +11,6 @@ import { NIVEIS_DE_FORCA, notaDeForca, rankingDeForca, textoDaQueda } from '../l
 import {
   CATEGORIAS,
   categoriaDe,
-  confirmarPagamento,
-  desfazerPagamento,
   situacaoDoAtleta,
   type Categoria,
 } from '../lib/mensalidade'
@@ -508,7 +506,7 @@ export default function Players({ onToast }: { onToast: (m: string) => void }) {
                       {p.nickname?.trim() && p.nickname.trim() !== p.name && (
                         <div className="tiny muted ellipsis">{p.name}</div>
                       )}
-                      <SinalDePagamento jogadora={p} semAcao />
+                      <SinalDePagamento jogadora={p} />
                       {f ? (
                         // quebra a linha: com "provisória" e "pausada (2+ faltas)" ela passava da tela e a pagina inteira andava de lado
                         <div className="tiny" style={{ marginTop: 2 }}>
@@ -769,8 +767,9 @@ function EditarPerfil({
  * avulsa volta ao vermelho depois de jogar -- a regra e derivada, ninguem
  * precisa lembrar de zerar nada.
  */
-function SinalDePagamento({ jogadora, semAcao }: { jogadora: Player; /** na linha da lista: a acao fica na folha */ semAcao?: boolean }) {
-  const { data, savePlayer, canEdit } = useStore()
+// so o sinal: o "confirmar pagamento" saiu (dono, 24/11) -- marcava pago sem gravar dinheiro; pagamento e no Financeiro
+function SinalDePagamento({ jogadora }: { jogadora: Player }) {
+  const { data } = useStore()
   const categoria = categoriaDe(jogadora)
   const sit = situacaoDoAtleta(jogadora, data)
   const cor =
@@ -785,21 +784,6 @@ function SinalDePagamento({ jogadora, semAcao }: { jogadora: Player; /** na linh
       <span className="nowrap" style={{ color: cor, fontWeight: 800 }}>
         ● {sit.rotulo}
       </span>
-      {canEdit && !semAcao && categoria !== 'convidada' && (
-        <>
-          {' · '}
-          <button
-            className="linkish"
-            onClick={() =>
-              void savePlayer(
-                sit.liberado ? desfazerPagamento(jogadora) : confirmarPagamento(jogadora),
-              )
-            }
-          >
-            {sit.liberado ? 'desfazer' : 'confirmar pagamento'}
-          </button>
-        </>
-      )}
       {sit.alerta && (
         <div className="tiny" style={{ color: 'var(--ouro)', marginTop: 2 }}>⚠️ {sit.alerta}</div>
       )}

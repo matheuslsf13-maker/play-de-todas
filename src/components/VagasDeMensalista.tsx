@@ -1,10 +1,8 @@
 import { useState, type CSSProperties } from 'react'
 import { useStore } from '../lib/store'
-import { plural, todayISO, uid } from '../lib/types'
+import { plural, type Player } from '../lib/types'
 import { categoriaDe } from '../lib/mensalidade'
-import { creditoDisponivel, formatarReais } from '../lib/checkins'
-import { mensalidadeDaData, MENSALIDADE_PADRAO } from '../lib/fichaDaMensalidade'
-import { useGravarNaFicha } from './FichaDaMensalidade'
+import { VirarMensalista } from './VirarMensalista'
 import { CHAVE_DO_LIMITE, filaDeEspera, geridaNaAbaMensalistas, limiteDeMensalistas, mensalistasAtivas, naoRenovaram, vagasLivres } from '../lib/vagasDeMensalista'
 
 /*
@@ -13,7 +11,7 @@ import { CHAVE_DO_LIMITE, filaDeEspera, geridaNaAbaMensalistas, limiteDeMensalis
  * botao de confirmar (a organizadora decide; nada vira mensalista sozinho).
  */
 export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void }) {
-  const { data, nameOf, savePlayer, saveAjuste, saveAcerto } = useStore()
+  const { data, nameOf, savePlayer, saveAjuste } = useStore()
   const [editando, setEditando] = useState(false)
   const limite = limiteDeMensalistas(data)
   const [texto, setTexto] = useState(String(limite))
@@ -23,32 +21,17 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
   const semRenovar = naoRenovaram(data)
   const exComSaldo = data.players.filter((p) => categoriaDe(p) !== 'mensalista' && geridaNaAbaMensalistas(data, p)).length
   const inativas = data.players.filter((p) => !p.active && categoriaDe(p) === 'mensalista').length
-  const gravarNaFicha = useGravarNaFicha()
-  /** A primeira da espera topou: qual valor ela pagou (80 renova com check-ins; 180 integral). */
-  const [pagou, setPagou] = useState<number | null>(null)
+  /** A primeira da espera topou: abre o "Virar mensalista" (mes, valor e data do Pix; dono, 24/11). */
+  const [topou, setTopou] = useState<Player | null>(null)
 
-  // TOPOU E PAGOU (dono, 07/11): o Pix entra na mensalidade DO MES e ela ja vira mensalista
-  function confirmarNova(id: string, valor: number) {
-    const p = data.players.find((x) => x.id === id)
-    if (!p) return
-    const hoje = todayISO()
-    const mes = mensalidadeDaData(hoje)
-    // o credito dela (pago antes sem renovar) entra primeiro: no Pix so a diferenca (dono, 07/11)
-    const usa = Math.min(creditoDisponivel(data, id), valor)
-    const base = { player_id: id, date: hoje, conta_id: null, local_id: null, confirmado: true, created_at: new Date().toISOString() }
-    try {
-      if (usa > 0) {
-        saveAcerto({ id: uid(), player_id: id, date: hoje, valor: -usa, dinheiro: false, descricao: 'usado na mensalidade (entrou pela lista de espera)', created_at: base.created_at })
-        gravarNaFicha({ ...base, id: uid(), mes, tipo: 'abatimento', valor: usa, observacao: 'crédito usado na renovação' })
-      }
-      const pix = Math.max(0, valor - usa)
-      if (pix > 0) gravarNaFicha({ ...base, id: uid(), mes, tipo: 'dinheiro', valor: pix, observacao: 'entrou pela lista de espera' })
-    } catch (e) {
-      return onToast(e instanceof Error ? e.message : 'Não deu para gravar a mensalidade.')
-    }
-    savePlayer({ ...p, categoria: 'mensalista', espera_mensalista: null, pago_mes: null, pago_avulso: false })
-    setPagou(null)
-    onToast(`${nameOf(id)} agora é mensalista (${formatarReais(valor)})`)
+  // a ordem da espera e a data do pedido: trocar = trocar as datas (empate: a que sobe fica 1 ms antes)
+  function trocar(i: number, j: number) {
+    const a = fila[i], b = fila[j]
+    const ta = a.espera_mensalista as string
+    let tb = b.espera_mensalista as string
+    if (ta === tb) tb = new Date(Date.parse(ta) + (j < i ? -1 : 1)).toISOString()
+    savePlayer({ ...a, espera_mensalista: tb })
+    savePlayer({ ...b, espera_mensalista: ta })
   }
 
   function salvarLimite() {
@@ -65,6 +48,7 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
 
   return (
     <div className="card">
+      {topou && <VirarMensalista jogadora={topou} origem="fila" onClose={() => setTopou(null)} onToast={onToast} />}
       <div className="row spread" style={{ gap: 8 }}>
         <div className="section-title" style={{ margin: 0 }}>📅 Mensalistas: {ocupadas} de {limite}</div>
         {!editando && <button className="btn ghost sm" onClick={() => { setTexto(String(limite)); setEditando(true) }}>✏️ limite</button>}
@@ -99,76 +83,38 @@ export function VagasDeMensalista({ onToast }: { onToast: (m: string) => void })
           {inativas > 0 && ` ${plural(inativas, 'mensalista inativa fica', 'mensalistas inativas ficam')} de fora.`}
         </p>
       )}
-      {semRenovar.length > 0 && (
-        <div className="stack" style={{ gap: 6, marginTop: 10 }}>
-          <strong className="small">🚪 Não renovaram até o dia 5 (a vaga já está livre)</strong>
-          {semRenovar.map((p) => (
-            <div key={p.id} className="row ficha-item" style={{ gap: 8 }}>
-              <span className="grow">{nameOf(p.id)}</span>
-              <button
-                className="btn ghost sm"
-                onClick={() => {
-                  if (!confirm(`${nameOf(p.id)} passa para avulsa? Ela não entra na lista de espera; se quiser voltar, use o interesse em Financeiro › Atletas.`)) return
-                  savePlayer({ ...p, categoria: 'avulsa', espera_mensalista: null, pago_mes: null, pago_avulso: false })
-                  onToast(`${nameOf(p.id)} agora é avulsa`)
-                }}
-              >
-                Passar para avulsa
-              </button>
-            </div>
-          ))}
-          <span className="hint">Passou do dia 5: não renova mais pela ficha. Passe para avulsa. Se ela quiser voltar, liga o interesse em Financeiro › Atletas; quando chegar a vez dela, o crédito que tiver completa o valor.</span>
-        </div>
-      )}
       {fila.length > 0 && (
         <div className="stack" style={{ gap: 6, marginTop: 10 }}>
           <strong className="small">⏳ Lista de espera</strong>
-          {fila.map((p, i) => (
-            <div key={p.id} className={`row ficha-item${i === 0 && vagas > 0 ? ' chamada' : ''}`} style={{ gap: 8 }}>
-              <span className="fila-pos" aria-label={`${i + 1}º`}>{i + 1}</span>
-              <span className="grow">{nameOf(p.id)}</span>
-              {i === 0 && vagas > 0 && pagou === null && (
-                <button className="btn teal sm" onClick={() => setPagou(MENSALIDADE_PADRAO.valor_cheio - MENSALIDADE_PADRAO.max_checkins * MENSALIDADE_PADRAO.valor_checkin)}>
-                  ✅ Topou e pagou
-                </button>
-              )}
-              {/* escolhendo quanto ela pagou, o Recusou some (no print parecia que ela tinha recusado) */}
-              {!(i === 0 && pagou !== null) && <button
-                className="btn ghost sm"
-                aria-label={i === 0 && vagas > 0 ? `${nameOf(p.id)} recusou` : `Tirar ${nameOf(p.id)} da espera`}
-                onClick={() => {
-                  const recusou = i === 0 && vagas > 0
-                  if (!confirm(recusou ? `${nameOf(p.id)} recusou a vaga? Ela sai da fila e a próxima é chamada.` : `Tirar ${nameOf(p.id)} da lista de espera?`)) return
-                  savePlayer({ ...p, espera_mensalista: null })
-                  setPagou(null)
-                  if (recusou) onToast(`${nameOf(p.id)} saiu da fila`)
-                }}
-              >
-                {i === 0 && vagas > 0 ? 'Recusou' : '✕'}
-              </button>}
-            </div>
-          ))}
-          {vagas > 0 && pagou !== null && (
-            <div className="stack" style={{ gap: 6 }}>
-              <span className="small">
-                Quanto {nameOf(fila[0].id)} pagou?
-                {creditoDisponivel(data, fila[0].id) > 0 &&
-                  ` Ela tem ${formatarReais(creditoDisponivel(data, fila[0].id))} de crédito: cobre só a diferença.`}
-              </span>
-              <div className="row wrap" style={{ gap: 6 }}>
-                {[MENSALIDADE_PADRAO.valor_cheio - MENSALIDADE_PADRAO.max_checkins * MENSALIDADE_PADRAO.valor_checkin, MENSALIDADE_PADRAO.valor_cheio].map((v) => (
-                  <button key={v} className={`chip ${pagou === v ? 'on' : ''}`} onClick={() => setPagou(v)}>
-                    {formatarReais(v)}{v < MENSALIDADE_PADRAO.valor_cheio ? ' + 4 check-ins no mês' : ' integral'}
-                  </button>
-                ))}
+          {fila.map((p, i) => {
+            const chamada = i === 0 && vagas > 0
+            return (
+              <div key={p.id} className={`ficha-item${chamada ? ' chamada' : ''}`}>
+                <div className="row" style={{ gap: 8 }}>
+                  <span className="fila-pos" aria-label={`${i + 1}º`}>{i + 1}</span>
+                  <span className="grow">{nameOf(p.id)}</span>
+                  {/* a ordem da espera se troca na mao (dono, 24/11) */}
+                  {i > 0 && <button className="btn ghost sm" aria-label={`Subir ${nameOf(p.id)} na fila`} onClick={() => trocar(i, i - 1)}>↑</button>}
+                  {i < fila.length - 1 && <button className="btn ghost sm" aria-label={`Descer ${nameOf(p.id)} na fila`} onClick={() => trocar(i, i + 1)}>↓</button>}
+                  {!chamada && <button className="btn ghost sm" aria-label={`Tirar ${nameOf(p.id)} da espera`} onClick={() => {
+                    if (!confirm(`Tirar ${nameOf(p.id)} da lista de espera?`)) return
+                    savePlayer({ ...p, espera_mensalista: null })
+                  }}>✕</button>}
+                </div>
+                {chamada && (
+                  <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                    <button className="btn ghost sm grow" aria-label={`${nameOf(p.id)} recusou`} onClick={() => {
+                      if (!confirm(`${nameOf(p.id)} recusou a vaga? Ela sai da fila e a próxima é chamada.`)) return
+                      savePlayer({ ...p, espera_mensalista: null })
+                      onToast(`${nameOf(p.id)} saiu da fila`)
+                    }}>Recusou</button>
+                    <button className="btn teal sm grow" onClick={() => setTopou(p)}>✅ Topou e pagou</button>
+                  </div>
+                )}
               </div>
-              <div className="row" style={{ gap: 8 }}>
-                <button className="btn ghost sm grow" onClick={() => setPagou(null)}>Cancelar</button>
-                <button className="btn teal sm grow" onClick={() => confirmarNova(fila[0].id, pagou)}>Confirmar pagamento</button>
-              </div>
-            </div>
-          )}
-          {vagas > 0 && pagou === null && (
+            )
+          })}
+          {vagas > 0 && (
             <span className="hint">Abriu vaga: chame <strong>{nameOf(fila[0].id)}</strong>. Pagou, toque em “Topou e pagou”; não quis, “Recusou” e a próxima é chamada.</span>
           )}
         </div>

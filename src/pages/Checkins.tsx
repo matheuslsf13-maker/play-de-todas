@@ -9,7 +9,7 @@ import { ListaDeMensalistas } from '../components/ListaDeMensalistas'
 import { EditarPlanoDaAtleta } from '../components/EditarPlanoDaAtleta'
 import { VagasDeMensalista } from '../components/VagasDeMensalista'
 import { checkinsNaArenaPorOrigem, contaDoAluguel } from '../lib/aluguel'
-import { CATEGORIAS, categoriaDe, confirmarPagamento, desfazerPagamento, situacaoDoAtleta, type Categoria } from '../lib/mensalidade'
+import { CATEGORIAS, categoriaDe, type Categoria } from '../lib/mensalidade'
 import { Avatar, Empty, Modal, StatBox, baixarOuCompartilhar, shareOrCopy } from '../components/ui'
 import { avisosDoBanco } from '../data/supabaseRepo'
 import {
@@ -403,7 +403,7 @@ function SecaoAtletas({
   /** 💳 muda como ela paga (mensalista, avulsa...). */
   onPlano: (p: Player) => void
 }) {
-  const { data, nameOf, savePlayer } = useStore()
+  const { data, nameOf } = useStore()
   const hoje = todayISO()
   const mesDaMensalidade = mensalidadeDeHoje(hoje)
   const temMensalidade = (p: Player) => LIGA.id === 'feminino' && veDinheiro && categoriaDe(p) === 'mensalista'
@@ -461,9 +461,6 @@ function SecaoAtletas({
     const saldo = saldoDaAtleta(data, p.id)
     const temExtrato = veDinheiro && (saldo.lancamentos > 0 || saldo.acertos !== 0)
     const rotulo = CATEGORIAS.find((c) => c.valor === categoriaDe(p))?.rotulo
-    // o mesmo "confirmar pagamento" da folha de Meninas (dono, 23/11: dinheiro e no Financeiro); isenta e convidada nao pagam
-    const sit = situacaoDoAtleta(p, data)
-    const confirmavel = podeEditar && !['isenta', 'convidada'].includes(categoriaDe(p))
     // fecha a folha antes de abrir a janela seguinte: uma janela por vez, como em Meninas
     const ir = (f: () => void) => () => {
       setAberta(null)
@@ -482,11 +479,6 @@ function SecaoAtletas({
         </div>
         <div className="folha-acoes">
           {podeEditar && <button onClick={ir(() => onLancar(p.id))}>➕ Lançar um play<small>Pagamento e check-in de um dia</small></button>}
-          {confirmavel && (
-            <button onClick={ir(() => void savePlayer(sit.liberado ? desfazerPagamento(p) : confirmarPagamento(p)))}>
-              {sit.liberado ? '↩️ Desfazer pagamento' : '✅ Confirmar pagamento'}<small>Hoje: {sit.rotulo}</small>
-            </button>
-          )}
           {temMensalidade(p) && (
             <button onClick={ir(() => onMensalidade(p.id))}>
               📅 Mensalidade de {nomeDoMes(mesDaMensalidade)}<small>{mensalidadeDe(p.id).texto}</small>

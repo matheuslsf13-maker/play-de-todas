@@ -5901,14 +5901,12 @@ function ResolverCadastro({
         🔴 <strong>{sit.rotulo}.</strong> {sit.comoResolver}
       </div>
 
-      <button className="btn pink block" style={{ marginTop: 12 }} onClick={() => void pagar()}>
-        ✅ Confirmar pagamento e escalar
-      </button>
-      <p className="tiny muted" style={{ marginTop: 6 }}>
-        {atual === 'avulsa'
-          ? 'Vale para este play; depois ela volta a aparecer como devendo.'
-          : 'Vale até o fim do mês; na virada ela volta a aparecer como devendo.'}
-      </p>
+      {/* o "confirmar pagamento" antigo saiu (dono, 24/11): marcava pago sem gravar dinheiro; fica so fora do feminino */}
+      {!onPendencia && (
+        <button className="btn pink block" style={{ marginTop: 12 }} onClick={() => void pagar()}>
+          ✅ Confirmar pagamento e escalar
+        </button>
+      )}
       {onPendencia && (
         <>
           <button className="btn ghost block" style={{ marginTop: 8 }} onClick={() => onPendencia(jogadora)}>
@@ -5922,7 +5920,8 @@ function ResolverCadastro({
         Ou corrija a categoria
       </div>
       <div className="stack" style={{ gap: 8 }}>
-        {CATEGORIAS.filter((c) => c.valor !== atual).map((c) => {
+        {/* virar mensalista e com o Pix, em Financeiro › Atletas › Forma de pagamento (dono, 24/11) */}
+        {CATEGORIAS.filter((c) => c.valor !== atual && !(c.valor === 'mensalista' && LIGA.id === 'feminino')).map((c) => {
           // mesma regra do Financeiro: mensalista so se couber no limite e na vez da fila
           const trancada = c.valor === 'mensalista' && LIGA.id === 'feminino' && !cabeMensalista(data, jogadora)
           return (

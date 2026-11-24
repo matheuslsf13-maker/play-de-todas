@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal } from './ui'
+import { VirarMensalista } from './VirarMensalista'
 import { LIGA } from '../liga'
 import { formatarReais } from '../lib/checkins'
 import { CATEGORIAS, categoriaDe, type Categoria } from '../lib/mensalidade'
@@ -13,14 +14,13 @@ import { todayISO, type Player } from '../lib/types'
  *  - Tirar de mensalista avisa o que acontece (vaga livre, divida/credito na ficha, proxima da fila) e NAO entra
  *    na fila sozinha: o interruptor "interesse em ser mensalista" comeca desligado.
  *  - Com o limite cheio, o quadrado Mensalista fica trancado (🔒) e o interruptor coloca na lista de espera.
- *  - Com vaga, basta marcar Mensalista; ao salvar abre a ficha para registrar o Pix da mensalidade.
+ *  - Com vaga, marcar Mensalista abre o "Virar mensalista" (mes, valor e data do Pix; dono, 24/11).
  * Trocar de categoria zera o pagamento atual (pago_mes / pago_avulso).
  */
 export function EditarPlanoDaAtleta({
   jogadora,
   onClose,
   onToast,
-  onAbrirFicha,
 }: {
   jogadora: Player
   onClose: () => void
@@ -44,6 +44,7 @@ export function EditarPlanoDaAtleta({
   const virando = feminino && atual !== 'mensalista' && categoria === 'mensalista'
   const mudou = categoria !== atual
   const c = saindo ? consequenciasDeSair(data, jogadora, hoje) : null
+  const [virar, setVirar] = useState(false)
 
   function alternarInteresse() {
     if (interesse && posicao >= 0 && !confirm('Tirar da lista de espera? Ela perde a posição.')) return
@@ -51,6 +52,8 @@ export function EditarPlanoDaAtleta({
   }
 
   function salvar() {
+    // virar mensalista e com o mes e o Pix, na janela propria
+    if (virando) return setVirar(true)
     const naEspera = feminino && categoria !== 'mensalista' ? (interesse ? jogadora.espera_mensalista ?? new Date().toISOString() : null) : null
     savePlayer({
       ...jogadora,
@@ -73,8 +76,9 @@ export function EditarPlanoDaAtleta({
               : 'Nada mudou',
     )
     onClose()
-    if (virando) onAbrirFicha?.(jogadora.id)
   }
+
+  if (virar) return <VirarMensalista jogadora={jogadora} origem="plano" onClose={onClose} onToast={onToast} />
 
   return (
     <Modal title={`Como ${nameOf(jogadora.id)} paga`} onClose={onClose}>
@@ -130,12 +134,12 @@ export function EditarPlanoDaAtleta({
       )}
       {virando && (
         <div className="banner info" style={{ marginTop: 10 }}>
-          📅 Ao salvar, abrimos a ficha para registrar o Pix da mensalidade. Sem Pix depois do dia 5, ela conta como “não renovou”.
+          📅 Em seguida: de qual mês ela é mensalista, quanto pagou e a data do Pix.
         </div>
       )}
 
       <button className={`btn ${saindo ? 'danger' : 'pink'} block`} style={{ marginTop: 14 }} onClick={salvar}>
-        {saindo ? 'Tirar das mensalistas' : virando ? 'Virar mensalista' : 'Salvar'}
+        {saindo ? 'Tirar das mensalistas' : virando ? 'Continuar ›' : 'Salvar'}
       </button>
     </Modal>
   )

@@ -752,6 +752,14 @@ masculino e o misto descrevem esse código parado.
   `pagoAvulsoDaLista`, `consumirAvulsos`), sem gravar `pago_mes`. **Pagou só a mensalidade seguinte** (virou mensalista
   depois do dia 5, quando a ficha já não aceita o Pix do mês): segura a vaga e joga o mês como avulsa, e a tela diz
   "Mensalista a partir de janeiro" em vez de "atrasada" (`comecaNoMesSeguinte`; dono, 08/11).
+- **Virar mensalista e renovação atrasada** (dono, 24/11; `components/VirarMensalista.tsx`, `tests/virarMensalista.test.ts`):
+  uma janela para a Forma de pagamento (Mensalista → "Continuar") e o "Topou e pagou" da fila: mês (até o dia 5 o do mês,
+  depois o seguinte, `mesSugeridoParaVirar`; o do mês depois do dia 5 = "renovação atrasada"; mês passado não entra, o prazo
+  dos check-ins dele já venceu), valor (80 + check-ins ou 180), **data do Pix** (receita no mês dela), crédito primeiro e a
+  dívida anterior quitada antes (`contaDaRenovacao(..., alvo)`, `dividirPix`). Novembro/2026 só marca `pago_mes`.
+  **Dia 6 quem não renovou vira avulsa sozinha** (`useQuemNaoRenovou` no `App.tsx`: logada, depois da 1ª carga; o
+  "Passar para avulsa" saiu). A fila troca de ordem com ↑ ↓ (troca as datas do pedido). Os "confirmar pagamento" antigos
+  saíram de Meninas, do Financeiro e do `ResolverCadastro` (que também não vira mais mensalista): marcavam pago sem dinheiro.
 - **Aba Mensalistas em grupos** (dono, 23/11; `ListaDeMensalistas`): "✅ Vigentes em <mês de hoje>" (`emDiaNaData` hoje: entram
   sozinhas na lista), "⏭️ Ainda não vigentes" (entraram no meio do mês ou não renovaram) e "↩️ Ex-mensalistas"; os filtros valem
   dentro dos grupos. O **✅ Confirmar pagamento** de Meninas também está na folha de Financeiro › Atletas (não isenta/convidada).

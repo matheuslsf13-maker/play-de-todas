@@ -33,6 +33,8 @@ export function proximoMes(mes: string): string {
 }
 /** Ultimo dia para RENOVAR a mensalidade do mes (pagar os 80). */
 export const vencimento = (mes: string) => `${mes}-05`
+/** Virar mensalista (dono, 24/11): ate o dia 5 a mensalidade do mes; depois, a do mes seguinte (a do mes vira "atrasada"). */
+export const mesSugeridoParaVirar = (hoje: string) => (Number(hoje.slice(8, 10)) > 5 ? proximoMes(hoje.slice(0, 7)) : hoje.slice(0, 7))
 /** Ultimo dia para fechar os check-ins da mensalidade do mes: o dia 5 do mes seguinte. */
 export const prazoDosCheckins = (mes: string) => `${proximoMes(mes)}-05`
 const dia = (date: string) => Number(date.slice(8, 10))
@@ -206,9 +208,9 @@ export type ItemNovo = Pick<ItemDaMensalidade, 'mes' | 'tipo' | 'valor' | 'obser
  * que foi pago sem renovar) completa a parte que renova, e quanto a Ingryd ainda cobra no Pix (com a
  * divida da mensalidade, se houver). Nada e gravado aqui: so na hora em que ela recebe.
  */
-export function contaDaRenovacao(f: Ficha, credito: number, divida: number, hoje: string): { usa: number; cobrar: number } {
+export function contaDaRenovacao(f: Ficha, credito: number, divida: number, hoje: string, alvo = valorParaRenovar(f)): { usa: number; cobrar: number } {
   const ja = centavos(ate(f, hoje).filter((i) => i.tipo !== 'checkin').reduce((s, i) => s + (i.valor ?? 0), 0))
-  const falta = Math.max(0, centavos(valorParaRenovar(f) - ja))
+  const falta = Math.max(0, centavos(alvo - ja))
   const usa = Math.min(Math.max(0, credito), falta)
   return { usa: centavos(usa), cobrar: centavos(falta - usa + divida) }
 }
