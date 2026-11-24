@@ -3302,3 +3302,9 @@ button.st-linha:active { background: var(--pink-suave); }
 
 /* chip que liga e desliga (o "Pagou tudo" do Lancar): contorno rosa mesmo desligado, para ler como botao */
 .chip.chip-marca { border: 1.5px solid var(--pink); }
+
+/* aba Mensalistas: vigentes do mes x ainda nao vigentes x ex (dono, 23/11) */
+.mensalistas-grupo { display: flex; flex-direction: column; gap: 2px; padding: 12px 2px 6px; }
+.mensalistas-grupo:first-child { padding-top: 0; }
+.mensalistas-grupo strong { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.mensalistas-grupo span { font-size: 12px; color: var(--muted); }

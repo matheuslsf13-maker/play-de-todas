@@ -1,14 +1,14 @@
 import { formatarReais } from '../lib/checkins'
-import { useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 import CampoDeBusca from './CampoDeBusca'
 import { Avatar, Empty } from './ui'
 import { mensalidadeDeHoje, resumoDaMensalidade } from './FichaDaMensalidade'
 import { categoriaDe } from '../lib/mensalidade'
-import { alertaDosCheckins, comecaNoMesSeguinte, dividaDaMensalidade, fichaDe, marcasDaMensalista, proximoMes, textoDoAlerta, type alertasDosCheckins, type MarcaDaMensalista } from '../lib/fichaDaMensalidade'
+import { alertaDosCheckins, comecaNoMesSeguinte, dividaDaMensalidade, emDiaNaData, fichaDe, marcasDaMensalista, proximoMes, textoDoAlerta, type alertasDosCheckins, type MarcaDaMensalista } from '../lib/fichaDaMensalidade'
 import { geridaNaAbaMensalistas } from '../lib/vagasDeMensalista'
 import { normalizar } from '../lib/roster'
 import { useStore } from '../lib/store'
-import { monthLabel, todayISO } from '../lib/types'
+import { monthLabel, monthOf, todayISO } from '../lib/types'
 
 /*
  * 📅 ABA MENSALISTAS (dono, 08/11/2026): toda atleta cadastrada como mensalista numa lista so,
@@ -17,6 +17,7 @@ import { monthLabel, todayISO } from '../lib/types'
 
 type Marca = MarcaDaMensalista | 'ex' | 'alerta'
 type Filtro = 'todas' | Marca
+type Grupo = 'vigente' | 'proxima' | 'ex'
 
 const FILTROS: { id: Filtro; rotulo: string }[] = [
   { id: 'todas', rotulo: 'Todas' },
@@ -32,6 +33,8 @@ const FILTROS: { id: Filtro; rotulo: string }[] = [
 
 /** O que a administradora precisa ver primeiro: quem deve, quem nao pagou, quem falta completar. */
 const PRIORIDADE: Record<Marca, number> = { alerta: -1, deve: 0, ex: 1, 'sem-pagamento': 2, falta: 3, parcial: 4, integral: 5, quitada: 6 }
+const ORDEM_DO_GRUPO: Record<Grupo, number> = { vigente: 0, proxima: 1, ex: 2 }
+const nomeDoMes = (mes: string) => monthLabel(mes).split(' ')[0].toLowerCase()
 const prioridadeDe = (marcas: Marca[]) => Math.min(7, ...marcas.map((m) => PRIORIDADE[m]))
 
 export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) => void }) {
@@ -59,12 +62,22 @@ export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) =>
           // check-ins faltando x dias ate o prazo: vai para o topo, com o porque (dono, 18/11)
           const alerta = ex ? null : alertaDosCheckins(data, p.id, hoje)
           const marcas = (ex ? [...(devendoAntes > 0 ? ['deve'] : []), 'ex'] : marcasDaMensalista(ficha, devendoAntes)) as Marca[]
-          return { p, marcas: alerta ? (['alerta', ...marcas] as Marca[]) : marcas, resumo, alerta }
+          // vigente = em dia hoje (entra sozinha na lista); as outras entraram no meio do mes ou nao renovaram (dono, 23/11)
+          const grupo: Grupo = ex ? 'ex' : emDiaNaData(data, p, hoje) ? 'vigente' : 'proxima'
+          return { p, marcas: alerta ? (['alerta', ...marcas] as Marca[]) : marcas, resumo, alerta, grupo }
         })
-        .sort((a, b) => prioridadeDe(a.marcas) - prioridadeDe(b.marcas) || nameOf(a.p.id).localeCompare(nameOf(b.p.id), 'pt-BR')),
+        .sort((a, b) => ORDEM_DO_GRUPO[a.grupo] - ORDEM_DO_GRUPO[b.grupo] || prioridadeDe(a.marcas) - prioridadeDe(b.marcas) || nameOf(a.p.id).localeCompare(nameOf(b.p.id), 'pt-BR')),
     [data, hoje, mes, nameOf],
   )
 
+  const mesHoje = nomeDoMes(monthOf(hoje))
+  const rotuloDoGrupo = (g: Grupo) => (g === 'vigente' ? `✅ Vigentes em ${mesHoje}` : g === 'proxima' ? '⏭️ Ainda não vigentes' : '↩️ Ex-mensalistas')
+  const explicacaoDoGrupo = (g: Grupo) =>
+    g === 'vigente'
+      ? `Em dia: entram sozinhas na lista.${mes !== monthOf(hoje) ? ` A linha mostra a renovação de ${nomeDoMes(mes)}.` : ''}`
+      : g === 'proxima'
+        ? 'Entraram no meio do mês ou não renovaram: entram sozinhas na lista quando a mensalidade estiver paga.'
+        : 'Saíram da mensalidade e ainda têm saldo ou dívida.'
   const contar = (f: Filtro) => (f === 'todas' ? linhas.length : linhas.filter((l) => l.marcas.includes(f)).length)
   const visiveis = linhas.filter(
     (l) =>
@@ -90,7 +103,14 @@ export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) =>
         <Empty icon="📅">{linhas.length === 0 ? 'As atletas cadastradas como mensalista aparecem aqui sozinhas.' : 'Ninguém neste filtro.'}</Empty>
       ) : (
         <div className="lista-mensalistas">
-          {visiveis.map(({ p, resumo, alerta }) => (
+          {visiveis.map(({ p, resumo, alerta, grupo }, i) => (
+            <Fragment key={p.id}>
+            {grupo !== visiveis[i - 1]?.grupo && (
+              <div className="mensalistas-grupo">
+                <strong>{rotuloDoGrupo(grupo)} · {visiveis.filter((l) => l.grupo === grupo).length}</strong>
+                <span>{explicacaoDoGrupo(grupo)}</span>
+              </div>
+            )}
             <button key={p.id} className="mensalista-linha" onClick={() => onAbrir(p.id)}>
               <Avatar player={p} size={40} />
               <span className="mensalista-texto">
@@ -100,6 +120,7 @@ export function ListaDeMensalistas({ onAbrir }: { onAbrir: (playerId: string) =>
               </span>
               <span className="seta" aria-hidden>›</span>
             </button>
+            </Fragment>
           ))}
         </div>
       )}

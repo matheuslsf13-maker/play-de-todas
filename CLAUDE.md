@@ -752,6 +752,9 @@ masculino e o misto descrevem esse código parado.
   `pagoAvulsoDaLista`, `consumirAvulsos`), sem gravar `pago_mes`. **Pagou só a mensalidade seguinte** (virou mensalista
   depois do dia 5, quando a ficha já não aceita o Pix do mês): segura a vaga e joga o mês como avulsa, e a tela diz
   "Mensalista a partir de janeiro" em vez de "atrasada" (`comecaNoMesSeguinte`; dono, 08/11).
+- **Aba Mensalistas em grupos** (dono, 23/11; `ListaDeMensalistas`): "✅ Vigentes em <mês de hoje>" (`emDiaNaData` hoje: entram
+  sozinhas na lista), "⏭️ Ainda não vigentes" (entraram no meio do mês ou não renovaram) e "↩️ Ex-mensalistas"; os filtros valem
+  dentro dos grupos. O **✅ Confirmar pagamento** de Meninas também está na folha de Financeiro › Atletas (não isenta/convidada).
 - **As contagens batem** (08/11): os chips de categoria de Financeiro › Atletas contam e filtram só as ativas (inativas
   ficam em "Todas"); a aba Mensalistas explica embaixo do "N de L" quem mais aparece na lista (não renovaram, ex com
   saldo) e quantas inativas ficam de fora.
