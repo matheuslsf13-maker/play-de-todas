@@ -461,7 +461,9 @@ masculino e o misto descrevem esse código parado.
   "repete 2/2" em **todas** as vezes dela, na ordem da noite (prop `repetem`: pairKey → `{planejada, ordem}`; "troca na
   mão" em amarelo). Uma bolinha só por dupla: a da 2ª só aparece se a parceira não está em quadra. No topo da aba Fila, recolhido, **"🔁 Quem repete
   com quem"** (`QuemRepete`, `quemRepete` no pai): cada dupla, o grupo e onde está cada vez (já jogaram / em partida /
-  na fila Nª, o mesmo número da lista); some quando ninguém repete. Procurar o nome na fila diz "repete com X".
+  na fila Nª, o mesmo número da lista); some quando ninguém repete. Procurar o nome na fila diz "repete com X". **No cartão da quadra** (dono, 23/11; `repeteDoTime` no `MatchCard`) a dupla que repete brilha na cor do "repete" da
+  fila (roxo; amarelo se veio de troca na mão, `.repete-brilho`), com "1/2" em cima da caixa de cima ou embaixo da de baixo, e o
+  anel do "X" acende do lado dela (`contorno-a`/`contorno-b`, `clip-path`) para o contorno passar por fora da bolinha.
 - **"✅ Já jogadas" filtra** (`ListaDePartidas` com `filtravel`): chips por grupo/categoria e
   "🔎 procurar pelo nome" (apelido ou cadastro, sem acento), com o V-D de quem foi procurada.
 - **O ranking do DIA é por vitórias; o do MÊS, por pontos** (`sessions.criterio_dia`,

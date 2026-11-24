@@ -2523,6 +2523,31 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
   position: relative; z-index: 1; width: 24px; height: 24px; margin: -7px auto; display: grid; place-items: center;
   border-radius: 50%; background: var(--card); border: 1.5px solid var(--line); letter-spacing: 0; font-size: 10px;
 }
+/* dupla que repete hoje (dono, 23/11): contorno reluzente na cor do "repete" da fila, a vez (1/2) em cima da caixa
+   de cima e embaixo da de baixo, e o anel do "X" acende do lado dela para o contorno passar por fora da bolinha */
+.repete-brilho { --rep: var(--purple); position: relative; border-color: var(--rep); }
+.repete-brilho.fora { --rep: var(--yellow); }
+.repete-brilho:has(.cima) { margin-top: 16px; }
+.repete-brilho:has(.baixo) { margin-bottom: 16px; }
+.repete-brilho::after {
+  content: ''; position: absolute; inset: -1.5px; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--rep) 80%, transparent); opacity: .45;
+  animation: brilho-pulsando 1.6s ease-in-out infinite alternate;
+}
+.repete-vez-tag {
+  position: absolute; left: 50%; transform: translateX(-50%); line-height: 1; white-space: nowrap;
+  font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--rep) 75%, var(--text));
+}
+.repete-vez-tag.cima { bottom: calc(100% + 4px); }
+.repete-vez-tag.baixo { top: calc(100% + 4px); }
+.vs-bolinha.contorno-a::before, .vs-bolinha.contorno-b::after {
+  content: ''; position: absolute; inset: -1.5px; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid var(--purple); box-shadow: 0 0 8px 1px color-mix(in srgb, var(--purple) 55%, transparent);
+}
+.vs-bolinha.fora-a::before, .vs-bolinha.fora-b::after { border-color: var(--yellow); box-shadow: 0 0 8px 1px color-mix(in srgb, var(--yellow) 55%, transparent); }
+/* a bolinha entra 7px em cada caixa: so o arco fora da caixa de cima (a) ou da de baixo (b) */
+.vs-bolinha.contorno-a::before { clip-path: inset(5.5px -12px -12px -12px); }
+.vs-bolinha.contorno-b::after { clip-path: inset(-12px -12px 5.5px -12px); }
 .noite-relogio { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
 .noite-relogio .ao-vivo { font-size: 12.5px; }
 /* AO VIVO / Aguardando inicio: no painel e no cabecalho de cada quadra (logada e visitante) */
@@ -2565,7 +2590,7 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
 }
 @media (prefers-reduced-motion: reduce) {
   .noite-barra > span { transition: none; }
-  .noite-jogando::before, .momento-jogando::before, .ponto-vivo::after, .brilho-vivo::after { animation: none; }
+  .noite-jogando::before, .momento-jogando::before, .ponto-vivo::after, .brilho-vivo::after, .repete-brilho::after { animation: none; }
 }
 
 /* regua do vale ao pico nos graficos de forca (dono, 08/11): a bolinha desliza ate o ponto tocado */

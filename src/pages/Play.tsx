@@ -4307,6 +4307,10 @@ function PlayDetail({
                 totalGrupos={ehCampeonato ? cats.length : (grupos?.length ?? 1)}
                 nomeDaTag={ehCampeonato ? cats[catDe(m)].nome : undefined}
                 repetida={(m.fase ?? 1) < 2 && duplasRepetidas.has(m.id)}
+                repeteDoTime={(m.fase ?? 1) < 2 ? (t) => {
+                  const r = repetem.get(pairKey(t[0], t[1]))
+                  return r && { vez: r.ordem.indexOf(m.id) + 1, total: r.ordem.length, planejada: r.planejada }
+                } : undefined}
                 espera={espera}
                 onScore={setScore}
                 onIniciar={() => iniciar(m, q)}
@@ -5029,6 +5033,7 @@ function MatchCard({
   totalGrupos,
   nomeDaTag,
   repetida,
+  repeteDoTime,
   espera,
   jogadorasDoPlay,
   mesmoGrupo,
@@ -5058,6 +5063,8 @@ function MatchCard({
   /** Etiqueta da quadra no campeonato: a letra da categoria (A, B, C...). */
   nomeDaTag?: string
   repetida: boolean
+  /** A dupla repete hoje? Vez desta partida (1/2...) e se estava no plano: contorno reluzente na caixa dela (dono, 23/11). */
+  repeteDoTime?: (time: string[]) => { vez: number; total: number; planejada: boolean } | undefined
   espera: Map<string, number>
   jogadorasDoPlay: string[]
   /** As jogadoras do grupo desta partida (null = play sem grupos). */
@@ -5074,6 +5081,13 @@ function MatchCard({
   const noTime = jogadorasDaPartida(match)
   // com um grupo so a cor nao diz nada; com varios e o que identifica a quadra
   const corDoGrupo = totalGrupos > 1 ? classeDoGrupo(grupo) : ''
+  const repA = repeteDoTime?.(match.team_a)
+  const repB = repeteDoTime?.(match.team_b)
+  const classeRep = (r: typeof repA) => (r ? ` repete-brilho${r.planejada ? '' : ' fora'}` : '')
+  const marcaRep = (r: typeof repA, cima: boolean) =>
+    r && <span className={`repete-vez-tag ${cima ? 'cima' : 'baixo'}`} aria-label={`repete, ${r.vez}ª de ${r.total}`}>{r.vez}/{r.total}</span>
+  // o contorno da dupla que repete passa por fora do "X": o anel da bolinha acende do lado dela
+  const classeDoX = `vs vs-bolinha${repA ? ` contorno-a${repA.planejada ? '' : ' fora-a'}` : ''}${repB ? ` contorno-b${repB.planejada ? '' : ' fora-b'}` : ''}`
 
   const modalTroca = trocando && (
     <TrocarJogadoras
@@ -5113,8 +5127,9 @@ function MatchCard({
         {cabecalho}
         {[match.team_a, match.team_b].map((time, i) => (
           <Fragment key={i}>
-            {i === 1 && <div className="vs vs-bolinha" aria-label="contra">X</div>}
-            <div className="dupla-caixa">
+            {i === 1 && <div className={classeDoX} aria-label="contra">X</div>}
+            <div className={`dupla-caixa${classeRep(i === 0 ? repA : repB)}`}>
+              {marcaRep(i === 0 ? repA : repB, i === 0)}
               <Duo ids={time} />
               <span className="forca-caixa" title="força da dupla antes do play">
                 <small>força</small>
@@ -5185,13 +5200,14 @@ function MatchCard({
         const time = lado === 'a' ? match.team_a : match.team_b
         return (
           <Fragment key={lado}>
-            {lado === 'b' && <div className="vs vs-bolinha" aria-hidden="true">X</div>}
+            {lado === 'b' && <div className={classeDoX} aria-hidden="true">X</div>}
             <button
-              className="pick-team"
+              className={`pick-team${classeRep(lado === 'a' ? repA : repB)}`}
               disabled={!iniciada}
               onClick={() => setWinner(lado)}
               aria-label={`${time.map(nameOf).join(' + ')} venceu`}
             >
+              {marcaRep(lado === 'a' ? repA : repB, lado === 'a')}
               <Duo ids={time} ocupadas={iniciada ? undefined : ocupadas} />
               <span className="forca-caixa" title="força da dupla antes do play">
                 <small>força</small>

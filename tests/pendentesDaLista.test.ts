@@ -27,6 +27,12 @@ test('só isenta (ou paga por fora): nenhum dia', () => {
   assert.deepEqual(r, { dia: null, gravar: [], apagar: [] })
 })
 
+test('lista velha (sem session_id) com o play da data já criado: não cria 2º dia (23/11)', () => {
+  const d = cenario()
+  d.sessions = [{ id: 's1', date: '2026-11-23' } as AppData['sessions'][number]]
+  assert.deepEqual(pendentesDaLista(d, lista, [{ player_id: 'ana' }]), { dia: null, gravar: [], apagar: [] })
+})
+
 test('a 1ª avulsa cria o dia e entra integral, sem pagamento: não pago e devendo o cheio, sem gastar cota', () => {
   const d = cenario()
   const r = pendentesDaLista(d, lista, [{ player_id: 'isa' }, { player_id: 'ana', substitui: 'mari' }])

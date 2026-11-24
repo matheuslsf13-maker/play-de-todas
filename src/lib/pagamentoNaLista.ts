@@ -111,7 +111,9 @@ const pendenteSolta = (data: AppData, c: Checkin) =>
  */
 export function pendentesDaLista(data: AppData, lista: Lista, confirmadas: { player_id: string | null; substitui?: string | null }[]): { dia: CheckinDia | null; gravar: Checkin[]; apagar: string[] } {
   const nada = { dia: null, gravar: [], apagar: [] }
-  if (lista.session_id) return nada
+  // A copia da lista pode estar velha (session_id ainda nulo logo depois de montar): play na data = ja montado.
+  // Em 23/11 isso criou um 2o dia "dia:<data>:<lista>" um minuto depois do play.
+  if (lista.session_id || data.sessions.some((s) => s.date === dataDoPlay(lista))) return nada
   let dia: CheckinDia
   try { dia = diaDaLista(data, lista) } catch { return nada }
   const cobra = new Map<string, string | null>()
