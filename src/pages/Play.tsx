@@ -4689,7 +4689,7 @@ function PlayDetail({
         <Modal
           title={`Ranking do dia — ${dateLabel(session.date)}`}
           onClose={() => setShowRank(false)}
-          acao={<button className="btn ghost sm" aria-label="Mais opções do ranking do dia" onClick={() => setMenuRank(true)}>⋯</button>}
+          acao={canEdit ? <button className="btn ghost sm" aria-label="Mais opções do ranking do dia" onClick={() => setMenuRank(true)}>⋯</button> : undefined}
         >
           {empatesAbertos.length > 0 && (
             <div className="banner warn" style={{ marginBottom: 10 }}>

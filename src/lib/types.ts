@@ -600,6 +600,9 @@ export type ItemDaMensalidade = {
  */
 export type Ajuste = { id: string; valor: unknown; updated_at: string }
 
+/** Um sorteio feito (script 43): a lista (`play:<id>`, `mes:AAAA-MM`, `historico`), quem ganhou e quando. */
+export type Sorteado = { id: string; chave: string; player_id: string | null; nome: string; em: string }
+
 export type AppData = {
   players: Player[]
   sessions: PlaySession[]
@@ -617,12 +620,13 @@ export type AppData = {
   mensalidadeItens: ItemDaMensalidade[]
   ajustes: Ajuste[]
   checkinPlanos: Plano[]
+  sorteios: Sorteado[]
 }
 
 export const emptyData = (): AppData => ({
   players: [], sessions: [], matches: [], choices: [], closures: [],
   checkinLocais: [], checkinContas: [], checkinDias: [], checkins: [], checkinPagamentos: [], caixa: [],
-  checkinAcertos: [], checkinPlanos: [], mensalidades: [], mensalidadeItens: [], ajustes: [],
+  checkinAcertos: [], checkinPlanos: [], mensalidades: [], mensalidadeItens: [], ajustes: [], sorteios: [],
 })
 
 export function uid(): string {

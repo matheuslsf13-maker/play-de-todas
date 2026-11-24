@@ -12,6 +12,7 @@ import type {
   Acerto,
   Mensalidade,
   Ajuste,
+  Sorteado,
   ItemDaMensalidade,
   Plano,
   AppData,
@@ -75,6 +76,8 @@ type Ctx = {
   deleteCaixa: (id: string) => void
   saveMensalidade: (ficha: Mensalidade) => void
   saveAjuste: (ajuste: Ajuste) => void
+  saveSorteado: (s: Sorteado) => void
+  deleteSorteados: (chave: string) => void
   saveItemDaMensalidade: (item: ItemDaMensalidade) => void
   deleteItemDaMensalidade: (id: string) => void
   saveAcerto: (acerto: Acerto) => void
@@ -175,6 +178,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (op: WriteOp) => {
       if (op.type === 'saveAjuste' && (LIGA.id !== 'feminino' || (repo.kind === 'supabase' && avisosDoBanco.tabelas.has('ajustes')))) {
         throw new Error('Os ajustes precisam do script 35 no banco.')
+      }
+      if ((op.type === 'saveSorteado' || op.type === 'deleteSorteados') && (LIGA.id !== 'feminino' || (repo.kind === 'supabase' && avisosDoBanco.tabelas.has('sorteios')))) {
+        throw new Error('O histórico do sorteio precisa do script 43 no banco.')
       }
       if (op.type === 'saveCaixa' && op.lancamento.transferencia && repo.kind === 'supabase' && avisosDoBanco.colunas.has('caixa.transferencia')) {
         throw new Error('Transferir para a caixinha precisa do script 38 no banco.')
@@ -310,6 +316,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deleteCaixa: (lancamentoId) => push({ id: uid(), type: 'deleteCaixa', lancamentoId }),
       saveMensalidade: (ficha) => push({ id: uid(), type: 'saveMensalidade', ficha }),
       saveAjuste: (ajuste) => push({ id: uid(), type: 'saveAjuste', ajuste }),
+      saveSorteado: (sorteado) => push({ id: uid(), type: 'saveSorteado', sorteado }),
+      deleteSorteados: (chave) => push({ id: uid(), type: 'deleteSorteados', chave }),
       saveItemDaMensalidade: (item) => push({ id: uid(), type: 'saveItemDaMensalidade', item }),
       deleteItemDaMensalidade: (itemId) => push({ id: uid(), type: 'deleteItemDaMensalidade', itemId }),
       saveAcerto: (acerto) => push({ id: uid(), type: 'saveAcerto', acerto }),
@@ -424,6 +432,10 @@ async function runOp(repo: Repo, op: WriteOp): Promise<void> {
       return repo.saveMensalidade(op.ficha)
     case 'saveAjuste':
       return repo.saveAjuste(op.ajuste)
+    case 'saveSorteado':
+      return repo.saveSorteado(op.sorteado)
+    case 'deleteSorteados':
+      return repo.deleteSorteados(op.chave)
     case 'saveItemDaMensalidade':
       return repo.saveItemDaMensalidade(op.item)
     case 'deleteItemDaMensalidade':

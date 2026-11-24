@@ -202,7 +202,7 @@ export default function Ranking({
           ))}
           <option value={HISTORICO}>🏅 Histórico</option>
         </select>
-        {rows.length > 1 && (
+        {canEdit && rows.length > 1 && (
           <button className="pl-mais" style={{ alignSelf: 'center' }} aria-label="Fazer um sorteio entre as atletas do ranking" onClick={() => setSorteando(true)}>⋯</button>
         )}
       </div>

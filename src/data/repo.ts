@@ -2,6 +2,7 @@ import type {
   Acerto,
   Mensalidade,
   Ajuste,
+  Sorteado,
   ItemDaMensalidade,
   Plano,
   AppData,
@@ -58,6 +59,9 @@ export interface Repo {
   deleteCaixa(id: string): Promise<void>
   saveMensalidade(ficha: Mensalidade): Promise<void>
   saveAjuste(ajuste: Ajuste): Promise<void>
+  saveSorteado(s: Sorteado): Promise<void>
+  /** Apaga o historico de uma lista de sorteio. */
+  deleteSorteados(chave: string): Promise<void>
   saveItemDaMensalidade(item: ItemDaMensalidade): Promise<void>
   deleteItemDaMensalidade(id: string): Promise<void>
   juntarMensalidades(origem: string, destino: string): Promise<void>

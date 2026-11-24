@@ -110,6 +110,10 @@ export function aplicarNaStore(d: AppData, op: WriteOp, hasSupabase: boolean): A
       return { ...d, mensalidades: upsert(d.mensalidades, op.ficha) }
     case 'saveAjuste':
       return { ...d, ajustes: upsert(d.ajustes, op.ajuste) }
+    case 'saveSorteado':
+      return { ...d, sorteios: upsert(d.sorteios, op.sorteado) }
+    case 'deleteSorteados':
+      return { ...d, sorteios: d.sorteios.filter((s) => s.chave !== op.chave) }
     case 'saveItemDaMensalidade':
       return { ...d, mensalidadeItens: upsert(d.mensalidadeItens, op.item) }
     case 'deleteItemDaMensalidade':

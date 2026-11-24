@@ -3,6 +3,7 @@ import type {
   Acerto,
   Mensalidade,
   Ajuste,
+  Sorteado,
   ItemDaMensalidade,
   Plano,
   Checkin,
@@ -50,6 +51,8 @@ export type WriteOp =
   | { id: string; type: 'deleteCaixa'; lancamentoId: string }
   | { id: string; type: 'saveMensalidade'; ficha: Mensalidade }
   | { id: string; type: 'saveAjuste'; ajuste: Ajuste }
+  | { id: string; type: 'saveSorteado'; sorteado: Sorteado }
+  | { id: string; type: 'deleteSorteados'; chave: string }
   | { id: string; type: 'saveItemDaMensalidade'; item: ItemDaMensalidade }
   | { id: string; type: 'deleteItemDaMensalidade'; itemId: string }
   | { id: string; type: 'saveAcerto'; acerto: Acerto }

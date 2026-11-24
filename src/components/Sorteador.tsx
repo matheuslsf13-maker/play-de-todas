@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Avatar, Modal } from './ui'
-import { plural, uid, type Player } from '../lib/types'
+import { plural, uid, type Player, type Sorteado } from '../lib/types'
+import { useStore } from '../lib/store'
 import { chances, concorrentes, fitaDaRoleta, sortear, type Participante } from '../lib/sorteio'
 
 /*
@@ -13,7 +14,20 @@ import { chances, concorrentes, fitaDaRoleta, sortear, type Participante } from 
 
 const PASSO = 104 // largura do cartao (96) + vao (8)
 const ALVO = 54
-const DURACAO = 6400
+const entre = (a: number, b: number) => a + Math.random() * (b - a)
+/**
+ * As freadas (dono, 24/11: "vai para, para, para"): rapida no comeco e uma cauda longa que rasteja no fim.
+ * `cauda` = o expoente do freio (maior = mais tempo quase parada); `para` = onde o ponteiro fica dentro da
+ * sorteada (-48 = entrou por um fio, 48 = quase passou para a proxima).
+ */
+const FREADAS: { dur: number; cauda: number; para: () => number; volta?: { passa: () => number } }[] = [
+  { dur: 8600, cauda: 3.2, para: () => entre(-44, -36) }, // entra por um fio: a anterior quase ganhou
+  { dur: 8600, cauda: 3.2, para: () => entre(36, 44) }, // quase passa para a proxima
+  { dur: 7600, cauda: 2.8, para: () => entre(-12, 12) }, // no meio
+  { dur: 7800, cauda: 3, para: () => entre(10, 30), volta: { passa: () => entre(58, 72) } }, // passa e volta
+]
+/** 0..1 -> 0..1: a velocidade cai como (1-p)^(cauda-1): o fim dura muito andando pouco. */
+const freio = (p: number, cauda: number) => 1 - Math.pow(1 - p, cauda)
 const BONUS = [25, 50, 100]
 
 const semMovimento = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -40,13 +54,35 @@ export function Sorteador({ chave, participantes, recortes, colocacao, onClose, 
   const [repetir, setRepetir] = useState(false)
   const [bonus, setBonus] = useState(0)
   const [som, setSom] = useState(true)
-  // o historico fica neste aparelho (localStorage), por play ou por mes; ganhadoras = quem saiu nele
+  // o historico fica no banco (script 43), por play ou por mes; ganhadoras = quem saiu nele.
+  // Sem o 43 (ou o que a versao de antes guardou neste aparelho) fica em `soAqui`, no localStorage,
+  // e sobe para o banco assim que der.
+  const { data, saveSorteado, deleteSorteados } = useStore()
   const guardado = `play-de-todas:sorteios:${chave}`
-  const [historico, setHistorico] = useState<Sorteado[]>(() => {
-    try { return JSON.parse(localStorage.getItem(guardado) ?? '[]') as Sorteado[] } catch { return [] }
+  const [soAqui, setSoAqui] = useState<Sorteado[]>(() => {
+    try {
+      const lidos = JSON.parse(localStorage.getItem(guardado) ?? '[]') as (Sorteado | { id: string; nome: string; em: string })[]
+      return lidos.map((x) => ('chave' in x ? x : { id: uid(), chave, player_id: x.id, nome: x.nome, em: x.em }))
+    } catch { return [] }
   })
-  useEffect(() => { localStorage.setItem(guardado, JSON.stringify(historico)) }, [guardado, historico])
-  const ganhadoras = historico.map((h) => h.id)
+  useEffect(() => {
+    if (soAqui.length === 0) return
+    try {
+      for (const x of soAqui) saveSorteado(x)
+      setSoAqui([])
+    } catch { /* sem o script 43: continua neste aparelho */ }
+    // so na abertura: depois, o que falhar ja cai em soAqui
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    if (soAqui.length) localStorage.setItem(guardado, JSON.stringify(soAqui))
+    else localStorage.removeItem(guardado)
+  }, [guardado, soAqui])
+  const historico = useMemo(
+    () => [...data.sorteios.filter((x) => x.chave === chave), ...soAqui].sort((a, b) => a.em.localeCompare(b.em)),
+    [data.sorteios, soAqui, chave],
+  )
+  const ganhadoras = historico.map((h) => h.player_id ?? '')
   const [rodada, setRodada] = useState<{ id: string; fita: string[]; vencedora: string; chance: number; n: number } | null>(null)
   const [fase, setFase] = useState<'regras' | 'girando' | 'fim'>('regras')
 
@@ -87,7 +123,8 @@ export function Sorteador({ chave, participantes, recortes, colocacao, onClose, 
 
   function terminou() {
     if (!rodada) return
-    setHistorico((h) => [...h, { id: rodada.vencedora, nome: porId.get(rodada.vencedora)?.nome ?? '?', em: new Date().toISOString() }])
+    const novo: Sorteado = { id: uid(), chave, player_id: rodada.vencedora, nome: porId.get(rodada.vencedora)?.nome ?? '?', em: new Date().toISOString() }
+    try { saveSorteado(novo) } catch { setSoAqui((h) => [...h, novo]) }
     setFase('fim')
     navigator.vibrate?.([40, 60, 90])
     if (som && audio.current) fanfarra(audio.current)
@@ -172,7 +209,7 @@ export function Sorteador({ chave, participantes, recortes, colocacao, onClose, 
             )}
           </div>
 
-          {historico.length > 0 && <Historico itens={historico} onLimpar={() => { if (confirm('Apagar o histórico do sorteio? Quem já ganhou volta a concorrer.')) setHistorico([]) }} />}
+          {historico.length > 0 && <Historico itens={historico} onLimpar={() => { if (!confirm('Apagar o histórico do sorteio? Quem já ganhou volta a concorrer.')) return; try { deleteSorteados(chave) } catch { /* sem o 43 */ } setSoAqui([]) }} />}
 
           <button className="btn pink block sorteio-girar" disabled={naDisputa.length < 2} onClick={girar}>
             🎰 Sortear entre {plural(naDisputa.length, 'participante', 'participantes')}
@@ -212,8 +249,6 @@ export function Sorteador({ chave, participantes, recortes, colocacao, onClose, 
     </Modal>
   )
 }
-
-type Sorteado = { id: string; nome: string; em: string }
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).replace(':', 'h')
 
@@ -258,29 +293,47 @@ function Roleta({ fita, foto, nome, som, venceu, onFim }: {
     const j = janela.current, t = trilho.current
     if (!j || !t) return
     const meio = j.clientWidth / 2
-    // para em algum ponto dentro do cartao (nao sempre no centro), como a roleta de verdade
-    const folga = (Math.random() - 0.5) * (PASSO - 30)
-    const destino = -(ALVO * PASSO + PASSO / 2 - meio + folga)
-    const dur = semMovimento() ? 700 : DURACAO
+    const inicio = meio - 48 - 2 * PASSO
+    // x em que o centro da sorteada fica no ponteiro; `c` = onde o ponteiro para dentro dela (-48 a 48)
+    const centro = meio - ALVO * PASSO - 48
+    const xDe = (c: number) => centro - c
+    const curto = semMovimento()
+    const d = curto ? FREADAS[2] : FREADAS[Math.floor(Math.random() * FREADAS.length)]
+    const parada = d.para()
+    const ida = curto ? 700 : d.dur
     t.style.transition = 'none'
-    t.style.transform = `translate3d(${meio - PASSO / 2 - 2 * PASSO}px,0,0)`
-    void t.offsetWidth
-    t.style.transition = `transform ${dur}ms cubic-bezier(.1, .72, .12, 1)`
-    t.style.transform = `translate3d(${destino}px,0,0)`
 
-    // o "tic" a cada cartao que passa pelo ponteiro
-    let ultimo = -1, raf = 0
-    const passo = () => {
-      const x = new DOMMatrix(getComputedStyle(t).transform).m41
+    let ultimo = Math.floor((meio - inicio) / PASSO), raf = 0, acabou = 0
+    const por = (x: number) => {
+      t.style.transform = `translate3d(${x}px,0,0)`
+      // o "tic" a cada cartao que passa pelo ponteiro
       const i = Math.floor((meio - x) / PASSO)
       if (i !== ultimo) {
         ultimo = i
         if (somRef.current) tic(somRef.current)
       }
-      raf = requestAnimationFrame(passo)
     }
-    raf = requestAnimationFrame(passo)
-    const acabou = window.setTimeout(() => { cancelAnimationFrame(raf); fim.current() }, dur + 120)
+    por(inicio)
+    const ini = performance.now()
+    const alvo1 = xDe(d.volta ? d.volta.passa() : parada)
+    const quadro = (agora: number) => {
+      const p = Math.min(1, (agora - ini) / ida)
+      por(inicio + (alvo1 - inicio) * freio(p, d.cauda))
+      if (p < 1) { raf = requestAnimationFrame(quadro); return }
+      if (!d.volta || curto) { acabou = window.setTimeout(() => fim.current(), 160); return }
+      // passou da conta, segura... e volta devagar para a sorteada
+      acabou = window.setTimeout(() => {
+        const ini2 = performance.now()
+        const volta = (agora2: number) => {
+          const q = Math.min(1, (agora2 - ini2) / 900)
+          por(alvo1 + (xDe(parada) - alvo1) * (1 - Math.pow(1 - q, 3)))
+          if (q < 1) raf = requestAnimationFrame(volta)
+          else acabou = window.setTimeout(() => fim.current(), 160)
+        }
+        raf = requestAnimationFrame(volta)
+      }, 450)
+    }
+    raf = requestAnimationFrame(quadro)
     return () => { cancelAnimationFrame(raf); clearTimeout(acabou) }
   }, [fita])
 
