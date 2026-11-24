@@ -2538,6 +2538,8 @@ button.chip:active, .segmented button:active { transform: scale(.96); }
   position: absolute; left: 50%; transform: translateX(-50%); line-height: 1; white-space: nowrap;
   font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--rep) 75%, var(--text));
 }
+.repete-vez-tag { display: inline-flex; align-items: baseline; gap: 4px; }
+.repete-vez-tag small { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; opacity: .75; }
 .repete-vez-tag.cima { bottom: calc(100% + 4px); }
 .repete-vez-tag.baixo { top: calc(100% + 4px); }
 .vs-bolinha.contorno-a::before, .vs-bolinha.contorno-b::after {

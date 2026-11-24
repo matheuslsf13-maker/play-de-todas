@@ -5085,7 +5085,7 @@ function MatchCard({
   const repB = repeteDoTime?.(match.team_b)
   const classeRep = (r: typeof repA) => (r ? ` repete-brilho${r.planejada ? '' : ' fora'}` : '')
   const marcaRep = (r: typeof repA, cima: boolean) =>
-    r && <span className={`repete-vez-tag ${cima ? 'cima' : 'baixo'}`} aria-label={`repete, ${r.vez}ª de ${r.total}`}>{r.vez}/{r.total}</span>
+    r && <span className={`repete-vez-tag ${cima ? 'cima' : 'baixo'}`} aria-label={`repetição ${r.vez} de ${r.total}`}><small>repetição</small>{r.vez}/{r.total}</span>
   // o contorno da dupla que repete passa por fora do "X": o anel da bolinha acende do lado dela
   const classeDoX = `vs vs-bolinha${repA ? ` contorno-a${repA.planejada ? '' : ' fora-a'}` : ''}${repB ? ` contorno-b${repB.planejada ? '' : ' fora-b'}` : ''}`
 
