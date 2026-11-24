@@ -4673,6 +4673,7 @@ function PlayDetail({
       )}
       {sorteando && (
         <Sorteador
+          chave={`play:${session.id}`}
           participantes={session.player_ids.map((id) => ({ id, nome: nameOf(id), foto: data.players.find((p) => p.id === id)?.photo_url }))}
           recortes={
             ehCampeonato

@@ -438,7 +438,8 @@ masculino e o misto descrevem esse código parado.
   dia (prop `acao` do `Modal`). Escolhe quem concorre (todas, um grupo/categoria, toque em cada uma, nomes de fora digitados),
   se quem ganhou pode sair de novo (padrão: não) e o bônus do pódio (opcional, +25/50/100%: 1ª +b, 2ª +2/3, 3ª +1/3; pódio do
   grupo, ou a medalha da dupla no grupos + duplas, `colocacaoNoSorteio`). Roleta de fotos com "tic", vibração, fanfarra e
-  confete (canvas). Nada é gravado: fechar a janela zera. **No ranking do mês** também (⋯ ao lado do seletor do mês):
+  confete (canvas). **📜 Histórico** (Sorteio N · hora · ganhadora) só neste aparelho (`play-de-todas:sorteios:<play:id | mes:AAAA-MM | historico>`):
+  quem está nele não concorre (sem "pode ganhar de novo"); "Apagar" zera. Nada vai ao banco. **No ranking do mês** também (⋯ ao lado do seletor do mês):
   quem está no ranking do período, atalhos Top 3/5/10 e o bônus pelo pódio do mês (`posicoes`, empate divide o lugar).
 - **📷 Arte do pódio com a foto da noite** (`buildPosterComFoto` em `poster.ts`, desde
   03/11/2026): no modal do ranking do dia, com **um** grupo escolhido (ou o play todo no

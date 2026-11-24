@@ -18,7 +18,9 @@ const BONUS = [25, 50, 100]
 
 const semMovimento = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export function Sorteador({ participantes, recortes, colocacao, onClose, podio = 'Pódio do dia', porGrupo = false }: {
+export function Sorteador({ chave, participantes, recortes, colocacao, onClose, podio = 'Pódio do dia', porGrupo = false }: {
+  /** Onde o historico fica guardado neste aparelho: `play:<id>` ou `mes:<AAAA-MM>`. */
+  chave: string
   participantes: Participante[]
   /** Grupos ou categorias do play, para escolher de uma vez. */
   recortes: { nome: string; ids: string[] }[]
@@ -38,7 +40,13 @@ export function Sorteador({ participantes, recortes, colocacao, onClose, podio =
   const [repetir, setRepetir] = useState(false)
   const [bonus, setBonus] = useState(0)
   const [som, setSom] = useState(true)
-  const [ganhadoras, setGanhadoras] = useState<string[]>([])
+  // o historico fica neste aparelho (localStorage), por play ou por mes; ganhadoras = quem saiu nele
+  const guardado = `play-de-todas:sorteios:${chave}`
+  const [historico, setHistorico] = useState<Sorteado[]>(() => {
+    try { return JSON.parse(localStorage.getItem(guardado) ?? '[]') as Sorteado[] } catch { return [] }
+  })
+  useEffect(() => { localStorage.setItem(guardado, JSON.stringify(historico)) }, [guardado, historico])
+  const ganhadoras = historico.map((h) => h.id)
   const [rodada, setRodada] = useState<{ id: string; fita: string[]; vencedora: string; chance: number; n: number } | null>(null)
   const [fase, setFase] = useState<'regras' | 'girando' | 'fim'>('regras')
 
@@ -79,7 +87,7 @@ export function Sorteador({ participantes, recortes, colocacao, onClose, podio =
 
   function terminou() {
     if (!rodada) return
-    setGanhadoras((g) => [...g, rodada.vencedora])
+    setHistorico((h) => [...h, { id: rodada.vencedora, nome: porId.get(rodada.vencedora)?.nome ?? '?', em: new Date().toISOString() }])
     setFase('fim')
     navigator.vibrate?.([40, 60, 90])
     if (som && audio.current) fanfarra(audio.current)
@@ -164,7 +172,7 @@ export function Sorteador({ participantes, recortes, colocacao, onClose, podio =
             )}
           </div>
 
-          {ganhadoras.length > 0 && <Ganhadoras ids={ganhadoras} nome={(id) => porId.get(id)?.nome ?? '?'} onLimpar={() => setGanhadoras([])} />}
+          {historico.length > 0 && <Historico itens={historico} onLimpar={() => { if (confirm('Apagar o histórico do sorteio? Quem já ganhou volta a concorrer.')) setHistorico([]) }} />}
 
           <button className="btn pink block sorteio-girar" disabled={naDisputa.length < 2} onClick={girar}>
             🎰 Sortear entre {plural(naDisputa.length, 'participante', 'participantes')}
@@ -192,7 +200,7 @@ export function Sorteador({ participantes, recortes, colocacao, onClose, podio =
                 </button>
                 {naDisputa.length < 2 && <p className="tiny muted" style={{ margin: '-8px 0 0', textAlign: 'center' }}>Não sobrou ninguém para sortear: mude as regras.</p>}
                 <button className="btn ghost block" onClick={() => setFase('regras')}>⚙️ Mudar as regras</button>
-                {ganhadoras.length > 1 && <Ganhadoras ids={ganhadoras} nome={(id) => porId.get(id)?.nome ?? '?'} />}
+                {historico.length > 1 && <Historico itens={historico} />}
                 <Confete />
               </>
             ) : (
@@ -205,14 +213,27 @@ export function Sorteador({ participantes, recortes, colocacao, onClose, podio =
   )
 }
 
-function Ganhadoras({ ids, nome, onLimpar }: { ids: string[]; nome: (id: string) => string; onLimpar?: () => void }) {
+type Sorteado = { id: string; nome: string; em: string }
+
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).replace(':', 'h')
+
+/** 📜 Sorteio 1 · 20h41 · Isabela; o mais recente em cima. */
+function Historico({ itens, onLimpar }: { itens: Sorteado[]; onLimpar?: () => void }) {
   return (
     <div className="sorteio-lista">
       <div className="row spread">
-        <strong className="small">🏆 Ganhadoras</strong>
-        {onLimpar && <button className="btn ghost sm" onClick={onLimpar}>Zerar</button>}
+        <strong className="small">📜 Histórico do sorteio</strong>
+        {onLimpar && <button className="btn ghost sm" onClick={onLimpar}>Apagar</button>}
       </div>
-      <ol>{ids.map((id, i) => <li key={i}>{nome(id)}</li>)}</ol>
+      <div className="stack" style={{ gap: 4, marginTop: 6 }}>
+        {itens.map((h, i) => ({ h, n: i + 1 })).reverse().map(({ h, n }) => (
+          <div key={n} className="row sorteio-hist">
+            <span className="sorteio-hist-n">Sorteio {n}</span>
+            <span className="tiny muted">{hora(h.em)}</span>
+            <strong className="grow ellipsis" style={{ textAlign: 'right' }}>🏆 {h.nome}</strong>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

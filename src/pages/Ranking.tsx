@@ -183,6 +183,7 @@ export default function Ranking({
       <CartaoDoMomento onAbrirPlay={onAbrirPlay} onAbrirLista={onAbrirLista} />
       {sorteando && (
         <Sorteador
+          chave={historico ? 'historico' : `mes:${activeMonth}`}
           participantes={rows.map((r) => ({ id: r.player_id, nome: nameOf(r.player_id), foto: playerById(r.player_id)?.photo_url }))}
           recortes={[3, 5, 10].filter((n) => rows.length > n).map((n) => ({ nome: `Top ${n}`, ids: rows.slice(0, n).map((r) => r.player_id) }))}
           colocacao={new Map(rows.map((r, i) => [r.player_id, posicoes[i]]))}
